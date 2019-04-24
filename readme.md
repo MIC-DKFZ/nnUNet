@@ -9,7 +9,7 @@ segmentation challenges.
 
 For more information about nnU-Net, please read the following paper:
 
-`PLACEHODLER`
+`Isensee, Fabian, et al. "nnU-Net: Breaking the Spell on Successful Medical Image Segmentation." arXiv preprint arXiv:1904.08128 (2019).`
 
 Please also cite this paper if you are using nnU-Net for your research!
 
