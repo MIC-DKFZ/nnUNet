@@ -3,7 +3,7 @@
 nnU-Net is a framework designed for medical image segmentation. Given a new dataset (that includes training cases) nnU-Net
 will automatically take care of the entire experimental pipeline.
 Unlike other segmentation methods published recently, nnU-Net does not complicated architectural modifications and 
-instead revolves around the popular U-Net architecture. Still, nnU-Net outperforms most other methods and hav been 
+instead revolves around the popular U-Net architecture. Still, nnU-Net outperforms many other methods and has been 
 shown to produce segmentations that are on par with or even exceed the state-of-the art across six well-known medical 
 segmentation challenges.
 
@@ -13,20 +13,23 @@ For more information about nnU-Net, please read the following paper:
 
 Please also cite this paper if you are using nnU-Net for your research!
 
-Note that so far nnU-Net has only been used internally. This repository is still work in progress. Things may break. 
-If that is the case, please let us know.
+Please note that so far nnU-Net has only been used internally. Tha vast majority of nnU-Net was developed in the context of 
+the Medical Segmentation Decathlon and was thus created with a very tight time schedule, so expect things to be a 
+little messy the deeper you dig.  
+
+This repository is still work in progress. Things may break. If that is the case, please let us know.
 
 # Installation 
 nnU-Net is only tested on Linux (Ubuntu). It may work on other operating systems as well but we do not guarantee it will.
 
 Installation instructions
-1) Install PyTorch
-2) Clone this repository
-3) Go into the repository (`cd nnunet` on linux)
+1) Install PyTorch (https://pytorch.org/get-started/locally/)
+2) Clone this repository `git clone https://github.com/MIC-DKFZ/nnUNet.git`
+3) Go into the repository (`cd nnUNet` on linux)
 4) Install with `pip install -r requirements.txt` followed by `pip install -e .`
 
 # Getting Started 
-All the commands in this section assume that you are in a terminal and your working directory is the nnunet folder 
+All the commands in this section assume that you are in a terminal and your working directory is the nnU-Net folder 
 (the one that has all the subfolders like `challenge_dataset_conversion`, `evaluation`, ...)
 
 ## Set paths 
