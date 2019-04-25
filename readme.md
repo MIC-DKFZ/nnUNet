@@ -2,7 +2,7 @@
 
 nnU-Net is a framework designed for medical image segmentation. Given a new dataset (that includes training cases) nnU-Net
 will automatically take care of the entire experimental pipeline.
-Unlike other segmentation methods published recently, nnU-Net does not complicated architectural modifications and 
+Unlike other segmentation methods published recently, nnU-Net does not use complicated architectural modifications and 
 instead revolves around the popular U-Net architecture. Still, nnU-Net outperforms many other methods and has been 
 shown to produce segmentations that are on par with or even exceed the state-of-the art across six well-known medical 
 segmentation challenges.

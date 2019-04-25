@@ -205,7 +205,7 @@ class nnUNetTrainer(NetworkTrainer):
         #self.print_to_log_file(self.net_num_pool_op_kernel_sizes)
         #self.print_to_log_file(self.net_conv_kernel_sizes)
 
-        net_numpool = max(self.net_pool_per_axis)
+        net_numpool = len(self.net_num_pool_op_kernel_sizes)
 
         if self.threeD:
             conv_op = nn.Conv3d
