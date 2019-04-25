@@ -78,7 +78,7 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
     while True:
         # find axes that are within factor 1.8 of min axis spacing
         min_spacing = min(current_spacing)
-        valid_axes_for_pool = [i for i in range(dim) if current_spacing[i] / min_spacing < 1.8]
+        valid_axes_for_pool = [i for i in range(dim) if current_spacing[i] / min_spacing < 2]
         axes = []
         for a in range(dim):
             my_spacing = current_spacing[a]
@@ -93,7 +93,7 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
         if len(valid_axes_for_pool) == 0:
             break
 
-        print(current_spacing, current_size)
+        #print(current_spacing, current_size)
 
         other_axes = [i for i in range(dim) if i not in valid_axes_for_pool]
 
