@@ -1,3 +1,23 @@
+# Dataset conversion instructions
+
+## How to use decathlon datasets
+
+First make sure you have all the proper paths set in `paths.py`: base, preprocessing_output_dir and network_training_output_dir.
+Then copy the downloaded dataset into `base/nnUNet_raw`. For Task04_Hippocampus, for example, this should look like this:
+`base/nnUNet_raw/Task04_Hippocampus`. Hereby, Task04_Hippocampus has three subfolders 
+(`imagesTr`, `labelsTr`, `imagesTs`) and a `dataset.json` file.
+
+You can run the preprocessing and experiment planning for this stask by executing
+
+`python experiment_planning/plan_and_preprocess_task.py -t Task04_Hippocampus -p 8`
+
+
+For historical reasons nnU-Net does not like 4D niftis, so the first preprocessing step done by nnU-Net will be splitting the 
+4D niftis into a series of 3D niftis. They will be stored in `base/nnUNet_raw_splitted` when you run the preprocessing.
+You can skip the FSL dependency by doing the splitting manually. nnU-Net will detect that splitted data is available and
+not attempt to re-run it. Instructions of how to do this are provided below.
+
+## How to convert non-Decathlon datasets for nnU-Net
 In this file we provide a description on how you need to convert your dataset to make it compatible with nnU-Net.
 
 For the purpose of this 

@@ -30,7 +30,7 @@ Installation instructions
 
 # Getting Started 
 All the commands in this section assume that you are in a terminal and your working directory is the nnU-Net folder 
-(the one that has all the subfolders like `challenge_dataset_conversion`, `evaluation`, ...)
+(the one that has all the subfolders like `dataset_conversion`, `evaluation`, ...)
 
 ## Set paths 
 nnU-Net needs to know where you will store raw data, want it to store preprocessed data and trained models. Have a 
@@ -39,11 +39,11 @@ look at the file `paths.py` and adapt it to your system.
 ## Preparing Datasets 
 nnU-Net was initially developed as our participation to the Medical Segmentation Decathlon <sup>1</sup>. It therefore
  relies on the dataset to be in the same format as this challenge uses. Please refer to the readme.md in the 
- `challenge_dataset_conversion` subfolder for detailed information. Examples are also provided there. You will need to 
+ `dataset_conversion` subfolder for detailed information. Examples are also provided there. You will need to 
  convert your dataset into this format before you can continue.
  
 Place your dataset either in the `raw_dataset_dir` or `splitted_4d_output_dir`, as specified in `paths.py` (depending on how you prepared it, again 
-see the readme in `challenge_dataset_conversion`). Give 
+see the readme in `dataset_conversion`). Give 
 it a name like: `TaskXX_MY_DATASET` (where XX is some number) to be consistent with the naming scheme of the Medical 
 Segmentation Decathlon.
 
