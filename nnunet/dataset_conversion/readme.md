@@ -14,8 +14,6 @@ You can run the preprocessing and experiment planning for this stask by executin
 
 For historical reasons nnU-Net does not like 4D niftis, so the first preprocessing step done by nnU-Net will be splitting the 
 4D niftis into a series of 3D niftis. They will be stored in `base/nnUNet_raw_splitted` when you run the preprocessing.
-You can skip the FSL dependency by doing the splitting manually. nnU-Net will detect that splitted data is available and
-not attempt to re-run it. Instructions of how to do this are provided below.
 
 ## How to convert non-Decathlon datasets for nnU-Net
 In this file we provide a description on how you need to convert your dataset to make it compatible with nnU-Net.

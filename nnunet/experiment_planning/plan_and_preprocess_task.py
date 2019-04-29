@@ -21,14 +21,9 @@ import pickle
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 import os
 from multiprocessing import Pool
-from subprocess import Popen
 import json
 import shutil
-
-
-def run(cmd):
-    p = Popen(cmd)
-    p.wait()
+from nnunet.experiment_planning.common_utils import split_4d_nifti
 
 
 def split_4d(task_string):
@@ -38,10 +33,10 @@ def split_4d(task_string):
     if isdir(output_folder):
         shutil.rmtree(output_folder)
 
-    cmds = []
+    files = []
+    output_dirs = []
 
     maybe_mkdir_p(output_folder)
-
     for subdir in ["imagesTr", "imagesTs"]:
         curr_out_dir = join(output_folder, subdir)
         if not isdir(curr_out_dir):
@@ -50,11 +45,13 @@ def split_4d(task_string):
         nii_files = [join(curr_dir, i) for i in os.listdir(curr_dir) if i.endswith(".nii.gz")]
         nii_files.sort()
         for n in nii_files:
-            cmds.append(["fslsplit", "%s" % n, join(curr_out_dir, n.split("/")[-1][:-7] + "_"), "-t"])
+            files.append(n)
+            output_dirs.append(curr_out_dir)
 
-    cmds.append(["cp", "-r", join(base_folder, "labelsTr"), output_folder])
+    shutil.copytree(join(base_folder, "labelsTr"), join(output_folder, "labelsTr"))
+
     p = Pool(8)
-    p.map(run, cmds)
+    p.starmap(split_4d_nifti, zip(files, output_dirs))
     p.close()
     p.join()
     shutil.copy(join(base_folder, "dataset.json"), output_folder)

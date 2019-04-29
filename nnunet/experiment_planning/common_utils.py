@@ -16,6 +16,36 @@ import numpy as np
 from copy import deepcopy
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.experiment_planning.configuration import FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK
+import SimpleITK as sitk
+import shutil
+from batchgenerators.utilities.file_and_folder_operations import join
+
+
+def split_4d_nifti(filename, output_folder):
+    img_itk = sitk.ReadImage(filename)
+    dim = img_itk.GetDimension()
+    file_base = filename.split("/")[-1]
+    if dim == 3:
+        shutil.copy(filename, join(output_folder, file_base[:-7] + "_0000.nii.gz"))
+        return
+    elif dim != 4:
+        raise RuntimeError("Unexpected dimensionality: %d of file %s, cannot split" % (dim, filename))
+    else:
+        img_npy = sitk.GetArrayFromImage(img_itk)
+        spacing = img_itk.GetSpacing()
+        origin = img_itk.GetOrigin()
+        direction = np.array(img_itk.GetDirection()).reshape(4,4)
+        # now modify these to remove the fourth dimension
+        spacing = tuple(list(spacing[:-1]))
+        origin = tuple(list(origin[:-1]))
+        direction = tuple(direction[:-1, :-1].reshape(-1))
+        for i, t in enumerate(range(img_npy.shape[0])):
+            img = img_npy[t]
+            img_itk_new = sitk.GetImageFromArray(img)
+            img_itk_new.SetSpacing(spacing)
+            img_itk_new.SetOrigin(origin)
+            img_itk_new.SetDirection(direction)
+            sitk.WriteImage(img_itk_new, join(output_folder, file_base[:-7] + "_%04.0d.nii.gz" % i))
 
 
 def get_pool_and_conv_props_poolLateV2(patch_size, min_feature_map_size, max_numpool, spacing):
