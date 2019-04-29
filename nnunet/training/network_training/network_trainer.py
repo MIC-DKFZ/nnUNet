@@ -66,7 +66,7 @@ class NetworkTrainer(object):
         # too high the training will take forever
         self.train_loss_MA_alpha = 0.93  # alpha * old + (1-alpha) * new
         self.train_loss_MA_eps = 5e-4  # new MA must be at least this much better (smaller)
-        self.save_every = 100
+        self.save_every = 50
         self.save_latest_only = True
         self.max_num_epochs = 1000
         self.num_batches_per_epoch = 250

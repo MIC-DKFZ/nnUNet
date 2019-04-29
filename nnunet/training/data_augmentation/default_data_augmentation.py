@@ -43,7 +43,7 @@ default_3D_augmentation_params = {
     "gamma_retain_stats": True,
     "gamma_range": (0.7, 1.5),
     "p_gamma": 0.3,
-    "num_threads": 8,
+    "num_threads": 12,
     "num_cached_per_thread": 1,
     "mirror": True,
     "mirror_axes": (0, 1, 2),
