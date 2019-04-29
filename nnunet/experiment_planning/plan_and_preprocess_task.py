@@ -78,22 +78,6 @@ def create_lists_from_splitted_dataset(base_folder_splitted):
     return lists, {int(i): d['modality'][str(i)] for i in d['modality'].keys()}
 
 
-def create_lists_from_splitted_dataset_test(base_folder_splitted):
-    lists = []
-    json_file = join(base_folder_splitted, "dataset.json")
-    with open(json_file) as jsn:
-        d = json.load(jsn)
-        test_files = d['test']
-    num_modalities = len(d['modality'].keys())
-    for tr in test_files:
-        cur_pat = []
-        for mod in range(num_modalities):
-            cur_pat.append(join(base_folder_splitted, "imagesTs", tr.split("/")[-1][:-7] + "_%04.0d.nii.gz" % mod))
-        cur_pat.append(None)
-        lists.append(cur_pat)
-    return lists, {int(i): d['modality'][str(i)] for i in d['modality'].keys()}
-
-
 def create_lists_from_splitted_dataset_folder(folder):
     """
     does not rely on dataset.json
