@@ -397,7 +397,7 @@ class Generic_UNet(SegmentationNetwork):
         if not isinstance(num_pool_per_axis, np.ndarray):
             num_pool_per_axis = np.array(num_pool_per_axis)
 
-        npool = max(num_pool_per_axis)
+        npool = len(pool_op_kernel_sizes)
 
         map_size = np.array(patch_size)
         tmp = 5 * np.prod(map_size) * base_num_features + num_modalities * np.prod(map_size) + \
