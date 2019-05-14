@@ -14,9 +14,14 @@ from datetime import datetime
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 
+try:
+    from apex import amp
+except ImportError:
+    amp = None
+
 
 class NetworkTrainer(object):
-    def __init__(self, deterministic=True):
+    def __init__(self, deterministic=True, fp16=False):
         """
         A generic class that can train almost any neural network (RNNs excluded). It provides basic functionality such
         as the training loop, tracking of training and validation losses (and the target metric if you implement it)
@@ -35,6 +40,8 @@ class NetworkTrainer(object):
         np.random.seed(12345)
         torch.manual_seed(12345)
         torch.cuda.manual_seed_all(12345)
+        self.fp16 = fp16
+
         if deterministic:
             cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
@@ -146,7 +153,6 @@ class NetworkTrainer(object):
         self.dataset_val = OrderedDict()
         for i in val_keys:
             self.dataset_val[i] = self.dataset[i]
-
 
     def plot_progress(self):
         """
@@ -290,7 +296,18 @@ class NetworkTrainer(object):
 
         self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model['plot_stuff']
 
+    def _maybe_init_amp(self):
+        # we use fp16 for training only, not inference
+        if self.fp16:
+            if amp is not None:
+                self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
+            else:
+                self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
+                                       "Install it from https://github.com/NVIDIA/apex")
+
     def run_training(self):
+        self._maybe_init_amp()
+
         if cudnn.benchmark and cudnn.deterministic:
             warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
                  "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
@@ -493,7 +510,11 @@ class NetworkTrainer(object):
             self.run_online_evaluation(output, target)
 
         if do_backprop:
-            l.backward()
+            if not self.fp16 or amp is None:
+                l.backward()
+            else:
+                with amp.scale_loss(l, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
             self.optimizer.step()
 
         return l
@@ -528,6 +549,7 @@ class NetworkTrainer(object):
         :return:
         """
         import math
+        self._maybe_init_amp()
         mult = (final_value / init_value) ** (1/num_iters)
         lr = init_value
         self.optimizer.param_groups[0]['lr'] = lr

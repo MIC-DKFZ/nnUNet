@@ -17,9 +17,12 @@ matplotlib.use("agg")
 
 class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, previous_trainer="nnUNetTrainer"):
+                 unpack_data=True, deterministic=True, previous_trainer="nnUNetTrainer", fp16=False):
         super(nnUNetTrainerCascadeFullRes, self).__init__(plans_file, fold, output_folder, dataset_directory,
-                                                          batch_dice, stage, unpack_data, deterministic)
+                                                          batch_dice, stage, unpack_data, deterministic, fp16)
+        self.init_args = (plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+                          deterministic, previous_trainer, fp16)
+
         if self.output_folder is not None:
             task = self.output_folder.split("/")[-3]
             plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]

@@ -24,7 +24,7 @@ from collections import OrderedDict
 
 class nnUNetTrainer(NetworkTrainer):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True):
+                 unpack_data=True, deterministic=True, fp16=False):
         """
         :param deterministic:
         :param fold: can be either [0 ... 5) for cross-validation, 'all' to train on all available training data or
@@ -45,10 +45,14 @@ class nnUNetTrainer(NetworkTrainer):
         if stage 1 exists then stage 1 is the high resolution stage, otherwise it's 0
         :param unpack_data: if False, npz preprocessed data will not be unpacked to npy. This consumes less space but
         is considerably slower! Running unpack_data=False with 2d should never be done!
+
+        IMPORTANT: If you inherit from nnUNetTrainer and the init args change then you need to redefine self.init_args
+        in your init accordingly. Otherwise checkpoints won't load properly!
         """
-        super(nnUNetTrainer, self).__init__(deterministic)
+        super(nnUNetTrainer, self).__init__(deterministic, fp16)
         self.unpack_data = unpack_data
-        self.init_args = (plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data, deterministic)
+        self.init_args = (plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+                          deterministic, fp16)
         # set through arguments from init
         self.stage = stage
         self.experiment_name = self.__class__.__name__
@@ -60,7 +64,9 @@ class nnUNetTrainer(NetworkTrainer):
 
         self.plans = None
 
-        if self.dataset_directory is not None:
+        # if we are running inference only then the self.dataset_directory is set (due to checkpoint loading) but it
+        # irrelevant
+        if self.dataset_directory is not None and isdir(self.dataset_directory):
             self.gt_niftis_folder = join(self.dataset_directory, "gt_segmentations")
         else:
             self.gt_niftis_folder = None
@@ -246,6 +252,7 @@ class nnUNetTrainer(NetworkTrainer):
         import shutil
 
         shutil.copy(self.plans_file, join(self.output_folder_base, "plans.pkl"))
+
         super(nnUNetTrainer, self).run_training()
 
     def load_plans_file(self):

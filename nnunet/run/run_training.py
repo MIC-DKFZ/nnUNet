@@ -47,6 +47,7 @@ if __name__ == "__main__":
                                                                                           "you should enable this")
     parser.add_argument("--find_lr", required=False, default=False, action="store_true", help="not used here, just for fun")
     parser.add_argument("--valbest", required=False, default=False, action="store_true", help="hands off. This is not intended to be used")
+    parser.add_argument("--fp16", required=False, default=False, action="store_true", help="enable fp16 training. Makes sense for 2d only! (and only on supported hardware!)")
 
     args = parser.parse_args()
 
@@ -60,6 +61,7 @@ if __name__ == "__main__":
     unpack = args.unpack_data
     deterministic = not args.ndet
     valbest = args.valbest
+    fp16 = args.fp16
 
     if unpack == 0:
         unpack = False
@@ -87,7 +89,8 @@ if __name__ == "__main__":
         assert issubclass(trainer_class, nnUNetTrainer), "network_trainer was found but is not derived from nnUNetTrainer"
 
     trainer = trainer_class(plans_file, fold, output_folder=output_folder_name, dataset_directory=dataset_directory,
-                            batch_dice=batch_dice, stage=stage, unpack_data=unpack, deterministic=deterministic)
+                            batch_dice=batch_dice, stage=stage, unpack_data=unpack, deterministic=deterministic,
+                            fp16=fp16)
 
     trainer.initialize(not validation_only)
 
