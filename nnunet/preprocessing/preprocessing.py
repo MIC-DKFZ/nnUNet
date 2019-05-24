@@ -63,6 +63,10 @@ def resample_patient(data, seg, original_spacing, target_spacing, order_data=3, 
 
     if force_separate_z is not None:
         do_separate_z = force_separate_z
+        if force_separate_z:
+            axis = get_lowres_axis(original_spacing)
+        else:
+            axis = None
     else:
         if get_do_separate_z(original_spacing):
             do_separate_z = True
