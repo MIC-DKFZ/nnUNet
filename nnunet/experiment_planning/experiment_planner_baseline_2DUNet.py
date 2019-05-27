@@ -42,16 +42,15 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.transpose_backward = self.plans['transpose_backward']
 
     def plan_experiment(self):
-        def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases, transpose_forward,
-                                     num_modalities, num_classes):
-            current_spacing_transposed = np.array([current_spacing[i] for i in transpose_forward])[1:]
 
+        def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases,
+                                     num_modalities, num_classes):
             new_median_shape = np.round(original_spacing / current_spacing * original_shape).astype(int)
             dataset_num_voxels = np.prod(new_median_shape) * num_cases
-            input_patch_size = new_median_shape[transpose_forward][1:]
+            input_patch_size = new_median_shape
 
             network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
-                shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing_transposed, input_patch_size,
+                shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing, input_patch_size,
                                                                      FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
                                                                      Generic_UNet.MAX_NUMPOOL_2D)
 
@@ -103,9 +102,10 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.transpose_forward = [max_spacing_axis] + remaining_axes
         self.transpose_backward = [np.argwhere(np.array(self.transpose_forward) == i)[0][0] for i in range(3)]
         new_shapes = new_shapes[:, self.transpose_forward]
+        target_spacing_transposed = target_spacing[self.transpose_forward][1:]
 
         # we base our calculations on the median shape of the datasets
-        median_shape = np.median(np.vstack(new_shapes), 0)
+        median_shape = np.median(np.vstack(new_shapes), 0)[1:]
         print("the median shape of the dataset is ", median_shape)
 
         max_shape = np.max(np.vstack(new_shapes), 0)
@@ -118,9 +118,8 @@ class ExperimentPlanner2D(ExperimentPlanner):
         # how many stages will the image pyramid have?
         self.plans_per_stage = []
 
-        self.plans_per_stage.append(get_properties_for_stage(target_spacing, target_spacing, median_shape,
+        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed, target_spacing_transposed, median_shape,
                                                               num_cases=len(self.list_of_cropped_npz_files),
-                                                              transpose_forward=self.transpose_forward,
                                                              num_modalities=num_modalities,
                                                              num_classes=len(all_classes) + 1))
 
