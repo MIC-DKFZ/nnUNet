@@ -102,10 +102,10 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.transpose_forward = [max_spacing_axis] + remaining_axes
         self.transpose_backward = [np.argwhere(np.array(self.transpose_forward) == i)[0][0] for i in range(3)]
         new_shapes = new_shapes[:, self.transpose_forward]
-        target_spacing_transposed = target_spacing[self.transpose_forward][1:]
+        target_spacing_transposed = target_spacing[self.transpose_forward]
 
         # we base our calculations on the median shape of the datasets
-        median_shape = np.median(np.vstack(new_shapes), 0)[1:]
+        median_shape = np.median(np.vstack(new_shapes), 0)
         print("the median shape of the dataset is ", median_shape)
 
         max_shape = np.max(np.vstack(new_shapes), 0)
@@ -118,7 +118,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
         # how many stages will the image pyramid have?
         self.plans_per_stage = []
 
-        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed, target_spacing_transposed, median_shape,
+        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed[1:], target_spacing_transposed[1:], median_shape[1:],
                                                               num_cases=len(self.list_of_cropped_npz_files),
                                                              num_modalities=num_modalities,
                                                              num_classes=len(all_classes) + 1))
