@@ -183,11 +183,11 @@ class nnUNetTrainer(NetworkTrainer):
         if training:
             self.dl_tr, self.dl_val = self.get_basic_generators()
             if self.unpack_data:
-                print("unpacking dataset")
+                self.print_to_log_file("unpacking dataset")
                 unpack_dataset(self.folder_with_preprocessed_data)
-                print("done")
+                self.print_to_log_file("done")
             else:
-                print("INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
+                self.print_to_log_file("INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
                       "will wait all winter for your model to finish!")
             self.tr_gen, self.val_gen = get_default_augmentation(self.dl_tr, self.dl_val,
                                                                  self.data_aug_params[

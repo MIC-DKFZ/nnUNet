@@ -191,7 +191,7 @@ class NetworkTrainer(object):
             fig.savefig(join(self.output_folder, "progress.png"))
             plt.close()
         except IOError:
-            print("failed to plot: ", sys.exc_info())
+            self.print_to_log_file("failed to plot: ", sys.exc_info())
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
 
@@ -241,6 +241,7 @@ class NetworkTrainer(object):
         else:
             optimizer_state_dict = None
 
+        self.print_to_log_file("saving checkpoint...")
         torch.save({
             'epoch': self.epoch + 1,
             'state_dict': state_dict,
@@ -269,7 +270,7 @@ class NetworkTrainer(object):
         self.load_checkpoint(join(self.output_folder, checkpoint), train=train)
 
     def load_checkpoint(self, fname, train=True):
-        print("loading checkpoint", fname, "train=", train)
+        self.print_to_log_file("loading checkpoint", fname, "train=", train)
         if not self.was_initialized:
             self.initialize(train)
         saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
