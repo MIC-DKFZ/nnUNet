@@ -50,7 +50,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
             input_patch_size = new_median_shape
 
             network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
-                shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing, input_patch_size,
+                shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing[1:], input_patch_size[1:],
                                                                      FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
                                                                      Generic_UNet.MAX_NUMPOOL_2D)
 
@@ -118,7 +118,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
         # how many stages will the image pyramid have?
         self.plans_per_stage = []
 
-        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed[1:], target_spacing_transposed[1:], median_shape[1:],
+        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed, target_spacing_transposed, median_shape,
                                                               num_cases=len(self.list_of_cropped_npz_files),
                                                              num_modalities=num_modalities,
                                                              num_classes=len(all_classes) + 1))
