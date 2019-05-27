@@ -13,6 +13,8 @@ from collections import OrderedDict
 from datetime import datetime
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
+from datetime import datetime
+
 
 try:
     from apex import amp
@@ -191,7 +193,14 @@ class NetworkTrainer(object):
         except IOError:
             print("failed to plot: ", sys.exc_info())
 
-    def print_to_log_file(self, *args, also_print_to_console=True):
+    def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
+
+        timestamp = time()
+        dt_object = datetime.fromtimestamp(timestamp)
+
+        if add_timestamp:
+            args = ("%s:" % dt_object, *args)
+
         if self.log_file is None:
             maybe_mkdir_p(self.output_folder)
             timestamp = datetime.now()
