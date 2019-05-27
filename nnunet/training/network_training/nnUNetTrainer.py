@@ -449,9 +449,6 @@ class nnUNetTrainer(NetworkTrainer):
                                                                              use_train_mode, 1, mirror_axes, tiled,
                                                                              True, step, self.patch_size,
                                                                              use_gaussian=use_gaussian)
-                if transpose_forward is not None:
-                    transpose_backward = self.plans.get('transpose_backward')
-                    softmax_pred = softmax_pred.transpose([0] + [i+1 for i in transpose_backward])
 
                 if compute_global_dice:
                     predicted_segmentation = softmax_pred.argmax(0)
@@ -470,6 +467,10 @@ class nnUNetTrainer(NetworkTrainer):
                         global_fn[l] += conf.fn
                         global_fp[l] += conf.fp
                         global_tp[l] += conf.tp
+
+                if transpose_forward is not None:
+                    transpose_backward = self.plans.get('transpose_backward')
+                    softmax_pred = softmax_pred.transpose([0] + [i+1 for i in transpose_backward])
 
                 if save_softmax:
                     softmax_fname = join(output_folder, fname + ".npz")

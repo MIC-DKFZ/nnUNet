@@ -33,7 +33,6 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.transpose_backward = [0, 1, 2]
         self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "_plans_2D.pkl")
 
-
     def load_my_plans(self):
         self.plans = load_pickle(self.plans_fname)
 
