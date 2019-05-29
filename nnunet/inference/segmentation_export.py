@@ -21,7 +21,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 
 def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, order=1, region_class_order=None,
                                          seg_postprogess_fn=None, seg_postprocess_args=None, resampled_npz_fname=None,
-                                         non_postprocessed_fname=None):
+                                         non_postprocessed_fname=None, force_separate_z=None):
     """
     This is a utility for writing segmentations to nifto and npz. It requires the data to have been preprocessed by
     GenericPreprocessor because it depends on the property dictionary output (dct) to know the geometry of the original
@@ -46,6 +46,8 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
     :param seg_postprocess_args:
     :param resampled_npz_fname:
     :param non_postprocessed_fname:
+    :param force_separate_z: if None then we dynamically decide how to resample along z, if True/False then always
+    /never resample along z separately. Do not touch unless you know what you are doing
     :return:
     """
     if isinstance(segmentation_softmax, str):
@@ -63,15 +65,22 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
     # original_spacing = dct.get('original_spacing')
 
     if np.any(np.array(current_shape) != np.array(shape_original_after_cropping)):
-        if get_do_separate_z(dct.get('original_spacing')):
-            do_separate_z = True
-            lowres_axis = get_lowres_axis(dct.get('original_spacing'))
-        elif get_do_separate_z(dct.get('spacing_after_resampling')):
-            do_separate_z = True
-            lowres_axis = get_lowres_axis(dct.get('spacing_after_resampling'))
+        if force_separate_z is None:
+            if get_do_separate_z(dct.get('original_spacing')):
+                do_separate_z = True
+                lowres_axis = get_lowres_axis(dct.get('original_spacing'))
+            elif get_do_separate_z(dct.get('spacing_after_resampling')):
+                do_separate_z = True
+                lowres_axis = get_lowres_axis(dct.get('spacing_after_resampling'))
+            else:
+                do_separate_z = False
+                lowres_axis = None
         else:
-            do_separate_z = False
-            lowres_axis = None
+            do_separate_z = force_separate_z
+            if do_separate_z:
+                lowres_axis = get_lowres_axis(dct.get('original_spacing'))
+            else:
+                lowres_axis = None
 
         print("separate z:",do_separate_z, "lowres axis", lowres_axis)
         seg_old_spacing = resample_data_or_seg(segmentation_softmax, shape_original_after_cropping, is_seg=False,
