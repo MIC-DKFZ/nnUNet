@@ -385,7 +385,7 @@ class nnUNetTrainer(NetworkTrainer):
                                        pad_kwargs=self.inference_pad_kwargs)[2]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, override=True, validation_folder_name='validation'):
+                 use_gaussian=True, override=False, validation_folder_name='validation'):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
         that selecting models is easier when computing the Dice globally instead of independently for each case and
@@ -439,7 +439,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         pred_gt_tuples = []
 
-        export_pool = Pool(4)
+        export_pool = Pool(8)
         results = []
 
         for k in self.dataset_val.keys():
@@ -491,9 +491,10 @@ class nnUNetTrainer(NetworkTrainer):
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
 
         _ = [i.get() for i in results]
-        print("finished prediction")
+        self.print_to_log_file("finished prediction")
 
         # evaluate raw predictions
+        self.print_to_log_file("evaluation of raw predictions")
         task = self.dataset_directory.split("/")[-1]
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
@@ -502,7 +503,14 @@ class nnUNetTrainer(NetworkTrainer):
                              json_author="Fabian",
                              json_task=task, num_threads=8)
 
+        # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
+        # except the largest connected component for each class. To see if this improves results, we do this for all
+        # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
+        # have this applied during inference as well
+
         pred_gt_tuples = []
+        results = []
+        self.print_to_log_file("generating dummy postprocessed data")
         # now determine postprocessing
         for k in self.dataset_val.keys():
             properties = self.dataset[k]['properties']
@@ -512,10 +520,12 @@ class nnUNetTrainer(NetworkTrainer):
 
             # now remove all but the largest connected component for each class
             output_file = join(output_folder_test_postprocess, fname + ".nii.gz")
-            load_remove_save(predicted_segmentation, output_file, for_which_classes=None)
+            results.append(export_pool.starmap_async(load_remove_save, ((predicted_segmentation, output_file, None), )))
+            #load_remove_save(predicted_segmentation, output_file, for_which_classes=None)
 
             pred_gt_tuples.append([output_file,
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
+        _ = [i.get() for i in results]
 
          # evaluate postprocessed predictions
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
@@ -526,6 +536,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         # now we need to load both the evaluation before and after postprocessing and then decide for each class the
         # result was better
+        self.print_to_log_file("determining which postprocessing to use...")
         pp_results = {}
         pp_results['dc_per_class_raw'] = {}
         pp_results['dc_per_class_pp'] = {}
@@ -549,8 +560,12 @@ class nnUNetTrainer(NetworkTrainer):
 
         save_json(pp_results, join(self.output_folder, "postprocessing.json"))
 
+        self.print_to_log_file("done. for_which_classes: ", pp_results['for_which_classes'])
+
         # now that we have a proper for_which_classes, apply that
+        self.print_to_log_file("applying that to prediction...")
         pred_gt_tuples = []
+        results = []
         # now determine postprocessing
         for k in self.dataset_val.keys():
             properties = self.dataset[k]['properties']
@@ -560,17 +575,20 @@ class nnUNetTrainer(NetworkTrainer):
 
             # now remove all but the largest connected component for each class
             output_file = join(output_folder_final, fname + ".nii.gz")
-            load_remove_save(predicted_segmentation, output_file, for_which_classes=pp_results['for_which_classes'])
+            #load_remove_save(predicted_segmentation, output_file, for_which_classes=pp_results['for_which_classes'])
+            results.append(export_pool.starmap_async(load_remove_save, ((predicted_segmentation, output_file, pp_results['for_which_classes']), )))
 
             pred_gt_tuples.append([output_file,
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
 
+        _ = [i.get() for i in results]
          # evaluate postprocessed predictions
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder_final, "summary.json"),
                              json_name=job_name + " val tiled %s" % (str(tiled)),
                              json_author="Fabian",
                              json_task=task, num_threads=8)
+        self.print_to_log_file("done")
 
     def run_online_evaluation(self, output, target):
         with torch.no_grad():
