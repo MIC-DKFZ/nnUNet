@@ -20,6 +20,7 @@ from multiprocessing import Pool
 from nnunet.evaluation.metrics import ConfusionMatrix
 matplotlib.use("agg")
 from collections import OrderedDict
+from nnunet.postprocessing.connected_components import load_remove_save
 
 
 class nnUNetTrainer(NetworkTrainer):
@@ -384,7 +385,7 @@ class nnUNetTrainer(NetworkTrainer):
                                        pad_kwargs=self.inference_pad_kwargs)[2]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, compute_global_dice=True, override=True, validation_folder_name='validation'):
+                 use_gaussian=True, override=True, validation_folder_name='validation'):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
         that selecting models is easier when computing the Dice globally instead of independently for each case and
@@ -415,8 +416,21 @@ class nnUNetTrainer(NetworkTrainer):
             self.load_dataset()
             self.do_split()
 
-        output_folder = join(self.output_folder, validation_folder_name)
+        # predictions as they come from the network go here
+        output_folder = join(self.output_folder, validation_folder_name + "_raw")
+
+        # we precede temporary validation folder with test_postprocess_ because my summary scripts look
+        # for validation as name prefix and wen don't want it to find the temp folder
+
+        # here we test removing everything except the largest connected component
+        output_folder_test_postprocess = join(self.output_folder, "test_postprocess_" + validation_folder_name)
+
+        # here is then the best configuration applied to
+        output_folder_final = join(self.output_folder, validation_folder_name + "_final")
+
         maybe_mkdir_p(output_folder)
+        maybe_mkdir_p(output_folder_test_postprocess)
+        maybe_mkdir_p(output_folder_final)
 
         if do_mirroring:
             mirror_axes = self.data_aug_params['mirror_axes']
@@ -427,9 +441,6 @@ class nnUNetTrainer(NetworkTrainer):
 
         export_pool = Pool(4)
         results = []
-        global_tp = OrderedDict()
-        global_fp = OrderedDict()
-        global_fn = OrderedDict()
 
         for k in self.dataset_val.keys():
             print(k)
@@ -449,24 +460,6 @@ class nnUNetTrainer(NetworkTrainer):
                                                                              use_train_mode, 1, mirror_axes, tiled,
                                                                              True, step, self.patch_size,
                                                                              use_gaussian=use_gaussian)
-
-                if compute_global_dice:
-                    predicted_segmentation = softmax_pred.argmax(0)
-                    gt_segmentation = data[-1]
-                    labels = properties['classes']
-                    labels = [int(i) for i in labels if i > 0]
-                    for l in labels:
-                        if l not in global_fn.keys():
-                            global_fn[l] = 0
-                        if l not in global_fp.keys():
-                            global_fp[l] = 0
-                        if l not in global_tp.keys():
-                            global_tp[l] = 0
-                        conf = ConfusionMatrix((predicted_segmentation == l).astype(int), (gt_segmentation == l).astype(int))
-                        conf.compute()
-                        global_fn[l] += conf.fn
-                        global_fp[l] += conf.fp
-                        global_tp[l] += conf.tp
 
                 if transpose_forward is not None:
                     transpose_backward = self.plans.get('transpose_backward')
@@ -493,31 +486,91 @@ class nnUNetTrainer(NetworkTrainer):
                                                           )
                                                          )
                                )
-                #save_segmentation_nifti_from_softmax(softmax_pred, join(output_folder, fname + ".nii.gz"),
-                #                                               properties, 3, None, None,
-                #                                               None,
-                #                                               softmax_fname,
-                #                                               None)
 
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
 
         _ = [i.get() for i in results]
-        print("finished prediction, now evaluating...")
+        print("finished prediction")
 
+        # evaluate raw predictions
         task = self.dataset_directory.split("/")[-1]
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),
                              json_name=job_name + " val tiled %s" % (str(tiled)),
                              json_author="Fabian",
-                             json_task=task, num_threads=3)
-        if compute_global_dice:
-            global_dice = OrderedDict()
-            all_labels = list(global_fn.keys())
-            for l in all_labels:
-                global_dice[int(l)] = float(2 * global_tp[l] / (2 * global_tp[l] + global_fn[l] + global_fp[l]))
-            write_json(global_dice, join(output_folder, "global_dice.json"))
+                             json_task=task, num_threads=8)
+
+        pred_gt_tuples = []
+        # now determine postprocessing
+        for k in self.dataset_val.keys():
+            properties = self.dataset[k]['properties']
+            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            predicted_segmentation = join(output_folder, fname + ".nii.gz")
+            assert isfile(predicted_segmentation)
+
+            # now remove all but the largest connected component for each class
+            output_file = join(output_folder_test_postprocess, fname + ".nii.gz")
+            load_remove_save(predicted_segmentation, output_file, for_which_classes=None)
+
+            pred_gt_tuples.append([output_file,
+                                   join(self.gt_niftis_folder, fname + ".nii.gz")])
+
+         # evaluate postprocessed predictions
+        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
+                             json_output_file=join(output_folder_test_postprocess, "summary.json"),
+                             json_name=job_name + " val tiled %s" % (str(tiled)),
+                             json_author="Fabian",
+                             json_task=task, num_threads=8)
+
+        # now we need to load both the evaluation before and after postprocessing and then decide for each class the
+        # result was better
+        pp_results = {}
+        pp_results['dc_per_class_raw'] = {}
+        pp_results['dc_per_class_pp'] = {}
+        pp_results['for_which_classes'] = []
+
+        validation_result_raw = load_json(join(output_folder, "summary.json"))['results']
+        pp_results['num_samples'] = len(validation_result_raw['all'])
+
+        validation_result_PP_test = load_json(join(output_folder_test_postprocess, "summary.json"))['results']['mean']
+
+        validation_result_raw = validation_result_raw['mean']
+
+        for c in self.classes:
+            dc_raw = validation_result_raw[str(c)]['Dice']
+            dc_pp = validation_result_PP_test[str(c)]['Dice']
+            pp_results['dc_per_class_raw'][str(c)] = dc_raw
+            pp_results['dc_per_class_pp'][str(c)] = dc_pp
+
+            if c != 0 and dc_pp > dc_raw:
+                    pp_results['for_which_classes'].append(int(c))
+
+        save_json(pp_results, join(self.output_folder, "postprocessing.json"))
+
+        # now that we have a proper for_which_classes, apply that
+        pred_gt_tuples = []
+        # now determine postprocessing
+        for k in self.dataset_val.keys():
+            properties = self.dataset[k]['properties']
+            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            predicted_segmentation = join(output_folder, fname + ".nii.gz")
+            assert isfile(predicted_segmentation)
+
+            # now remove all but the largest connected component for each class
+            output_file = join(output_folder_final, fname + ".nii.gz")
+            load_remove_save(predicted_segmentation, output_file, for_which_classes=pp_results['for_which_classes'])
+
+            pred_gt_tuples.append([output_file,
+                                   join(self.gt_niftis_folder, fname + ".nii.gz")])
+
+         # evaluate postprocessed predictions
+        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
+                             json_output_file=join(output_folder_final, "summary.json"),
+                             json_name=job_name + " val tiled %s" % (str(tiled)),
+                             json_author="Fabian",
+                             json_task=task, num_threads=8)
 
     def run_online_evaluation(self, output, target):
         with torch.no_grad():
