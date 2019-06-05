@@ -81,11 +81,16 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output_folder', help="where to save the results", required=True, type=str)
     parser.add_argument('-t', '--threads', help="number of threads used to saving niftis", required=False, default=2,
                         type=int)
+    parser.add_argument('-pp', '--postprocessing_file', help="path to the file where the postprocessing configuration "
+                                                             "is stored. If this is not provided then no postprocessing "
+                                                             "will be made. It is strongly recommended to provide the "
+                                                             "postprocessing file!", required=False, type=str)
 
     args = parser.parse_args()
 
     folders = args.folders
     threads = args.threads
     output_folder = args.output_folder
+    pp_file = args.postprocessing_file
 
     merge(folders, output_folder, threads, override=True)

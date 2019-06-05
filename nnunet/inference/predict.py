@@ -23,7 +23,7 @@ import torch
 import SimpleITK as sitk
 import shutil
 from multiprocessing import Pool
-
+from nnunet.postprocessing.connected_components import load_remove_save, load_for_which_classes
 from nnunet.training.model_restore import load_model_and_checkpoint_files
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.one_hot_encoding import to_one_hot
@@ -122,7 +122,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
-    prman = Pool(num_threads_nifti_save)
+    pool = Pool(num_threads_nifti_save)
     results = []
 
     cleaned_output_files = []
@@ -153,10 +153,13 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
     trainer, params = load_model_and_checkpoint_files(model, folds)
 
     print("starting preprocessing generator")
-    preprocessing = preprocess_multithreaded(trainer, list_of_lists, cleaned_output_files, num_threads_preprocessing, segs_from_prev_stage)
+    preprocessing = preprocess_multithreaded(trainer, list_of_lists, cleaned_output_files, num_threads_preprocessing,
+                                             segs_from_prev_stage)
     print("starting prediction...")
+    all_output_files = []
     for preprocessed in preprocessing:
         output_filename, (d, dct) = preprocessed
+        all_output_files.append(all_output_files)
         if isinstance(d, str):
             data = np.load(d)
             os.remove(d)
@@ -191,11 +194,27 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             np.save(output_filename[:-7] + ".npy", softmax_mean)
             softmax_mean = output_filename[:-7] + ".npy"
 
-        results.append(prman.starmap_async(save_segmentation_nifti_from_softmax,
+        results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
                                            ((softmax_mean, output_filename, dct, 1, None, None, None, npz_file), )
                                            ))
 
     _ = [i.get() for i in results]
+
+    # now apply postprocessing
+    # first load the postprocessing properties if they are present. Else raise a well visible warning
+    pp_file = join(model, "postprocessing_consolidated.pkl")
+    if isfile(pp_file):
+        # for_which_classes stores for which of the classes everything but the largest connected component needs to be
+        # removed
+        for_which_classes = load_for_which_classes(pp_file)
+        results = pool.starmap_async(load_remove_save,
+                                     zip(output_filenames, output_filenames,
+                                         [for_which_classes] * len(output_filenames)))
+        _ = [i.get() for i in results]
+    else:
+        print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
+              "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
+              "%s" % model)
 
 
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,

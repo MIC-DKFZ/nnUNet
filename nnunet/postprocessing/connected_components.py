@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+from copy import deepcopy
 from multiprocessing.pool import Pool
 
 import numpy as np
@@ -35,7 +36,9 @@ def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_
     """
     removes all but the largest connected component, individually for each class
     :param image:
-    :param for_which_classes: can be None
+    :param for_which_classes: can be None. Should be list of int. Can also be something like [(1, 2), 2, 4].
+    Here (1, 2) will be treated as a joint region, not individual classes (example LiTS here we can use (1, 2)
+    to use all foreground classes together)
     :return:
     """
     if for_which_classes is None:
@@ -45,7 +48,12 @@ def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_
     assert 0 not in for_which_classes
 
     for c in for_which_classes:
-        mask = image == c
+        if isinstance(c, (list, tuple)):
+            mask = np.zeros_like(image, dtype=bool)
+            for cl in c:
+                mask[image == cl] = True
+        else:
+            mask = image == c
         lmap, num_objects = label(mask.astype(int))
         if num_objects > 1:
             sizes = []
@@ -57,6 +65,7 @@ def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_
 
 
 def consolidate_folds(output_folder_base):
+    # TODO all but largest fg region
     folds = list(range(5))
     folders_folds = [join(output_folder_base, "fold_%d" % i) for i in folds]
 
@@ -73,10 +82,10 @@ def consolidate_folds(output_folder_base):
 
     num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis")))
 
-    assert num_niftis == num_niftis_gt, "some fodls are missing predicted niftis :-(. Make sure you ran all folds properly"
+    assert num_niftis == num_niftis_gt, "some folds are missing predicted niftis :-(. Make sure you ran all folds properly"
 
     # first we need to know what classes we have
-    classes = np.array([int(i) for i in postprocessing_jsons[0]['dc_per_class_raw'].keys()])
+    classes = np.array([i for i in postprocessing_jsons[0]['dc_per_class_raw'].keys() if not isinstance(i, (list, tuple))])
 
     arr_raw = np.zeros((len(folds), len(classes)))
     arr_pp = np.zeros((len(folds), len(classes)))
@@ -127,6 +136,7 @@ def consolidate_folds(output_folder_base):
     p.close()
     p.join()
 
+    # we could theoretically infer the scores that from the results jsons but where is the fun in that?
     pred_gt_tuples = [(join(output_folder_base, "cv_niftis_postprocessed", f),
                        join(output_folder_base, "gt_niftis", f))
                       for f in subfiles(join(output_folder_base, "gt_niftis"), suffix=".nii.gz", join=False)]
@@ -144,40 +154,110 @@ def consolidate_folds(output_folder_base):
                          json_author="Fabian", num_threads=8)
 
 
-def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
-                             test_pp_subf_name="test_postprocess__validation",
-                             final_subf_name="validation_final", delete_temp=True, processes=8):
-    """
+def load_for_which_classes(pkl_file):
+    '''
+    loads the relevant part of the pkl file that is needed for applying postprocessing
+    :param pkl_file:
+    :return:
+    '''
+    a = load_pickle(pkl_file)
+    return a['for_which_classes']
 
+
+def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
+                             temp_folder="temp",
+                             final_subf_name="validation_final", processes=8):
+    """
     :param base:
     :param gt_labels_folder:
     :param raw_subfolder_name:
-    :param test_pp_subf_name:
+    :param temp_folder: used to store temporary data, will be deleted after we are done here
     :param final_subf_name:
-    :param delete_temp:
     :param processes:
     :return:
     """
-    maybe_mkdir_p(join(base, test_pp_subf_name))
-    maybe_mkdir_p(join(base, final_subf_name))
-
-    p = Pool(processes)
-
-    pred_gt_tuples = []
-    results = []
-    print("generating dummy postprocessed data")
-
-    assert isfile(join(base, raw_subfolder_name, "summary.json"))
-
     # lets see what classes are in the dataset
     classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['mean'].keys() if int(i) != 0]
 
+    # multiprocessing rules
+    p = Pool(processes)
+    results = []  # used to collect mp 'results'. Not really a result
+
+    assert isfile(join(base, raw_subfolder_name, "summary.json")), "join(base, raw_subfolder_name) does not " \
+                                                                   "contain a summary.json"
+
+    # these are all the files we will be dealing with
     fnames = subfiles(join(base, raw_subfolder_name), suffix=".nii.gz", join=False)
-    # now determine postprocessing
+
+    # make output and temp dir
+    maybe_mkdir_p(join(base, temp_folder))
+    maybe_mkdir_p(join(base, final_subf_name))
+
+    pp_results = {}
+    pp_results['dc_per_class_raw'] = {}
+    pp_results['dc_per_class_pp_all'] = {}  # dice scores after treating all foreground classes as one
+    pp_results['dc_per_class_pp_per_class'] = {}  # dice scores after removing everything except larges cc
+    # independently for each class after we already did dc_per_class_pp_all
+    pp_results['for_which_classes'] = []
+
+    validation_result_raw = load_json(join(base, raw_subfolder_name, "summary.json"))['results']
+    pp_results['num_samples'] = len(validation_result_raw['all'])
+    validation_result_raw = validation_result_raw['mean']
+
+    pred_gt_tuples = []
+
+    # first treat all foreground classes as one and remove all but the largest foreground connected component
     for f in fnames:
         predicted_segmentation = join(base, raw_subfolder_name, f)
         # now remove all but the largest connected component for each class
-        output_file = join(base, test_pp_subf_name, f)
+        output_file = join(base, temp_folder, f)
+        results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, (classes, )),)))
+        pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
+
+    _ = [i.get() for i in results]
+
+    # evaluate postprocessed predictions
+    _ = aggregate_scores(pred_gt_tuples, labels=classes,
+                         json_output_file=join(base, temp_folder, "summary.json"),
+                         json_author="Fabian", num_threads=processes)
+
+    # now we need to figure out if doing this improved the dice scores. We will implement that defensively in so far
+    # that if a single class got worse as a result we won't do this. We can change this in the future but right now I
+    # prefer to do it this way
+    validation_result_PP_test = load_json(join(base, temp_folder, "summary.json"))['results']['mean']
+
+    for c in classes:
+        dc_raw = validation_result_raw[str(c)]['Dice']
+        dc_pp = validation_result_PP_test[str(c)]['Dice']
+        pp_results['dc_per_class_raw'][str(c)] = dc_raw
+        pp_results['dc_per_class_pp_all'][str(c)] = dc_pp
+
+    # true if new is better
+    do_fg_cc = False
+    comp = [i > j for cl in classes for i, j in zip(pp_results['dc_per_class_pp_all'][str(cl)], pp_results['dc_per_class_raw'][str(cl)])]
+    if any(comp):
+        # at least one class improved - yay!
+        # now check if another got worse
+        # true if new is worse
+        any_worse = any([i < j for cl in classes for i, j in zip(pp_results['dc_per_class_pp_all'][str(cl)], pp_results['dc_per_class_raw'][str(cl)])])
+        if not any_worse:
+            pp_results['for_which_classes'].append(classes)
+            do_fg_cc = True
+    else:
+        # did not improve things - don't do it
+        pass
+
+    # now depending on whether we do remove all but the largest foreground connected component we define the source dir
+    # for the next one to be the raw or the temp dir
+    if do_fg_cc:
+        source = join(base, temp_folder)
+    else:
+        source = join(base, raw_subfolder_name)
+
+    pred_gt_tuples = []
+    for f in fnames:
+        predicted_segmentation = join(source, f)
+        output_file = join(base, temp_folder, f)
         results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, classes),)))
         pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
 
@@ -185,32 +265,23 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # evaluate postprocessed predictions
     _ = aggregate_scores(pred_gt_tuples, labels=classes,
-                         json_output_file=join(base, test_pp_subf_name, "summary.json"),
+                         json_output_file=join(base, temp_folder, "summary.json"),
                          json_author="Fabian", num_threads=processes)
 
-    # now we need to load both the evaluation before and after postprocessing and then decide for each class the
-    # result was better
-    print("determining which postprocessing to use...")
+    if do_fg_cc:
+        old_res = deepcopy(validation_result_PP_test)
+    else:
+        old_res = validation_result_raw
 
-    pp_results = {}
-    pp_results['dc_per_class_raw'] = {}
-    pp_results['dc_per_class_pp'] = {}
-    pp_results['for_which_classes'] = []
-
-    validation_result_raw = load_json(join(base, raw_subfolder_name, "summary.json"))['results']
-    pp_results['num_samples'] = len(validation_result_raw['all'])
-
-    validation_result_PP_test = load_json(join(base, test_pp_subf_name, "summary.json"))['results']['mean']
-
-    validation_result_raw = validation_result_raw['mean']
+    # these are the new dice scores
+    validation_result_PP_test = load_json(join(base, temp_folder, "summary.json"))['results']['mean']
 
     for c in classes:
-        dc_raw = validation_result_raw[str(c)]['Dice']
+        dc_raw = old_res[str(c)]['Dice']
         dc_pp = validation_result_PP_test[str(c)]['Dice']
-        pp_results['dc_per_class_raw'][str(c)] = dc_raw
-        pp_results['dc_per_class_pp'][str(c)] = dc_pp
+        pp_results['dc_per_class_pp_per_class'][str(c)] = dc_pp
 
-        if c != 0 and dc_pp > dc_raw:
+        if dc_pp > dc_raw:
             pp_results['for_which_classes'].append(int(c))
 
     pp_results['validation_raw'] = raw_subfolder_name
@@ -218,11 +289,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     save_json(pp_results, join(base, "postprocessing.json"))
 
-    print("done. for_which_classes: ", pp_results['for_which_classes'])
-
     # now that we have a proper for_which_classes, apply that
-    print("applying that to prediction...")
-
     pred_gt_tuples = []
     results = []
     for f in fnames:
@@ -242,8 +309,8 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
                          json_output_file=join(base, final_subf_name, "summary.json"),
                          json_author="Fabian", num_threads=processes)
 
-    if delete_temp:
-        shutil.rmtree(join(base, test_pp_subf_name))
+    # delete temp
+    shutil.rmtree(join(base, temp_folder))
 
     p.close()
     p.join()
