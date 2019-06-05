@@ -20,6 +20,7 @@ from nnunet.inference.segmentation_export import save_segmentation_nifti_from_so
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.paths import network_training_output_dir, preprocessing_output_dir, default_plans_identifier
 import argparse
+from nnunet.postprocessing.connected_components import determine_postprocessing
 
 
 def merge(args):
@@ -44,7 +45,8 @@ if __name__ == "__main__":
 
     training_output_folder1 = args.training_output_folder1
     training_output_folder2 = args.training_output_folder2
-    output_folder = args.output_folder
+    output_folder_base = args.output_folder
+    output_folder = join(output_folder_base, "ensembled_raw")
     task = args.task
 
     # only_keep_largest_connected_component is the same for all stages
@@ -97,17 +99,21 @@ if __name__ == "__main__":
     p.close()
     p.join()
 
-    """for args in zip(files1, files2, property_files, out_files, [only_keep_largest_connected_component] * len(files1)):
-        print(args[0], args[1])
-        merge(args)"""
-
-    if not isfile(join(output_folder, "summary_allFolds.json")) and len(out_files) > 0:
-        out_dir_all_json = join(network_training_output_dir, "summary_jsons")
-        # now evaluate if all these gt files exist
+    if not isfile(join(output_folder, "summary.json")) and len(out_files) > 0:
         aggregate_scores(tuple(zip(out_files, gt_segmentations)), labels=plans['all_classes'],
-                         json_output_file=join(output_folder, "summary_allFolds.json"), json_task=task,
-                         json_name=task + "__" + output_folder.split("/")[-1], num_threads=4)
-        json_out = load_json(join(output_folder, "summary_allFolds.json"))
-        json_out["experiment_name"] = output_folder.split("/")[-1]
-        save_json(json_out, join(output_folder, "summary_allFolds.json"))
-        shutil.copy(join(output_folder, "summary_allFolds.json"), join(out_dir_all_json, "%s__%s.json" % (task, output_folder.split("/")[-1])))
+                     json_output_file=join(output_folder, "summary.json"), json_task=task,
+                     json_name=task + "__" + output_folder_base.split("/")[-1], num_threads=8)
+
+    # now lets also look at postprocessing. We cannot just take what we determined in cross-validation and apply it
+    # here because things may have changed and may also be too inconsistent between the two networks
+    determine_postprocessing(output_folder_base, folder_with_gt_segs, "ensembled_raw", "temp",
+                             "ensembled_postprocessed", True, 8)
+
+    out_dir_all_json = join(network_training_output_dir, "summary_jsons")
+    json_out = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))
+
+    json_out["experiment_name"] = output_folder_base.split("/")[-1]
+    save_json(json_out, join(output_folder_base, "ensembled_postprocessed", "summary.json"))
+
+    shutil.copy(join(output_folder_base, "ensembled_postprocessed", "summary.json"),
+                join(out_dir_all_json, "%s__%s.json" % (task, output_folder_base.split("/")[-1])))

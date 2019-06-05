@@ -1,3 +1,5 @@
+import shutil
+
 import matplotlib
 from nnunet.training.network_training.network_trainer import NetworkTrainer
 from nnunet.network_architecture.neural_network import SegmentationNetwork
@@ -20,7 +22,8 @@ from multiprocessing import Pool
 from nnunet.evaluation.metrics import ConfusionMatrix
 matplotlib.use("agg")
 from collections import OrderedDict
-from nnunet.postprocessing.connected_components import load_remove_save
+from nnunet.postprocessing.connected_components import load_remove_save, determine_postprocessing
+from os import path
 
 
 class nnUNetTrainer(NetworkTrainer):
@@ -418,19 +421,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name + "_raw")
-
-        # we precede temporary validation folder with test_postprocess_ because my summary scripts look
-        # for validation as name prefix and wen don't want it to find the temp folder
-
-        # here we test removing everything except the largest connected component
-        output_folder_test_postprocess = join(self.output_folder, "test_postprocess_" + validation_folder_name)
-
-        # here is then the best configuration applied to
-        output_folder_final = join(self.output_folder, validation_folder_name + "_final")
-
         maybe_mkdir_p(output_folder)
-        maybe_mkdir_p(output_folder_test_postprocess)
-        maybe_mkdir_p(output_folder_final)
 
         if do_mirroring:
             mirror_axes = self.data_aug_params['mirror_axes']
@@ -508,87 +499,17 @@ class nnUNetTrainer(NetworkTrainer):
         # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
         # have this applied during inference as well
 
-        pred_gt_tuples = []
-        results = []
-        self.print_to_log_file("generating dummy postprocessed data")
-        # now determine postprocessing
-        for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
-            predicted_segmentation = join(output_folder, fname + ".nii.gz")
-            assert isfile(predicted_segmentation)
+        determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name + "_raw",
+                                 delete_temp=True)
 
-            # now remove all but the largest connected component for each class
-            output_file = join(output_folder_test_postprocess, fname + ".nii.gz")
-            results.append(export_pool.starmap_async(load_remove_save, ((predicted_segmentation, output_file, None), )))
-            #load_remove_save(predicted_segmentation, output_file, for_which_classes=None)
-
-            pred_gt_tuples.append([output_file,
-                                   join(self.gt_niftis_folder, fname + ".nii.gz")])
-        _ = [i.get() for i in results]
-
-         # evaluate postprocessed predictions
-        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
-                             json_output_file=join(output_folder_test_postprocess, "summary.json"),
-                             json_name=job_name + " val tiled %s" % (str(tiled)),
-                             json_author="Fabian",
-                             json_task=task, num_threads=8)
-
-        # now we need to load both the evaluation before and after postprocessing and then decide for each class the
-        # result was better
-        self.print_to_log_file("determining which postprocessing to use...")
-        pp_results = {}
-        pp_results['dc_per_class_raw'] = {}
-        pp_results['dc_per_class_pp'] = {}
-        pp_results['for_which_classes'] = []
-
-        validation_result_raw = load_json(join(output_folder, "summary.json"))['results']
-        pp_results['num_samples'] = len(validation_result_raw['all'])
-
-        validation_result_PP_test = load_json(join(output_folder_test_postprocess, "summary.json"))['results']['mean']
-
-        validation_result_raw = validation_result_raw['mean']
-
-        for c in self.classes:
-            dc_raw = validation_result_raw[str(c)]['Dice']
-            dc_pp = validation_result_PP_test[str(c)]['Dice']
-            pp_results['dc_per_class_raw'][str(c)] = dc_raw
-            pp_results['dc_per_class_pp'][str(c)] = dc_pp
-
-            if c != 0 and dc_pp > dc_raw:
-                    pp_results['for_which_classes'].append(int(c))
-
-        save_json(pp_results, join(self.output_folder, "postprocessing.json"))
-
-        self.print_to_log_file("done. for_which_classes: ", pp_results['for_which_classes'])
-
-        # now that we have a proper for_which_classes, apply that
-        self.print_to_log_file("applying that to prediction...")
-        pred_gt_tuples = []
-        results = []
-        # now determine postprocessing
-        for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
-            predicted_segmentation = join(output_folder, fname + ".nii.gz")
-            assert isfile(predicted_segmentation)
-
-            # now remove all but the largest connected component for each class
-            output_file = join(output_folder_final, fname + ".nii.gz")
-            #load_remove_save(predicted_segmentation, output_file, for_which_classes=pp_results['for_which_classes'])
-            results.append(export_pool.starmap_async(load_remove_save, ((predicted_segmentation, output_file, pp_results['for_which_classes']), )))
-
-            pred_gt_tuples.append([output_file,
-                                   join(self.gt_niftis_folder, fname + ".nii.gz")])
-
-        _ = [i.get() for i in results]
-         # evaluate postprocessed predictions
-        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
-                             json_output_file=join(output_folder_final, "summary.json"),
-                             json_name=job_name + " val tiled %s" % (str(tiled)),
-                             json_author="Fabian",
-                             json_task=task, num_threads=8)
-        self.print_to_log_file("done")
+        # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
+        # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be
+        # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
+        # be used later
+        gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
+        maybe_mkdir_p(gt_nifti_folder)
+        for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
+            shutil.copy(f, gt_nifti_folder)
 
     def run_online_evaluation(self, output, target):
         with torch.no_grad():

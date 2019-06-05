@@ -220,7 +220,7 @@ class NetworkTrainer(object):
                     f.write("\n")
                 successful = True
             except IOError:
-                print("%s: failed to log: ", (datetime.fromtimestamp(timestamp), sys.exc_info()))
+                print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
                 sleep(0.5)
                 ctr += 1
         if also_print_to_console:

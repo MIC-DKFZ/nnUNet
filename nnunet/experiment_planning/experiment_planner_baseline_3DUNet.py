@@ -345,7 +345,6 @@ class ExperimentPlanner(object):
                     print("not using nonzero mask for normalization")
                     use_nonzero_mask_for_norm[i] = False
 
-        # write use_nonzero_mask_for_norm into properties -> will be needed for data augmentation TODO
         for c in self.list_of_cropped_npz_files:
             case_identifier = get_case_identifier_from_npz(c)
             properties = self.load_properties_of_cropped(case_identifier)
