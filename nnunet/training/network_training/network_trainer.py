@@ -43,6 +43,7 @@ class NetworkTrainer(object):
         torch.manual_seed(12345)
         torch.cuda.manual_seed_all(12345)
         self.fp16 = fp16
+        self.amp_initialized = False
 
         if deterministic:
             cudnn.deterministic = True
@@ -305,12 +306,15 @@ class NetworkTrainer(object):
                 self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
 
         self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model['plot_stuff']
+        self.amp_initialized = False
+        self._maybe_init_amp()
 
     def _maybe_init_amp(self):
         # we use fp16 for training only, not inference
         if self.fp16:
-            if amp is not None:
+            if amp is not None and not self.amp_initialized:
                 self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
+                self.amp_initialized = True
             else:
                 self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
                                        "Install it from https://github.com/NVIDIA/apex")
