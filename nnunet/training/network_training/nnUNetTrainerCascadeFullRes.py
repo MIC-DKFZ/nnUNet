@@ -1,5 +1,8 @@
 from multiprocessing.pool import Pool
+from time import sleep
+
 import matplotlib
+from nnunet.postprocessing.connected_components import determine_postprocessing
 from nnunet.training.data_augmentation.default_data_augmentation import get_default_augmentation
 from nnunet.training.dataloading.dataset_loading import DataLoader3D, unpack_dataset
 from nnunet.evaluation.evaluator import aggregate_scores
@@ -232,3 +235,28 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                              json_output_file=join(output_folder, "summary.json"), json_name=job_name,
                              json_author="Fabian", json_description="",
                              json_task=task)
+
+        # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
+        # except the largest connected component for each class. To see if this improves results, we do this for all
+        # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
+        # have this applied during inference as well
+
+        determine_postprocessing(self.output_folder, self.gt_niftis_folder, "validation_raw",
+                                 final_subf_name="validation_postprocessed")
+
+        # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
+        # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be
+        # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
+        # be used later
+        gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
+        maybe_mkdir_p(gt_nifti_folder)
+        for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
+            success = False
+            attempts = 0
+            while not success and attempts < 10:
+                try:
+                    shutil.copy(f, gt_nifti_folder)
+                    success = True
+                except OSError:
+                    attempts += 1
+                    sleep(1)
