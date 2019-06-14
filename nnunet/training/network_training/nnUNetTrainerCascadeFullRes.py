@@ -142,7 +142,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         self.was_initialized = True
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, validation_folder_name='validation'):
+                 use_gaussian=True, override=False, validation_folder_name_base="validation_raw"):
         """
 
         :param do_mirroring:
@@ -162,7 +162,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             self.load_dataset()
             self.do_split()
 
-        output_folder = join(self.output_folder, validation_folder_name)
+        output_folder = join(self.output_folder, validation_folder_name_base)
         maybe_mkdir_p(output_folder)
 
         if do_mirroring:
@@ -241,7 +241,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
         # have this applied during inference as well
 
-        determine_postprocessing(self.output_folder, self.gt_niftis_folder, "validation_raw",
+        determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name_base,
                                  final_subf_name="validation_postprocessed")
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another

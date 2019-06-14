@@ -181,12 +181,12 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # true if new is better
     do_fg_cc = False
-    comp = [i > j for cl in classes for i, j in zip(pp_results['dc_per_class_pp_all'][str(cl)], pp_results['dc_per_class_raw'][str(cl)])]
+    comp = [pp_results['dc_per_class_pp_all'][str(cl)] > pp_results['dc_per_class_raw'][str(cl)] for cl in classes]
     if any(comp):
         # at least one class improved - yay!
         # now check if another got worse
         # true if new is worse
-        any_worse = any([i < j for cl in classes for i, j in zip(pp_results['dc_per_class_pp_all'][str(cl)], pp_results['dc_per_class_raw'][str(cl)])])
+        any_worse = any([pp_results['dc_per_class_pp_all'][str(cl)] < pp_results['dc_per_class_raw'][str(cl)] for cl in classes])
         if not any_worse:
             pp_results['for_which_classes'].append(classes)
             do_fg_cc = True

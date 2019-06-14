@@ -386,7 +386,7 @@ class nnUNetTrainer(NetworkTrainer):
                                        pad_kwargs=self.inference_pad_kwargs)[2]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, override=False):
+                 use_gaussian=True, override=True, validation_folder_name_base="validation_raw"):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
         that selecting models is easier when computing the Dice globally instead of independently for each case and
@@ -418,7 +418,7 @@ class nnUNetTrainer(NetworkTrainer):
             self.do_split()
 
         # predictions as they come from the network go here
-        output_folder = join(self.output_folder, "validation_raw")
+        output_folder = join(self.output_folder, validation_folder_name_base)
         maybe_mkdir_p(output_folder)
 
         if do_mirroring:
@@ -497,8 +497,8 @@ class nnUNetTrainer(NetworkTrainer):
         # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
         # have this applied during inference as well
 
-        determine_postprocessing(self.output_folder, self.gt_niftis_folder, "validation_raw",
-                                 final_subf_name="validation_postprocessed")
+        determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name_base,
+                                 final_subf_name=validation_folder_name_base + "_postprocessed")
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
         # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be

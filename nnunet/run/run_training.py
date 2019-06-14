@@ -106,12 +106,12 @@ if __name__ == "__main__":
 
         if valbest:
             trainer.load_best_checkpoint(train=False)
-            val_folder = "validation_best_epoch"
+            val_folder = "validation_raw_best_epoch"
         else:
-            val_folder = "validation"
+            val_folder = "validation_raw"
 
         # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder)
+        trainer.validate(save_softmax=args.npz, validation_folder_name_base=val_folder)
 
         if network == '3d_lowres':
             trainer.load_best_checkpoint(False)
