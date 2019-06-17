@@ -142,7 +142,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         self.was_initialized = True
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, override=False, validation_folder_name_base="validation_raw"):
+                 use_gaussian=True, overwrite=False, validation_folder_name_base="validation_raw"):
         """
 
         :param do_mirroring:

@@ -97,6 +97,13 @@ def consolidate_folds(output_folder_base):
         for n in niftis:
             shutil.copy(n, join(output_folder_raw))
 
+    # evaluate raw niftis - we could salvage the summary.json from the folds but that's too much work and I am lazy
+    classes = [int(i) for i in postprocessing_jsons[0]['dc_per_class_pp_all'].keys()]
+    niftis = subfiles(output_folder_raw, join=False)
+    test_pred_pairs = [(join(output_folder_base, "gt_niftis", i), join(output_folder_raw, i)) for i in niftis]
+    aggregate_scores(test_pred_pairs, labels=classes, json_output_file=join(output_folder_raw, "summary.json"),
+                     num_threads=8)
+
     determine_postprocessing(output_folder_base, join(output_folder_base, "gt_niftis"), 'cv_niftis_raw',
                              final_subf_name="cv_niftis_postprocessed", processes=8)
 
@@ -113,7 +120,8 @@ def load_for_which_classes(pkl_file):
 
 def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
                              temp_folder="temp",
-                             final_subf_name="validation_final", processes=8):
+                             final_subf_name="validation_final", processes=8,
+                             dice_threshold=0):
     """
     :param base:
     :param gt_labels_folder:
@@ -181,7 +189,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # true if new is better
     do_fg_cc = False
-    comp = [pp_results['dc_per_class_pp_all'][str(cl)] > pp_results['dc_per_class_raw'][str(cl)] for cl in classes]
+    comp = [pp_results['dc_per_class_pp_all'][str(cl)] > (pp_results['dc_per_class_raw'][str(cl)] + dice_threshold) for cl in classes]
     if any(comp):
         # at least one class improved - yay!
         # now check if another got worse
@@ -228,7 +236,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
         dc_pp = validation_result_PP_test[str(c)]['Dice']
         pp_results['dc_per_class_pp_per_class'][str(c)] = dc_pp
 
-        if dc_pp > dc_raw:
+        if dc_pp > (dc_raw + dice_threshold):
             pp_results['for_which_classes'].append(int(c))
 
     pp_results['validation_raw'] = raw_subfolder_name
@@ -262,4 +270,8 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     p.close()
     p.join()
     print("done")
+
+
+if __name__ == "__main__":
+    output_folder_base = "/media/fabian/Results/nnUNetV2/3d_fullres/Task04_Hippocampus/nnUNetTrainer__nnUNetPlans"
 

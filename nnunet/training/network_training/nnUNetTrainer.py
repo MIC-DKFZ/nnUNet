@@ -386,7 +386,7 @@ class nnUNetTrainer(NetworkTrainer):
                                        pad_kwargs=self.inference_pad_kwargs)[2]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, override=True, validation_folder_name_base="validation_raw"):
+                 use_gaussian=True, overwrite=False, validation_folder_name_base="validation_raw"):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
         that selecting models is easier when computing the Dice globally instead of independently for each case and
@@ -435,7 +435,7 @@ class nnUNetTrainer(NetworkTrainer):
             print(k)
             properties = self.dataset[k]['properties']
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
-            if override or (not isfile(join(output_folder, fname + ".nii.gz"))):
+            if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
 
                 transpose_forward = self.plans.get('transpose_forward')
