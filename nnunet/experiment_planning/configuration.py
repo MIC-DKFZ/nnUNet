@@ -16,11 +16,12 @@
 
 # a class in a patient will be set to background if it has less than X times the volume of the minimum volume of
 # that class in the training data
-MIN_SIZE_PER_CLASS_FACTOR = 0.5
+MIN_SIZE_PER_CLASS_FACTOR = 0.5  # not used, ignore this
 TARGET_SPACING_PERCENTILE = 50
 
 FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK = 4
-FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK2 = 6
+FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK2 = 6  # not used, ignore this
+
 RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD = 3  # z is defined as the axis with the highest spacing, also used to
 # determine whether we use 2d or 3d data augmentation
 

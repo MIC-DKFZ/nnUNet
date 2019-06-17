@@ -14,6 +14,7 @@
 
 from copy import deepcopy
 import numpy as np
+from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props_poolLateV2
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, crop
@@ -376,7 +377,7 @@ class ExperimentPlanner(object):
                                            intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
         if self.plans['num_stages'] > 1 and not isinstance(num_threads, (list, tuple)):
-            num_threads = (8, num_threads)
+            num_threads = (default_num_threads, num_threads)
         elif self.plans['num_stages'] == 1 and isinstance(num_threads, (list, tuple)):
             num_threads = num_threads[-1]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,

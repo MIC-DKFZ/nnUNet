@@ -15,6 +15,7 @@
 from multiprocessing.pool import Pool
 import shutil
 import numpy as np
+from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -96,7 +97,7 @@ if __name__ == "__main__":
             out_files.append(join(output_folder, p[:-4] + ".nii.gz"))
             gt_segmentations.append(join(folder_with_gt_segs, p[:-4] + ".nii.gz"))
 
-    p = Pool(8)
+    p = Pool(default_num_threads)
     p.map(merge, zip(files1, files2, property_files, out_files))
     p.close()
     p.join()
@@ -104,12 +105,12 @@ if __name__ == "__main__":
     if not isfile(join(output_folder, "summary.json")) and len(out_files) > 0:
         aggregate_scores(tuple(zip(out_files, gt_segmentations)), labels=plans['all_classes'],
                      json_output_file=join(output_folder, "summary.json"), json_task=task,
-                     json_name=task + "__" + output_folder_base.split("/")[-1], num_threads=8)
+                     json_name=task + "__" + output_folder_base.split("/")[-1], num_threads=default_num_threads)
 
     # now lets also look at postprocessing. We cannot just take what we determined in cross-validation and apply it
     # here because things may have changed and may also be too inconsistent between the two networks
     determine_postprocessing(output_folder_base, folder_with_gt_segs, "ensembled_raw", "temp",
-                             "ensembled_postprocessed", 8, dice_threshold=0)
+                             "ensembled_postprocessed", default_num_threads, dice_threshold=0)
 
     out_dir_all_json = join(network_training_output_dir, "summary_jsons")
     json_out = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))

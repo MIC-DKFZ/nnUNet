@@ -14,6 +14,8 @@
 
 from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing import Pool
+
+from nnunet.configuration import default_num_threads
 from nnunet.paths import splitted_4d_output_dir, cropped_output_dir
 import numpy as np
 import pickle
@@ -23,7 +25,7 @@ from collections import OrderedDict
 
 
 class DatasetAnalyzer(object):
-    def __init__(self, folder_with_cropped_data, overwrite=True, num_processes=8):
+    def __init__(self, folder_with_cropped_data, overwrite=True, num_processes=default_num_threads):
         """
         :param folder_with_cropped_data:
         :param overwrite: If True then precomputed values will not be used and instead recomputed from the data.

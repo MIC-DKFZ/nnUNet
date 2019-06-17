@@ -14,6 +14,7 @@
 
 from collections import OrderedDict
 from batchgenerators.augmentations.utils import resize_segmentation
+from nnunet.configuration import default_num_threads
 from nnunet.preprocessing.cropping import get_case_identifier_from_npz, ImageCropper
 from skimage.transform import resize
 from scipy.ndimage.interpolation import map_coordinates
@@ -281,7 +282,8 @@ class GenericPreprocessor(object):
         with open(os.path.join(output_folder_stage, "%s.pkl" % case_identifier), 'wb') as f:
             pickle.dump(properties, f)
 
-    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2', num_threads=8, force_separate_z=None):
+    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2',
+            num_threads=default_num_threads, force_separate_z=None):
         """
 
         :param target_spacings: list of lists [[1.25, 1.25, 5]]
@@ -324,7 +326,8 @@ class PreprocessorFor2D(GenericPreprocessor):
                                                 intensityproperties)
         self.out_of_plane_axis = out_of_plane_axis
 
-    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2', num_threads=8, force_separate_z=None):
+    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2',
+            num_threads=default_num_threads, force_separate_z=None):
         print("Initializing to run preprocessing")
         print("npz folder:", input_folder_with_cropped_npz)
         print("output_folder:", output_folder)

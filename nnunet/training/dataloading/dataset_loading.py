@@ -17,6 +17,8 @@ from batchgenerators.augmentations.utils import random_crop_2D_image_batched, pa
 import numpy as np
 from batchgenerators.dataloading import SlimDataLoaderBase
 from multiprocessing import Pool
+
+from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 
@@ -52,7 +54,7 @@ def save_as_npz(args):
     np.savez_compressed(npy_file[:-3] + "npz", **{key: d})
 
 
-def unpack_dataset(folder, threads=8, key="data"):
+def unpack_dataset(folder, threads=default_num_threads, key="data"):
     """
     unpacks all npz files in a folder to npy (whatever you want to have unpacked must be saved unter key)
     :param folder:
@@ -67,7 +69,7 @@ def unpack_dataset(folder, threads=8, key="data"):
     p.join()
 
 
-def pack_dataset(folder, threads=8, key="data"):
+def pack_dataset(folder, threads=default_num_threads, key="data"):
     p = Pool(threads)
     npy_files = subfiles(folder, True, None, ".npy", True)
     p.map(save_as_npz, zip(npy_files, [key]*len(npy_files)))

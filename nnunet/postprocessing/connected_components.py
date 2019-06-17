@@ -15,6 +15,7 @@ from copy import deepcopy
 from multiprocessing.pool import Pool
 
 import numpy as np
+from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from scipy.ndimage import label
 import SimpleITK as sitk
@@ -102,10 +103,10 @@ def consolidate_folds(output_folder_base, validation_folder_name='validation_raw
     niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
     test_pred_pairs = [(join(output_folder_base, "gt_niftis", i), join(output_folder_raw, i)) for i in niftis]
     aggregate_scores(test_pred_pairs, labels=classes, json_output_file=join(output_folder_raw, "summary.json"),
-                     num_threads=8)
+                     num_threads=default_num_threads)
 
     determine_postprocessing(output_folder_base, join(output_folder_base, "gt_niftis"), 'cv_niftis_raw',
-                             final_subf_name="cv_niftis_postprocessed", processes=8)
+                             final_subf_name="cv_niftis_postprocessed", processes=default_num_threads)
 
 
 def load_for_which_classes(pkl_file):
@@ -120,7 +121,7 @@ def load_for_which_classes(pkl_file):
 
 def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
                              temp_folder="temp",
-                             final_subf_name="validation_final", processes=8,
+                             final_subf_name="validation_final", processes=default_num_threads,
                              dice_threshold=0):
     """
     :param base:

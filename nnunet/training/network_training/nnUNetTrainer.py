@@ -5,6 +5,7 @@ import matplotlib
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.network_architecture.generic_UNet import Generic_UNet
@@ -428,7 +429,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         pred_gt_tuples = []
 
-        export_pool = Pool(8)
+        export_pool = Pool(default_num_threads)
         results = []
 
         for k in self.dataset_val.keys():
@@ -491,7 +492,7 @@ class nnUNetTrainer(NetworkTrainer):
                              json_output_file=join(output_folder, "summary.json"),
                              json_name=job_name + " val tiled %s" % (str(tiled)),
                              json_author="Fabian",
-                             json_task=task, num_threads=8)
+                             json_task=task, num_threads=default_num_threads)
 
         # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
         # except the largest connected component for each class. To see if this improves results, we do this for all

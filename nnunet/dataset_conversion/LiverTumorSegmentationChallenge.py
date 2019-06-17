@@ -17,6 +17,7 @@ import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing import Pool
 import numpy as np
+from nnunet.configuration import default_num_threads
 from scipy.ndimage import label
 
 
@@ -90,7 +91,7 @@ if __name__ == "__main__":
 
     nii_files_ts = subfiles(test_dir, True, "test-volume", "nii", True)
 
-    p = Pool(8)
+    p = Pool(default_num_threads)
     train_ids = p.map(load_save_train, zip(nii_files_tr_data, nii_files_tr_seg))
     test_ids = p.map(load_save_test, nii_files_ts)
     p.close()

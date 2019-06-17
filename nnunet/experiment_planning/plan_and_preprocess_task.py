@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.find_classes_in_slice import add_classes_in_slice_info
 from nnunet.preprocessing.cropping import ImageCropper
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -50,7 +50,7 @@ def split_4d(task_string):
 
     shutil.copytree(join(base_folder, "labelsTr"), join(output_folder, "labelsTr"))
 
-    p = Pool(8)
+    p = Pool(default_num_threads)
     p.starmap(split_4d_nifti, zip(files, output_dirs))
     p.close()
     p.join()
@@ -97,7 +97,7 @@ def get_caseIDs_from_splitted_dataset_folder(folder):
     return files
 
 
-def crop(task_string, override=False, num_threads=8):
+def crop(task_string, override=False, num_threads=default_num_threads):
     cropped_out_dir = join(cropped_output_dir, task_string)
     maybe_mkdir_p(cropped_out_dir)
 
@@ -113,13 +113,13 @@ def crop(task_string, override=False, num_threads=8):
     shutil.copy(join(splitted_4d_output_dir, task_string, "dataset.json"), cropped_out_dir)
 
 
-def analyze_dataset(task_string, override=False, collect_intensityproperties=True, num_processes=8):
+def analyze_dataset(task_string, override=False, collect_intensityproperties=True, num_processes=default_num_threads):
     cropped_out_dir = join(cropped_output_dir, task_string)
     dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=override, num_processes=num_processes)
     _ = dataset_analyzer.analyze_dataset(collect_intensityproperties)
 
 
-def plan_and_preprocess(task_string, num_threads=8, no_preprocessing=False):
+def plan_and_preprocess(task_string, num_threads=default_num_threads, no_preprocessing=False):
     from nnunet.experiment_planning.experiment_planner_baseline_2DUNet import ExperimentPlanner2D
     from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 
@@ -144,7 +144,7 @@ def plan_and_preprocess(task_string, num_threads=8, no_preprocessing=False):
     # This is done for all data so that if we wanted to use them with 2D we could do so
 
     if not no_preprocessing:
-        p = Pool(8)
+        p = Pool(default_num_threads)
 
         # if there is more than one my_data_identifier (different brnaches) then this code will run for all of them if
         # they start with the same string. not problematic, but not pretty
