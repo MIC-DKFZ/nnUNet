@@ -422,7 +422,11 @@ class NetworkTrainer(object):
                 self.val_eval_criterion_MA = self.all_val_eval_metrics[-1]
         else:
             if len(self.all_val_eval_metrics) == 0:
-                self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA + (
+                """
+                We here use alpha * old - (1 - alpha) * new because new in this case is the vlaidation loss and lower 
+                is better, so we need to negate it. 
+                """
+                self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA - (
                             1 - self.val_eval_criterion_alpha) * \
                                              self.all_val_losses[-1]
             else:
