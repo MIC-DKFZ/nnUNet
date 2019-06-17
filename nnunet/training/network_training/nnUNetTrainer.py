@@ -435,7 +435,8 @@ class nnUNetTrainer(NetworkTrainer):
             print(k)
             properties = self.dataset[k]['properties']
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
-            if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))):
+            if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
+                    (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
 
                 transpose_forward = self.plans.get('transpose_forward')
@@ -496,7 +497,7 @@ class nnUNetTrainer(NetworkTrainer):
         # except the largest connected component for each class. To see if this improves results, we do this for all
         # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
         # have this applied during inference as well
-
+        self.print_to_log_file("determining postprocessing")
         determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name_base,
                                  final_subf_name=validation_folder_name_base + "_postprocessed")
 

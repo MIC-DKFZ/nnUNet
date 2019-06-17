@@ -64,7 +64,7 @@ def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_
     return image
 
 
-def consolidate_folds(output_folder_base):
+def consolidate_folds(output_folder_base, validation_folder_name='validation_raw'):
     # TODO just assume validation folder names, skip dependency on pp.json files
     """
     you must have run the validation from nnUNetV2, otherwise postprocessing.json files will be missing
@@ -77,8 +77,7 @@ def consolidate_folds(output_folder_base):
     assert all([isdir(i) for i in folders_folds]), "some folds are missing"
 
     # now for each fold, read the postprocessing json. this will tell us what the name of the validation folder is
-    postprocessing_jsons = [load_json(join(output_folder_base, "fold_%d" % f, "postprocessing.json")) for f in folds]
-    validation_raw_folders = [join(output_folder_base, "fold_%d" % i, postprocessing_jsons[i]['validation_raw']) for i in folds]
+    validation_raw_folders = [join(output_folder_base, "fold_%d" % i, validation_folder_name) for i in folds]
 
     # count niftis in there
     num_niftis = 0
@@ -98,8 +97,9 @@ def consolidate_folds(output_folder_base):
             shutil.copy(n, join(output_folder_raw))
 
     # evaluate raw niftis - we could salvage the summary.json from the folds but that's too much work and I am lazy
-    classes = [int(i) for i in postprocessing_jsons[0]['dc_per_class_pp_all'].keys()]
-    niftis = subfiles(output_folder_raw, join=False)
+    summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results']['mean']
+    classes = [int(i) for i in summary_fold0.keys()]
+    niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
     test_pred_pairs = [(join(output_folder_base, "gt_niftis", i), join(output_folder_raw, i)) for i in niftis]
     aggregate_scores(test_pred_pairs, labels=classes, json_output_file=join(output_folder_raw, "summary.json"),
                      num_threads=8)
@@ -143,6 +143,9 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # these are all the files we will be dealing with
     fnames = subfiles(join(base, raw_subfolder_name), suffix=".nii.gz", join=False)
+
+    if isdir(join(base, temp_folder)):
+        shutil.rmtree(join(base, temp_folder))
 
     # make output and temp dir
     maybe_mkdir_p(join(base, temp_folder))
@@ -273,5 +276,5 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
 
 if __name__ == "__main__":
-    output_folder_base = "/media/fabian/Results/nnUNetV2/3d_fullres/Task04_Hippocampus/nnUNetTrainer__nnUNetPlans"
+    output_folder_base = "/media/fabian/Results/nnUNetV2/3d_fullres/Task03_Liver/nnUNetTrainer__nnUNetPlans"
 

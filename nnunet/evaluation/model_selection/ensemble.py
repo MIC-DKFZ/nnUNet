@@ -40,6 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("training_output_folder2")
     parser.add_argument("output_folder")
     parser.add_argument("task") # we need to know this for gt_segmentations
+    parser.add_argument("validation_folder")
 
     args = parser.parse_args()
 
@@ -48,6 +49,7 @@ if __name__ == "__main__":
     output_folder_base = args.output_folder
     output_folder = join(output_folder_base, "ensembled_raw")
     task = args.task
+    validation_folder = args.validation_folder
 
     # only_keep_largest_connected_component is the same for all stages
     dataset_directory = join(preprocessing_output_dir, task)
@@ -66,8 +68,8 @@ if __name__ == "__main__":
     folds = np.arange(5)
 
     for f in folds:
-        validation_folder_net1 = join(training_output_folder1, "fold_%d" % f, "validation")
-        validation_folder_net2 = join(training_output_folder2, "fold_%d" % f, "validation")
+        validation_folder_net1 = join(training_output_folder1, "fold_%d" % f, validation_folder)
+        validation_folder_net2 = join(training_output_folder2, "fold_%d" % f, validation_folder)
         patient_identifiers1 = subfiles(validation_folder_net1, False, None, 'npz', True)
         patient_identifiers2 = subfiles(validation_folder_net2, False, None, 'npz', True)
         # we don't do postprocessing anymore so there should not be any of that noPostProcess
@@ -107,7 +109,7 @@ if __name__ == "__main__":
     # now lets also look at postprocessing. We cannot just take what we determined in cross-validation and apply it
     # here because things may have changed and may also be too inconsistent between the two networks
     determine_postprocessing(output_folder_base, folder_with_gt_segs, "ensembled_raw", "temp",
-                             "ensembled_postprocessed", True, 8)
+                             "ensembled_postprocessed", 8, dice_threshold=0)
 
     out_dir_all_json = join(network_training_output_dir, "summary_jsons")
     json_out = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))

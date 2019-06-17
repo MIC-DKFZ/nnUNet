@@ -39,10 +39,12 @@ if __name__ == "__main__":
                                            "models in one json each for easy interpretability")
     parser.add_argument("-m", '--models', nargs="+", required=False, default=['2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres'])
     parser.add_argument("-t", '--task_ids', nargs="+", required=False, default=list(range(100)))
+    parser.add_argument("-v", '--validation_folder', required=False, default="validation_raw")
 
     args = parser.parse_args()
-    tasks = args.task_id
+    tasks = [int(i) for i in args.task_ids]
     models = args.models
+    validation_folder = args.validation_folder
 
     out_dir_all_json = join(network_training_output_dir, "summary_jsons")
 
@@ -54,7 +56,7 @@ if __name__ == "__main__":
 
     # for each task, run ensembling using all combinations of two models
     for t in tasks:
-        json_files_task = [i for i in subfiles(out_dir_all_json, prefix="Task%02.0d_" % t) if i.find("ensemble") == -1]
+        json_files_task = [i for i in subfiles(out_dir_all_json, prefix="Task%02.0d_" % t) if i.find("ensemble") == -1 and i.endswith(validation_folder + ".json")]
         if len(json_files_task) > 0:
             task_name = json_files_task[0].split("/")[-1].split("__")[0]
             print(task_name)
@@ -65,13 +67,13 @@ if __name__ == "__main__":
                     # task__configuration__trainer__plans
                     network1 = json_files_task[i].split("/")[-1].split("__")
                     network1[-1] = network1[-1].split(".")[0]
-                    task, configuration, trainer, plans_identifier = network1
+                    task, configuration, trainer, plans_identifier, _ = network1
                     network1_folder = get_output_folder(configuration, task, trainer, plans_identifier)
                     name1 = configuration + "__" + trainer + "__" + plans_identifier
 
                     network2 = json_files_task[j].split("/")[-1].split("__")
                     network2[-1] = network2[-1].split(".")[0]
-                    task, configuration, trainer, plans_identifier = network2
+                    task, configuration, trainer, plans_identifier, _ = network2
                     network2_folder = get_output_folder(configuration, task, trainer, plans_identifier)
                     name2 = configuration + "__" + trainer + "__" + plans_identifier
 
@@ -82,7 +84,7 @@ if __name__ == "__main__":
                     output_folder = join(network_training_output_dir, "ensembles", task_name, "ensemble_" + name1 + "--" + name2)
                     # now ensemble
                     print(network1_folder, network2_folder)
-                    p = call(["python", join(nnunet.__path__[0], "evaluation/model_selection/ensemble.py"), network1_folder, network2_folder, output_folder, task_name])
+                    p = call(["python", join(nnunet.__path__[0], "evaluation/model_selection/ensemble.py"), network1_folder, network2_folder, output_folder, task_name, validation_folder])
 
     # now rerun adding the mean foreground dice
     json_files = subfiles(out_dir_all_json, suffix=".json", join=True)
