@@ -54,16 +54,19 @@ class SegmentationNetwork(NeuralNetwork):
         """
         :param x: (c, x, y , z)
         :param do_mirroring: whether or not to do test time data augmentation by mirroring
-        :param num_repeats: how often should each patch be predicted? This MUST be 1 unless you are using monte carlo dropout sampling (for which you also must set use_train_mode=True)
-        :param use_train_mode: sets the model to train mode. This functionality is kinda broken because it should not set batch norm to train mode! Do not use!
+        :param num_repeats: how often should each patch be predicted? This MUST be 1 unless you are using monte carlo
+        dropout sampling (for which you also must set use_train_mode=True)
+        :param use_train_mode: sets the model to train mode. This functionality is kinda broken because it should not
+        set batch norm to train mode! Do not use!
         :param batch_size: also used for monte carlo sampling, leave it at 1
         :param mirror_axes: the spatial axes along which the mirroring takes place, if applicable
-        :param tiled:
-        :param tile_in_z:
-        :param step:
-        :param patch_size:
-        :param regions_class_order:
-        :param use_gaussian:
+        :param tiled: if False then prediction is fully convolutional (careful with large images!). Else we use sliding window
+        :param tile_in_z: what a bad name. If x is (c, x, y, z), then this sets whether we do for sliding window the
+        axis x or whether we do that one fully convolutionally. I suggest you don't use this (set tile_in_z=True)
+        :param step: how large is the step size for sliding window? 2 = patch_size // 2 for each axis
+        :param patch_size: if tiled prediction, how large are the patches that we use?
+        :param regions_class_order: Don't use this. Fabian only.
+        :param use_gaussian: set this to True to prevent stitching artifacts
         :return:
         """
         print("debug: mirroring", do_mirroring, "mirror_axes", mirror_axes)
