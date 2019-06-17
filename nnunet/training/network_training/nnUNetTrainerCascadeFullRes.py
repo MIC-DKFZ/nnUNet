@@ -11,7 +11,6 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 from nnunet.utilities.one_hot_encoding import to_one_hot
 import shutil
-
 matplotlib.use("agg")
 
 
