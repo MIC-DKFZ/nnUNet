@@ -118,7 +118,22 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True,
-                  overwrite_existing=False):
+                  overwrite_existing=False, fp16=None):
+    """
+
+    :param model:
+    :param list_of_lists:
+    :param output_filenames:
+    :param folds:
+    :param save_npz:
+    :param num_threads_preprocessing:
+    :param num_threads_nifti_save:
+    :param segs_from_prev_stage:
+    :param do_tta:
+    :param overwrite_existing:
+    :param fp16: if None then we take no action. If True/False we overwrite what the model has in its init
+    :return:
+    """
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
@@ -150,7 +165,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
     torch.cuda.empty_cache()
 
     print("loading parameters for folds,", folds)
-    trainer, params = load_model_and_checkpoint_files(model, folds)
+    trainer, params = load_model_and_checkpoint_files(model, folds, fp16=fp16)
 
     print("starting preprocessing generator")
     preprocessing = preprocess_multithreaded(trainer, list_of_lists, cleaned_output_files, num_threads_preprocessing,
@@ -225,9 +240,10 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=True):
+                        overwrite_existing=True, fp16=False):
     """
-    here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
+        here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
+
     :param model:
     :param input_folder:
     :param output_folder:
@@ -239,6 +255,8 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
     :param part_id:
     :param num_parts:
     :param tta:
+    :param overwrite_existing:
+    :param fp16:
     :return:
     """
     maybe_mkdir_p(output_folder)
@@ -260,7 +278,7 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
         lowres_segmentations = None
     return predict_cases(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds, save_npz,
                          num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
-                         tta, overwrite_existing=overwrite_existing)
+                         tta, overwrite_existing=overwrite_existing, fp16=fp16)
 
 
 if __name__ == "__main__":
@@ -315,6 +333,8 @@ if __name__ == "__main__":
                                                                            "augmentation (speedup of factor "
                                                                            "4(2D)/8(3D)), "
                                                                            "lower quality segmentations")
+    parser.add_argument("--fp16", required=False, help="Flag for inference in FP16, default = off. DO NOT USE! It "
+                                                       "doesn't work", action="store_true")
     parser.add_argument("--overwrite_existing", required=False, type=int, default=1, help="Set this to 0 if you need "
                                                                                           "to resume a previous "
                                                                                           "prediction. Default: 1 "
@@ -334,6 +354,11 @@ if __name__ == "__main__":
     num_threads_preprocessing = args.num_threads_preprocessing
     num_threads_nifti_save = args.num_threads_nifti_save
     tta = args.tta
+    fp16 = args.fp16
+
+    if fp16:
+        raise RuntimeError("FP16 support for inference does not work yet. Sorry :-/")
+
     overwrite = args.overwrite_existing
 
     if lowres_segmentations == "None":
@@ -365,4 +390,4 @@ if __name__ == "__main__":
 
     predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=overwrite)
+                        overwrite_existing=overwrite, fp16=fp16)
