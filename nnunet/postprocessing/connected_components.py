@@ -115,7 +115,7 @@ def load_for_which_classes(pkl_file):
     :param pkl_file:
     :return:
     '''
-    a = load_pickle(pkl_file)
+    a = load_json(pkl_file)
     return a['for_which_classes']
 
 

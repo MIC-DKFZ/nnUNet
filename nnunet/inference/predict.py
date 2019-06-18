@@ -36,9 +36,10 @@ def predict_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_fr
             output_file = output_files[i]
             d, _, dct = preprocess_fn(l)
             if segs_from_prev_stage[i] is not None:
-                assert isfile(segs_from_prev_stage[i]) and segs_from_prev_stage[i].endswith(".nii.gz"), "segs_from_prev_stage" \
-                                                                                                  " must point to a " \
-                                                                                                  "segmentation file"
+                assert isfile(segs_from_prev_stage[i]) and segs_from_prev_stage[i].endswith(
+                    ".nii.gz"), "segs_from_prev_stage" \
+                                " must point to a " \
+                                "segmentation file"
                 seg_prev = sitk.GetArrayFromImage(sitk.ReadImage(segs_from_prev_stage[i]))
                 # check to see if shapes match
                 img = sitk.GetArrayFromImage(sitk.ReadImage(l[0]))
@@ -109,7 +110,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
     finally:
         for p in processes:
             if p.is_alive():
-                p.terminate() # this should not happen but better safe than sorry right
+                p.terminate()  # this should not happen but better safe than sorry right
             p.join()
 
         q.close()
@@ -118,7 +119,6 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True,
                   overwrite_existing=False):
-
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
@@ -171,8 +171,9 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         for p in params:
             trainer.load_checkpoint_ram(p, False)
             softmax.append(trainer.predict_preprocessed_data_return_softmax(d, do_tta, 1, False, 1,
-                                                                       trainer.data_aug_params['mirror_axes'],
-                                                             True, True, 2, trainer.patch_size, True)[None])
+                                                                            trainer.data_aug_params['mirror_axes'],
+                                                                            True, True, 2, trainer.patch_size, True)[
+                               None])
 
         softmax = np.vstack(softmax)
         softmax_mean = np.mean(softmax, 0)
@@ -190,26 +191,28 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
         filename or np.ndarray and will handle this automatically"""
         if np.prod(softmax_mean.shape) > (2e9 / 4 * 0.9):  # *0.9 just to be save
-            print("This output is too large for python process-process communication. Saving output temporarily to disk")
+            print(
+                "This output is too large for python process-process communication. Saving output temporarily to disk")
             np.save(output_filename[:-7] + ".npy", softmax_mean)
             softmax_mean = output_filename[:-7] + ".npy"
 
         results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                           ((softmax_mean, output_filename, dct, 1, None, None, None, npz_file), )
-                                           ))
+                                          ((softmax_mean, output_filename, dct, 1, None, None, None, npz_file),)
+                                          ))
 
     _ = [i.get() for i in results]
 
     # now apply postprocessing
     # first load the postprocessing properties if they are present. Else raise a well visible warning
-    pp_file = join(model, "postprocessing_consolidated.pkl")
+    results = []
+    pp_file = join(model, "postprocessing.json")
     if isfile(pp_file):
         # for_which_classes stores for which of the classes everything but the largest connected component needs to be
         # removed
         for_which_classes = load_for_which_classes(pp_file)
-        results = pool.starmap_async(load_remove_save,
-                                     zip(output_filenames, output_filenames,
-                                         [for_which_classes] * len(output_filenames)))
+        results.append(pool.starmap_async(load_remove_save,
+                                          zip(output_filenames, output_filenames,
+                                              [for_which_classes] * len(output_filenames))))
         _ = [i.get() for i in results]
     else:
         print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
@@ -221,7 +224,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
 
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
-                                     num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
+                        num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
                         overwrite_existing=True):
     """
     here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
@@ -263,16 +266,17 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", '--input_folder', help="Must contain all modalities for each patient in the correct"
-                                                           " order (same as training). Files must be named "
-                                                           "CASENAME_XXXX.nii.gz where XXXX is the modality "
-                                                           "identifier (0000, 0001, etc)", required=True)
+                                                     " order (same as training). Files must be named "
+                                                     "CASENAME_XXXX.nii.gz where XXXX is the modality "
+                                                     "identifier (0000, 0001, etc)", required=True)
     parser.add_argument('-o', "--output_folder", required=True, help="folder for saving predictions")
-    parser.add_argument('-m', '--model_output_folder', help='model output folder. Will automatically discover the folds '
-                                                            'that were '
-                                              'run and use those as an ensemble', required=True)
+    parser.add_argument('-m', '--model_output_folder',
+                        help='model output folder. Will automatically discover the folds '
+                             'that were '
+                             'run and use those as an ensemble', required=True)
     parser.add_argument('-f', '--folds', nargs='+', default='None', help="folds to use for prediction. Default is None "
-                                                                       "which means that folds will be detected "
-                                                                       "automatically in the model output folder")
+                                                                         "which means that folds will be detected "
+                                                                         "automatically in the model output folder")
     parser.add_argument('-z', '--save_npz', required=False, action='store_true', help="use this if you want to ensemble"
                                                                                       " these predictions with those of"
                                                                                       " other models. Softmax "
@@ -282,8 +286,8 @@ if __name__ == "__main__":
                                                                                       "between output_folders with "
                                                                                       "merge_predictions.py")
     parser.add_argument('-l', '--lowres_segmentations', required=False, default='None', help="if model is the highres "
-                         "stage of the cascade then you need to use -l to specify where the segmentations of the "
-                         "corresponding lowres unet are. Here they are required to do a prediction")
+                                                                                             "stage of the cascade then you need to use -l to specify where the segmentations of the "
+                                                                                             "corresponding lowres unet are. Here they are required to do a prediction")
     parser.add_argument("--part_id", type=int, required=False, default=0, help="Used to parallelize the prediction of "
                                                                                "the folder over several GPUs. If you "
                                                                                "want to use n GPUs to predict this "
@@ -292,20 +296,21 @@ if __name__ == "__main__":
                                                                                "--num_parts=n (each with a different "
                                                                                "GPU (for example via "
                                                                                "CUDA_VISIBLE_DEVICES=X)")
-    parser.add_argument("--num_parts", type=int, required=False, default=1, help="Used to parallelize the prediction of "
-                                                                               "the folder over several GPUs. If you "
-                                                                               "want to use n GPUs to predict this "
-                                                                               "folder you need to run this command "
-                                                                               "n times with --part_id=0, ... n-1 and "
-                                                                               "--num_parts=n (each with a different "
-                                                                               "GPU (via "
-                                                                               "CUDA_VISIBLE_DEVICES=X)")
+    parser.add_argument("--num_parts", type=int, required=False, default=1,
+                        help="Used to parallelize the prediction of "
+                             "the folder over several GPUs. If you "
+                             "want to use n GPUs to predict this "
+                             "folder you need to run this command "
+                             "n times with --part_id=0, ... n-1 and "
+                             "--num_parts=n (each with a different "
+                             "GPU (via "
+                             "CUDA_VISIBLE_DEVICES=X)")
     parser.add_argument("--num_threads_preprocessing", required=False, default=6, type=int, help=
-                        "Determines many background processes will be used for data preprocessing. Reduce this if you "
-                        "run into out of memory (RAM) problems. Default: 6")
+    "Determines many background processes will be used for data preprocessing. Reduce this if you "
+    "run into out of memory (RAM) problems. Default: 6")
     parser.add_argument("--num_threads_nifti_save", required=False, default=2, type=int, help=
-                        "Determines many background processes will be used for segmentation export. Reduce this if you "
-                        "run into out of memory (RAM) problems. Default: 2")
+    "Determines many background processes will be used for segmentation export. Reduce this if you "
+    "run into out of memory (RAM) problems. Default: 2")
     parser.add_argument("--tta", required=False, type=int, default=1, help="Set to 0 to disable test time data "
                                                                            "augmentation (speedup of factor "
                                                                            "4(2D)/8(3D)), "
@@ -361,4 +366,3 @@ if __name__ == "__main__":
     predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
                         overwrite_existing=overwrite)
-
