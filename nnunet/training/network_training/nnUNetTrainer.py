@@ -18,6 +18,7 @@ from nnunet.inference.segmentation_export import save_segmentation_nifti_from_so
 from nnunet.evaluation.evaluator import aggregate_scores
 from multiprocessing import Pool
 from nnunet.evaluation.metrics import ConfusionMatrix
+
 matplotlib.use("agg")
 from collections import OrderedDict
 
@@ -77,8 +78,8 @@ class nnUNetTrainer(NetworkTrainer):
 
         self.dl_tr = self.dl_val = None
         self.num_input_channels = self.num_classes = self.net_pool_per_axis = self.patch_size = self.batch_size = \
-          self.threeD = self.base_num_features = self.intensity_properties = self.normalization_schemes = \
-          self.net_num_pool_op_kernel_sizes = self.net_conv_kernel_sizes = None  # loaded automatically from plans_file
+            self.threeD = self.base_num_features = self.intensity_properties = self.normalization_schemes = \
+            self.net_num_pool_op_kernel_sizes = self.net_conv_kernel_sizes = None  # loaded automatically from plans_file
         self.basic_generator_patch_size = self.data_aug_params = None
 
         self.batch_dice = batch_dice
@@ -187,8 +188,9 @@ class nnUNetTrainer(NetworkTrainer):
                 unpack_dataset(self.folder_with_preprocessed_data)
                 self.print_to_log_file("done")
             else:
-                self.print_to_log_file("INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
-                      "will wait all winter for your model to finish!")
+                self.print_to_log_file(
+                    "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
+                    "will wait all winter for your model to finish!")
             self.tr_gen, self.val_gen = get_default_augmentation(self.dl_tr, self.dl_val,
                                                                  self.data_aug_params[
                                                                      'patch_size_for_spatialtransform'],
@@ -200,7 +202,7 @@ class nnUNetTrainer(NetworkTrainer):
         else:
             pass
         self.initialize_network_optimizer_and_scheduler()
-        #assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
+        # assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         self.was_initialized = True
 
     def initialize_network_optimizer_and_scheduler(self):
@@ -208,8 +210,8 @@ class nnUNetTrainer(NetworkTrainer):
         This is specific to the U-Net and must be adapted for other network architectures
         :return:
         """
-        #self.print_to_log_file(self.net_num_pool_op_kernel_sizes)
-        #self.print_to_log_file(self.net_conv_kernel_sizes)
+        # self.print_to_log_file(self.net_num_pool_op_kernel_sizes)
+        # self.print_to_log_file(self.net_conv_kernel_sizes)
 
         net_numpool = len(self.net_num_pool_op_kernel_sizes)
 
@@ -230,9 +232,12 @@ class nnUNetTrainer(NetworkTrainer):
                                     2, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, False, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        self.optimizer = torch.optim.Adam(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay, amsgrad=True)
-        self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.2, patience=self.lr_scheduler_patience,
-                                                           verbose=True, threshold=self.lr_scheduler_eps, threshold_mode="abs")
+        self.optimizer = torch.optim.Adam(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+                                          amsgrad=True)
+        self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.2,
+                                                           patience=self.lr_scheduler_patience,
+                                                           verbose=True, threshold=self.lr_scheduler_eps,
+                                                           threshold_mode="abs")
         self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
@@ -279,7 +284,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.net_num_pool_op_kernel_sizes = stage_plans['pool_op_kernel_sizes']
         self.net_conv_kernel_sizes = stage_plans['conv_kernel_sizes']
 
-        self.pad_all_sides = None# self.patch_size
+        self.pad_all_sides = None  # self.patch_size
         self.intensity_properties = plans['dataset_properties']['intensityproperties']
         self.normalization_schemes = plans['normalization_schemes']
         self.base_num_features = plans['base_num_features']
@@ -289,7 +294,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.use_mask_for_norm = plans['use_mask_for_norm']
         self.only_keep_largest_connected_component = plans['keep_only_largest_region']
         self.min_region_size_per_class = plans['min_region_size_per_class']
-        self.min_size_per_class = None # DONT USE THIS. plans['min_size_per_class']
+        self.min_size_per_class = None  # DONT USE THIS. plans['min_size_per_class']
 
         if len(self.patch_size) == 2:
             self.threeD = False
@@ -314,11 +319,11 @@ class nnUNetTrainer(NetworkTrainer):
                                   pad_mode="constant", pad_sides=self.pad_all_sides)
         else:
             dl_tr = DataLoader2D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
-                                 transpose=self.plans.get('transpose_forward'),
+                                 transpose=None,  # self.plans.get('transpose_forward'),
                                  oversample_foreground_percent=self.oversample_foreground_percent,
                                  pad_mode="constant", pad_sides=self.pad_all_sides)
             dl_val = DataLoader2D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size,
-                                  transpose=self.plans.get('transpose_forward'),
+                                  transpose=None,  # self.plans.get('transpose_forward'),
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides)
         return dl_tr, dl_val
@@ -338,7 +343,8 @@ class nnUNetTrainer(NetworkTrainer):
                                              self.intensity_properties)
 
         d, s, properties = preprocessor.preprocess_test_case(input_files,
-                                                             self.plans['plans_per_stage'][self.stage]['current_spacing'])
+                                                             self.plans['plans_per_stage'][self.stage][
+                                                                 'current_spacing'])
         return d, s, properties
 
     def preprocess_predict_nifti(self, input_files, output_file=None, softmax_ouput_file=None):
@@ -352,8 +358,14 @@ class nnUNetTrainer(NetworkTrainer):
         print("preprocessing...")
         d, s, properties = self.preprocess_patient(input_files)
         print("predicting...")
-        pred = self.predict_preprocessed_data_return_softmax(d, True, 1, False, 1, (0, 1, 2), True, True, 2,
-                                                             self.patch_size, True)  # TODO use da params for mirror
+        pred = self.predict_preprocessed_data_return_softmax(d, self.data_aug_params["mirror"], 1, False, 1,
+                                                             self.data_aug_params['mirror_axes'], True, True, 2,
+                                                             self.patch_size, True)
+        transpose_forward = self.plans.get('transpose_forward')
+        if transpose_forward is not None:
+            transpose_backward = self.plans.get('transpose_backward')
+            pred = pred.transpose([0] + [i + 1 for i in transpose_backward])
+
         print("resampling to original spacing and nifti export...")
         save_segmentation_nifti_from_softmax(pred, output_file, properties, 3, None, None, None, softmax_ouput_file,
                                              None)
@@ -431,16 +443,14 @@ class nnUNetTrainer(NetworkTrainer):
         global_fp = OrderedDict()
         global_fn = OrderedDict()
 
+        transpose_backward = self.plans.get('transpose_backward')
+
         for k in self.dataset_val.keys():
             print(k)
             properties = self.dataset[k]['properties']
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
             if override or (not isfile(join(output_folder, fname + ".nii.gz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
-
-                transpose_forward = self.plans.get('transpose_forward')
-                if transpose_forward is not None:
-                    data = data.transpose([0] + [i+1 for i in transpose_forward])
 
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
@@ -462,15 +472,16 @@ class nnUNetTrainer(NetworkTrainer):
                             global_fp[l] = 0
                         if l not in global_tp.keys():
                             global_tp[l] = 0
-                        conf = ConfusionMatrix((predicted_segmentation == l).astype(int), (gt_segmentation == l).astype(int))
+                        conf = ConfusionMatrix((predicted_segmentation == l).astype(int),
+                                               (gt_segmentation == l).astype(int))
                         conf.compute()
                         global_fn[l] += conf.fn
                         global_fp[l] += conf.fp
                         global_tp[l] += conf.tp
 
-                if transpose_forward is not None:
+                if transpose_backward is not None:
                     transpose_backward = self.plans.get('transpose_backward')
-                    softmax_pred = softmax_pred.transpose([0] + [i+1 for i in transpose_backward])
+                    softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in transpose_backward])
 
                 if save_softmax:
                     softmax_fname = join(output_folder, fname + ".npz")
@@ -484,16 +495,16 @@ class nnUNetTrainer(NetworkTrainer):
                 patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will 
                 then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
                 filename or np.ndarray and will handle this automatically"""
-                if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.9): # *0.9 just to be save
+                if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.9):  # *0.9 just to be save
                     np.save(join(output_folder, fname + ".npy"), softmax_pred)
                     softmax_pred = join(output_folder, fname + ".npy")
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                          properties, 3, None, None, None, softmax_fname, None),
+                                                           properties, 3, None, None, None, softmax_fname, None),
                                                           )
                                                          )
                                )
-                #save_segmentation_nifti_from_softmax(softmax_pred, join(output_folder, fname + ".nii.gz"),
+                # save_segmentation_nifti_from_softmax(softmax_pred, join(output_folder, fname + ".nii.gz"),
                 #                                               properties, 3, None, None,
                 #                                               None,
                 #                                               softmax_fname,
@@ -548,7 +559,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.online_eval_fp = np.sum(self.online_eval_fp, 0)
         self.online_eval_fn = np.sum(self.online_eval_fn, 0)
 
-        global_dc_per_class = [i for i in [2 * i / (2*i + j + k) for i, j, k in
+        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
                                            zip(self.online_eval_tp, self.online_eval_fp, self.online_eval_fn)]
                                if not np.isnan(i)]
         self.all_val_eval_metrics.append(np.mean(global_dc_per_class))
@@ -569,4 +580,3 @@ class nnUNetTrainer(NetworkTrainer):
         info['plans'] = self.plans
 
         write_pickle(info, fname + ".pkl")
-

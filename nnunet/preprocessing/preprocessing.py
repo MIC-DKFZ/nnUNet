@@ -27,6 +27,7 @@ def get_do_separate_z(spacing):
     do_separate_z = (np.max(spacing) / np.min(spacing)) > RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
     return do_separate_z
 
+
 def get_lowres_axis(new_spacing):
     axis = np.where(max(new_spacing) / np.array(new_spacing) == 1)[0]  # find which axis is anisotropic
     return axis
@@ -143,7 +144,7 @@ def resample_data_or_seg(data, new_shape, is_seg, axis=None, order=3, do_separat
 
                     # The following few lines are blatantly copied and modified from sklearn's resize()
                     rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
-                    orig_rows, orig_cols, orig_dim = reshaped_data.shape#data[c].shape[0], reshaped_data.shape[1], reshaped_data.shape[2]
+                    orig_rows, orig_cols, orig_dim = reshaped_data.shape
 
                     row_scale = float(orig_rows) / rows
                     col_scale = float(orig_cols) / cols
@@ -267,7 +268,7 @@ class GenericPreprocessor(object):
         return data.astype(np.float32), seg, properties
 
     def _run_star(self, args):
-        target_spacing, case_identifier, output_folder_stage, cropped_output_dir, force_separate_z = args
+        target_spacing, case_identifier, output_folder_stage, cropped_output_dir, force_separate_z, transpose_forward = args
 
         data, seg, properties = self.load_cropped(cropped_output_dir, case_identifier)
 
@@ -275,13 +276,17 @@ class GenericPreprocessor(object):
                                                             properties, seg, force_separate_z)
 
         all_data = np.vstack((data, seg)).astype(np.float32)
+
+        all_data = all_data.transpose((0, *[i + 1 for i in transpose_forward]))
+
         print("saving: ", os.path.join(output_folder_stage, "%s.npz" % case_identifier))
         np.savez_compressed(os.path.join(output_folder_stage, "%s.npz" % case_identifier),
                             data=all_data.astype(np.float32))
         with open(os.path.join(output_folder_stage, "%s.pkl" % case_identifier), 'wb') as f:
             pickle.dump(properties, f)
 
-    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2', num_threads=8, force_separate_z=None):
+    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2',
+            num_threads=8, force_separate_z=None, transpose_forward=(0, 1, 2)):
         """
 
         :param target_spacings: list of lists [[1.25, 1.25, 5]]
@@ -309,7 +314,8 @@ class GenericPreprocessor(object):
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
                 case_identifier = get_case_identifier_from_npz(case)
-                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z
+                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z, \
+                       transpose_forward
                 all_args.append(args)
             p = Pool(num_threads[i])
             p.map(self._run_star, all_args)
@@ -324,7 +330,8 @@ class PreprocessorFor2D(GenericPreprocessor):
                                                 intensityproperties)
         self.out_of_plane_axis = out_of_plane_axis
 
-    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2', num_threads=8, force_separate_z=None):
+    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2',
+            num_threads=8, force_separate_z=None, transpose_forward=(0, 1)):
         print("Initializing to run preprocessing")
         print("npz folder:", input_folder_with_cropped_npz)
         print("output_folder:", output_folder)
@@ -339,7 +346,8 @@ class PreprocessorFor2D(GenericPreprocessor):
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
                 case_identifier = get_case_identifier_from_npz(case)
-                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z
+                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z, \
+                       transpose_forward
                 all_args.append(args)
         p = Pool(num_threads)
         p.map(self._run_star, all_args)

@@ -171,6 +171,8 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         process_manager = Pool(2)
         results = []
 
+        transpose_backward = self.plans.get('transpose_backward')
+
         for k in self.dataset_val.keys():
             properties = self.dataset[k]['properties']
             data = np.load(self.dataset[k]['data_file'])['data']
@@ -178,11 +180,6 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             # concat segmentation of previous step
             seg_from_prev_stage = np.load(join(self.folder_with_segs_from_prev_stage,
                                                k + "_segFromPrevStage.npz"))['data'][None]
-
-            transpose_forward = self.plans.get('transpose_forward')
-            if transpose_forward is not None:
-                data = data.transpose([0] + [i+1 for i in transpose_forward])
-                seg_from_prev_stage = seg_from_prev_stage.transpose([0] + [i+1 for i in transpose_forward])
 
             print(data.shape)
             data[-1][data[-1] == -1] = 0
@@ -192,9 +189,9 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                                                                          True, step, self.patch_size,
                                                                          use_gaussian=use_gaussian)
 
-            if transpose_forward is not None:
+            if transpose_backward is not None:
                 transpose_backward = self.plans.get('transpose_backward')
-                softmax_pred = softmax_pred.transpose([0] + [i+1 for i in transpose_backward])
+                softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in transpose_backward])
 
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
 
