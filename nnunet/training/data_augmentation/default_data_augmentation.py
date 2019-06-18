@@ -63,6 +63,8 @@ default_2D_augmentation_params = deepcopy(default_3D_augmentation_params)
 default_2D_augmentation_params["elastic_deform_alpha"] = (0., 200.)
 default_2D_augmentation_params["elastic_deform_sigma"] = (9., 13.)
 default_2D_augmentation_params["rotation_x"] = (-180./360 * 2. * np.pi, 180./360 * 2. * np.pi)
+default_2D_augmentation_params["rotation_y"] = (-0./360 * 2. * np.pi, 0./360 * 2. * np.pi)
+default_2D_augmentation_params["rotation_z"] = (-0./360 * 2. * np.pi, 0./360 * 2. * np.pi)
 
 # sometimes you have 3d data and a 3d net but cannot augment them properly in 3d due to anisotropy (which is currently
 # not supported in batchgenerators). In that case you can 'cheat' and transfer your 3d data into 2d data and
@@ -85,11 +87,11 @@ def get_patch_size(final_patch_size, rot_x, rot_y, rot_z, scale_range):
     coords = np.array(final_patch_size)
     final_shape = np.copy(coords)
     if len(coords) == 3:
-        final_shape = np.max(np.vstack((rotate_coords_3d(coords, rot_x, 0, 0), final_shape)), 0)
-        final_shape = np.max(np.vstack((rotate_coords_3d(coords, 0, rot_y, 0), final_shape)), 0)
-        final_shape = np.max(np.vstack((rotate_coords_3d(coords, 0, 0, rot_z), final_shape)), 0)
+        final_shape = np.max(np.vstack((np.abs(rotate_coords_3d(coords, rot_x, 0, 0)), final_shape)), 0)
+        final_shape = np.max(np.vstack((np.abs(rotate_coords_3d(coords, 0, rot_y, 0)), final_shape)), 0)
+        final_shape = np.max(np.vstack((np.abs(rotate_coords_3d(coords, 0, 0, rot_z)), final_shape)), 0)
     elif len(coords) == 2:
-        final_shape = np.max(np.vstack((rotate_coords_2d(coords, rot_x), final_shape)), 0)
+        final_shape = np.max(np.vstack((np.abs(rotate_coords_2d(coords, rot_x)), final_shape)), 0)
     final_shape /= min(scale_range)
     return final_shape.astype(int)
 
