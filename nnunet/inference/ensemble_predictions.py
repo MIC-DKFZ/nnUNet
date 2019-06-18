@@ -84,7 +84,8 @@ if __name__ == "__main__":
     parser.add_argument('-pp', '--postprocessing_file', help="path to the file where the postprocessing configuration "
                                                              "is stored. If this is not provided then no postprocessing "
                                                              "will be made. It is strongly recommended to provide the "
-                                                             "postprocessing file!", required=False, type=str)
+                                                             "postprocessing file!",
+                        required=False, type=str, default=None)
 
     args = parser.parse_args()
 
@@ -93,4 +94,4 @@ if __name__ == "__main__":
     output_folder = args.output_folder
     pp_file = args.postprocessing_file
 
-    merge(folders, output_folder, threads, override=True)
+    merge(folders, output_folder, threads, override=True, postprocessing_file=pp_file)

@@ -216,6 +216,9 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
               "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
               "%s" % model)
 
+    pool.close()
+    pool.join()
+
 
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                                      num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,

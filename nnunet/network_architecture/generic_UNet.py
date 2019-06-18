@@ -207,6 +207,7 @@ class Generic_UNet(SegmentationNetwork):
         self.num_classes = num_classes
         self.final_nonlin = final_nonlin
         self.do_ds = deep_supervision
+        self.current_do_ds = deep_supervision
 
         if conv_op == nn.Conv2d:
             upsample_mode = 'bilinear'
@@ -358,6 +359,16 @@ class Generic_UNet(SegmentationNetwork):
             self.apply(self.weightInitializer)
             #self.apply(print_module_training_status)
 
+    def eval(self):
+        if self.do_ds:
+            self.current_do_ds = False
+        super().eval()
+
+    def train(self, mode=True):
+        if self.do_ds and mode:
+            self.current_do_ds = True
+        super().train(mode)
+
     def forward(self, x):
         skips = []
         seg_outputs = []
@@ -375,7 +386,7 @@ class Generic_UNet(SegmentationNetwork):
             x = self.conv_blocks_localization[u](x)
             seg_outputs.append(self.final_nonlin(self.seg_outputs[u](x)))
 
-        if self.do_ds:
+        if self.current_do_ds:
             return tuple([seg_outputs[-1]] + [i(j) for i, j in
                                               zip(list(self.upscale_logits_ops)[::-1], seg_outputs[:-1][::-1])])
         else:
