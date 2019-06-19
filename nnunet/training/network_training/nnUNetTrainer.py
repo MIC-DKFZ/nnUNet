@@ -296,6 +296,11 @@ class nnUNetTrainer(NetworkTrainer):
         self.min_region_size_per_class = plans['min_region_size_per_class']
         self.min_size_per_class = None  # DONT USE THIS. plans['min_size_per_class']
 
+        if plans.get('transpose_forward') is None or plans.get('transpose_backward') is None:
+            raise RuntimeError("You seem to have data that was preprocessed with a previous version of nnU-Net. "
+                               "You should rerun preprocessing. Sorry for the inconvenience :-/. Most likely nothing "
+                               "will have changed for your dataset. This change (transpose forward applied to data in "
+                               "preprocessing) is necessary for some datasets to work properly (performance wise)")
         self.transpose_forward = plans['transpose_forward']
         self.transpose_backward = plans['transpose_backward']
 
