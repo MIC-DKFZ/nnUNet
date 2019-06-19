@@ -340,10 +340,10 @@ class nnUNetTrainer(NetworkTrainer):
         from nnunet.preprocessing.preprocessing import GenericPreprocessor, PreprocessorFor2D
         if self.threeD:
             preprocessor = GenericPreprocessor(self.normalization_schemes, self.use_mask_for_norm,
-                                               self.intensity_properties)
+                                               self.transpose_forward, self.intensity_properties)
         else:
             preprocessor = PreprocessorFor2D(self.normalization_schemes, self.use_mask_for_norm,
-                                             self.intensity_properties)
+                                             self.transpose_forward, self.intensity_properties)
 
         d, s, properties = preprocessor.preprocess_test_case(input_files,
                                                              self.plans['plans_per_stage'][self.stage][
