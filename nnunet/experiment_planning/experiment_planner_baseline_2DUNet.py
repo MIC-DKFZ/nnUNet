@@ -151,11 +151,11 @@ class ExperimentPlanner2D(ExperimentPlanner):
         normalization_schemes = self.plans['normalization_schemes']
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization,
-                                           intensityproperties, self.transpose_forward[0])
+        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization, self.transpose_forward,
+                                           intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
-                         self.plans['data_identifier'], num_threads, transpose_forward=self.transpose_forward)
+                         self.plans['data_identifier'], num_threads)
 
 if __name__ == "__main__":
     t = "Task14_BoneSegmentation"

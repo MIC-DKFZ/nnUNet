@@ -396,14 +396,14 @@ class ExperimentPlanner(object):
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
         preprocessor = GenericPreprocessor(normalization_schemes, use_nonzero_mask_for_normalization,
-                                           intensityproperties)
+                                           self.transpose_forward, intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
         if self.plans['num_stages'] > 1 and not isinstance(num_threads, (list, tuple)):
             num_threads = (8, num_threads)
         elif self.plans['num_stages'] == 1 and isinstance(num_threads, (list, tuple)):
             num_threads = num_threads[-1]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
-                         self.plans['data_identifier'], num_threads, transpose_forward=self.transpose_forward)
+                         self.plans['data_identifier'], num_threads)
 
 
 if __name__ == "__main__":

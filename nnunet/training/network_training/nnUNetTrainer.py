@@ -80,7 +80,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.num_input_channels = self.num_classes = self.net_pool_per_axis = self.patch_size = self.batch_size = \
             self.threeD = self.base_num_features = self.intensity_properties = self.normalization_schemes = \
             self.net_num_pool_op_kernel_sizes = self.net_conv_kernel_sizes = None  # loaded automatically from plans_file
-        self.basic_generator_patch_size = self.data_aug_params = None
+        self.basic_generator_patch_size = self.data_aug_params = self.transpose_forward = self.transpose_backward = None
 
         self.batch_dice = batch_dice
         self.loss = DC_and_CE_loss({'batch_dice': self.batch_dice, 'smooth': 1e-5, 'smooth_in_nom': True,
@@ -296,6 +296,9 @@ class nnUNetTrainer(NetworkTrainer):
         self.min_region_size_per_class = plans['min_region_size_per_class']
         self.min_size_per_class = None  # DONT USE THIS. plans['min_size_per_class']
 
+        self.transpose_forward = plans['transpose_forward']
+        self.transpose_backward = plans['transpose_backward']
+
         if len(self.patch_size) == 2:
             self.threeD = False
         elif len(self.patch_size) == 3:
@@ -361,10 +364,7 @@ class nnUNetTrainer(NetworkTrainer):
         pred = self.predict_preprocessed_data_return_softmax(d, self.data_aug_params["mirror"], 1, False, 1,
                                                              self.data_aug_params['mirror_axes'], True, True, 2,
                                                              self.patch_size, True)
-        transpose_forward = self.plans.get('transpose_forward')
-        if transpose_forward is not None:
-            transpose_backward = self.plans.get('transpose_backward')
-            pred = pred.transpose([0] + [i + 1 for i in transpose_backward])
+        pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
         print("resampling to original spacing and nifti export...")
         save_segmentation_nifti_from_softmax(pred, output_file, properties, 3, None, None, None, softmax_ouput_file,
@@ -443,8 +443,6 @@ class nnUNetTrainer(NetworkTrainer):
         global_fp = OrderedDict()
         global_fn = OrderedDict()
 
-        transpose_backward = self.plans.get('transpose_backward')
-
         for k in self.dataset_val.keys():
             print(k)
             properties = self.dataset[k]['properties']
@@ -479,9 +477,7 @@ class nnUNetTrainer(NetworkTrainer):
                         global_fp[l] += conf.fp
                         global_tp[l] += conf.tp
 
-                if transpose_backward is not None:
-                    transpose_backward = self.plans.get('transpose_backward')
-                    softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in transpose_backward])
+                softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
                 if save_softmax:
                     softmax_fname = join(output_folder, fname + ".npz")
