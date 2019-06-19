@@ -144,7 +144,7 @@ def plan_and_preprocess(task_string, processes_lowres=8, processes_fullres=3, no
     # This is done for all data so that if we wanted to use them with 2D we could do so
 
     if not no_preprocessing:
-        p = Pool(8)
+        p = Pool(processes_lowres)
 
         # if there is more than one my_data_identifier (different brnaches) then this code will run for all of them if
         # they start with the same string. not problematic, but not pretty
