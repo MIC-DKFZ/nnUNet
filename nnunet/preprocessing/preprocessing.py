@@ -225,7 +225,7 @@ class GenericPreprocessor(object):
             'spacing_transposed': original_spacing_transposed,
             'data.shape (data is transposed)': data.shape
         }
-        data, seg = resample_patient(data, seg, np.array(properties["original_spacing"]), target_spacing, 3, 1,
+        data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
                                      force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
         after = {
             'spacing': target_spacing,
@@ -386,7 +386,7 @@ class PreprocessorFor2D(GenericPreprocessor):
             'data.shape (data is transposed)': data.shape
         }
         target_spacing[0] = original_spacing_transposed[0]
-        data, seg = resample_patient(data, seg, np.array(properties["original_spacing"]), target_spacing, 3, 1,
+        data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
                                      force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
         after = {
             'spacing': target_spacing,
