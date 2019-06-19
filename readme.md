@@ -51,10 +51,10 @@ Segmentation Decathlon.
 This is where the magic happens. nnU-Net can now analyze your dataset and determine how to train its 
 U-Net models. To run experiment planning and preprocessing for your dataset, execute the following command:
 
-`python experiment_planning/plan_and_preprocess_task.py -t TaskXX_MY_DATASET -p Y`
+`python experiment_planning/plan_and_preprocess_task.py -t TaskXX_MY_DATASET -pl Y -pf Z`
 
-here `TaskXX_MY_DATASET` specifies the task (your dataset) and `-p` determines how many processes will be used for 
-datatset analysis and preprocessing. Generally you want this number to be as high as you have CPU cores, unless you 
+here `TaskXX_MY_DATASET` specifies the task (your dataset) and `-pl`/`-pf` determines how many processes will be used for 
+datatset analysis and preprocessing (see `python experiment_planning/plan_and_preprocess_task.py -h` for more details). Generally you want this number to be as high as you have CPU cores, unless you 
 run into memory problems (beware of datasets such as LiTS!)
 
 Running this command will to several things:
