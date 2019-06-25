@@ -68,8 +68,8 @@ if __name__ == "__main__":
     json_dict['name'] = "ACDC"
     json_dict['description'] = "cardias cine MRI segmentation"
     json_dict['tensorImageSize'] = "4D"
-    json_dict['reference'] = "f off, this is private"
-    json_dict['licence'] = "touch it and you die"
+    json_dict['reference'] = "see ACDC challenge"
+    json_dict['licence'] = "see ACDC challenge"
     json_dict['release'] = "0.0"
     json_dict['modality'] = {
         "0": "MRI",
