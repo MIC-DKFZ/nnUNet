@@ -39,7 +39,7 @@ if __name__ == "__main__":
         for p in subdirs(cur, join=False):
             patdir = join(cur, p)
             patient_name = tpe + "__" + p
-            patient_names.append(p)
+            patient_names.append(patient_name)
             t1 = join(patdir, p + "_t1.nii.gz")
             t1c = join(patdir, p + "_t1ce.nii.gz")
             t2 = join(patdir, p + "_t2.nii.gz")
