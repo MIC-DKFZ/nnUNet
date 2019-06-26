@@ -1,3 +1,4 @@
+import numpy as np
 from collections import OrderedDict
 
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -12,8 +13,11 @@ def copy_nifti_modify_labels(in_file, out_file):
     # no sanity checks -> #Yolo
     img = sitk.ReadImage(in_file)
     img_npy = sitk.GetArrayFromImage(img)
-    img_npy[img_npy == 4] = 3
-    img_corr = sitk.GetImageFromArray(img_npy)
+    seg_new = np.zeros_like(img_npy)
+    seg_new[img_npy == 4] = 3
+    seg_new[img_npy == 2] = 1
+    seg_new[img_npy == 1] = 2
+    img_corr = sitk.GetImageFromArray(seg_new)
     img_corr.CopyInformation(img)
     sitk.WriteImage(img_corr, out_file)
 
@@ -77,8 +81,8 @@ if __name__ == "__main__":
     }
     json_dict['labels'] = {
         "0": "background",
-        "1": "necrosis",
-        "2": "edema",
+        "1": "edema",
+        "2": "non-enhancing",
         "3": "enhancing",
     }
     json_dict['numTraining'] = len(patient_names)
