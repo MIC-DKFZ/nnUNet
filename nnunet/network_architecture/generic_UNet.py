@@ -401,8 +401,8 @@ class Generic_UNet(SegmentationNetwork):
         npool = len(pool_op_kernel_sizes)
 
         map_size = np.array(patch_size)
-        tmp = 5 * np.prod(map_size) * base_num_features + num_modalities * np.prod(map_size) + \
-              num_classes * np.prod(map_size)
+        tmp = np.int64(5 * np.prod(map_size) * base_num_features + num_modalities * np.prod(map_size) + \
+              num_classes * np.prod(map_size))
 
         num_feat = base_num_features
 
