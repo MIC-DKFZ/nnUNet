@@ -447,6 +447,8 @@ class nnUNetTrainer(NetworkTrainer):
         global_fp = OrderedDict()
         global_fn = OrderedDict()
 
+        selected_channels = list(range(self.num_input_channels))
+
         for k in self.dataset_val.keys():
             print(k)
             properties = self.dataset[k]['properties']
@@ -457,7 +459,7 @@ class nnUNetTrainer(NetworkTrainer):
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
 
-                softmax_pred = self.predict_preprocessed_data_return_softmax(data[:-1], do_mirroring, 1,
+                softmax_pred = self.predict_preprocessed_data_return_softmax(data[selected_channels], do_mirroring, 1,
                                                                              use_train_mode, 1, mirror_axes, tiled,
                                                                              True, step, self.patch_size,
                                                                              use_gaussian=use_gaussian)
