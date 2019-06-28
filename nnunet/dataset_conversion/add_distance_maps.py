@@ -29,9 +29,9 @@ def process_case(case, task_name, data_dir, classes):
     np.savez_compressed(out_file, data=tmp)
 
 
-def add_distance_transforms(task_name, data_dir, classes):
+def add_distance_transforms(task_name, data_dir, classes, num_processes):
     cases_tr = [i[:-4] for i in subfiles(join(preprocessing_output_dir, task_name, data_dir), suffix=".npz", join=False)]
-    p = Pool(8)
+    p = Pool(num_processes)
     _ = p.starmap(process_case, zip(cases_tr, [task_name] * len(cases_tr), [data_dir] * len(cases_tr), [classes]*len(cases_tr)))
     p.close()
     p.join()
@@ -46,6 +46,7 @@ if __name__ == "__main__":
     input_task = "Task02_Heart"
     output_task = "Task45_HeartWithEDT"
     data_dir = "nnUNet_stage0" # this corresponds to 3d_fullres for Task02. Needs to be adapted accordingly
+    num_processes = 8
 
     if isdir(join(preprocessing_output_dir, output_task)):
         shutil.rmtree(join(preprocessing_output_dir, output_task))
@@ -57,4 +58,4 @@ if __name__ == "__main__":
     dataset_json = load_json(join(preprocessing_output_dir, output_task, "dataset.json"))
     classes = [int(i) for i in dataset_json['labels'].keys()]
 
-    add_distance_transforms(output_task, data_dir, classes)
+    add_distance_transforms(output_task, data_dir, classes, num_processes=8)

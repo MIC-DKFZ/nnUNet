@@ -183,7 +183,6 @@ class nnUNetTrainerEDT(nnUNetTrainer):
         :param run_online_evaluation:
         :return:
         """
-        import IPython;IPython.embed()
         data_dict = next(data_generator)
         data = data_dict['data']
         target = data_dict['target']
