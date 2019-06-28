@@ -12,7 +12,6 @@ from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOne
     RemoveRandomConnectedComponentFromOneHotEncodingTransform, ApplyRandomBinaryOperatorTransform
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
-
 try:
     from apex import amp
 except ImportError:
