@@ -1,4 +1,4 @@
-from nnunet.training.loss_functions.dice_loss import CrossentropyND
+from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
