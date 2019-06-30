@@ -316,6 +316,8 @@ class NetworkTrainer(object):
                                        "Install it from https://github.com/NVIDIA/apex")
 
     def run_training(self):
+        torch.cuda.empty_cache()
+
         self._maybe_init_amp()
 
         if cudnn.benchmark and cudnn.deterministic:
