@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 import SimpleITK as sitk
 from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
-from batchgenerators.utilities.file_and_folder_operations import save_json
+from batchgenerators.utilities.file_and_folder_operations import save_json, subfiles, join
 from collections import OrderedDict
 
 
@@ -443,3 +443,20 @@ def aggregate_scores_for_experiment(score_file,
         json_output_file.close()
 
     return json_dict
+
+
+def evaluate_folder(folder_with_gts, folder_with_predictions, labels):
+    """
+    writes a summary.json to folder_with_predictions
+    :param folder_with_gts:
+    :param folder_with_predictions:
+    :return:
+    """
+    files_gt = subfiles(folder_with_gts, suffix=".nii.gz", join=False)
+    files_pred = subfiles(folder_with_predictions, suffix=".nii.gz", join=False)
+    assert all([i in files_pred for i in files_gt]), "files missing in folder_with_predictions"
+    assert all([i in files_gt for i in files_pred]), "files missing in folder_with_gts"
+    test_ref_pairs = [(join(folder_with_predictions, i), join(folder_with_gts, i)) for i in files_pred]
+    res = aggregate_scores(test_ref_pairs, json_output_file=join(folder_with_predictions, "summary.json"), num_threads=8, labels=labels)
+    return res
+
