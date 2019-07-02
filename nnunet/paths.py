@@ -24,6 +24,7 @@ from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, 
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNetV2"
 default_plans_identifier = "nnUNetPlans"
+default_data_identifier = 'nnUNet'
 
 try:
     # base is the folder where the raw data is stored. You just need to set base only, the others will be created

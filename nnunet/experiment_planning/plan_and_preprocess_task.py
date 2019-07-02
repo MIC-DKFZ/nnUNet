@@ -119,7 +119,7 @@ def analyze_dataset(task_string, override=False, collect_intensityproperties=Tru
     _ = dataset_analyzer.analyze_dataset(collect_intensityproperties)
 
 
-def plan_and_preprocess(task_string, num_threads=default_num_threads, no_preprocessing=False):
+def plan_and_preprocess(task_string, processes_lowres=default_num_threads, processes_fullres=3, no_preprocessing=False):
     from nnunet.experiment_planning.experiment_planner_baseline_2DUNet import ExperimentPlanner2D
     from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 
@@ -133,12 +133,12 @@ def plan_and_preprocess(task_string, num_threads=default_num_threads, no_preproc
     exp_planner = ExperimentPlanner(cropped_out_dir, preprocessing_output_dir_this_task_train)
     exp_planner.plan_experiment()
     if not no_preprocessing:
-        exp_planner.run_preprocessing(num_threads)
+        exp_planner.run_preprocessing((processes_lowres, processes_fullres))
 
     exp_planner = ExperimentPlanner2D(cropped_out_dir, preprocessing_output_dir_this_task_train)
     exp_planner.plan_experiment()
     if not no_preprocessing:
-        exp_planner.run_preprocessing(num_threads)
+        exp_planner.run_preprocessing(processes_fullres)
 
     # write which class is in which slice to all training cases (required to speed up 2D Dataloader)
     # This is done for all data so that if we wanted to use them with 2D we could do so
@@ -170,9 +170,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--task', type=str, help="task name. There must be a matching folder in "
                                                        "raw_dataset_dir", required=True)
-    parser.add_argument('-p', '--processes', type=int, default=3, help='number of processes to run preprocessing '
-                                                                       'of full resolution data. If you run out '
-                                                                       'of memory, reduce these. Default: 3', required=False)
+    parser.add_argument('-pl', '--processes_lowres', type=int, default=8, help='number of processes used for '
+                                                                               'preprocessing 3d_lowres data, image '
+                                                                               'splitting and image cropping '
+                                                                               'Default: 8. The distinction between '
+                                                                               'processes_lowres and processes_fullres '
+                                                                               'is necessary because preprocessing '
+                                                                               'at full resolution needs a lot of '
+                                                                               'RAM', required=False)
+    parser.add_argument('-pf', '--processes_fullres', type=int, default=8, help='number of processes used for '
+                                                                                'preprocessing 2d and 3d_fullres '
+                                                                                'data. Default: 3', required=False)
     parser.add_argument('-o', '--override', type=int, default=0, help="set this to 1 if you want to override "
                                                                       "cropped data and intensityproperties. Default: 0",
                         required=False)
@@ -187,7 +195,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     task = args.task
-    processes = args.processes
+    processes_lowres = args.processes_lowres
+    processes_fullres = args.processes_fullres
     override = args.override
     use_splitted = args.use_splitted
     no_preprocessing = args.no_preprocessing
@@ -223,14 +232,14 @@ if __name__ == "__main__":
 
         all_splitted_tasks = subdirs(splitted_4d_output_dir, prefix="Task", join=False)
         for t in all_splitted_tasks:
-            crop(t, override=override, num_threads=processes)
-            analyze_dataset(t, override=override, collect_intensityproperties=True, num_processes=processes)
-            plan_and_preprocess(t, processes, no_preprocessing)
+            crop(t, override=override, num_threads=processes_lowres)
+            analyze_dataset(t, override=override, collect_intensityproperties=True, num_processes=processes_lowres)
+            plan_and_preprocess(t, processes_lowres, processes_fullres, no_preprocessing)
     else:
         if not use_splitted or not isdir(join(splitted_4d_output_dir, task)):
             print("splitting task ", task)
             split_4d(task)
 
-        crop(task, override=override, num_threads=processes)
-        analyze_dataset(task, override, collect_intensityproperties=True, num_processes=processes)
-        plan_and_preprocess(task, processes, no_preprocessing)
+        crop(task, override=override, num_threads=processes_lowres)
+        analyze_dataset(task, override, collect_intensityproperties=True, num_processes=processes_lowres)
+        plan_and_preprocess(task, processes_lowres, processes_fullres, no_preprocessing)

@@ -28,6 +28,7 @@ def get_do_separate_z(spacing):
     do_separate_z = (np.max(spacing) / np.min(spacing)) > RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
     return do_separate_z
 
+
 def get_lowres_axis(new_spacing):
     axis = np.where(max(new_spacing) / np.array(new_spacing) == 1)[0]  # find which axis is anisotropic
     return axis
@@ -144,7 +145,7 @@ def resample_data_or_seg(data, new_shape, is_seg, axis=None, order=3, do_separat
 
                     # The following few lines are blatantly copied and modified from sklearn's resize()
                     rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
-                    orig_rows, orig_cols, orig_dim = reshaped_data.shape#data[c].shape[0], reshaped_data.shape[1], reshaped_data.shape[2]
+                    orig_rows, orig_cols, orig_dim = reshaped_data.shape
 
                     row_scale = float(orig_rows) / rows
                     col_scale = float(orig_cols) / cols
@@ -184,13 +185,14 @@ def resample_data_or_seg(data, new_shape, is_seg, axis=None, order=3, do_separat
 
 
 class GenericPreprocessor(object):
-    def __init__(self, normalization_scheme_per_modality, use_nonzero_mask, intensityproperties=None):
+    def __init__(self, normalization_scheme_per_modality, use_nonzero_mask, transpose_forward: (tuple, list), intensityproperties=None):
         """
 
         :param normalization_scheme_per_modality: dict {0:'nonCT'}
         :param use_nonzero_mask: {0:False}
         :param intensityproperties:
         """
+        self.transpose_forward = transpose_forward
         self.intensityproperties = intensityproperties
         self.normalization_scheme_per_modality = normalization_scheme_per_modality
         self.use_nonzero_mask = use_nonzero_mask
@@ -205,10 +207,32 @@ class GenericPreprocessor(object):
         return data, seg, properties
 
     def resample_and_normalize(self, data, target_spacing, properties, seg=None, force_separate_z=None):
-        print("before resample:", "shape", data.shape, "spacing", np.array(properties["original_spacing"]))
-        data, seg = resample_patient(data, seg, np.array(properties["original_spacing"]), target_spacing, 3, 1,
+        """
+        data and seg must already have been transposed by transpose_forward. properties are the un-transposed values
+        (spacing etc)
+        :param data:
+        :param target_spacing:
+        :param properties:
+        :param seg:
+        :param force_separate_z:
+        :return:
+        """
+
+        # target_spacing is already transposed, properties["original_spacing"] is not so we need to transpose it!
+        # data, seg are already transposed. Double check this using the properties
+        original_spacing_transposed = np.array(properties["original_spacing"])[self.transpose_forward]
+        before = {
+            'spacing': properties["original_spacing"],
+            'spacing_transposed': original_spacing_transposed,
+            'data.shape (data is transposed)': data.shape
+        }
+        data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
                                      force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
-        print("after resample:", "shape", data.shape, "spacing", target_spacing, "\n")
+        after = {
+            'spacing': target_spacing,
+            'data.shape (data is resampled)': data.shape
+        }
+        print("before:", before, "\nafter: ", after, "\n")
 
         if seg is not None:  # hippocampus 243 has one voxel with -2 as label. wtf?
             seg[seg < -1] = 0
@@ -263,6 +287,9 @@ class GenericPreprocessor(object):
     def preprocess_test_case(self, data_files, target_spacing, seg_file=None, force_separate_z=None):
         data, seg, properties = ImageCropper.crop_from_list_of_files(data_files, seg_file)
 
+        data = data.transpose((0, *[i + 1 for i in self.transpose_forward]))
+        seg = seg.transpose((0, *[i + 1 for i in self.transpose_forward]))
+
         data, seg, properties = self.resample_and_normalize(data, target_spacing, properties, seg,
                                                             force_separate_z=force_separate_z)
         return data.astype(np.float32), seg, properties
@@ -272,17 +299,22 @@ class GenericPreprocessor(object):
 
         data, seg, properties = self.load_cropped(cropped_output_dir, case_identifier)
 
+        data = data.transpose((0, *[i + 1 for i in self.transpose_forward]))
+        seg = seg.transpose((0, *[i + 1 for i in self.transpose_forward]))
+
         data, seg, properties = self.resample_and_normalize(data, target_spacing,
                                                             properties, seg, force_separate_z)
 
         all_data = np.vstack((data, seg)).astype(np.float32)
+
+
         print("saving: ", os.path.join(output_folder_stage, "%s.npz" % case_identifier))
         np.savez_compressed(os.path.join(output_folder_stage, "%s.npz" % case_identifier),
                             data=all_data.astype(np.float32))
         with open(os.path.join(output_folder_stage, "%s.pkl" % case_identifier), 'wb') as f:
             pickle.dump(properties, f)
 
-    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2',
+    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier,
             num_threads=default_num_threads, force_separate_z=None):
         """
 
@@ -320,13 +352,11 @@ class GenericPreprocessor(object):
 
 
 class PreprocessorFor2D(GenericPreprocessor):
-    def __init__(self, normalization_scheme_per_modality, use_nonzero_mask, intensityproperties=None,
-                 out_of_plane_axis=0):
+    def __init__(self, normalization_scheme_per_modality, use_nonzero_mask, transpose_forward: (tuple, list), intensityproperties=None):
         super(PreprocessorFor2D, self).__init__(normalization_scheme_per_modality, use_nonzero_mask,
-                                                intensityproperties)
-        self.out_of_plane_axis = out_of_plane_axis
+                                                transpose_forward, intensityproperties)
 
-    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier='nnUNetV2',
+    def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier,
             num_threads=default_num_threads, force_separate_z=None):
         print("Initializing to run preprocessing")
         print("npz folder:", input_folder_with_cropped_npz)
@@ -350,14 +380,20 @@ class PreprocessorFor2D(GenericPreprocessor):
         p.join()
 
     def resample_and_normalize(self, data, target_spacing, properties, seg=None, force_separate_z=None):
-        print("before resample:", "shape", data.shape, "spacing", np.array(properties["original_spacing"]))
-        original_spacing = np.array(properties["original_spacing"])
-        target_spacing[self.out_of_plane_axis] = original_spacing[self.out_of_plane_axis]
-
-        data, seg = resample_patient(data, seg, np.array(properties["original_spacing"]), target_spacing, 3, 1,
+        original_spacing_transposed = np.array(properties["original_spacing"])[self.transpose_forward]
+        before = {
+            'spacing': properties["original_spacing"],
+            'spacing_transposed': original_spacing_transposed,
+            'data.shape (data is transposed)': data.shape
+        }
+        target_spacing[0] = original_spacing_transposed[0]
+        data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
                                      force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
-
-        print("after resample:", "shape", data.shape, "spacing", target_spacing, "\n")
+        after = {
+            'spacing': target_spacing,
+            'data.shape (data is resampled)': data.shape
+        }
+        print("before:", before, "\nafter: ", after, "\n")
 
         if seg is not None:  # hippocampus 243 has one voxel with -2 as label. wtf?
             seg[seg < -1] = 0

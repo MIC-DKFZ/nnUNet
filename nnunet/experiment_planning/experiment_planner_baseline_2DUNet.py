@@ -28,34 +28,21 @@ class ExperimentPlanner2D(ExperimentPlanner):
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner2D, self).__init__(folder_with_cropped_data,
                                                   preprocessed_output_folder)
-        self.data_identifier = "nnUNet_2D"
-        self.transpose_forward = [0, 1, 2]
-        self.transpose_backward = [0, 1, 2]
+        self.data_identifier = default_data_identifier + "_2D"
         self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "_plans_2D.pkl")
-
-    def load_my_plans(self):
-        self.plans = load_pickle(self.plans_fname)
-
-        self.plans_per_stage = self.plans['plans_per_stage']
-        self.dataset_properties = self.plans['dataset_properties']
-        self.transpose_forward = self.plans['transpose_forward']
-        self.transpose_backward = self.plans['transpose_backward']
 
     def plan_experiment(self):
 
         def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases,
-                                     num_modalities, num_classes, transpose_forward):
-            spacing_transposed = current_spacing[transpose_forward]
+                                     num_modalities, num_classes):
 
             new_median_shape = np.round(original_spacing / current_spacing * original_shape).astype(int)
 
-            new_median_shape_transposed = new_median_shape[transpose_forward]
-
             dataset_num_voxels = np.prod(new_median_shape) * num_cases
-            input_patch_size = new_median_shape_transposed[1:]
+            input_patch_size = new_median_shape[1:]
 
             network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
-                shape_must_be_divisible_by = get_pool_and_conv_props(spacing_transposed[1:], input_patch_size,
+                shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing[1:], input_patch_size,
                                                                      FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
                                                                      Generic_UNet.MAX_NUMPOOL_2D)
 
@@ -121,11 +108,14 @@ class ExperimentPlanner2D(ExperimentPlanner):
         # how many stages will the image pyramid have?
         self.plans_per_stage = []
 
-        self.plans_per_stage.append(get_properties_for_stage(target_spacing, target_spacing, median_shape,
+        target_spacing_transposed = np.array(target_spacing)[self.transpose_forward]
+        median_shape_transposed = np.array(median_shape)[self.transpose_forward]
+        print("the transposed median shape of the dataset is ", median_shape_transposed)
+
+        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed, target_spacing_transposed, median_shape_transposed,
                                                              num_cases=len(self.list_of_cropped_npz_files),
                                                              num_modalities=num_modalities,
-                                                             num_classes=len(all_classes) + 1,
-                                                             transpose_forward=self.transpose_forward),
+                                                             num_classes=len(all_classes) + 1),
                                     )
 
         print(self.plans_per_stage)
@@ -161,8 +151,8 @@ class ExperimentPlanner2D(ExperimentPlanner):
         normalization_schemes = self.plans['normalization_schemes']
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization,
-                                           intensityproperties, self.transpose_forward[0])
+        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization, self.transpose_forward,
+                                           intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
                          self.plans['data_identifier'], num_threads)

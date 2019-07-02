@@ -27,6 +27,9 @@ Installation instructions
 2) Clone this repository `git clone https://github.com/MIC-DKFZ/nnUNet.git`
 3) Go into the repository (`cd nnUNet` on linux)
 4) Install with `pip install -r requirements.txt` followed by `pip install -e .`
+5) There is an issue with numpy and threading in python which results in too high CPU usage when using multiprocessing. 
+We strongly recommend you set OMP_NUM_THREADS=1 in your bashrc OR start all python processes 
+with `OMP_NUM_THREADS=1 python ...`
 
 # Getting Started 
 All the commands in this section assume that you are in a terminal and your working directory is the nnU-Net folder 
@@ -51,10 +54,10 @@ Segmentation Decathlon.
 This is where the magic happens. nnU-Net can now analyze your dataset and determine how to train its 
 U-Net models. To run experiment planning and preprocessing for your dataset, execute the following command:
 
-`python experiment_planning/plan_and_preprocess_task.py -t TaskXX_MY_DATASET -p Y`
+`python experiment_planning/plan_and_preprocess_task.py -t TaskXX_MY_DATASET -pl Y -pf Z`
 
-here `TaskXX_MY_DATASET` specifies the task (your dataset) and `-p` determines how many processes will be used for 
-datatset analysis and preprocessing. Generally you want this number to be as high as you have CPU cores, unless you 
+here `TaskXX_MY_DATASET` specifies the task (your dataset) and `-pl`/`-pf` determines how many processes will be used for 
+datatset analysis and preprocessing (see `python experiment_planning/plan_and_preprocess_task.py -h` for more details). Generally you want this number to be as high as you have CPU cores, unless you 
 run into memory problems (beware of datasets such as LiTS!)
 
 Running this command will to several things:
@@ -71,6 +74,10 @@ we simply save a little bit of time doing this. Cropped data is stored in the `c
 I strongly recommend you set `preprocessing_output_dir` on a SSD. HDDs are typically too slow for data loading. 
 
 ## Training Models 
+There is an issue with numpy and threading in python which results in too high CPU usage when using multiprocessing. 
+We strongly recommend you set OMP_NUM_THREADS=1 in your bashrc OR start all python processes 
+with `OMP_NUM_THREADS=1 python ...`
+
 The following pipeline describes what we ran for all the challenge submissions. If you are not interested in getting 
 every last bit of performance we recommend you also look at the Recommendations section.
 
@@ -165,12 +172,12 @@ U-Net models and you may also not want to run a cross-validation all the time.
 
 #### I don't want to train all these models. Which one is the best?
 Here are some recommendations about what U-Net model to train:
-- It is safe to say that on average, the 3D U-Net model was most robust. If you just want to use nnU-Net because you 
+- It is safe to say that on average, the 3D U-Net model (3d_fullres) was most robust. If you just want to use nnU-Net because you 
 need segmentations, I recommend you start with this.
 - If you are not happy with the results from the 3D U-Net then you can try the following:
   - if your cases are very large so that the patch size of the 3d U-Net only covers a very small fraction of an image then 
   it is possible that the 3d U-Net cannot capture sufficient contextual information in order to be effective. If this 
-  is the case, you should consider running the 3d U-Net cascade
+  is the case, you should consider running the 3d U-Net cascade (3d_lowres followed by 3d_cascade_fullres)
   - If your data is very anisotropic then a 2D U-Net may actually be a better choice (Promise12, ACDC, Task05_Prostate 
   from the decathlon are good examples)
 

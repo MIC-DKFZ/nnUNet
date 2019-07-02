@@ -320,6 +320,8 @@ class NetworkTrainer(object):
                                        "Install it from https://github.com/NVIDIA/apex")
 
     def run_training(self):
+        torch.cuda.empty_cache()
+
         self._maybe_init_amp()
 
         if cudnn.benchmark and cudnn.deterministic:
@@ -341,8 +343,7 @@ class NetworkTrainer(object):
             self.network.train()
             for b in range(self.num_batches_per_epoch):
                 l = self.run_iteration(self.tr_gen, True)
-                l_cpu = l.data.cpu().numpy()
-                train_losses_epoch.append(l_cpu)
+                train_losses_epoch.append(l)
 
             self.all_tr_losses.append(np.mean(train_losses_epoch))
             self.print_to_log_file("train loss : %.4f" % self.all_tr_losses[-1])
@@ -353,7 +354,7 @@ class NetworkTrainer(object):
                 val_losses = []
                 for b in range(self.num_val_batches_per_epoch):
                     l = self.run_iteration(self.val_gen, False, True)
-                    val_losses.append(l.data.cpu().numpy())
+                    val_losses.append(l)
                 self.all_val_losses.append(np.mean(val_losses))
                 self.print_to_log_file("val loss (train=False): %.4f" % self.all_val_losses[-1])
 
@@ -363,12 +364,11 @@ class NetworkTrainer(object):
                     val_losses = []
                     for b in range(self.num_val_batches_per_epoch):
                         l = self.run_iteration(self.val_gen, False)
-                        val_losses.append(l.data.cpu().numpy())
+                        val_losses.append(l)
                     self.all_val_losses_tr_mode.append(np.mean(val_losses))
                     self.print_to_log_file("val loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
 
             epoch_end_time = time()
-            self.print_to_log_file("This epoch took %f s" % (epoch_end_time-epoch_start_time))
 
             self.update_train_loss_MA()  # needed for lr scheduler and stopping of training
 
@@ -378,6 +378,8 @@ class NetworkTrainer(object):
                 break
 
             self.epoch += 1
+            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time-epoch_start_time))
+
         self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
         # now we can delete latest as it will be identical with final
         if isfile(join(self.output_folder, "model_latest.model")):
@@ -522,10 +524,13 @@ class NetworkTrainer(object):
         self.optimizer.zero_grad()
 
         output = self.network(data)
+        del data
         l = self.loss(output, target)
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
+
+        del target
 
         if do_backprop:
             if not self.fp16 or amp is None:
@@ -535,7 +540,7 @@ class NetworkTrainer(object):
                     scaled_loss.backward()
             self.optimizer.step()
 
-        return l
+        return l.detach().cpu().numpy()
 
     def run_online_evaluation(self, *args, **kwargs):
         """
