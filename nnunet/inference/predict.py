@@ -68,11 +68,9 @@ def predict_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_fr
             q.put((output_file, (d, dct)))
         except KeyboardInterrupt:
             raise KeyboardInterrupt
-        except:
+        except Exception as e:
             print("error in", l)
-            import traceback
-            traceback.print_exc()
-            errors_in.append(l)
+            print(e)
     q.put("end")
     if len(errors_in) > 0:
         print("There were some errors in the following cases:", errors_in)
