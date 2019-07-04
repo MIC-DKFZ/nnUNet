@@ -173,6 +173,14 @@ class nnUNetTrainerEDT(nnUNetTrainer):
         # assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         self.was_initialized = True
 
+    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
+                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian):
+        selected_channels = list(range(self.num_input_channels))
+        if len(data) > len(selected_channels):
+            data = data[selected_channels]
+        return super().predict_preprocessed_data_return_softmax(data, do_mirroring, num_repeats, use_train_mode, batch_size,
+                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian)
+
     def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False):
         """
         here we add the boundary to the loss function
