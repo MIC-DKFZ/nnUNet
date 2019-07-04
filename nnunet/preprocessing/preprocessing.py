@@ -252,7 +252,7 @@ class GenericPreprocessor(object):
             scheme = self.normalization_scheme_per_modality[c]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
-                assert self.intensityproperties is not None, "if there is a CT then we need intensity properties"
+                assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
                 mean_intensity = self.intensityproperties[c]['mean']
                 std_intensity = self.intensityproperties[c]['sd']
                 lower_bound = self.intensityproperties[c]['percentile_00_5']
@@ -263,7 +263,7 @@ class GenericPreprocessor(object):
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
-                assert self.intensityproperties is not None, "if there is a CT then we need intensity properties"
+                assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
                 lower_bound = self.intensityproperties[c]['percentile_00_5']
                 upper_bound = self.intensityproperties[c]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
@@ -413,7 +413,7 @@ class PreprocessorFor2D(GenericPreprocessor):
             scheme = self.normalization_scheme_per_modality[c]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
-                assert self.intensityproperties is not None, "if there is a CT then we need intensity properties"
+                assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
                 mean_intensity = self.intensityproperties[c]['mean']
                 std_intensity = self.intensityproperties[c]['sd']
                 lower_bound = self.intensityproperties[c]['percentile_00_5']
@@ -424,7 +424,7 @@ class PreprocessorFor2D(GenericPreprocessor):
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
-                assert self.intensityproperties is not None, "if there is a CT then we need intensity properties"
+                assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
                 lower_bound = self.intensityproperties[c]['percentile_00_5']
                 upper_bound = self.intensityproperties[c]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)

@@ -272,7 +272,6 @@ class nnUNetTrainer(NetworkTrainer):
                 "If self.stage is None then there can be only one stage in the plans file. That seems to not be the " \
                 "case. Please specify which stage of the cascade must be trained"
             self.stage = list(plans['plans_per_stage'].keys())[0]
-
         self.plans = plans
 
         stage_plans = self.plans['plans_per_stage'][self.stage]
@@ -296,7 +295,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.min_size_per_class = None  # DONT USE THIS. plans['min_size_per_class']
 
         if plans.get('transpose_forward') is None or plans.get('transpose_backward') is None:
-            self.print_to_log_file("WARNING! You seem to have data that was preprocessed with a previous version of nnU-Net. "
+            print("WARNING! You seem to have data that was preprocessed with a previous version of nnU-Net. "
                                "You should rerun preprocessing. We will proceed and assume that both transpose_foward "
                                    "and transpose_backward are [0, 1, 2]. If that is not correct then weird things will happen!")
             plans['transpose_forward'] = [0, 1, 2]
