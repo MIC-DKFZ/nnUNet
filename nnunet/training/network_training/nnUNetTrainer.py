@@ -238,6 +238,19 @@ class nnUNetTrainer(NetworkTrainer):
                                                            verbose=True, threshold=self.lr_scheduler_eps,
                                                            threshold_mode="abs")
         self.network.cuda()
+
+        try:
+            from batchgenerators.utilities.file_and_folder_operations import join
+            import hiddenlayer as hl
+            g = hl.build_graph(self.network, torch.rand((self.batch_size, self.num_input_channels, *self.patch_size)).cuda())
+            g.save(join(self.output_folder, "network_architecture.pdf"))
+            del g
+        except Exception as e:
+            self.print_to_log_file("Unable to plot network architecture:")
+            self.print_to_log_file(e)
+        finally:
+            torch.cuda.empty_cache()
+
         self.network.inference_apply_nonlin = softmax_helper
 
     def run_training(self):
