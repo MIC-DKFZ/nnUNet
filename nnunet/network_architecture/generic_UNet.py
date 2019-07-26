@@ -173,7 +173,8 @@ class Generic_UNet(SegmentationNetwork):
                  nonlin=nn.LeakyReLU, nonlin_kwargs=None, deep_supervision=True, dropout_in_localization=False,
                  final_nonlin=softmax_helper, weightInitializer=InitWeights_He(1e-2), pool_op_kernel_sizes=None,
                  conv_kernel_sizes=None,
-                 upscale_logits=False, convolutional_pooling=False, convolutional_upsampling=False):
+                 upscale_logits=False, convolutional_pooling=False, convolutional_upsampling=False,
+                 max_num_features=None):
         """
         basically more flexible than v1, architecture is the same
 
@@ -235,6 +236,14 @@ class Generic_UNet(SegmentationNetwork):
         for krnl in self.conv_kernel_sizes:
             self.conv_pad_sizes.append([1 if i == 3 else 0 for i in krnl])
 
+        if max_num_features is None:
+            if self.conv_op == nn.Conv3d:
+                self.max_num_features = self.MAX_NUM_FILTERS_3D
+            else:
+                self.max_num_features = self.MAX_FILTERS_2D
+        else:
+            self.max_num_features = max_num_features
+
         self.conv_blocks_context = []
         self.conv_blocks_localization = []
         self.td = []
@@ -263,10 +272,9 @@ class Generic_UNet(SegmentationNetwork):
                 self.td.append(pool_op(pool_op_kernel_sizes[d]))
             input_features = output_features
             output_features = int(np.round(output_features * feat_map_mul_on_downscale))
-            if self.conv_op == nn.Conv3d:
-                output_features = min(output_features, self.MAX_NUM_FILTERS_3D)
-            else:
-                output_features = min(output_features, self.MAX_FILTERS_2D)
+
+            output_features = min(output_features, self.max_num_features)
+
 
         # now the bottleneck.
         # determine the first stride
