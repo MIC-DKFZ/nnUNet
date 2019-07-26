@@ -276,6 +276,28 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     print("done")
 
 
-if __name__ == "__main__":
-    output_folder_base = "/media/fabian/Results/nnUNetV2/3d_fullres/Task03_Liver/nnUNetTrainer__nnUNetPlans"
+def apply_postprocessing_to_folder(input_folder: str, output_folder: str, for_which_classes: list, num_processes=8):
+    """
+    applies removing of all but the largest connected component to all niftis in a folder
+    :param input_folder:
+    :param output_folder:
+    :param for_which_classes:
+    :param num_processes:
+    :return:
+    """
+    maybe_mkdir_p(output_folder)
+    p = Pool(num_processes)
+    nii_files = subfiles(input_folder, suffix=".nii.gz", join=False)
+    input_files = [join(input_folder, i) for i in nii_files]
+    out_files = [join(output_folder, i) for i in nii_files]
+    results = p.starmap_async(load_remove_save, zip(input_files, out_files, [for_which_classes] * len(input_files)))
+    res = results.get()
+    p.close()
+    p.join()
 
+
+if __name__ == "__main__":
+    input_folder = "/media/fabian/DKFZ/predictions_Fabian/Liver_and_LiverTumor"
+    output_folder = "/media/fabian/DKFZ/predictions_Fabian/Liver_and_LiverTumor_postprocessed"
+    for_which_classes = [(1, 2), ]
+    apply_postprocessing_to_folder(input_folder, output_folder, for_which_classes)
