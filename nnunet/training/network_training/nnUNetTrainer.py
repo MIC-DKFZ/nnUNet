@@ -240,6 +240,19 @@ class nnUNetTrainer(NetworkTrainer):
                                                            verbose=True, threshold=self.lr_scheduler_eps,
                                                            threshold_mode="abs")
         self.network.cuda()
+
+        try:
+            from batchgenerators.utilities.file_and_folder_operations import join
+            import hiddenlayer as hl
+            g = hl.build_graph(self.network, torch.rand((self.batch_size, self.num_input_channels, *self.patch_size)).cuda())
+            g.save(join(self.output_folder, "network_architecture.pdf"))
+            del g
+        except Exception as e:
+            self.print_to_log_file("Unable to plot network architecture:")
+            self.print_to_log_file(e)
+        finally:
+            torch.cuda.empty_cache()
+
         self.network.inference_apply_nonlin = softmax_helper
 
     def run_training(self):
@@ -274,7 +287,6 @@ class nnUNetTrainer(NetworkTrainer):
                 "If self.stage is None then there can be only one stage in the plans file. That seems to not be the " \
                 "case. Please specify which stage of the cascade must be trained"
             self.stage = list(plans['plans_per_stage'].keys())[0]
-
         self.plans = plans
 
         stage_plans = self.plans['plans_per_stage'][self.stage]
@@ -298,10 +310,11 @@ class nnUNetTrainer(NetworkTrainer):
         self.min_size_per_class = None  # DONT USE THIS. plans['min_size_per_class']
 
         if plans.get('transpose_forward') is None or plans.get('transpose_backward') is None:
-            raise RuntimeError("You seem to have data that was preprocessed with a previous version of nnU-Net. "
-                               "You should rerun preprocessing. Sorry for the inconvenience :-/. Most likely nothing "
-                               "will have changed for your dataset. This change (transpose forward applied to data in "
-                               "preprocessing) is necessary for some datasets to work properly (performance wise)")
+            print("WARNING! You seem to have data that was preprocessed with a previous version of nnU-Net. "
+                               "You should rerun preprocessing. We will proceed and assume that both transpose_foward "
+                                   "and transpose_backward are [0, 1, 2]. If that is not correct then weird things will happen!")
+            plans['transpose_forward'] = [0, 1, 2]
+            plans['transpose_backward'] = [0, 1, 2]
         self.transpose_forward = plans['transpose_forward']
         self.transpose_backward = plans['transpose_backward']
 
