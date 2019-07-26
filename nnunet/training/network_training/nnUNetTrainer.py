@@ -239,10 +239,14 @@ class nnUNetTrainer(NetworkTrainer):
                                                            threshold_mode="abs")
         self.network.cuda()
 
+        self.network.inference_apply_nonlin = softmax_helper
+
+    def plot_network_architecture(self):
         try:
             from batchgenerators.utilities.file_and_folder_operations import join
             import hiddenlayer as hl
-            g = hl.build_graph(self.network, torch.rand((self.batch_size, self.num_input_channels, *self.patch_size)).cuda())
+            g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)).cuda(),
+                               transforms=None)
             g.save(join(self.output_folder, "network_architecture.pdf"))
             del g
         except Exception as e:
@@ -250,8 +254,6 @@ class nnUNetTrainer(NetworkTrainer):
             self.print_to_log_file(e)
         finally:
             torch.cuda.empty_cache()
-
-        self.network.inference_apply_nonlin = softmax_helper
 
     def run_training(self):
         dct = OrderedDict()
