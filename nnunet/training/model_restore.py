@@ -64,11 +64,11 @@ def restore_model(pkl_file, checkpoint=None, train=False):
         """
         try:
             import meddec
-            search_in = join(meddec.__path__[0], "model_training", "ablation_studies")
-            tr = recursive_find_trainer([search_in], name, current_module="meddec.model_training.ablation_studies")
+            search_in = join(meddec.__path__[0], "model_training")
+            tr = recursive_find_trainer([search_in], name, current_module="meddec.model_training")
         except ImportError:
             pass
-        
+
     if tr is None:
         raise RuntimeError("Could not find the model trainer specified in checkpoint in nnunet.trainig.network_training. If it "
                            "is not located there, please move it or change the code of restore_model. Your model "
