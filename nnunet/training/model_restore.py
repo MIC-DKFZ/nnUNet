@@ -57,6 +57,18 @@ def restore_model(pkl_file, checkpoint=None, train=False):
     name = info['name']
     search_in = join(nnunet.__path__[0], "training", "network_training")
     tr = recursive_find_trainer([search_in], name, current_module="nnunet.training.network_training")
+
+    if tr is None:
+        """
+        Fabian only. This will trigger searching for trainer classes in other repositories as well
+        """
+        try:
+            import meddec
+            search_in = join(meddec.__path__[0], "model_training", "ablation_studies")
+            tr = recursive_find_trainer([search_in], name, current_module="meddec.model_training.ablation_studies")
+        except ImportError:
+            pass
+        
     if tr is None:
         raise RuntimeError("Could not find the model trainer specified in checkpoint in nnunet.trainig.network_training. If it "
                            "is not located there, please move it or change the code of restore_model. Your model "
