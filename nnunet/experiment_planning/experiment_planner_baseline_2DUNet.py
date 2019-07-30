@@ -38,7 +38,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
 
             new_median_shape = np.round(original_spacing / current_spacing * original_shape).astype(int)
 
-            dataset_num_voxels = np.prod(new_median_shape) * num_cases
+            dataset_num_voxels = np.prod(new_median_shape, dtype=np.int64) * num_cases
             input_patch_size = new_median_shape[1:]
 
             network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
@@ -61,7 +61,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
 
             # check if batch size is too large (more than 5 % of dataset)
             max_batch_size = np.round(batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
-                                      np.prod(input_patch_size)).astype(int)
+                                      np.prod(input_patch_size, dtype=np.int64)).astype(int)
             batch_size = min(batch_size, max_batch_size)
 
             plan = {

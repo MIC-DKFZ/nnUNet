@@ -205,7 +205,7 @@ class ExperimentPlanner(object):
 
             # check if batch size is too large
             max_batch_size = np.round(batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
-                                      np.prod(input_patch_size)).astype(int)
+                                      np.prod(input_patch_size, dtype=np.int64)).astype(int)
             max_batch_size = max(max_batch_size, dataset_min_batch_size_cap)
             batch_size = min(batch_size, max_batch_size)
 
@@ -264,7 +264,7 @@ class ExperimentPlanner(object):
                                                              median_shape_transposed,
                                                              len(self.list_of_cropped_npz_files),
                                                              num_modalities, len(all_classes) + 1))
-        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels']) / \
+        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
                 architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
             more = False
         else:
@@ -278,7 +278,7 @@ class ExperimentPlanner(object):
             # out-of-plane axis. We could probably/maybe do this analytically but I am lazy, so here
             # we do it the dumb way
             lowres_stage_spacing = deepcopy(target_spacing)
-            num_voxels = np.prod(median_shape)
+            num_voxels = np.prod(median_shape, dtype=np.int64)
             while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 * architecture_input_voxels:
                 max_spacing = max(lowres_stage_spacing)
                 if np.any((max_spacing / lowres_stage_spacing) > 2):
@@ -286,7 +286,7 @@ class ExperimentPlanner(object):
                         *= 1.01
                 else:
                     lowres_stage_spacing *= 1.01
-                num_voxels = np.prod(target_spacing / lowres_stage_spacing * median_shape)
+                num_voxels = np.prod(target_spacing / lowres_stage_spacing * median_shape, dtype=np.int64)
 
             lowres_stage_spacing_transposed = np.array(lowres_stage_spacing)[self.transpose_forward]
             new = get_properties_for_stage(lowres_stage_spacing_transposed, target_spacing_transposed,
@@ -294,8 +294,8 @@ class ExperimentPlanner(object):
                                            len(self.list_of_cropped_npz_files),
                                            num_modalities, len(all_classes) + 1)
 
-            if 1.5 * np.prod(new['median_patient_size_in_voxels']) < np.prod(
-                    self.plans_per_stage[0]['median_patient_size_in_voxels']):
+            if 1.5 * np.prod(new['median_patient_size_in_voxels'], dtype=np.int64) < np.prod(
+                    self.plans_per_stage[0]['median_patient_size_in_voxels'], dtype=np.int64):
                 self.plans_per_stage.append(new)
 
         self.plans_per_stage = self.plans_per_stage[::-1]

@@ -228,7 +228,7 @@ class Generic_UNet(SegmentationNetwork):
         else:
             raise ValueError("unknown convolution dimensionality, conv op: %s" % str(conv_op))
 
-        self.input_shape_must_be_divisible_by = np.prod(pool_op_kernel_sizes, 0)
+        self.input_shape_must_be_divisible_by = np.prod(pool_op_kernel_sizes, 0, dtype=np.int64)
         self.pool_op_kernel_sizes = pool_op_kernel_sizes
         self.conv_kernel_sizes = conv_kernel_sizes
 
@@ -409,8 +409,8 @@ class Generic_UNet(SegmentationNetwork):
         npool = len(pool_op_kernel_sizes)
 
         map_size = np.array(patch_size)
-        tmp = np.int64(5 * np.prod(map_size) * base_num_features + num_modalities * np.prod(map_size) + \
-              num_classes * np.prod(map_size))
+        tmp = np.int64(5 * np.prod(map_size, dtype=np.int64) * base_num_features + num_modalities * np.prod(map_size, dtype=np.int64) + \
+              num_classes * np.prod(map_size, dtype=np.int64))
 
         num_feat = base_num_features
 
@@ -419,7 +419,7 @@ class Generic_UNet(SegmentationNetwork):
                 map_size[pi] /= pool_op_kernel_sizes[p][pi]
             num_feat = min(num_feat * 2, max_num_features)
             num_blocks = 5 if p < (npool -1) else 2 # 2 + 2 for the convs of encode/decode and 1 for transposed conv
-            tmp += num_blocks * np.prod(map_size) * num_feat
+            tmp += num_blocks * np.prod(map_size, dtype=np.int64) * num_feat
             # print(p, map_size, num_feat, tmp)
         return tmp
 
