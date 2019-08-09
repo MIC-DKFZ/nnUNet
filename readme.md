@@ -199,19 +199,19 @@ You can share trained models by simply sending the corresponding output folder f
 whoever you want share them with. The recipient can then use nnU-Net for inference with this model.
 
 ## FAQ
-1) #####Can I run nnU-Net on smaller GPUs?
+1) ##### Can I run nnU-Net on smaller GPUs?
 
     You can run nnU-Net in fp16 by specifying `--fp16` as additional option when launching trainings. This will reduce 
     the amount of GPU memory needed to ~9 GB and allow to run everything on 11GB cards as well. You can also manually 
     edit the plans.pkl files (that are located in the subfolders of preprocessed_output_dir) to make nnU-net use less 
     feature maps. This can however have an impact on segmentation performance
 
-2) #####I get the error `seg from prev stage missing` when running the cascade
+2) ##### I get the error `seg from prev stage missing` when running the cascade
 
     You need to run all five folds of `3d_lowres`. Segmentations of the previous stage can only be generated from the 
     validation set, otherwise we would overfit.
    
-3) #####Why am I getting `RuntimeError: CUDA error: device-side assert triggered`?
+3) ##### Why am I getting `RuntimeError: CUDA error: device-side assert triggered`?
 
     This error often goes along with something like `void THCudaTensor_scatterFillKernel(TensorInfo<Real, IndexType>, 
     TensorInfo<long, IndexType>, Real, int, IndexType) [with IndexType = unsigned int, Real = float, Dims = -1]: 
