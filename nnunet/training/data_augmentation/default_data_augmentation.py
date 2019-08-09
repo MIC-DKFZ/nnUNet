@@ -179,7 +179,7 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
     :param dataloader_val:
     :param patch_size:
     :param params:
-    :param border_val_seg: 
+    :param border_val_seg:
     :return:
     """
     tr_transforms = []
