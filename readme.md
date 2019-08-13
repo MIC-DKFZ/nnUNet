@@ -126,8 +126,8 @@ You can also give a list of task ids to summarize several datastes at once.
 
 ## Inference 
 You can use trained models to predict test data. In order to be able to do so the test data must be provided in the 
-same format as the training data. Specifically, the data must be splitted in 3s niftis, so if you have more than one 
-modality the files must be named like this:
+same format as the training data. Specifically, the data must be splitted in 3D niftis, so if you have more than one 
+modality the files must be named like this (same format as nnUNet_raw_splitted! see readme in dataset_conversion folder):
 
 ```
 CaseIdentifier1_0000.nii.gz, CaseIdnetifier1_0001.nii.gz, ...
