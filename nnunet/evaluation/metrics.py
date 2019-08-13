@@ -71,7 +71,7 @@ class ConfusionMatrix:
         self.fp = int(((self.test != 0) * (self.reference == 0)).sum())
         self.tn = int(((self.test == 0) * (self.reference == 0)).sum())
         self.fn = int(((self.test == 0) * (self.reference != 0)).sum())
-        self.size = int(np.product(self.reference.shape))
+        self.size = int(np.prod(self.reference.shape, dtype=np.int64))
         self.test_empty = not np.any(self.test)
         self.test_full = np.all(self.test)
         self.reference_empty = not np.any(self.reference)

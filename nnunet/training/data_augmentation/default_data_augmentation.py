@@ -174,6 +174,53 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
     return batchgenerator_train, batchgenerator_val
 
 
+def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params, border_val_seg=-1):
+    """
+    use this instead of get_default_augmentation (drop in replacement) to turn off all data augmentation
+    :param dataloader_train:
+    :param dataloader_val:
+    :param patch_size:
+    :param params:
+    :param border_val_seg:
+    :return:
+    """
+    tr_transforms = []
+
+    if params.get("selected_data_channels") is not None:
+        tr_transforms.append(DataChannelSelectionTransform(params.get("selected_data_channels")))
+
+    if params.get("selected_seg_channels") is not None:
+        tr_transforms.append(SegChannelSelectionTransform(params.get("selected_seg_channels")))
+
+    tr_transforms.append(RemoveLabelTransform(-1, 0))
+
+    tr_transforms.append(RenameTransform('seg', 'target', True))
+    tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
+    tr_transforms = Compose(tr_transforms)
+
+    batchgenerator_train = MultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
+                                                  params.get("num_cached_per_thread"),
+                                                  seeds=range(params.get('num_threads')), pin_memory=True)
+    batchgenerator_train.restart()
+
+    val_transforms = []
+    val_transforms.append(RemoveLabelTransform(-1, 0))
+    if params.get("selected_data_channels") is not None:
+        val_transforms.append(DataChannelSelectionTransform(params.get("selected_data_channels")))
+    if params.get("selected_seg_channels") is not None:
+        val_transforms.append(SegChannelSelectionTransform(params.get("selected_seg_channels")))
+
+    val_transforms.append(RenameTransform('seg', 'target', True))
+    val_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
+    val_transforms = Compose(val_transforms)
+
+    batchgenerator_val = MultiThreadedAugmenter(dataloader_val, val_transforms, max(params.get('num_threads')//2, 1),
+                                                params.get("num_cached_per_thread"),
+                                                seeds=range(max(params.get('num_threads')//2, 1)), pin_memory=True)
+    batchgenerator_val.restart()
+    return batchgenerator_train, batchgenerator_val
+
+
 if __name__ == "__main__":
     from nnunet.training.dataloading.dataset_loading import DataLoader2D, DataLoader3D, load_dataset
     from nnunet.paths import preprocessing_output_dir

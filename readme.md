@@ -126,8 +126,8 @@ You can also give a list of task ids to summarize several datastes at once.
 
 ## Inference 
 You can use trained models to predict test data. In order to be able to do so the test data must be provided in the 
-same format as the training data. Specifically, the data must be splitted in 3s niftis, so if you have more than one 
-modality the files must be named like this:
+same format as the training data. Specifically, the data must be splitted in 3D niftis, so if you have more than one 
+modality the files must be named like this (same format as nnUNet_raw_splitted! see readme in dataset_conversion folder):
 
 ```
 CaseIdentifier1_0000.nii.gz, CaseIdnetifier1_0001.nii.gz, ...
@@ -199,8 +199,28 @@ You can share trained models by simply sending the corresponding output folder f
 whoever you want share them with. The recipient can then use nnU-Net for inference with this model.
 
 ## FAQ
-Ask questions and I will post the answers here
+1) ##### Can I run nnU-Net on smaller GPUs?
 
+    You can run nnU-Net in fp16 by specifying `--fp16` as additional option when launching trainings. This will reduce 
+    the amount of GPU memory needed to ~9 GB and allow to run everything on 11GB cards as well. You can also manually 
+    edit the plans.pkl files (that are located in the subfolders of preprocessed_output_dir) to make nnU-net use less 
+    feature maps. This can however have an impact on segmentation performance
+
+2) ##### I get the error `seg from prev stage missing` when running the cascade
+
+    You need to run all five folds of `3d_lowres`. Segmentations of the previous stage can only be generated from the 
+    validation set, otherwise we would overfit.
+   
+3) ##### Why am I getting `RuntimeError: CUDA error: device-side assert triggered`?
+
+    This error often goes along with something like `void THCudaTensor_scatterFillKernel(TensorInfo<Real, IndexType>, 
+    TensorInfo<long, IndexType>, Real, int, IndexType) [with IndexType = unsigned int, Real = float, Dims = -1]: 
+    block: [4770,0,0], thread: [374,0,0] Assertion indexValue >= 0 && indexValue < tensor.sizes[dim] failed.`.
+    
+    This means that your dataset contains unexpected values in the segmentations. nnU-Net expects all labels to be 
+    consecutive integers. So if your dataset has 4 classes (background and three foregound labels), then the labels 
+    must be 0, 1, 2, 3 (where 0 must be background!). There cannot be any other values in the ground truth segmentations. 
+    
 ## Extending nnU-Net
 nnU-Net was developed in a very short amount of time and has not been planned thoroughly form the start (this is not 
 really possible for such a project). As such it is quite convoluted and complex, maybe unnessearily so. If you wish to 

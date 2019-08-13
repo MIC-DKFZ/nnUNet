@@ -275,6 +275,8 @@ class DataLoader3D(SlimDataLoaderBase):
                     selected_class = 0
                 else:
                     selected_class = np.random.choice(foreground_classes)
+
+                # we could precompute that to save CPU time but I am too lazy right now
                 voxels_of_that_class = np.argwhere(case_all_data[-1] == selected_class)
 
                 # voxels_of_that_class should always contain some voxels we chose selected_class from the classes that

@@ -173,7 +173,8 @@ class Generic_UNet(SegmentationNetwork):
                  nonlin=nn.LeakyReLU, nonlin_kwargs=None, deep_supervision=True, dropout_in_localization=False,
                  final_nonlin=softmax_helper, weightInitializer=InitWeights_He(1e-2), pool_op_kernel_sizes=None,
                  conv_kernel_sizes=None,
-                 upscale_logits=False, convolutional_pooling=False, convolutional_upsampling=False):
+                 upscale_logits=False, convolutional_pooling=False, convolutional_upsampling=False,
+                 max_num_features=None):
         """
         basically more flexible than v1, architecture is the same
 
@@ -227,13 +228,21 @@ class Generic_UNet(SegmentationNetwork):
         else:
             raise ValueError("unknown convolution dimensionality, conv op: %s" % str(conv_op))
 
-        self.input_shape_must_be_divisible_by = np.prod(pool_op_kernel_sizes, 0)
+        self.input_shape_must_be_divisible_by = np.prod(pool_op_kernel_sizes, 0, dtype=np.int64)
         self.pool_op_kernel_sizes = pool_op_kernel_sizes
         self.conv_kernel_sizes = conv_kernel_sizes
 
         self.conv_pad_sizes = []
         for krnl in self.conv_kernel_sizes:
             self.conv_pad_sizes.append([1 if i == 3 else 0 for i in krnl])
+
+        if max_num_features is None:
+            if self.conv_op == nn.Conv3d:
+                self.max_num_features = self.MAX_NUM_FILTERS_3D
+            else:
+                self.max_num_features = self.MAX_FILTERS_2D
+        else:
+            self.max_num_features = max_num_features
 
         self.conv_blocks_context = []
         self.conv_blocks_localization = []
@@ -263,10 +272,9 @@ class Generic_UNet(SegmentationNetwork):
                 self.td.append(pool_op(pool_op_kernel_sizes[d]))
             input_features = output_features
             output_features = int(np.round(output_features * feat_map_mul_on_downscale))
-            if self.conv_op == nn.Conv3d:
-                output_features = min(output_features, self.MAX_NUM_FILTERS_3D)
-            else:
-                output_features = min(output_features, self.MAX_FILTERS_2D)
+
+            output_features = min(output_features, self.max_num_features)
+
 
         # now the bottleneck.
         # determine the first stride
@@ -401,8 +409,8 @@ class Generic_UNet(SegmentationNetwork):
         npool = len(pool_op_kernel_sizes)
 
         map_size = np.array(patch_size)
-        tmp = np.int64(5 * np.prod(map_size) * base_num_features + num_modalities * np.prod(map_size) + \
-              num_classes * np.prod(map_size))
+        tmp = np.int64(5 * np.prod(map_size, dtype=np.int64) * base_num_features + num_modalities * np.prod(map_size, dtype=np.int64) + \
+              num_classes * np.prod(map_size, dtype=np.int64))
 
         num_feat = base_num_features
 
@@ -411,7 +419,7 @@ class Generic_UNet(SegmentationNetwork):
                 map_size[pi] /= pool_op_kernel_sizes[p][pi]
             num_feat = min(num_feat * 2, max_num_features)
             num_blocks = 5 if p < (npool -1) else 2 # 2 + 2 for the convs of encode/decode and 1 for transposed conv
-            tmp += num_blocks * np.prod(map_size) * num_feat
+            tmp += num_blocks * np.prod(map_size, dtype=np.int64) * num_feat
             # print(p, map_size, num_feat, tmp)
         return tmp
 

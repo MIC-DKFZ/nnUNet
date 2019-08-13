@@ -319,10 +319,20 @@ class NetworkTrainer(object):
                 self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
                                        "Install it from https://github.com/NVIDIA/apex")
 
+    def plot_network_architecture(self):
+        """
+        can be implemented (see nnUNetTrainer) but does not have to. Not implemented here because it imposes stronger
+        assumptions on the presence of class variables
+        :return:
+        """
+        pass
+
     def run_training(self):
         torch.cuda.empty_cache()
 
         self._maybe_init_amp()
+
+        self.plot_network_architecture()
 
         if cudnn.benchmark and cudnn.deterministic:
             warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
