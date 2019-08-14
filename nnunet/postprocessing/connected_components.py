@@ -68,7 +68,9 @@ def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_
 def consolidate_folds(output_folder_base, validation_folder_name='validation_raw'):
     # TODO just assume validation folder names, skip dependency on pp.json files
     """
-    you must have run the validation from nnUNetV2, otherwise postprocessing.json files will be missing
+    here we ignore the postprocessing that was done independently for each fold and instead try to find one
+    postprocessing that is optimized for all 5 folds. For this we need to apply determine_postprocessing to a folder
+    that contains all predicted niftis
     :param output_folder_base:
     :return:
     """
@@ -89,7 +91,7 @@ def consolidate_folds(output_folder_base, validation_folder_name='validation_raw
 
     assert num_niftis == num_niftis_gt, "some folds are missing predicted niftis :-(. Make sure you ran all folds properly"
 
-    # now we need to apply the consolidated postprocessing to the niftis from the cross-validation and evaluate that
+    # now copy all raw niftis into cv_niftis_raw
     output_folder_raw = join(output_folder_base, "cv_niftis_raw")
     maybe_mkdir_p(output_folder_raw)
     for f in folds:
@@ -97,25 +99,28 @@ def consolidate_folds(output_folder_base, validation_folder_name='validation_raw
         for n in niftis:
             shutil.copy(n, join(output_folder_raw))
 
-    # evaluate raw niftis - we could salvage the summary.json from the folds but that's too much work and I am lazy
+    # load a summary file so that we can know what class labels to expect
     summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results']['mean']
     classes = [int(i) for i in summary_fold0.keys()]
     niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
     test_pred_pairs = [(join(output_folder_base, "gt_niftis", i), join(output_folder_raw, i)) for i in niftis]
+
+    # determine_postprocessing needs a summary.json file in the folder where the raw predictions are. We could compute
+    # that from the summary files of the five folds but I am feeling lazy today
     aggregate_scores(test_pred_pairs, labels=classes, json_output_file=join(output_folder_raw, "summary.json"),
                      num_threads=default_num_threads)
 
     determine_postprocessing(output_folder_base, join(output_folder_base, "gt_niftis"), 'cv_niftis_raw',
                              final_subf_name="cv_niftis_postprocessed", processes=default_num_threads)
+    # determine_postprocessing will create a postprocessing.json file that can be used for inference
 
-
-def load_for_which_classes(pkl_file):
+def load_for_which_classes(json_file):
     '''
     loads the relevant part of the pkl file that is needed for applying postprocessing
     :param pkl_file:
     :return:
     '''
-    a = load_json(pkl_file)
+    a = load_json(json_file)
     return a['for_which_classes']
 
 

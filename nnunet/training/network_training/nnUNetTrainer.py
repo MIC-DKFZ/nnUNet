@@ -525,6 +525,8 @@ class nnUNetTrainer(NetworkTrainer):
         self.print_to_log_file("determining postprocessing")
         determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name_base,
                                  final_subf_name=validation_folder_name_base + "_postprocessed")
+        # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
+        # They are always in that folder, even if no postprocessing as applied!
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
         # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be

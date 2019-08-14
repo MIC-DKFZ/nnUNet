@@ -22,7 +22,7 @@ from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, 
 
 
 # do not modify these unless you know what you are doing
-my_output_identifier = "nnUNetV2"
+my_output_identifier = "nnUNet"
 default_plans_identifier = "nnUNetPlans"
 default_data_identifier = 'nnUNet'
 

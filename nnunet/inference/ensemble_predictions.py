@@ -16,6 +16,7 @@ from nnunet.inference.segmentation_export import save_segmentation_nifti_from_so
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 from multiprocessing import Pool
+from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_for_which_classes
 
 
 def merge_files(args):
@@ -28,7 +29,7 @@ def merge_files(args):
         save_segmentation_nifti_from_softmax(softmax, out_file, props, 1, None, None, None)
 
 
-def merge(folders, output_folder, threads, override=True):
+def merge(folders, output_folder, threads, override=True, postprocessing_file=None):
     maybe_mkdir_p(output_folder)
 
     patient_ids = [subfiles(i, suffix=".npz", join=False) for i in folders]
@@ -60,22 +61,16 @@ def merge(folders, output_folder, threads, override=True):
     p.close()
     p.join()
 
+    if postprocessing_file is not None:
+        apply_postprocessing_to_folder(output_folder, output_folder + "_postprocessed",
+                                       load_for_which_classes(postprocessing_file), threads)
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="This requires that all folders to be merged use the same "
-                                                 "postprocessing function "
-                                                 "(nnunet.utilities.postprocessing.postprocess_segmentation). "
-                                                 "This will be the case if the corresponding "
-                                                 "models were trained with nnUNetTrainer or nnUNetTrainerCascadeFullRes"
-                                                 "but may not be the case if you added models of your own that use a "
-                                                 "different postprocessing. This script also requires a plans file to"
-                                                 "be present in all of the folders (if they are not present you can "
-                                                 "take them from the respective model training output folders. "
-                                                 "Parameters for the postprocessing "
-                                                 "will be taken from the plans file. If the folders were created by "
-                                                 "predict_folder.py then the plans file will have been copied "
-                                                 "automatically (if --save_npz is specified)")
+    parser = argparse.ArgumentParser(description="This script will merge predictions (that were prdicted with the "
+                                                 "-npz option!). You need to specify a postprocessing file so that "
+                                                 "we know here what postprocessing must be applied. Failing to do so "
+                                                 "will disable postprocessing")
     parser.add_argument('-f', '--folders', nargs='+', help="list of folders to merge. All folders must contain npz "
                                                            "files", required=True)
     parser.add_argument('-o', '--output_folder', help="where to save the results", required=True, type=str)
