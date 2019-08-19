@@ -328,8 +328,6 @@ class NetworkTrainer(object):
         pass
 
     def run_training(self):
-        self.val_gen.restart()
-        self.tr_gen.restart()
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
         
