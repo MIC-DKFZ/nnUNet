@@ -127,7 +127,7 @@ def load_for_which_classes(json_file):
 def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
                              temp_folder="temp",
                              final_subf_name="validation_final", processes=default_num_threads,
-                             dice_threshold=0):
+                             dice_threshold=0, debug=False):
     """
     :param base:
     :param gt_labels_folder:
@@ -135,10 +135,19 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     :param temp_folder: used to store temporary data, will be deleted after we are done here
     :param final_subf_name:
     :param processes:
+    :param debug: if True then the temporaty files will not be deleted
     :return:
     """
     # lets see what classes are in the dataset
     classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['mean'].keys() if int(i) != 0]
+
+    folder_all_classes_as_fg = join(base, temp_folder + "_allClasses")
+    folder_per_class = join(base, temp_folder + "_perClass")
+
+    if isdir(folder_all_classes_as_fg):
+        shutil.rmtree(folder_all_classes_as_fg)
+    if isdir(folder_per_class):
+        shutil.rmtree(folder_per_class)
 
     # multiprocessing rules
     p = Pool(processes)
@@ -150,11 +159,9 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     # these are all the files we will be dealing with
     fnames = subfiles(join(base, raw_subfolder_name), suffix=".nii.gz", join=False)
 
-    if isdir(join(base, temp_folder)):
-        shutil.rmtree(join(base, temp_folder))
-
     # make output and temp dir
-    maybe_mkdir_p(join(base, temp_folder))
+    maybe_mkdir_p(folder_all_classes_as_fg)
+    maybe_mkdir_p(folder_per_class)
     maybe_mkdir_p(join(base, final_subf_name))
 
     pp_results = {}
@@ -174,7 +181,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     for f in fnames:
         predicted_segmentation = join(base, raw_subfolder_name, f)
         # now remove all but the largest connected component for each class
-        output_file = join(base, temp_folder, f)
+        output_file = join(folder_all_classes_as_fg, f)
         results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, (classes, )),)))
         pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
 
@@ -182,13 +189,13 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # evaluate postprocessed predictions
     _ = aggregate_scores(pred_gt_tuples, labels=classes,
-                         json_output_file=join(base, temp_folder, "summary.json"),
+                         json_output_file=join(folder_all_classes_as_fg, "summary.json"),
                          json_author="Fabian", num_threads=processes)
 
     # now we need to figure out if doing this improved the dice scores. We will implement that defensively in so far
     # that if a single class got worse as a result we won't do this. We can change this in the future but right now I
     # prefer to do it this way
-    validation_result_PP_test = load_json(join(base, temp_folder, "summary.json"))['results']['mean']
+    validation_result_PP_test = load_json(join(folder_all_classes_as_fg, "summary.json"))['results']['mean']
 
     for c in classes:
         dc_raw = validation_result_raw[str(c)]['Dice']
@@ -214,14 +221,14 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     # now depending on whether we do remove all but the largest foreground connected component we define the source dir
     # for the next one to be the raw or the temp dir
     if do_fg_cc:
-        source = join(base, temp_folder)
+        source = folder_all_classes_as_fg
     else:
         source = join(base, raw_subfolder_name)
 
     pred_gt_tuples = []
     for f in fnames:
         predicted_segmentation = join(source, f)
-        output_file = join(base, temp_folder, f)
+        output_file = join(folder_per_class, f)
         results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, classes),)))
         pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
 
@@ -229,7 +236,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # evaluate postprocessed predictions
     _ = aggregate_scores(pred_gt_tuples, labels=classes,
-                         json_output_file=join(base, temp_folder, "summary.json"),
+                         json_output_file=join(folder_per_class, "summary.json"),
                          json_author="Fabian", num_threads=processes)
 
     if do_fg_cc:
@@ -238,7 +245,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
         old_res = validation_result_raw
 
     # these are the new dice scores
-    validation_result_PP_test = load_json(join(base, temp_folder, "summary.json"))['results']['mean']
+    validation_result_PP_test = load_json(join(folder_per_class, "summary.json"))['results']['mean']
 
     for c in classes:
         dc_raw = old_res[str(c)]['Dice']
@@ -274,7 +281,9 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
                          json_author="Fabian", num_threads=processes)
 
     # delete temp
-    shutil.rmtree(join(base, temp_folder))
+    if not debug:
+        shutil.rmtree(folder_per_class)
+        shutil.rmtree(folder_all_classes_as_fg)
 
     p.close()
     p.join()

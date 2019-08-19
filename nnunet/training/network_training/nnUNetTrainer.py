@@ -417,7 +417,8 @@ class nnUNetTrainer(NetworkTrainer):
                                        pad_kwargs=self.inference_pad_kwargs)[2]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, overwrite=False, validation_folder_name="validation_raw"):
+                 use_gaussian=True, overwrite=False, validation_folder_name="validation_raw",
+                 debug=False):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
         that selecting models is easier when computing the Dice globally instead of independently for each case and
@@ -431,16 +432,7 @@ class nnUNetTrainer(NetworkTrainer):
         will be different (which we could compensate for by using the volume per voxel but that would require the
         evaluator to understand spacings which is does not at this point)
 
-        :param do_mirroring:
-        :param use_train_mode:
-        :param mirror_axes:
-        :param tiled:
-        :param tile_in_z:
-        :param step:
-        :param use_nifti:
-        :param save_softmax:
-        :param use_gaussian:
-        :param use_temporal_models:
+        if debug=True then the temporary files generated for postprocessing determination will be kept
         :return:
         """
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
@@ -524,7 +516,7 @@ class nnUNetTrainer(NetworkTrainer):
         # have this applied during inference as well
         self.print_to_log_file("determining postprocessing")
         determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
-                                 final_subf_name=validation_folder_name + "_postprocessed")
+                                 final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
         # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
         # They are always in that folder, even if no postprocessing as applied!
 
