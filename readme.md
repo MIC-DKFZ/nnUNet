@@ -184,6 +184,8 @@ need segmentations, I recommend you start with this.
 You do not have to run five-fold cross-validation all the time. If you want to test single model performance, use
  *all* for `FOLD` instead of a number.
  
+CAREFUL: DO NOT use fold=all when you intend to run the cascade! You must run the cross-validation in 3d_lowres so that you get proper (=not overfitted) low resolution predictions.
+ 
 #### Manual Splitting of Data
 The cross-validation in nnU-Net splits on a per-case basis. This may sometimes not be desired, for example because 
 several training cases may be the same patient (different time steps or annotators). If this is the case, then you need to
