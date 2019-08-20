@@ -130,8 +130,8 @@ same format as the training data. Specifically, the data must be splitted in 3D 
 modality the files must be named like this (same format as nnUNet_raw_splitted! see readme in dataset_conversion folder):
 
 ```
-CaseIdentifier1_0000.nii.gz, CaseIdnetifier1_0001.nii.gz, ...
-CaseIdentifier2_0000.nii.gz, CaseIdnetifier2_0001.nii.gz, ...
+CaseIdentifier1_0000.nii.gz, CaseIdentifier1_0001.nii.gz, ...
+CaseIdentifier2_0000.nii.gz, CaseIdentifier2_0001.nii.gz, ...
 ...
 ```
 
@@ -146,7 +146,7 @@ To run inference with the cascade, run the following two commands:
 `python inference/predict_simple.py -i INPUT_FOLDER -o OUTPUT_FOLDER_LOWRES -t TaskXX_MY_DATASET -tr nnUNetTrainer -m 3d_lowres`
 
 `python inference/predict_simple.py -i INPUT_FOLDER -o OUTPUT_FOLDER_CASCADE -t TaskXX_MY_DATASET -tr 
-nnUNetTrainerCascadeFullRes -m 3d_fullres_cascade -l OUTPUT_FOLDER_LOWRES`
+nnUNetTrainerCascadeFullRes -m 3d_cascade_fullres -l OUTPUT_FOLDER_LOWRES`
 
 here we first predict the low resolution segmentations and then use them for the second stage of the cascade.
 
@@ -183,6 +183,8 @@ need segmentations, I recommend you start with this.
 
 You do not have to run five-fold cross-validation all the time. If you want to test single model performance, use
  *all* for `FOLD` instead of a number.
+ 
+CAREFUL: DO NOT use fold=all when you intend to run the cascade! You must run the cross-validation in 3d_lowres so that you get proper (=not overfitted) low resolution predictions.
  
 #### Manual Splitting of Data
 The cross-validation in nnU-Net splits on a per-case basis. This may sometimes not be desired, for example because 
