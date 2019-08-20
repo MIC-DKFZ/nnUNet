@@ -146,7 +146,7 @@ To run inference with the cascade, run the following two commands:
 `python inference/predict_simple.py -i INPUT_FOLDER -o OUTPUT_FOLDER_LOWRES -t TaskXX_MY_DATASET -tr nnUNetTrainer -m 3d_lowres`
 
 `python inference/predict_simple.py -i INPUT_FOLDER -o OUTPUT_FOLDER_CASCADE -t TaskXX_MY_DATASET -tr 
-nnUNetTrainerCascadeFullRes -m 3d_fullres_cascade -l OUTPUT_FOLDER_LOWRES`
+nnUNetTrainerCascadeFullRes -m 3d_cascade_fullres -l OUTPUT_FOLDER_LOWRES`
 
 here we first predict the low resolution segmentations and then use them for the second stage of the cascade.
 
