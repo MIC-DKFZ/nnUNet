@@ -137,3 +137,54 @@ class ApplyRandomBinaryOperatorTransform(AbstractTransform):
                         # if class was removed, leave it at backgound
         data_dict[self.key] = data
         return data_dict
+
+
+class ApplyRandomBinaryOperatorTransform2(AbstractTransform):
+    def __init__(self, channel_idx, p_per_sample=0.3, p_per_label=0.3, any_of_these=(binary_dilation, binary_closing),
+                 key="data", strel_size=(1, 10)):
+        """
+        the same as above but here we should use only expanding operations. Expansions will replace other labels
+        :param channel_idx: can be list or int
+        :param p_per_sample:
+        :param any_of_these:
+        :param fill_diff_with_other_class:
+        :param key:
+        :param strel_size:
+        """
+        self.strel_size = strel_size
+        self.key = key
+        self.any_of_these = any_of_these
+        self.p_per_sample = p_per_sample
+        self.p_per_label = p_per_label
+
+        assert not isinstance(channel_idx, tuple), "bäh"
+
+        if not isinstance(channel_idx, list):
+            channel_idx = [channel_idx]
+        self.channel_idx = channel_idx
+
+    def __call__(self, **data_dict):
+        data = data_dict.get(self.key)
+        for b in range(data.shape[0]):
+            if np.random.uniform() < self.p_per_sample:
+                ch = deepcopy(self.channel_idx)
+                np.random.shuffle(ch)
+                for c in ch:
+                    if np.random.uniform() < self.p_per_label:
+                        operation = np.random.choice(self.any_of_these)
+                        selem = ball(np.random.uniform(*self.strel_size))
+                        workon = np.copy(data[b, c]).astype(int)
+                        res = operation(workon, selem).astype(workon.dtype)
+                        data[b, c] = res
+
+                        # if class was added, we need to remove it in ALL other channels to keep one hot encoding
+                        # properties
+                        # we modify data
+                        other_ch = [i for i in ch if i != c]
+                        if len(other_ch) > 0:
+                            was_added_mask = (res - workon) > 0
+                            for oc in other_ch:
+                                data[b, oc][was_added_mask] = 0
+                            # if class was removed, leave it at backgound
+        data_dict[self.key] = data
+        return data_dict
