@@ -382,7 +382,7 @@ class nnUNetTrainer(NetworkTrainer):
         print("preprocessing...")
         d, s, properties = self.preprocess_patient(input_files)
         print("predicting...")
-        pred = self.predict_preprocessed_data_return_softmax(d, self.data_aug_params["mirror"], 1, False, 1,
+        pred = self.predict_preprocessed_data_return_softmax(d, self.data_aug_params["do_mirror"], 1, False, 1,
                                                              self.data_aug_params['mirror_axes'], True, True, 2,
                                                              self.patch_size, True)
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
@@ -445,6 +445,8 @@ class nnUNetTrainer(NetworkTrainer):
         maybe_mkdir_p(output_folder)
 
         if do_mirroring:
+            if not self.data_aug_params['do_mirror']:
+                raise RuntimeError("We did not train with mirroring so you cannot do inference with mirroring enabled")
             mirror_axes = self.data_aug_params['mirror_axes']
         else:
             mirror_axes = ()

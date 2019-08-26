@@ -12,14 +12,14 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from nnunet.evaluation.model_selection.summarize_results_in_one_json import summarize
+from nnunet.evaluation.model_selection.summarize_results_in_one_json import summarize2
 from nnunet.paths import network_training_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 
 if __name__ == "__main__":
-    summary_output_folder = join(network_training_output_dir, "summary_jsons_fold0")
+    summary_output_folder = join(network_training_output_dir, "summary_jsons_fold0_new")
     maybe_mkdir_p(summary_output_folder)
-    summarize(range(50), output_dir=summary_output_folder, folds=(0,))
+    summarize2(range(50), output_dir=summary_output_folder, folds=(0,))
 
     results_csv = join(network_training_output_dir, "summary_fold0.csv")
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     with open(results_csv, 'w') as f:
         for s in summary_files:
             if s.find("ensemble") == -1:
-                task, network, trainer, plans, validation_folder = s.split("__")
+                task, network, trainer, plans, validation_folder, folds = s.split("__")
             else:
                 n1, n2 = s.split("--")
                 n1 = n1[n1.find("ensemble_") + len("ensemble_") :]
@@ -37,14 +37,16 @@ if __name__ == "__main__":
                 trainer = n1
                 plans = n2
                 validation_folder = "none"
-            validation_folder = validation_folder[:-len('.json')]
-            results = load_json(join(summary_output_folder, s))['results']['mean']['mean']['Dice']
-            f.write("%s,%s,%s,%s,%s,%02.4f\n" % (task,
-                                            network, trainer, validation_folder, plans, results))
+            folds = folds[:-len('.json')]
+            results = load_json(join(summary_output_folder, s))
+            results_mean = results['results']['mean']['mean']['Dice']
+            results_median = results['results']['median']['mean']['Dice']
+            f.write("%s,%s,%s,%s,%s,%02.4f,%02.4f\n" % (task,
+                                            network, trainer, validation_folder, plans, results_mean, results_median))
 
-    summary_output_folder = join(network_training_output_dir, "summary_jsons")
+    summary_output_folder = join(network_training_output_dir, "summary_jsons_new")
     maybe_mkdir_p(summary_output_folder)
-    summarize(['all'], output_dir=summary_output_folder)
+    summarize2(['all'], output_dir=summary_output_folder)
 
     results_csv = join(network_training_output_dir, "summary_allFolds.csv")
 
@@ -53,7 +55,7 @@ if __name__ == "__main__":
     with open(results_csv, 'w') as f:
         for s in summary_files:
             if s.find("ensemble") == -1:
-                task, network, trainer, plans, validation_folder = s.split("__")
+                task, network, trainer, plans, validation_folder, folds = s.split("__")
             else:
                 n1, n2 = s.split("--")
                 n1 = n1[n1.find("ensemble_") + len("ensemble_") :]
@@ -62,8 +64,10 @@ if __name__ == "__main__":
                 trainer = n1
                 plans = n2
                 validation_folder = "none"
-            validation_folder = validation_folder[:-len('.json')]
-            results = load_json(join(summary_output_folder, s))['results']['mean']['mean']['Dice']
-            f.write("%s,%s,%s,%s,%s,%02.4f\n" % (task,
-                                            network, trainer, validation_folder, plans, results))
+            folds = folds[:-len('.json')]
+            results = load_json(join(summary_output_folder, s))
+            results_mean = results['results']['mean']['mean']['Dice']
+            results_median = results['results']['median']['mean']['Dice']
+            f.write("%s,%s,%s,%s,%s,%02.4f,%02.4f\n" % (task,
+                                            network, trainer, validation_folder, plans, results_mean, results_median))
 

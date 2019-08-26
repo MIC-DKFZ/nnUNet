@@ -44,7 +44,7 @@ default_3D_augmentation_params = {
     "p_gamma": 0.3,
     "num_threads": 12,
     "num_cached_per_thread": 1,
-    "mirror": True,
+    "do_mirror": True,
     "mirror_axes": (0, 1, 2),
     "p_eldef": 0.2,
     "p_scale": 0.2,
@@ -104,6 +104,7 @@ def get_patch_size(final_patch_size, rot_x, rot_y, rot_z, scale_range):
 def get_default_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params,
                              border_val_seg=-1, pin_memory=True,
                              seeds_train=None, seeds_val=None):
+    assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
     tr_transforms = []
 
     if params.get("selected_data_channels") is not None:
@@ -134,7 +135,8 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
             GammaTransform(params.get("gamma_range"), False, True, retain_stats=params.get("gamma_retain_stats"),
                            p_per_sample=params["p_gamma"]))
 
-    tr_transforms.append(MirrorTransform(params.get("mirror_axes")))
+    if params.get("do_mirror"):
+        tr_transforms.append(MirrorTransform(params.get("mirror_axes")))
 
     if params.get("mask_was_used_for_normalization") is not None:
         mask_was_used_for_normalization = params.get("mask_was_used_for_normalization")
