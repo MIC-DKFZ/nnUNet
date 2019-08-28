@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(name='nnunet',
       packages=["nnunet"],
-      version='0.1',
+      version='0.2',
       description='no new-net. Framework for out-of-the box medical image segmentation.',
       url='https://github.com/MIC-DKFZ/nnUNet',
       author='Division of Medical Image Computing, German Cancer Research Center',
