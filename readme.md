@@ -222,6 +222,13 @@ whoever you want share them with. The recipient can then use nnU-Net for inferen
     This means that your dataset contains unexpected values in the segmentations. nnU-Net expects all labels to be 
     consecutive integers. So if your dataset has 4 classes (background and three foregound labels), then the labels 
     must be 0, 1, 2, 3 (where 0 must be background!). There cannot be any other values in the ground truth segmentations. 
+
+4) ##### Why is no 3d_lowres model created?
+
+    3d_lowres is created only if the patch size in 3d_fullres less than 1/4 of the voxels of the median shape of the data 
+    in 3d_fullres (for example Liver is about 512x512x512 and the patch size is 128x128x128, so that's 1/64 and thus 
+    3d_lowres is created). You can enforce the creation of 3d_lowres models for smaller datasets by changing the value of
+    `HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0` (located in experiment_planning.configuration).
     
 ## Extending nnU-Net
 nnU-Net was developed in a very short amount of time and has not been planned thoroughly form the start (this is not 
