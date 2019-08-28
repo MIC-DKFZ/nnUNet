@@ -65,55 +65,6 @@ def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_
     return image
 
 
-def consolidate_folds(output_folder_base, validation_folder_name='validation_raw'):
-    # TODO just assume validation folder names, skip dependency on pp.json files
-    """
-    here we ignore the postprocessing that was done independently for each fold and instead try to find one
-    postprocessing that is optimized for all 5 folds. For this we need to apply determine_postprocessing to a folder
-    that contains all predicted niftis
-    :param output_folder_base:
-    :return:
-    """
-    folds = list(range(5))
-    folders_folds = [join(output_folder_base, "fold_%d" % i) for i in folds]
-
-    assert all([isdir(i) for i in folders_folds]), "some folds are missing"
-
-    # now for each fold, read the postprocessing json. this will tell us what the name of the validation folder is
-    validation_raw_folders = [join(output_folder_base, "fold_%d" % i, validation_folder_name) for i in folds]
-
-    # count niftis in there
-    num_niftis = 0
-    for v in validation_raw_folders:
-        num_niftis += len(subfiles(v, suffix=".nii.gz"))
-
-    num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis")))
-
-    assert num_niftis == num_niftis_gt, "some folds are missing predicted niftis :-(. Make sure you ran all folds properly"
-
-    # now copy all raw niftis into cv_niftis_raw
-    output_folder_raw = join(output_folder_base, "cv_niftis_raw")
-    maybe_mkdir_p(output_folder_raw)
-    for f in folds:
-        niftis = subfiles(validation_raw_folders[f], suffix=".nii.gz")
-        for n in niftis:
-            shutil.copy(n, join(output_folder_raw))
-
-    # load a summary file so that we can know what class labels to expect
-    summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results']['mean']
-    classes = [int(i) for i in summary_fold0.keys()]
-    niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
-    test_pred_pairs = [(join(output_folder_base, "gt_niftis", i), join(output_folder_raw, i)) for i in niftis]
-
-    # determine_postprocessing needs a summary.json file in the folder where the raw predictions are. We could compute
-    # that from the summary files of the five folds but I am feeling lazy today
-    aggregate_scores(test_pred_pairs, labels=classes, json_output_file=join(output_folder_raw, "summary.json"),
-                     num_threads=default_num_threads)
-
-    determine_postprocessing(output_folder_base, join(output_folder_base, "gt_niftis"), 'cv_niftis_raw',
-                             final_subf_name="cv_niftis_postprocessed", processes=default_num_threads)
-    # determine_postprocessing will create a postprocessing.json file that can be used for inference
-
 def load_for_which_classes(json_file):
     '''
     loads the relevant part of the pkl file that is needed for applying postprocessing
@@ -130,12 +81,13 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
                              dice_threshold=0, debug=False):
     """
     :param base:
-    :param gt_labels_folder:
-    :param raw_subfolder_name:
-    :param temp_folder: used to store temporary data, will be deleted after we are done here
-    :param final_subf_name:
+    :param gt_labels_folder: subfolder of base with niftis of ground truth labels
+    :param raw_subfolder_name: subfolder of base with niftis of predicted (non-postprocessed) segmentations
+    :param temp_folder: used to store temporary data, will be deleted after we are done here undless debug=True
+    :param final_subf_name: final results will be stored here (subfolder of base)
     :param processes:
-    :param debug: if True then the temporaty files will not be deleted
+    :param dice_threshold: only apply postprocessing if results is better than old_result+dice_threshold (can be used as eps)
+    :param debug: if True then the temporary files will not be deleted
     :return:
     """
     # lets see what classes are in the dataset

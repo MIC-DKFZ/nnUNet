@@ -43,6 +43,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_3_softDS4_radam_lowerLR',
         'nnUNetTrainerV2_2_schedule',
         'nnUNetTrainerV2_2_schedule2',
+        'nnUNetTrainerV2_2_clean',
     ]
 
     datasets = \
@@ -61,8 +62,9 @@ if __name__ == "__main__":
 
     expected_validation_folder = "validation_raw"
     alternative_validation_folder = "validation"
+    alternative_alternative_validation_folder = "validation_tiledTrue_doMirror_True"
 
-    interested_in = "median"
+    interested_in = "mean"
 
     result_per_dataset = {}
     for d in datasets:
@@ -77,7 +79,7 @@ if __name__ == "__main__":
         for t in datasets.keys():
             s = t[4:6]
             for c in datasets[t]:
-                s1 = s + "_" + c[:4]
+                s1 = s + "_" + c[3]
                 f.write("%s," % s1)
         f.write("\n")
 
@@ -94,8 +96,11 @@ if __name__ == "__main__":
                     if not isfile(summary_file):
                         summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (dataset, configuration, trainer, plans, alternative_validation_folder, folds_str))
                         if not isfile(summary_file):
-                            all_present = False
-                            print(trainer, dataset, configuration, "has missing summary file")
+                            summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (
+                            dataset, configuration, trainer, plans, alternative_alternative_validation_folder, folds_str))
+                            if not isfile(summary_file):
+                                all_present = False
+                                print(trainer, dataset, configuration, "has missing summary file")
                     if isfile(summary_file):
                         result = load_json(summary_file)['results'][interested_in]['mean']['Dice']
                         result_per_dataset_here[dataset][configuration] = result
@@ -132,7 +137,7 @@ if __name__ == "__main__":
 
         ranks_arr[:, d] = ranks
 
-    mn = np.median(ranks_arr, 1)
+    mn = np.mean(ranks_arr, 1)
     for i in np.argsort(mn):
         print(valid_trainers[i], mn[i])
 

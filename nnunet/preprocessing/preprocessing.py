@@ -226,6 +226,10 @@ class GenericPreprocessor(object):
             'spacing_transposed': original_spacing_transposed,
             'data.shape (data is transposed)': data.shape
         }
+
+        # remove nans
+        data[np.isnan(data)] = 0
+
         data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
                                      force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
         after = {
