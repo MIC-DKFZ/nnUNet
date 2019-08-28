@@ -1,3 +1,4 @@
+torch>1.0.0
 tqdm
 dicom2nifti
 scikit-image>=0.14
