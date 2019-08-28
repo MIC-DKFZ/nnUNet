@@ -49,5 +49,11 @@ except KeyError:
     preprocessing_output_dir = None
 
 # This is where the trained model parameters are stored
-network_training_output_dir = os.path.join(os.environ['RESULTS_FOLDER'], my_output_identifier)
-maybe_mkdir_p(network_training_output_dir)
+try:
+    network_training_output_dir = os.path.join(os.environ['RESULTS_FOLDER'], my_output_identifier)
+    maybe_mkdir_p(network_training_output_dir)
+except KeyError:
+    network_training_output_dir = None
+    print("RESULTS_FOLDER was not in your environment variables, network_training_output_dir could not be determined. "
+          "Please go to nnunet/paths.py and manually set network_training_output_dir. You can ignore this warning if "
+          "you are using nnunet only as a toolkit and don't intend to run network trainings")
