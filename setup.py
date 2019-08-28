@@ -1,6 +1,7 @@
 from setuptools import setup
 
 setup(name='nnunet',
+      packages=["nnunet"],
       version='0.1',
       description='no new-net. Framework for out-of-the box medical image segmentation.',
       url='https://github.com/MIC-DKFZ/nnUNet',
@@ -8,6 +9,7 @@ setup(name='nnunet',
       author_email='f.isensee@dkfz-heidelberg.de',
       license='Apache License Version 2.0, January 2004',
       install_requires=[
+            "torch",
             "tqdm",
             "dicom2nifti",
             "scikit-image>=0.14",
