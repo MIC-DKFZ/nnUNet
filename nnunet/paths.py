@@ -30,7 +30,8 @@ try:
     # base is the folder where the raw data is stored. You just need to set base only, the others will be created
     # automatically (they are subfolders of base).
     # Here I use environment variables to set the base folder. Environment variables allow me to use the same code on
-    # different systems (and our compute cluster)
+    # different systems (and our compute cluster). You can replace this line with something like:
+    # base = "/path/to/my/folder"
     base = os.environ['nnUNet_base']
     raw_dataset_dir = join(base, "nnUNet_raw")
     splitted_4d_output_dir = join(base, "nnUNet_raw_splitted")
@@ -44,12 +45,18 @@ except KeyError:
 # preprocessing_output_dir is where the preprocessed data is stored. If you run a training I very strongly recommend
 # this is a SSD!
 try:
+    # Here I use environment variables to set the folder. Environment variables allow me to use the same code on
+    # different systems (and our compute cluster). You can replace this line with something like:
+    # preprocessing_output_dir = "/path/to/my/folder_with_preprocessed_data"
     preprocessing_output_dir = os.environ['nnUNet_preprocessed']
 except KeyError:
     preprocessing_output_dir = None
 
 # This is where the trained model parameters are stored
 try:
+    # Here I use environment variables to set the folder. Environment variables allow me to use the same code on
+    # different systems (and our compute cluster). You can replace this line with something like:
+    # network_training_output_dir = "/path/to/my/folder_with_results"
     network_training_output_dir = os.path.join(os.environ['RESULTS_FOLDER'], my_output_identifier)
     maybe_mkdir_p(network_training_output_dir)
 except KeyError:
