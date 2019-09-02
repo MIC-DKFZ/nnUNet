@@ -202,11 +202,12 @@ class nnUNetTrainer(NetworkTrainer):
                                    also_print_to_console=False)
         else:
             pass
-        self.initialize_network_optimizer_and_scheduler()
+        self.initialize_network()
+        self.initialize_optimizer_and_scheduler()
         # assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         self.was_initialized = True
 
-    def initialize_network_optimizer_and_scheduler(self):
+    def initialize_network(self):
         """
         This is specific to the U-Net and must be adapted for other network architectures
         :return:
@@ -233,15 +234,18 @@ class nnUNetTrainer(NetworkTrainer):
                                     2, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, False, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
+        self.network.inference_apply_nonlin = softmax_helper
+
+        self.network.cuda()
+
+    def initialize_optimizer_and_scheduler(self):
+        assert self.network is not None, "self.initialize_network must be called first"
         self.optimizer = torch.optim.Adam(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                           amsgrad=True)
         self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.2,
                                                            patience=self.lr_scheduler_patience,
                                                            verbose=True, threshold=self.lr_scheduler_eps,
                                                            threshold_mode="abs")
-        self.network.cuda()
-
-        self.network.inference_apply_nonlin = softmax_helper
 
     def plot_network_architecture(self):
         try:

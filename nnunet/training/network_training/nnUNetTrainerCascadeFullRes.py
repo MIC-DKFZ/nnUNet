@@ -136,7 +136,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())))
         else:
             pass
-        self.initialize_network_optimizer_and_scheduler()
+        self.initialize_network()
         assert isinstance(self.network, SegmentationNetwork)
         self.was_initialized = True
 

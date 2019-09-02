@@ -44,6 +44,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_schedule',
         'nnUNetTrainerV2_2_schedule2',
         'nnUNetTrainerV2_2_clean',
+        'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
     ]
 
     datasets = \

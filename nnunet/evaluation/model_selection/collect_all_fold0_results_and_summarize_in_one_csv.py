@@ -19,7 +19,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 if __name__ == "__main__":
     summary_output_folder = join(network_training_output_dir, "summary_jsons_fold0_new")
     maybe_mkdir_p(summary_output_folder)
-    summarize2(range(50), output_dir=summary_output_folder, folds=(0,))
+    summarize2(range(100), output_dir=summary_output_folder, folds=(0,))
 
     results_csv = join(network_training_output_dir, "summary_fold0.csv")
 

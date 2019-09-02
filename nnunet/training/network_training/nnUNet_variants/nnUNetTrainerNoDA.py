@@ -70,7 +70,7 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
                                    also_print_to_console=False)
         else:
             pass
-        self.initialize_network_optimizer_and_scheduler()
+        self.initialize_network()
         assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         self.was_initialized = True
         self.data_aug_params['mirror_axes'] = ()
