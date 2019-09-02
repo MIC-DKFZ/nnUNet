@@ -1,7 +1,5 @@
 #!/bin/bash
 
-python3 rename_input.py
-
 echo '==============================='
 echo 'Run nnUnet Prediction'
 echo '==============================='
