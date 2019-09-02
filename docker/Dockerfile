@@ -13,7 +13,6 @@ RUN git clone https://github.com/MIC-DKFZ/nnUNet.git
 RUN cd nnUNet && pip3 install -r requirements.txt && pip3 install -e .
 
 COPY predict.sh /
-COPY rename_input.py /
 
 ENV INPUTDIR "/opt/input/"
 ENV OUTPUTDIR "/opt/output/"
