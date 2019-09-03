@@ -2,6 +2,8 @@ from _warnings import warn
 import matplotlib
 from batchgenerators.utilities.file_and_folder_operations import *
 from sklearn.model_selection import KFold
+from torch.optim.lr_scheduler import _LRScheduler
+
 matplotlib.use("agg")
 from time import time, sleep
 import torch
@@ -108,7 +110,7 @@ class NetworkTrainer(object):
 
         set self.tr_gen and self.val_gen
         
-        set self.network, self.optimizer and self.lr_scheduler
+        call self.initialize_network and self.initialize_optimizer_and_scheduler (important!)
         
         finally set self.was_initialized to True
         :param training:
@@ -233,10 +235,11 @@ class NetworkTrainer(object):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].cpu()
         lr_sched_state_dct = None
-        if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
+        if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'state_dict'): #not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
             lr_sched_state_dct = self.lr_scheduler.state_dict()
-            for key in lr_sched_state_dct.keys():
-                lr_sched_state_dct[key] = lr_sched_state_dct[key]
+            # WTF is this!?
+            # for key in lr_sched_state_dct.keys():
+            #    lr_sched_state_dct[key] = lr_sched_state_dct[key]
         if save_optimizer:
             optimizer_state_dict = self.optimizer.state_dict()
         else:
@@ -274,8 +277,25 @@ class NetworkTrainer(object):
         self.print_to_log_file("loading checkpoint", fname, "train=", train)
         if not self.was_initialized:
             self.initialize(train)
-        saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
+        #saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
+        saved_model = torch.load(fname, map_location=torch.device('cpu'))
         self.load_checkpoint_ram(saved_model, train)
+
+    @abstractmethod
+    def initialize_network(self):
+        """
+        initialize self.network here
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def initialize_optimizer_and_scheduler(self):
+        """
+        initialize self.optimizer and self.lr_scheduler (if applicable) here
+        :return:
+        """
+        pass
 
     def load_checkpoint_ram(self, saved_model, train=True):
         """
@@ -296,14 +316,25 @@ class NetworkTrainer(object):
             if key not in curr_state_dict_keys:
                 key = key[7:]
             new_state_dict[key] = value
+
+        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
+        if self.fp16:
+            del self.network, self.optimizer, self.lr_scheduler
+            self.initialize_network()
+            self.initialize_optimizer_and_scheduler()
+
         self.network.load_state_dict(new_state_dict)
         self.epoch = saved_model['epoch']
         if train:
             optimizer_state_dict = saved_model['optimizer_state_dict']
             if optimizer_state_dict is not None:
                 self.optimizer.load_state_dict(optimizer_state_dict)
-            if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
+
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model['lr_scheduler_state_dict'] is not None:
                 self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
+
+            if issubclass(self.lr_scheduler.__class__, _LRScheduler):
+                self.lr_scheduler.step(self.epoch)
 
         self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model['plot_stuff']
         self.amp_initialized = False
@@ -312,12 +343,13 @@ class NetworkTrainer(object):
     def _maybe_init_amp(self):
         # we use fp16 for training only, not inference
         if self.fp16:
-            if amp is not None and not self.amp_initialized:
-                self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
-                self.amp_initialized = True
-            else:
-                self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
-                                       "Install it from https://github.com/NVIDIA/apex")
+            if not self.amp_initialized:
+                if amp is not None:
+                    self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
+                    self.amp_initialized = True
+                else:
+                    self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
+                                           "Install it from https://github.com/NVIDIA/apex")
 
     def plot_network_architecture(self):
         """

@@ -14,6 +14,10 @@ if __name__ == "__main__":
 
     plans = "nnUNetPlans"
 
+    additional_plans = {
+        'nnUNetTrainerV2_2': ["nnUNetPlansisoPatchesInVoxels"]
+    }
+
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
         'nnUNetTrainerNewCandidate24_2',
         'nnUNetTrainerNewCandidate24_3',
@@ -45,6 +49,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_schedule2',
         'nnUNetTrainerV2_2_clean',
         'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
+        'nnUNetTrainerV2_2_fixes',
     ]
 
     datasets = \
@@ -74,6 +79,7 @@ if __name__ == "__main__":
             result_per_dataset[d][c] = []
 
     valid_trainers = []
+    all_trainers = []
 
     with open(output_file, 'w') as f:
         f.write("trainer,")
@@ -85,38 +91,46 @@ if __name__ == "__main__":
         f.write("\n")
 
         for trainer in trainers:
+            trainer_plans = [plans]
+            if trainer in additional_plans.keys():
+                trainer_plans += additional_plans[trainer]
+
             result_per_dataset_here = {}
             for d in datasets:
                 result_per_dataset_here[d] = {}
 
-            all_present = True
-            f.write("%s," % trainer)
-            for dataset in datasets.keys():
-                for configuration in datasets[dataset]:
-                    summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (dataset, configuration, trainer, plans, expected_validation_folder, folds_str))
-                    if not isfile(summary_file):
-                        summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (dataset, configuration, trainer, plans, alternative_validation_folder, folds_str))
+            for p in trainer_plans:
+                name = "%s__%s" % (trainer, p)
+                all_present = True
+                all_trainers.append(name)
+
+                f.write("%s," % name)
+                for dataset in datasets.keys():
+                    for configuration in datasets[dataset]:
+                        summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (dataset, configuration, trainer, p, expected_validation_folder, folds_str))
                         if not isfile(summary_file):
-                            summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (
-                            dataset, configuration, trainer, plans, alternative_alternative_validation_folder, folds_str))
+                            summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (dataset, configuration, trainer, p, alternative_validation_folder, folds_str))
                             if not isfile(summary_file):
-                                all_present = False
-                                print(trainer, dataset, configuration, "has missing summary file")
-                    if isfile(summary_file):
-                        result = load_json(summary_file)['results'][interested_in]['mean']['Dice']
-                        result_per_dataset_here[dataset][configuration] = result
-                        f.write("%02.4f," % result)
-                    else:
-                        f.write("NA,")
-            f.write("\n")
+                                summary_file = join(summary_files_dir, "%s__%s__%s__%s__%s__%s.json" % (
+                                dataset, configuration, trainer, p, alternative_alternative_validation_folder, folds_str))
+                                if not isfile(summary_file):
+                                    all_present = False
+                                    print(name, dataset, configuration, "has missing summary file")
+                        if isfile(summary_file):
+                            result = load_json(summary_file)['results'][interested_in]['mean']['Dice']
+                            result_per_dataset_here[dataset][configuration] = result
+                            f.write("%02.4f," % result)
+                        else:
+                            f.write("NA,")
+                f.write("\n")
 
-            if all_present:
-                valid_trainers.append(trainer)
-                for d in datasets:
-                    for c in datasets[d]:
-                        result_per_dataset[d][c].append(result_per_dataset_here[d][c])
+                if all_present:
+                    valid_trainers.append(name)
+                    for d in datasets:
+                        for c in datasets[d]:
+                            result_per_dataset[d][c].append(result_per_dataset_here[d][c])
 
-    invalid_trainers = [i for i in trainers if i not in valid_trainers]
+    invalid_trainers = [i for i in all_trainers if i not in valid_trainers]
 
     num_valid = len(valid_trainers)
     num_datasets = len(datasets.keys())
@@ -140,7 +154,7 @@ if __name__ == "__main__":
 
     mn = np.mean(ranks_arr, 1)
     for i in np.argsort(mn):
-        print(valid_trainers[i], mn[i])
+        print(mn[i], valid_trainers[i])
 
     print()
     print(valid_trainers[np.argmin(mn)])
