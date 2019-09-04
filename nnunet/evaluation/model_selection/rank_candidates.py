@@ -15,7 +15,7 @@ if __name__ == "__main__":
     plans = "nnUNetPlans"
 
     additional_plans = {
-        'nnUNetTrainerV2_2': ["nnUNetPlansisoPatchesInVoxels"]
+        'nnUNetTrainerV2_2': ["nnUNetPlansisoPatchesInVoxels"] # r
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
@@ -49,7 +49,21 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_schedule2',
         'nnUNetTrainerV2_2_clean',
         'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
-        'nnUNetTrainerV2_2_fixes',
+        'nnUNetTrainerV2_2_fixes', # r
+        'nnUNetTrainerV2_BN',
+        'nnUNetTrainerV2_noDeepSupervision',
+        'nnUNetTrainerV2_softDeepSupervision',
+        'nnUNetTrainerV2_noDataAugmentation',
+        'nnUNetTrainerV2_Loss_CE',
+        'nnUNetTrainerV2_Loss_CEGDL',
+        'nnUNetTrainerV2_Loss_Dice',
+        'nnUNetTrainerV2_Loss_DiceTopK10',
+        'nnUNetTrainerV2_Loss_TopK10',
+        'nnUNetTrainerV2_Adam', # r
+        'nnUNetTrainerV2_Adam_nnUNetTrainerlr',
+        'nnUNetTrainerV2_SGD_ReduceOnPlateau',
+        'nnUNetTrainerV2_SGD_lr1en1',
+        'nnUNetTrainerV2_SGD_lr1en3',
     ]
 
     datasets = \
