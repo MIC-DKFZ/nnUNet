@@ -64,6 +64,8 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_SGD_ReduceOnPlateau',
         'nnUNetTrainerV2_SGD_lr1en1',
         'nnUNetTrainerV2_SGD_lr1en3',
+        'nnUNetTrainerV2_fixedNonlin',
+        'nnUNetTrainerV2_GeLU',
     ]
 
     datasets = \

@@ -139,6 +139,9 @@ class ExperimentPlanner(object):
             for some modalities with anisotropy (cine MRI) but we will have t live with that. In future experiments I
             will try to 1) base input patch size match aspect ratio of input size in mm (instead of voxels) and 2) to
             try to enforce that we see the same 'distance' in all directions (try to maintain equal size in mm of patch)
+
+            The patches created here attempt keep the aspect ratio of the new_median_shape
+
             :param current_spacing:
             :param original_spacing:
             :param original_shape:
