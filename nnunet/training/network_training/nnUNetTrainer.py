@@ -414,6 +414,31 @@ class nnUNetTrainer(NetworkTrainer):
                                        pad_border_mode=self.inference_pad_border_mode,
                                        pad_kwargs=self.inference_pad_kwargs)[2]
 
+    def predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
+                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian):
+        """
+        Don't use this. If you need softmax output, use preprocess_predict_nifti and set softmax_output_file.
+        :param data:
+        :param do_mirroring:
+        :param num_repeats:
+        :param use_train_mode:
+        :param batch_size:
+        :param mirror_axes:
+        :param tiled:
+        :param tile_in_z:
+        :param step:
+        :param min_size:
+        :param use_gaussian:
+        :param use_temporal:
+        :return:
+        """
+        assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
+        res = self.network.predict_3D(data, do_mirroring, num_repeats, use_train_mode, batch_size, mirror_axes,
+                                       tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
+                                       pad_border_mode=self.inference_pad_border_mode,
+                                       pad_kwargs=self.inference_pad_kwargs)
+        return [res[i] for i in [0, 2]]
+
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
                  use_gaussian=True, compute_global_dice=True, override=True, validation_folder_name='validation'):
         """

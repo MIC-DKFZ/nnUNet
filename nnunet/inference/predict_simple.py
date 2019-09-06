@@ -80,6 +80,7 @@ if __name__ == "__main__":
                                                                                           "(=existing segmentations "
                                                                                           "in output_folder will be "
                                                                                           "overwritten)")
+    parser.add_argument("--mode", type=str, default="normal", required=False)
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -92,6 +93,7 @@ if __name__ == "__main__":
     num_threads_preprocessing = args.num_threads_preprocessing
     num_threads_nifti_save = args.num_threads_nifti_save
     tta = args.tta
+    mode = args.mode
     overwrite = args.overwrite_existing
 
     output_folder_name = join(network_training_output_dir, args.model, args.task_name, args.nnunet_trainer + "__" +
@@ -128,5 +130,5 @@ if __name__ == "__main__":
 
     predict_from_folder(output_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=overwrite)
+                        overwrite_existing=overwrite, mode=mode)
 

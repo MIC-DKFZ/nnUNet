@@ -134,17 +134,9 @@ class SegmentationNetwork(NeuralNetwork):
 
     def _internal_maybe_mirror_and_pred_3D(self, x, num_repeats, mirror_axes, do_mirroring=True, mult=None):
         with torch.no_grad():
-            x_torch = torch.from_numpy(x).float()
-            if self.get_device() == "cpu":
-                x_torch = x_torch.cpu()
-            else:
-                x_torch = x_torch.cuda(self.get_device())
-
+            # everything should be in torch already
             result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:])).float()
-            if self.get_device() == "cpu":
-                result_torch = result_torch.cpu()
-            else:
-                result_torch = result_torch.cuda(self.get_device())
+            result_torch = result_torch.cuda(self.get_device())
 
             num_results = num_repeats
             if do_mirroring:
@@ -156,47 +148,51 @@ class SegmentationNetwork(NeuralNetwork):
             for i in range(num_repeats):
                 for m in range(mirror_idx):
                     if m == 0:
-                        pred = self.inference_apply_nonlin(self(x_torch))
+                        pred = self.inference_apply_nonlin(self(x))
                         result_torch += 1/num_results * pred
 
                     if m == 1 and (2 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(x_torch, 4)))
+                        pred = self.inference_apply_nonlin(self(flip(x, 4)))
                         result_torch += 1/num_results * flip(pred, 4)
 
                     if m == 2 and (1 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(x_torch, 3)))
+                        pred = self.inference_apply_nonlin(self(flip(x, 3)))
                         result_torch += 1/num_results * flip(pred, 3)
 
                     if m == 3 and (2 in mirror_axes) and (1 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(flip(x_torch, 4), 3)))
+                        pred = self.inference_apply_nonlin(self(flip(flip(x, 4), 3)))
                         result_torch += 1/num_results * flip(flip(pred, 4), 3)
 
                     if m == 4 and (0 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(x_torch, 2)))
+                        pred = self.inference_apply_nonlin(self(flip(x, 2)))
                         result_torch += 1/num_results * flip(pred, 2)
 
                     if m == 5 and (0 in mirror_axes) and (2 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(flip(x_torch, 4), 2)))
+                        pred = self.inference_apply_nonlin(self(flip(flip(x, 4), 2)))
                         result_torch += 1/num_results * flip(flip(pred, 4), 2)
 
                     if m == 6 and (0 in mirror_axes) and (1 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(flip(x_torch, 3), 2)))
+                        pred = self.inference_apply_nonlin(self(flip(flip(x, 3), 2)))
                         result_torch += 1/num_results * flip(flip(pred, 3), 2)
 
                     if m == 7 and (0 in mirror_axes) and (1 in mirror_axes) and (2 in mirror_axes):
-                        pred = self.inference_apply_nonlin(self(flip(flip(flip(x_torch, 3), 2), 4)))
+                        pred = self.inference_apply_nonlin(self(flip(flip(flip(x, 3), 2), 4)))
                         result_torch += 1/num_results * flip(flip(flip(pred, 3), 2), 4)
 
         if mult is not None:
             result_torch[:, :] *= mult
 
-        return result_torch.detach().cpu().numpy()
+        return result_torch
 
     def _internal_predict_3D_3Dconv_tiled(self, x, num_repeats, BATCH_SIZE=None, tile_in_z=True, step=2,
                                           do_mirroring=True, mirror_axes=(0, 1, 2), patch_size=None,
                                           regions_class_order=None, use_gaussian=False, pad_border_mode="edge", pad_kwargs=None):
         "x must be (c, x, y, z)"
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
+        assert self.get_device() != "cpu"
+
+        torch.cuda.empty_cache()
+
         with torch.no_grad():
             assert patch_size is not None, "patch_size cannot be None for tiled prediction"
 
@@ -214,16 +210,11 @@ class SegmentationNetwork(NeuralNetwork):
             input_size = [int(i) for i in input_size]
 
             a = torch.rand(input_size).float()
-            if self.get_device() == "cpu":
-                a = a.cpu()
-            else:
-                a = a.cuda(self.get_device())
+            a = a.cuda(self.get_device())
 
             # dummy run to see number of classes
             nb_of_classes = self(a).size()[1]
 
-            result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
-            result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
             if use_gaussian:
                 tmp = np.zeros(patch_size)
                 center_coords = [i//2 for i in patch_size]
@@ -235,10 +226,6 @@ class SegmentationNetwork(NeuralNetwork):
             else:
                 add = np.ones(patch_size)
 
-            if self.get_device() == "cpu":
-                add_torch = torch.from_numpy(add).cpu().float()
-            else:
-                add_torch = torch.from_numpy(add).cuda(self.get_device()).float()
 
             data_shape = data.shape
             center_coord_start = np.array([i//2 for i in patch_size]).astype(int)
@@ -250,6 +237,15 @@ class SegmentationNetwork(NeuralNetwork):
             ysteps = np.round(np.arange(center_coord_start[1], center_coord_end[1]+1e-8, step_size[1])).astype(int)
             zsteps = np.round(np.arange(center_coord_start[2], center_coord_end[2]+1e-8, step_size[2])).astype(int)
 
+            # mos tof these can remain in half. We just need the reuslts for softmax so it won't hurt at all to reduce
+            # precision. Inference is of course done in float
+            result = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half).cuda()
+            data = torch.from_numpy(data).cuda(self.get_device())
+            result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half).cuda()
+            add_torch = torch.from_numpy(add).cuda(self.get_device()).float()
+
+            # data, result and add_torch and result_numsamples are now on GPU
+            print("DUUUUUUUUUUUUHHHHHHHHHHHHHHH")
             for x in xsteps:
                 lb_x = x - patch_size[0] // 2
                 ub_x = x + patch_size[0] // 2
@@ -261,8 +257,8 @@ class SegmentationNetwork(NeuralNetwork):
                         ub_z = z + patch_size[2] // 2
                         result[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += \
                             self._internal_maybe_mirror_and_pred_3D(data[:, :, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z],
-                                                                          num_repeats, mirror_axes, do_mirroring, add_torch)[0]
-                        result_numsamples[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += add
+                                                                          num_repeats, mirror_axes, do_mirroring, add_torch)[0].half()
+                        result_numsamples[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += add_torch.half()
 
             slicer = tuple([slice(0, result.shape[i]) for i in range(len(result.shape) - (len(slicer) - 1))] + slicer[1:])
             result = result[slicer]
@@ -274,10 +270,14 @@ class SegmentationNetwork(NeuralNetwork):
             if regions_class_order is None:
                 predicted_segmentation = softmax_pred.argmax(0)
             else:
-                predicted_segmentation_shp = softmax_pred[0].shape
+                softmax_pred_here = softmax_pred.detach().cpu().numpy()
+                predicted_segmentation_shp = softmax_pred_here[0].shape
                 predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
                 for i, c in enumerate(regions_class_order):
-                    predicted_segmentation[softmax_pred[i] > 0.5] = c
+                    predicted_segmentation[softmax_pred_here[i] > 0.5] = c
+
+            predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
+            softmax_pred = softmax_pred.half().detach().cpu().numpy()
         return predicted_segmentation, None, softmax_pred, None
 
     def _internal_predict_2D_2Dconv(self, x, do_mirroring, num_repeats, min_size=None, BATCH_SIZE=None,
