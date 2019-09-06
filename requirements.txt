@@ -4,7 +4,7 @@ dicom2nifti
 scikit-image>=0.14
 medpy
 scipy
-batchgenerators>=0.19.3
+batchgenerators>=0.19.4
 numpy
 sklearn
 SimpleITK

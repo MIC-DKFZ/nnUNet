@@ -16,7 +16,7 @@ import argparse
 import numpy as np
 from batchgenerators.augmentations.utils import resize_segmentation
 from nnunet.experiment_planning.plan_and_preprocess_task import get_caseIDs_from_splitted_dataset_folder
-from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
+from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax, save_segmentation_nifti
 from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing import Process, Queue
 import torch
@@ -117,8 +117,8 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 
 
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
-                  num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True,
-                  overwrite_existing=False, fp16=None):
+                  num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None, overwrite_existing=False,
+                  all_in_gpu=False):
     """
 
     :param model:
@@ -187,8 +187,8 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             trainer.load_checkpoint_ram(p, False)
             softmax.append(trainer.predict_preprocessed_data_return_softmax(d, do_tta, 1, False, 1,
                                                                             trainer.data_aug_params['mirror_axes'],
-                                                                            True, True, 2, trainer.patch_size, True)[
-                               None])
+                                                                            True, True, 2, trainer.patch_size, True,
+                                                                            all_in_gpu=all_in_gpu)[None])
 
         softmax = np.vstack(softmax)
         softmax_mean = np.mean(softmax, 0)
@@ -220,6 +220,205 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
                                           ((softmax_mean, output_filename, dct, 1, None, None, None, npz_file),)
                                           ))
 
+    print("inference done. Now waiting for the segmentation export to finish...")
+    _ = [i.get() for i in results]
+    # now apply postprocessing
+    # first load the postprocessing properties if they are present. Else raise a well visible warning
+    results = []
+    pp_file = join(model, "postprocessing.json")
+    if isfile(pp_file):
+        # for_which_classes stores for which of the classes everything but the largest connected component needs to be
+        # removed
+        for_which_classes = load_for_which_classes(pp_file)
+        results.append(pool.starmap_async(load_remove_save,
+                                          zip(output_filenames, output_filenames,
+                                              [for_which_classes] * len(output_filenames))))
+        _ = [i.get() for i in results]
+    else:
+        print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
+              "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
+              "%s" % model)
+
+    pool.close()
+    pool.join()
+
+
+def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
+                       num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None,
+                       overwrite_existing=False, all_in_gpu=True):
+    assert len(list_of_lists) == len(output_filenames)
+    if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
+
+    pool = Pool(num_threads_nifti_save)
+    results = []
+
+    cleaned_output_files = []
+    for o in output_filenames:
+        dr, f = os.path.split(o)
+        if len(dr) > 0:
+            maybe_mkdir_p(dr)
+        if not f.endswith(".nii.gz"):
+            f, _ = os.path.splitext(f)
+            f = f + ".nii.gz"
+        cleaned_output_files.append(join(dr, f))
+
+    if not overwrite_existing:
+        print("number of cases:", len(list_of_lists))
+        not_done_idx = [i for i, j in enumerate(cleaned_output_files) if not isfile(j)]
+
+        cleaned_output_files = [cleaned_output_files[i] for i in not_done_idx]
+        list_of_lists = [list_of_lists[i] for i in not_done_idx]
+        if segs_from_prev_stage is not None:
+            segs_from_prev_stage = [segs_from_prev_stage[i] for i in not_done_idx]
+
+        print("number of cases that still need to be predicted:", len(cleaned_output_files))
+
+    print("emptying cuda cache")
+    torch.cuda.empty_cache()
+
+    print("loading parameters for folds,", folds)
+    trainer, params = load_model_and_checkpoint_files(model, folds, fp16=fp16)
+
+    print("starting preprocessing generator")
+    preprocessing = preprocess_multithreaded(trainer, list_of_lists, cleaned_output_files, num_threads_preprocessing,
+                                             segs_from_prev_stage)
+    print("starting prediction...")
+    for preprocessed in preprocessing:
+        output_filename, (d, dct) = preprocessed
+        if isinstance(d, str):
+            data = np.load(d)
+            os.remove(d)
+            d = data
+
+        print("predicting", output_filename)
+
+        softmax = []
+        segs = []
+        for p in params:
+            trainer.load_checkpoint_ram(p, False)
+            res = trainer.predict_preprocessed_data_return_softmax_and_seg(d, do_tta, 1, False, 1,
+                                                                           trainer.data_aug_params['mirror_axes'],
+                                                                           True, True, 2, trainer.patch_size, True,
+                                                                           all_in_gpu=all_in_gpu)
+            softmax.append(res[1][None])
+            segs.append(res[0])
+
+        if len(softmax) > 1:
+            softmax = np.vstack(softmax)
+            softmax_mean = np.mean(softmax, 0)
+            seg = softmax_mean.argmax(0)
+        else:
+            seg = segs[0]
+
+        transpose_forward = trainer.plans.get('transpose_forward')
+        if transpose_forward is not None:
+            transpose_backward = trainer.plans.get('transpose_backward')
+            seg = seg.transpose([i for i in transpose_backward])
+
+        results.append(pool.starmap_async(save_segmentation_nifti,
+                                           ((seg, output_filename, dct, 1, None),)
+                                           ))
+
+    print("inference done. Now waiting for the segmentation export to finish...")
+    _ = [i.get() for i in results]
+    # now apply postprocessing
+    # first load the postprocessing properties if they are present. Else raise a well visible warning
+    results = []
+    pp_file = join(model, "postprocessing.json")
+    if isfile(pp_file):
+        # for_which_classes stores for which of the classes everything but the largest connected component needs to be
+        # removed
+        for_which_classes = load_for_which_classes(pp_file)
+        results.append(pool.starmap_async(load_remove_save,
+                                          zip(output_filenames, output_filenames,
+                                              [for_which_classes] * len(output_filenames))))
+        _ = [i.get() for i in results]
+    else:
+        print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
+              "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
+              "%s" % model)
+
+    pool.close()
+    pool.join()
+
+
+def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
+                          num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None,
+                          overwrite_existing=False, all_in_gpu=True):
+    assert len(list_of_lists) == len(output_filenames)
+    if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
+
+    pool = Pool(num_threads_nifti_save)
+    results = []
+
+    cleaned_output_files = []
+    for o in output_filenames:
+        dr, f = os.path.split(o)
+        if len(dr) > 0:
+            maybe_mkdir_p(dr)
+        if not f.endswith(".nii.gz"):
+            f, _ = os.path.splitext(f)
+            f = f + ".nii.gz"
+        cleaned_output_files.append(join(dr, f))
+
+    if not overwrite_existing:
+        print("number of cases:", len(list_of_lists))
+        not_done_idx = [i for i, j in enumerate(cleaned_output_files) if not isfile(j)]
+
+        cleaned_output_files = [cleaned_output_files[i] for i in not_done_idx]
+        list_of_lists = [list_of_lists[i] for i in not_done_idx]
+        if segs_from_prev_stage is not None:
+            segs_from_prev_stage = [segs_from_prev_stage[i] for i in not_done_idx]
+
+        print("number of cases that still need to be predicted:", len(cleaned_output_files))
+
+    print("emptying cuda cache")
+    torch.cuda.empty_cache()
+
+    print("loading parameters for folds,", folds)
+    trainer, params = load_model_and_checkpoint_files(model, folds, fp16=fp16)
+
+    print("starting preprocessing generator")
+    preprocessing = preprocess_multithreaded(trainer, list_of_lists, cleaned_output_files, num_threads_preprocessing,
+                                             segs_from_prev_stage)
+    print("starting prediction...")
+    for preprocessed in preprocessing:
+        output_filename, (d, dct) = preprocessed
+        if isinstance(d, str):
+            data = np.load(d)
+            os.remove(d)
+            d = data
+
+        print("predicting", output_filename)
+
+        softmax = []
+        segs = []
+        for p in params:
+            trainer.load_checkpoint_ram(p, False)
+            res = trainer.predict_preprocessed_data_return_softmax_and_seg(d, do_tta, 1, False, 1,
+                                                                           trainer.data_aug_params['mirror_axes'],
+                                                                           True, True, 2, trainer.patch_size, True,
+                                                                           all_in_gpu=all_in_gpu)
+            softmax.append(res[1][None])
+            segs.append(res[0])
+
+        if len(softmax) > 1:
+            softmax = np.vstack(softmax)
+            softmax_mean = np.mean(softmax, 0)
+            seg = softmax_mean.argmax(0)
+        else:
+            seg = segs[0]
+
+        transpose_forward = trainer.plans.get('transpose_forward')
+        if transpose_forward is not None:
+            transpose_backward = trainer.plans.get('transpose_backward')
+            seg = seg.transpose([i for i in transpose_backward])
+
+        results.append(pool.starmap_async(save_segmentation_nifti,
+                                           ((seg, output_filename, dct, 0, None),)
+                                           ))
+
+    print("inference done. Now waiting for the segmentation export to finish...")
     _ = [i.get() for i in results]
 
     # now apply postprocessing
@@ -244,8 +443,8 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
 
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
-                        num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=True, fp16=False):
+                        num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=False,
+                        overwrite_existing=True, mode='normal', overwrite_all_in_gpu=None):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -260,8 +459,8 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
     :param part_id:
     :param num_parts:
     :param tta:
-    :param overwrite_existing:
     :param fp16:
+    :param overwrite_existing: if not None then it will be overwritten with whatever is in there. None is default (no overwrite)
     :return:
     """
     maybe_mkdir_p(output_folder)
@@ -281,9 +480,39 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
         lowres_segmentations = lowres_segmentations[part_id::num_parts]
     else:
         lowres_segmentations = None
-    return predict_cases(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds, save_npz,
-                         num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
-                         tta, overwrite_existing=overwrite_existing, fp16=fp16)
+
+    if mode == "normal":
+        if overwrite_all_in_gpu is None:
+            all_in_gpu = False
+        else:
+            all_in_gpu = overwrite_all_in_gpu
+
+        return predict_cases(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
+                             save_npz,
+                             num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
+                             tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu)
+    elif mode == "fast":
+        if overwrite_all_in_gpu is None:
+            all_in_gpu = True
+        else:
+            all_in_gpu = overwrite_all_in_gpu
+
+        assert save_npz is False
+        return predict_cases_fast(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
+                                  num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
+                                  tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu)
+    elif mode == "fastest":
+        if overwrite_all_in_gpu is None:
+            all_in_gpu = True
+        else:
+            all_in_gpu = overwrite_all_in_gpu
+
+        assert save_npz is False
+        return predict_cases_fastest(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
+                                     num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
+                                     tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu)
+    else:
+        raise ValueError("unrecognized mode. Must be normal, fast or fastest")
 
 
 if __name__ == "__main__":
@@ -346,6 +575,8 @@ if __name__ == "__main__":
                                                                                           "(=existing segmentations "
                                                                                           "in output_folder will be "
                                                                                           "overwritten)")
+    parser.add_argument("--mode", type=str, default="normal", required=False)
+    parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True")
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -365,6 +596,8 @@ if __name__ == "__main__":
         raise RuntimeError("FP16 support for inference does not work yet. Sorry :-/")
 
     overwrite = args.overwrite_existing
+    mode = args.mode
+    all_in_gpu = args.all_in_gpu
 
     if lowres_segmentations == "None":
         lowres_segmentations = None
@@ -393,6 +626,14 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unexpected value for overwrite, Use 1 or 0")
 
+    assert all_in_gpu in ['None', 'False', 'True']
+    if all_in_gpu == "None":
+        all_in_gpu = None
+    elif all_in_gpu == "True":
+        all_in_gpu = True
+    elif all_in_gpu == "False":
+        all_in_gpu = False
+
     predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
-                        num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=overwrite, fp16=fp16)
+                        num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=fp16,
+                        overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu)
