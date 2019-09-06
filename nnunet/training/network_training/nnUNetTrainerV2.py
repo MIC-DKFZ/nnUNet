@@ -28,6 +28,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
     """
     Info for Fabian: same as internal nnUNetTrainerV2_2
     """
+
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
@@ -183,7 +184,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
         return ret
 
     def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian):
+                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
+                                                 all_in_gpu=False):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
         :param data:
@@ -204,7 +206,20 @@ class nnUNetTrainerV2(nnUNetTrainer):
         ret = super().predict_preprocessed_data_return_softmax(data, do_mirroring, num_repeats, use_train_mode,
                                                                batch_size,
                                                                mirror_axes, tiled, tile_in_z, step, min_size,
-                                                               use_gaussian)
+                                                               use_gaussian, all_in_gpu)
+        self.network.do_ds = ds
+        return ret
+
+    def predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode,
+                                                         batch_size,
+                                                         mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
+                                                         all_in_gpu=False):
+        ds = self.network.do_ds
+        self.network.do_ds = False
+        ret = super().predict_preprocessed_data_return_softmax_and_seg(data, do_mirroring, num_repeats, use_train_mode,
+                                                                       batch_size,
+                                                                       mirror_axes, tiled, tile_in_z, step, min_size,
+                                                                       use_gaussian, all_in_gpu)
         self.network.do_ds = ds
         return ret
 
