@@ -65,7 +65,10 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_SGD_lr1en1',
         'nnUNetTrainerV2_SGD_lr1en3',
         'nnUNetTrainerV2_fixedNonlin', # running
-        'nnUNetTrainerV2_GeLU', # running partially
+        'nnUNetTrainerV2_GeLU', # running
+        # NoNormalization
+        # nonCT
+        # CT2
     ]
 
     datasets = \

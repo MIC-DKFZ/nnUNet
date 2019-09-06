@@ -7,6 +7,7 @@ from nnunet.training.data_augmentation.default_data_augmentation import default_
     default_2D_augmentation_params, get_patch_size, get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
+from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
@@ -141,3 +142,6 @@ class nnUNetTrainerV2_noDeepSupervision(nnUNetTrainerV2):
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
+
+    def run_online_evaluation(self, output, target):
+        return nnUNetTrainer.run_online_evaluation(self, output, target)
