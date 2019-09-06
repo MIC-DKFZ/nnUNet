@@ -311,8 +311,8 @@ class nnUNetTrainer(NetworkTrainer):
 
         if plans.get('transpose_forward') is None or plans.get('transpose_backward') is None:
             print("WARNING! You seem to have data that was preprocessed with a previous version of nnU-Net. "
-                               "You should rerun preprocessing. We will proceed and assume that both transpose_foward "
-                                   "and transpose_backward are [0, 1, 2]. If that is not correct then weird things will happen!")
+                  "You should rerun preprocessing. We will proceed and assume that both transpose_foward "
+                  "and transpose_backward are [0, 1, 2]. If that is not correct then weird things will happen!")
             plans['transpose_forward'] = [0, 1, 2]
             plans['transpose_backward'] = [0, 1, 2]
         self.transpose_forward = plans['transpose_forward']
@@ -391,7 +391,8 @@ class nnUNetTrainer(NetworkTrainer):
         print("done")
 
     def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian):
+                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
+                                                 all_in_gpu=False):
         """
         Don't use this. If you need softmax output, use preprocess_predict_nifti and set softmax_output_file.
         :param data:
@@ -412,10 +413,12 @@ class nnUNetTrainer(NetworkTrainer):
         return self.network.predict_3D(data, do_mirroring, num_repeats, use_train_mode, batch_size, mirror_axes,
                                        tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
                                        pad_border_mode=self.inference_pad_border_mode,
-                                       pad_kwargs=self.inference_pad_kwargs)[2]
+                                       pad_kwargs=self.inference_pad_kwargs, all_in_gpu=all_in_gpu)[2]
 
-    def predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian):
+    def predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode,
+                                                         batch_size,
+                                                         mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
+                                                         all_in_gpu=False):
         """
         Don't use this. If you need softmax output, use preprocess_predict_nifti and set softmax_output_file.
         :param data:
@@ -434,9 +437,9 @@ class nnUNetTrainer(NetworkTrainer):
         """
         assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         res = self.network.predict_3D(data, do_mirroring, num_repeats, use_train_mode, batch_size, mirror_axes,
-                                       tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
-                                       pad_border_mode=self.inference_pad_border_mode,
-                                       pad_kwargs=self.inference_pad_kwargs)
+                                      tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
+                                      pad_border_mode=self.inference_pad_border_mode,
+                                      pad_kwargs=self.inference_pad_kwargs, all_in_gpu=all_in_gpu)
         return [res[i] for i in [0, 2]]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,

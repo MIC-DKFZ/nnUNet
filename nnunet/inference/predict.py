@@ -117,7 +117,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True,
-                  overwrite_existing=False):
+                  overwrite_existing=False, all_in_gpu=False):
 
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
@@ -169,7 +169,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             trainer.load_checkpoint_ram(p, False)
             softmax.append(trainer.predict_preprocessed_data_return_softmax(d, do_tta, 1, False, 1,
                                                                        trainer.data_aug_params['mirror_axes'],
-                                                             True, True, 2, trainer.patch_size, True)[None])
+                                                             True, True, 2, trainer.patch_size, True, all_in_gpu=all_in_gpu)[None])
 
         softmax = np.vstack(softmax)
         softmax_mean = np.mean(softmax, 0)
@@ -205,7 +205,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
 def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True,
-                  overwrite_existing=False):
+                  overwrite_existing=False, all_in_gpu=True):
 
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
@@ -258,7 +258,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
             trainer.load_checkpoint_ram(p, False)
             res = trainer.predict_preprocessed_data_return_softmax_and_seg(d, do_tta, 1, False, 1,
                                                                        trainer.data_aug_params['mirror_axes'],
-                                                             True, True, 2, trainer.patch_size, True)
+                                                             True, True, 2, trainer.patch_size, True, all_in_gpu=all_in_gpu)
             softmax.append(res[1][None])
             segs.append(res[0])
 
@@ -284,7 +284,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
 
 def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True,
-                  overwrite_existing=False):
+                  overwrite_existing=False, all_in_gpu=True):
 
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
@@ -337,7 +337,7 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
             trainer.load_checkpoint_ram(p, False)
             res = trainer.predict_preprocessed_data_return_softmax_and_seg(d, do_tta, 1, False, 1,
                                                                        trainer.data_aug_params['mirror_axes'],
-                                                             True, True, 2, trainer.patch_size, True)
+                                                             True, True, 2, trainer.patch_size, True, all_in_gpu=all_in_gpu)
             softmax.append(res[1][None])
             segs.append(res[0])
 
