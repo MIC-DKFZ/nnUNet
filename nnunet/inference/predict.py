@@ -165,36 +165,25 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         print("predicting", output_filename)
 
         softmax = []
-        segs = []
         for p in params:
             trainer.load_checkpoint_ram(p, False)
-            res = trainer.predict_preprocessed_data_return_softmax_and_seg(d, do_tta, 1, False, 1,
+            softmax.append(trainer.predict_preprocessed_data_return_softmax(d, do_tta, 1, False, 1,
                                                                        trainer.data_aug_params['mirror_axes'],
-                                                             True, True, 2, trainer.patch_size, True)
-            softmax.append(res[1][None])
-            segs.append(res[0])
+                                                             True, True, 2, trainer.patch_size, True)[None])
 
-        if len(softmax) > 1:
-            softmax = np.vstack(softmax)
-            softmax_mean = np.mean(softmax, 0)
-            seg = softmax_mean.argmax(0)
-        else:
-            softmax = softmax[0]
-            softmax_mean = softmax[0]
-            seg = segs[0]
+        softmax = np.vstack(softmax)
+        softmax_mean = np.mean(softmax, 0)
 
         transpose_forward = trainer.plans.get('transpose_forward')
         if transpose_forward is not None:
             transpose_backward = trainer.plans.get('transpose_backward')
-            #softmax_mean = softmax_mean.transpose([0] + [i + 1 for i in transpose_backward])
-            seg = seg.transpose([i for i in transpose_backward])
+            softmax_mean = softmax_mean.transpose([0] + [i + 1 for i in transpose_backward])
 
-        """if save_npz:
+        if save_npz:
             npz_file = output_filename[:-7] + ".npz"
         else:
             npz_file = None
 
-        softmax_mean = softmax_mean.astype(np.float16)"""
         """There is a problem with python process communication that prevents us from communicating obejcts 
         larger than 2 GB between processes (basically when the length of the pickle string that will be sent is 
         communicated by the multiprocessing.Pipe object then the placeholder (\%i I think) does not allow for long 
@@ -202,25 +191,15 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will 
         then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
         filename or np.ndarray and will handle this automatically"""
-        """if np.prod(softmax_mean.shape) > (2e9 / 2 * 0.9):  # *0.9 just to be save # 2 because float16, not float32
+        if np.prod(softmax_mean.shape) > (2e9 / 4 * 0.9):  # *0.9 just to be save
             print("This output is too large for python process-process communication. Saving output temporarily to disk")
             np.save(output_filename[:-7] + ".npy", softmax_mean)
-            softmax_mean = output_filename[:-7] + ".npy"""""
-        #import IPython;IPython.embed()
-        print("starting background worker for segmentation export")
-        #results.append(prman.starmap_async(save_segmentation_nifti_from_softmax,
-        #                                   ((softmax_mean, output_filename, dct, 1, None, None, None, npz_file), )
-        #                                   ))
-        #save_segmentation_nifti_from_softmax(softmax_mean, output_filename, dct, 1, None, None, None, npz_file)
-        # (segmentation, out_fname, dct, order=1, force_separate_z=None):
-        #save_segmentation_nifti(seg, output_filename, dct, 1, None)
-        results.append(prman.starmap_async(save_segmentation_nifti,
-                                           ((seg, output_filename, dct, 1, None), )
+            softmax_mean = output_filename[:-7] + ".npy"
+
+        results.append(prman.starmap_async(save_segmentation_nifti_from_softmax,
+                                           ((softmax_mean, output_filename, dct, 1, None, None, None, npz_file), )
                                            ))
 
-        print("worker started")
-
-    print("inference done. Now waiting for the segmentation export to finish...")
     _ = [i.get() for i in results]
 
 
