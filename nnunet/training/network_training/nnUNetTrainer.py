@@ -449,7 +449,7 @@ class nnUNetTrainer(NetworkTrainer):
         return [res[i] for i in [0, 2]]
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, overwrite=False, validation_folder_name="validation_raw",
+                 use_gaussian=True, overwrite=True, validation_folder_name="validation_raw",
                  debug=False):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe

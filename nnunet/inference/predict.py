@@ -29,14 +29,14 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.one_hot_encoding import to_one_hot
 
 
-def predict_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes):
+def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes):
     errors_in = []
     for i, l in enumerate(list_of_lists):
         try:
             output_file = output_files[i]
             print("preprocessing", output_file)
             d, _, dct = preprocess_fn(l)
-            print(output_file, dct)
+            # print(output_file, dct)
             if segs_from_prev_stage[i] is not None:
                 assert isfile(segs_from_prev_stage[i]) and segs_from_prev_stage[i].endswith(
                     ".nii.gz"), "segs_from_prev_stage" \
@@ -89,11 +89,11 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
     q = Queue(1)
     processes = []
     for i in range(num_processes):
-        pr = Process(target=predict_save_to_queue, args=(trainer.preprocess_patient, q,
+        pr = Process(target=preprocess_save_to_queue, args=(trainer.preprocess_patient, q,
                                                          list_of_lists[i::num_processes],
                                                          output_files[i::num_processes],
                                                          segs_from_prev_stage[i::num_processes],
-                                                         classes))
+                                                            classes))
         pr.start()
         processes.append(pr)
 

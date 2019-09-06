@@ -111,7 +111,7 @@ if __name__ == "__main__":
             val_folder = "validation_raw"
 
         # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name_base=val_folder)
+        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder)
 
         if network == '3d_lowres':
             trainer.load_best_checkpoint(False)

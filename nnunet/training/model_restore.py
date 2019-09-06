@@ -144,7 +144,7 @@ def load_model_and_checkpoint_files(folder, folds=None, fp16=None):
     trainer.initialize(False)
     all_best_model_files = [join(i, "model_best.model") for i in folds]
     print("using the following model files: ", all_best_model_files)
-    all_params = [torch.load(i, map_location=torch.device('cuda', torch.cuda.current_device())) for i in all_best_model_files]
+    all_params = [torch.load(i, map_location=torch.device('cpu')) for i in all_best_model_files]
     return trainer, all_params
 
 

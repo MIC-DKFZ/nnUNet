@@ -251,8 +251,6 @@ class GenericPreprocessor(object):
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
-        print("normalization...")
-
         for c in range(len(data)):
             scheme = self.normalization_scheme_per_modality[c]
             if scheme == "CT":
@@ -285,7 +283,6 @@ class GenericPreprocessor(object):
                     mask = np.ones(seg.shape[1:], dtype=bool)
                 data[c][mask] = (data[c][mask] - data[c][mask].mean()) / (data[c][mask].std() + 1e-8)
                 data[c][mask == 0] = 0
-        print("normalization done")
         return data, seg, properties
 
     def preprocess_test_case(self, data_files, target_spacing, seg_file=None, force_separate_z=None):
