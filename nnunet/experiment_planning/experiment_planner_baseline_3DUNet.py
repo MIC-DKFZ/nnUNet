@@ -281,8 +281,10 @@ class ExperimentPlanner(object):
             # default). Problem is that we are downsampling higher resolution axes before we start downsampling the
             # out-of-plane axis. We could probably/maybe do this analytically but I am lazy, so here
             # we do it the dumb way
+
             lowres_stage_spacing = deepcopy(target_spacing)
             num_voxels = np.prod(median_shape, dtype=np.int64)
+
             while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 * architecture_input_voxels:
                 max_spacing = max(lowres_stage_spacing)
                 if np.any((max_spacing / lowres_stage_spacing) > 2):
@@ -292,11 +294,12 @@ class ExperimentPlanner(object):
                     lowres_stage_spacing *= 1.01
                 num_voxels = np.prod(target_spacing / lowres_stage_spacing * median_shape, dtype=np.int64)
 
-            lowres_stage_spacing_transposed = np.array(lowres_stage_spacing)[self.transpose_forward]
-            new = get_properties_for_stage(lowres_stage_spacing_transposed, target_spacing_transposed,
-                                           median_shape_transposed,
-                                           len(self.list_of_cropped_npz_files),
-                                           num_modalities, len(all_classes) + 1)
+                lowres_stage_spacing_transposed = np.array(lowres_stage_spacing)[self.transpose_forward]
+                new = get_properties_for_stage(lowres_stage_spacing_transposed, target_spacing_transposed,
+                                               median_shape_transposed,
+                                               len(self.list_of_cropped_npz_files),
+                                               num_modalities, len(all_classes) + 1)
+                architecture_input_voxels = np.prod(new['patch_size'])
 
             if 1.5 * np.prod(new['median_patient_size_in_voxels'], dtype=np.int64) < np.prod(
                     self.plans_per_stage[0]['median_patient_size_in_voxels'], dtype=np.int64):
@@ -410,28 +413,50 @@ class ExperimentPlanner(object):
 
 
 if __name__ == "__main__":
-    t = "Task12_BrainTumorIntern"
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--task_ids", nargs="+", help="list of int")
+    parser.add_argument("-p", action="store_true", help="set this if you actually want to run the preprocessing. If "
+                                                        "this is not set then this script will only create the plans file")
+    parser.add_argument("-tl", type=int, required=False, default=8, help="num_threads_lowres")
+    parser.add_argument("-tf", type=int, required=False, default=8, help="num_threads_fullres")
 
-    threads = 64
+    args = parser.parse_args()
+    task_ids = args.task_ids
+    run_preprocessing = args.p
+    tl = args.tl
+    tf = args.tf
 
-    crop(t, False, threads)
+    tasks = []
+    for i in task_ids:
+        i = int(i)
+        candidates = subdirs(cropped_output_dir, prefix="Task%02.0d" % i, join=False)
+        assert len(candidates) == 1
+        tasks.append(candidates[0])
 
-    print("\n\n\n", t)
-    cropped_out_dir = os.path.join(cropped_output_dir, t)
-    preprocessing_output_dir_this_task = os.path.join(preprocessing_output_dir, t)
-    splitted_4d_output_dir_task = os.path.join(splitted_4d_output_dir, t)
-    lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
+    for t in tasks:
+        try:
+            print("\n\n\n", t)
+            cropped_out_dir = os.path.join(cropped_output_dir, t)
+            preprocessing_output_dir_this_task = os.path.join(preprocessing_output_dir, t)
+            splitted_4d_output_dir_task = os.path.join(splitted_4d_output_dir, t)
+            lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
-    dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False, num_processes=threads)
-    _ = dataset_analyzer.analyze_dataset(
-        collect_intensityproperties=True)  # this will write output files that will be used by the ExperimentPlanner
+            dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)
+            _ = dataset_analyzer.analyze_dataset() # this will write output files that will be used by the ExperimentPlanner
 
-    maybe_mkdir_p(preprocessing_output_dir_this_task)
-    shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
-    shutil.copy(join(splitted_4d_output_dir, t, "dataset.json"), preprocessing_output_dir_this_task)
+            maybe_mkdir_p(preprocessing_output_dir_this_task)
+            shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
+            shutil.copy(join(splitted_4d_output_dir, t, "dataset.json"), preprocessing_output_dir_this_task)
 
-    print("number of threads: ", threads, "\n")
+            threads = (tl, tf)
 
-    exp_planner = ExperimentPlanner(cropped_out_dir, preprocessing_output_dir_this_task)
-    exp_planner.plan_experiment()
-    exp_planner.run_preprocessing(threads)
+            print("number of threads: ", threads, "\n")
+
+            exp_planner = ExperimentPlanner(cropped_out_dir, preprocessing_output_dir_this_task)
+            exp_planner.plan_experiment()
+            if run_preprocessing:
+                exp_planner.run_preprocessing(threads)
+        except Exception as e:
+            print(e)
+

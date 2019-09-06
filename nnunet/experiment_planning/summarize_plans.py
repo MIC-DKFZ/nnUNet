@@ -81,5 +81,6 @@ if __name__ == "__main__":
             plans_files = [i for i in subfiles(tmp, suffix=".pkl", join=False) if i.find("_plans_") != -1 and i.find("Dgx2") == -1]
             for p in plans_files:
                 write_plans_to_file(f, join(tmp, p))
+            f.write("\n")
 
 

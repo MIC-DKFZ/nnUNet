@@ -5,7 +5,7 @@ from nnunet.paths import network_training_output_dir
 if __name__ == "__main__":
     # run collect_all_fold0_results_and_summarize_in_one_csv.py first
     summary_files_dir = join(network_training_output_dir, "summary_jsons_fold0_new")
-    output_file = join(network_training_output_dir, "summary.csv")
+    output_file = join(network_training_output_dir, "summary_structseg.csv")
 
     folds = (0, )
     folds_str = ""
@@ -15,72 +15,22 @@ if __name__ == "__main__":
     plans = "nnUNetPlans"
 
     additional_plans = {
-        'nnUNetTrainerV2_2': ["nnUNetPlansisoPatchesInVoxels"] # r
+        'nnUNetTrainerV2_2': ["nnUNetPlans_customClip"], # r
+        'nnUNetTrainerV2_2_noMirror': ["nnUNetPlans_customClip"],  # r
     }
 
-    trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
-        'nnUNetTrainerNewCandidate24_2',
-        'nnUNetTrainerNewCandidate24_3',
-        'nnUNetTrainerNewCandidate26_2',
-        'nnUNetTrainerNewCandidate27_2',
-        'nnUNetTrainerNewCandidate23_always3DDA',
-        'nnUNetTrainerNewCandidate23_corrInit',
-        'nnUNetTrainerNewCandidate23_noOversampling',
-        'nnUNetTrainerNewCandidate23_softDS',
-        'nnUNetTrainerNewCandidate23_softDS2',
-        'nnUNetTrainerNewCandidate23_softDS3',
-        'nnUNetTrainerNewCandidate23_softDS4',
-        'nnUNetTrainerNewCandidate23_2_fp16',
-        'nnUNetTrainerNewCandidate23_2',
-        'nnUNetTrainerVer2',
+    trainers = ['nnUNetTrainer'] + [
         'nnUNetTrainerV2_2',
-        'nnUNetTrainerV2_3',
-        'nnUNetTrainerV2_3_CE_GDL',
-        'nnUNetTrainerV2_3_dcTopk10',
-        'nnUNetTrainerV2_3_dcTopk20',
-        'nnUNetTrainerV2_3_fp16',
-        'nnUNetTrainerV2_3_softDS4',
-        'nnUNetTrainerV2_3_softDS4_clean',
-        'nnUNetTrainerV2_3_softDS4_clean_improvedDA',
-        'nnUNetTrainerV2_3_softDS4_clean_improvedDA_newElDef',
-        'nnUNetTrainerV2_3_softDS4_radam',
-        'nnUNetTrainerV2_3_softDS4_radam_lowerLR',
-        'nnUNetTrainerV2_2_schedule',
-        'nnUNetTrainerV2_2_schedule2',
-        'nnUNetTrainerV2_2_clean',
-        'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
-        'nnUNetTrainerV2_2_fixes', # running
-        'nnUNetTrainerV2_BN',
-        'nnUNetTrainerV2_noDeepSupervision',
-        'nnUNetTrainerV2_softDeepSupervision',
-        'nnUNetTrainerV2_noDataAugmentation',
-        'nnUNetTrainerV2_Loss_CE',
-        'nnUNetTrainerV2_Loss_CEGDL',
-        'nnUNetTrainerV2_Loss_Dice',
-        'nnUNetTrainerV2_Loss_DiceTopK10',
-        'nnUNetTrainerV2_Loss_TopK10',
-        'nnUNetTrainerV2_Adam', # running
-        'nnUNetTrainerV2_Adam_nnUNetTrainerlr',
-        'nnUNetTrainerV2_SGD_ReduceOnPlateau', # running
-        'nnUNetTrainerV2_SGD_lr1en1',
-        'nnUNetTrainerV2_SGD_lr1en3',
-        'nnUNetTrainerV2_fixedNonlin', # running
-        'nnUNetTrainerV2_GeLU', # running partially
+        'nnUNetTrainerV2_lessMomentum_noMirror',
+        'nnUNetTrainerV2_2_noMirror',
     ]
 
     datasets = \
-        {"Task01_BrainTumour": ("3d_fullres", ),
-        "Task02_Heart": ("3d_fullres",),
-        #"Task24_Promise": ("3d_fullres",),
-        #"Task27_ACDC": ("3d_fullres",),
-        "Task03_Liver": ("3d_fullres", "3d_lowres"),
-        "Task04_Hippocampus": ("3d_fullres",),
-        "Task05_Prostate": ("3d_fullres",),
-        "Task06_Lung": ("3d_fullres", "3d_lowres"),
-        "Task07_Pancreas": ("3d_fullres", "3d_lowres"),
-        "Task08_HepaticVessel": ("3d_fullres", "3d_lowres"),
-        "Task09_Spleen": ("3d_fullres", "3d_lowres"),
-        "Task10_Colon": ("3d_fullres", "3d_lowres"),}
+        {"Task49_StructSeg2019_Task1_HaN_OAR": ("3d_fullres",  "3d_lowres", "2d"),
+        "Task50_StructSeg2019_Task2_Naso_GTV": ("3d_fullres", "3d_lowres", "2d"),
+        "Task51_StructSeg2019_Task3_Thoracic_OAR": ("3d_fullres", "3d_lowres", "2d"),
+        "Task52_StructSeg2019_Task4_Lung_GTV": ("3d_fullres", "3d_lowres", "2d"),
+}
 
     expected_validation_folder = "validation_raw"
     alternative_validation_folder = "validation"
@@ -102,7 +52,11 @@ if __name__ == "__main__":
         for t in datasets.keys():
             s = t[4:6]
             for c in datasets[t]:
-                s1 = s + "_" + c[3]
+                if len(c) > 3:
+                    n = c[3]
+                else:
+                    n = "2"
+                s1 = s + "_" + n
                 f.write("%s," % s1)
         f.write("\n")
 
