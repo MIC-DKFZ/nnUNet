@@ -83,7 +83,6 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str, default="normal", required=False)
     parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True")
 
-
     args = parser.parse_args()
     input_folder = args.input_folder
     output_folder = args.output_folder
