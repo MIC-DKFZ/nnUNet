@@ -15,7 +15,7 @@
 import numpy as np
 from batchgenerators.augmentations.utils import pad_nd_image
 from nnunet.utilities.tensor_utilities import flip
-from nnunet.utilities.to_torch import to_cuda
+from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
 from torch import nn
 import torch
 from scipy.ndimage.filters import gaussian_filter
@@ -202,7 +202,9 @@ class SegmentationNetwork(NeuralNetwork):
                 tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
                 add = tmp_smooth + 1e-8
             else:
-                add = np.ones(patch_size)
+                add = np.ones(patch_size, dtype=np.float32)
+
+            add = add.astype(np.float32)
 
             data_shape = data.shape
             center_coord_start = np.array([i // 2 for i in patch_size]).astype(int)
@@ -228,7 +230,7 @@ class SegmentationNetwork(NeuralNetwork):
             else:
                 result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
                 result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
-                add_torch = to_cuda(add, gpu_id=self.get_device())
+                add_torch = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
 
             # data, result and add_torch and result_numsamples are now on GPU
             for x in xsteps:
@@ -358,10 +360,10 @@ class SegmentationNetwork(NeuralNetwork):
         # everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         # we now return a cuda tensor! Not numpy array!
         with torch.no_grad():
-            x = to_cuda(x, gpu_id=self.get_device())
+            x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
             result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
                                        dtype=torch.float).cuda(self.get_device(), non_blocking=True)
-            mult = to_cuda(mult, gpu_id=self.get_device())
+            mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
 
             num_results = num_repeats
             if do_mirroring:
@@ -413,8 +415,8 @@ class SegmentationNetwork(NeuralNetwork):
         # everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         # we now return a cuda tensor! Not numpy array!
         with torch.no_grad():
-            x = to_cuda(x, gpu_id=self.get_device())
-            mult = to_cuda(mult, gpu_id=self.get_device())
+            x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
+            mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
             result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
                                        dtype=torch.float).cuda(self.get_device(), non_blocking=True)
 
@@ -480,7 +482,9 @@ class SegmentationNetwork(NeuralNetwork):
                 tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
                 add = tmp_smooth
             else:
-                add = np.ones(tile_size)
+                add = np.ones(tile_size, dtype=np.float32)
+
+            add = add.astype(np.float32)
 
             data_shape = data.shape
             center_coord_start = np.array([i // 2 for i in patch_size]).astype(int)
@@ -505,7 +509,7 @@ class SegmentationNetwork(NeuralNetwork):
             else:
                 result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
                 result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
-                add_torch = to_cuda(add, gpu_id=self.get_device())
+                add_torch = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
 
             for x in xsteps:
                 lb_x = x - patch_size[0] // 2

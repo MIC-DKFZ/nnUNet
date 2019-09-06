@@ -134,6 +134,16 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
 
 
 def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separate_z=None):
+    """
+    faster and uses less ram than save_segmentation_nifti_from_softmax, but maybe less precise and also does not support
+    softmax export (which is needed for ensembling). So it's a niche function that may be useful in some cases.
+    :param segmentation:
+    :param out_fname:
+    :param dct:
+    :param order:
+    :param force_separate_z:
+    :return:
+    """
     if isinstance(segmentation, str):
         assert isfile(segmentation), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
