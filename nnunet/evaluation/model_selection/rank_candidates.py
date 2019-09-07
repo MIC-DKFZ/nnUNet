@@ -51,7 +51,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
         'nnUNetTrainerV2_2_fixes', # running
         'nnUNetTrainerV2_BN',
-        'nnUNetTrainerV2_noDeepSupervision',
+        'nnUNetTrainerV2_noDeepSupervision', # running
         'nnUNetTrainerV2_softDeepSupervision',
         'nnUNetTrainerV2_noDataAugmentation',
         'nnUNetTrainerV2_Loss_CE',
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Loss_DiceTopK10',
         'nnUNetTrainerV2_Loss_TopK10',
         'nnUNetTrainerV2_Adam', # running
-        'nnUNetTrainerV2_Adam_nnUNetTrainerlr',
+        'nnUNetTrainerV2_Adam_nnUNetTrainerlr', # running
         'nnUNetTrainerV2_SGD_ReduceOnPlateau', # running
         'nnUNetTrainerV2_SGD_lr1en1',
         'nnUNetTrainerV2_SGD_lr1en3',
