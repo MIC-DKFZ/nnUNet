@@ -56,7 +56,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_noDeepSupervision', # running
         'nnUNetTrainerV2_softDeepSupervision',
         'nnUNetTrainerV2_noDataAugmentation', # running
-        'nnUNetTrainerV2_Loss_CE',
+        'nnUNetTrainerV2_Loss_CE', # running
         'nnUNetTrainerV2_Loss_CEGDL',
         'nnUNetTrainerV2_Loss_Dice',
         'nnUNetTrainerV2_Loss_DiceTopK10',
