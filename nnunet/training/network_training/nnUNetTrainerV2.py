@@ -269,7 +269,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         Folds > 4 will be independent from each other
         :return:
         """
-        if self.fold < 5:
+        if self.fold == 'all' or self.fold < 5:
             return super().do_split()
         else:
             rnd = np.random.RandomState(seed=12345 + self.fold)

@@ -45,22 +45,24 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_3_softDS4_clean_improvedDA_newElDef',
         'nnUNetTrainerV2_3_softDS4_radam',
         'nnUNetTrainerV2_3_softDS4_radam_lowerLR',
+
         'nnUNetTrainerV2_2_schedule',
         'nnUNetTrainerV2_2_schedule2',
         'nnUNetTrainerV2_2_clean',
         'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
+
         'nnUNetTrainerV2_2_fixes', # running
         'nnUNetTrainerV2_BN',
         'nnUNetTrainerV2_noDeepSupervision', # running
         'nnUNetTrainerV2_softDeepSupervision',
-        'nnUNetTrainerV2_noDataAugmentation',
-        'nnUNetTrainerV2_Loss_CE',
+        'nnUNetTrainerV2_noDataAugmentation', # running
+        'nnUNetTrainerV2_Loss_CE', # running
         'nnUNetTrainerV2_Loss_CEGDL',
         'nnUNetTrainerV2_Loss_Dice',
         'nnUNetTrainerV2_Loss_DiceTopK10',
         'nnUNetTrainerV2_Loss_TopK10',
         'nnUNetTrainerV2_Adam', # running
-        'nnUNetTrainerV2_Adam_nnUNetTrainerlr',
+        'nnUNetTrainerV2_Adam_nnUNetTrainerlr', # running
         'nnUNetTrainerV2_SGD_ReduceOnPlateau', # running
         'nnUNetTrainerV2_SGD_lr1en1',
         'nnUNetTrainerV2_SGD_lr1en3',
