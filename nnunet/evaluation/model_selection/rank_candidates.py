@@ -51,7 +51,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
         'nnUNetTrainerV2_2_fixes', # running
         'nnUNetTrainerV2_BN',
-        'nnUNetTrainerV2_noDeepSupervision',
+        'nnUNetTrainerV2_noDeepSupervision', # running
         'nnUNetTrainerV2_softDeepSupervision',
         'nnUNetTrainerV2_noDataAugmentation',
         'nnUNetTrainerV2_Loss_CE',
