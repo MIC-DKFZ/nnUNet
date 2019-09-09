@@ -538,7 +538,7 @@ class nnUNetTrainer(NetworkTrainer):
                 patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will 
                 then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
                 filename or np.ndarray and will handle this automatically"""
-                if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.9):  # *0.9 just to be save
+                if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                     np.save(join(output_folder, fname + ".npy"), softmax_pred)
                     softmax_pred = join(output_folder, fname + ".npy")
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,

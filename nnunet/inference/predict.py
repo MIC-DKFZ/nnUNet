@@ -196,7 +196,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         bytes_per_voxel = 4
         if all_in_gpu:
             bytes_per_voxel = 2 # if all_in_gpu then the return value is half (float16)
-        if np.prod(softmax_mean.shape) > (2e9 / bytes_per_voxel * 0.9):  # * 0.9 just to be save
+        if np.prod(softmax_mean.shape) > (2e9 / bytes_per_voxel * 0.85):  # * 0.85 just to be save
             print(
                 "This output is too large for python process-process communication. Saving output temporarily to disk")
             np.save(output_filename[:-7] + ".npy", softmax_mean)
