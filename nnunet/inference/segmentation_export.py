@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+import sys
 from copy import deepcopy
 import numpy as np
 import SimpleITK as sitk
@@ -144,6 +144,9 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
     :param force_separate_z:
     :return:
     """
+    # suppress output
+    sys.stdout = open(os.devnull, 'w')
+
     if isinstance(segmentation, str):
         assert isfile(segmentation), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
@@ -203,3 +206,4 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
     seg_resized_itk.SetDirection(dct['itk_direction'])
     sitk.WriteImage(seg_resized_itk, out_fname)
 
+    sys.stdout = sys.__stdout__

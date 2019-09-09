@@ -84,6 +84,7 @@ if __name__ == "__main__":
                                                        "It doesn't work", action="store_true")
     parser.add_argument("--mode", type=str, default="normal", required=False)
     parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True")
+    parser.add_argument("--step", type=float, default=2, required=False, help="don't touch")
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -97,6 +98,7 @@ if __name__ == "__main__":
     num_threads_nifti_save = args.num_threads_nifti_save
     tta = args.tta
     fp16 = args.fp16
+    step = args.step
 
     if fp16:
         raise RuntimeError("FP16 support for inference does not work yet. Sorry :-/")
@@ -147,5 +149,5 @@ if __name__ == "__main__":
 
     predict_from_folder(output_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16)
+                        overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16, step=step)
 

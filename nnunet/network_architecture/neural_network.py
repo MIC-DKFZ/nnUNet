@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+from copy import deepcopy
 
 import numpy as np
 from batchgenerators.augmentations.utils import pad_nd_image
@@ -49,10 +50,12 @@ class SegmentationNetwork(NeuralNetwork):
         super(NeuralNetwork, self).__init__()
         self.inference_apply_nonlin = lambda x: x
 
+        self._gaussian_3d = self._patch_size_for_gaussian_3d = None
+
     def predict_3D(self, x, do_mirroring: bool, num_repeats=1, use_train_mode=False, batch_size=1,
                    mirror_axes=(0, 1, 2),
                    tiled=False, tile_in_z=True, step=2, patch_size=None, regions_class_order=None, use_gaussian=False,
-                   pad_border_mode="edge", pad_kwargs=None, all_in_gpu=False):
+                   pad_border_mode="edge", pad_kwargs=None, all_in_gpu=False, nb_of_classes=None, return_softmax=True):
         """
         :param x: (c, x, y , z)
         :param do_mirroring: whether or not to do test time data augmentation by mirroring
@@ -71,6 +74,7 @@ class SegmentationNetwork(NeuralNetwork):
         :param use_gaussian: set this to True to prevent stitching artifacts
         :param all_in_gpu: only affects _internal_predict_3D_3Dconv_tiled, _internal_predict_3D_2Dconv_tiled, _internal_predict_3D_2Dconv,
         _internal_predict_2D_2Dconv_tiled
+        :param return_softmax: see _internal_predict_3D_3Dconv_tiled
         :return:
         """
         print("debug: mirroring", do_mirroring, "mirror_axes", mirror_axes)
@@ -93,7 +97,8 @@ class SegmentationNetwork(NeuralNetwork):
                 res = self._internal_predict_3D_3Dconv_tiled(x, num_repeats, batch_size, tile_in_z, step, do_mirroring,
                                                              mirror_axes, patch_size, regions_class_order, use_gaussian,
                                                              pad_border_mode, pad_kwargs=pad_kwargs,
-                                                             all_in_gpu=all_in_gpu)
+                                                             all_in_gpu=all_in_gpu, nb_of_classes=nb_of_classes,
+                                                             return_softmax=return_softmax)
             else:
                 res = self._internal_predict_3D_3Dconv(x, do_mirroring, num_repeats, patch_size, batch_size,
                                                        mirror_axes, regions_class_order, pad_border_mode,
@@ -116,7 +121,7 @@ class SegmentationNetwork(NeuralNetwork):
 
     def predict_2D(self, x, do_mirroring, num_repeats=1, use_train_mode=False, batch_size=1, mirror_axes=(0, 1),
                    tiled=False, step=2, patch_size=None, regions_class_order=None, use_gaussian=False,
-                   pad_border_mode="edge", pad_kwargs=None, all_in_gpu=False):
+                   pad_border_mode="edge", pad_kwargs=None, all_in_gpu=False, nb_of_classes=None):
         assert self.get_device() != "cpu", "CPU not implemented"
 
         if len(mirror_axes) > 0 and max(mirror_axes) > 1:
@@ -136,7 +141,7 @@ class SegmentationNetwork(NeuralNetwork):
                 res = self._internal_predict_2D_2Dconv_tiled(x, num_repeats, batch_size, step, do_mirroring,
                                                              mirror_axes, patch_size, regions_class_order,
                                                              use_gaussian, pad_border_mode, pad_kwargs=pad_kwargs,
-                                                             all_in_gpu=all_in_gpu)
+                                                             all_in_gpu=all_in_gpu, nb_of_classes=nb_of_classes)
             else:
                 res = self._internal_predict_2D_2Dconv(x, do_mirroring, num_repeats, None, batch_size, mirror_axes,
                                                        regions_class_order, pad_border_mode, pad_kwargs=pad_kwargs)
@@ -149,7 +154,8 @@ class SegmentationNetwork(NeuralNetwork):
     def _internal_predict_3D_3Dconv_tiled(self, x, num_repeats, BATCH_SIZE=None, tile_in_z=True, step=2,
                                           do_mirroring=True, mirror_axes=(0, 1, 2), patch_size=None,
                                           regions_class_order=None, use_gaussian=False, pad_border_mode="edge",
-                                          pad_kwargs=None, all_in_gpu=False):
+                                          pad_kwargs=None, all_in_gpu=False, nb_of_classes=None,
+                                          return_softmax=True):
         """
         x must be (c, x, y, z)
         :param x:
@@ -165,10 +171,14 @@ class SegmentationNetwork(NeuralNetwork):
         :param pad_border_mode:
         :param pad_kwargs:
         :param all_in_gpu: if True then data and prediction will be held in GPU for inference. Faster, but uses more vram
+        :param return_softmax: if all_in_gpu, the copying of the softmax back to cpu can take a while. If you dont
+        need the softmax (just the segmentation) and all_in_gpu=True then you can shave a few seconds off the inference
+        time by setting this to False
         :return:
         """
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
         assert self.get_device() != "cpu"
+        print("step:", step)
 
         torch.cuda.empty_cache()
 
@@ -188,25 +198,37 @@ class SegmentationNetwork(NeuralNetwork):
                 patch_size[0] = data.shape[2]
             input_size = [int(i) for i in input_size]
 
-            a = torch.zeros(input_size, dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+            if nb_of_classes is None:
+                a = torch.zeros(input_size, dtype=torch.float).cuda(self.get_device(), non_blocking=True)
 
-            # dummy run to see number of classes
-            nb_of_classes = self(a).size()[1]
+                # dummy run to see number of classes
+                nb_of_classes = self(a).size()[1]
 
             if use_gaussian:
-                tmp = np.zeros(patch_size)
-                center_coords = [i // 2 for i in patch_size]
-                sigmas = [i // 8 for i in patch_size]
-                tmp[tuple(center_coords)] = 1
-                tmp_smooth = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
-                tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
-                add = tmp_smooth + 1e-8
+                if self._gaussian_3d is None or not all([i == j for i, j in zip(patch_size, self._patch_size_for_gaussian_3d)]):
+                    tmp = np.zeros(patch_size)
+                    center_coords = [i // 2 for i in patch_size]
+                    sigmas = [i // 8 for i in patch_size]
+                    tmp[tuple(center_coords)] = 1
+                    tmp_smooth = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
+                    tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
+                    add = tmp_smooth + 1e-8
+
+                    # we only need to compute that once. It can take a while to compute this due to the large sigma in
+                    # gaussian_filter
+                    self._gaussian_3d = np.copy(add)
+                    self._patch_size_for_gaussian_3d = deepcopy(patch_size)
+                else:
+                    print("using precomputed Gaussian")
+                    add = self._gaussian_3d
             else:
                 add = np.ones(patch_size, dtype=np.float32)
 
             add = add.astype(np.float32)
 
             data_shape = data.shape
+
+            print("configuring tiles")
             center_coord_start = np.array([i // 2 for i in patch_size]).astype(int)
             center_coord_end = np.array(
                 [data_shape[i + 2] - patch_size[i] // 2 for i in range(len(patch_size))]).astype(int)
@@ -220,18 +242,26 @@ class SegmentationNetwork(NeuralNetwork):
             zsteps = np.round(np.arange(center_coord_start[2], center_coord_end[2] + 1e-8, step_size[2])).astype(int)
 
             if all_in_gpu:
+                print("initializing result array (on GPU)")
                 # some of these can remain in half. We just need the reuslts for softmax so it won't hurt at all to reduce
                 # precision. Inference is of course done in float
-                result = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half).cuda()
-                data = torch.from_numpy(data).cuda(self.get_device())
-                result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half).cuda()
-                add = torch.from_numpy(add).cuda(self.get_device()).float()
+                result = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
+                print("moving data to GPU")
+                data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
+                print("initializing result_numsamples (on GPU)")
+                result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
+                print("moving add to GPU")
+                add = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True).float()
                 add_torch = add
             else:
                 result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
                 result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
                 add_torch = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
 
+            print("data shape:", data_shape)
+            print("patch size:", patch_size)
+            print("steps (x, y, and z):", xsteps, ysteps, zsteps)
+            print("number of tiles:", len(xsteps) * len(ysteps) * len(zsteps))
             # data, result and add_torch and result_numsamples are now on GPU
             for x in xsteps:
                 lb_x = x - patch_size[0] // 2
@@ -279,8 +309,13 @@ class SegmentationNetwork(NeuralNetwork):
                     predicted_segmentation[softmax_pred_here[i] > 0.5] = c
 
             if all_in_gpu:
+                print("copying results to CPU")
                 predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
-                softmax_pred = softmax_pred.half().detach().cpu().numpy()
+                if return_softmax:
+                    softmax_pred = softmax_pred.half().detach().cpu().numpy()
+                else:
+                    softmax_pred = None
+        print("prediction on GPU done")
         return predicted_segmentation, None, softmax_pred, None
 
     def _internal_predict_2D_2Dconv(self, x, do_mirroring, num_repeats, min_size=None, BATCH_SIZE=None,
@@ -454,7 +489,7 @@ class SegmentationNetwork(NeuralNetwork):
                                           do_mirroring=True, mirror_axes=(0, 1), patch_size=None,
                                           regions_class_order=None,
                                           use_gaussian=False, pad_border_mode="edge", pad_kwargs=None,
-                                          all_in_gpu=False):
+                                          all_in_gpu=False, nb_of_classes=None):
         with torch.no_grad():
             tile_size = patch_size
             assert tile_size is not None, "patch_size cannot be None for tiled prediction"
@@ -468,10 +503,11 @@ class SegmentationNetwork(NeuralNetwork):
 
             input_size = [1, patient_data.shape[0]] + list(tile_size)
             input_size = [int(i) for i in input_size]
-            a = torch.zeros(input_size, dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+            if nb_of_classes is None:
+                a = torch.zeros(input_size, dtype=torch.float).cuda(self.get_device(), non_blocking=True)
 
-            # dummy run to see number of classes
-            nb_of_classes = self(a).size()[1]
+                # dummy run to see number of classes
+                nb_of_classes = self(a).size()[1]
 
             if use_gaussian:
                 tmp = np.zeros(tile_size, dtype=np.float32)
@@ -501,10 +537,10 @@ class SegmentationNetwork(NeuralNetwork):
             if all_in_gpu:
                 # some of these can remain in half. We just need the reuslts for softmax so it won't hurt at all to reduce
                 # precision. Inference is of course done in float
-                result = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half).cuda()
-                data = torch.from_numpy(data).cuda(self.get_device())
-                result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half).cuda()
-                add = torch.from_numpy(add).cuda(self.get_device()).float()
+                result = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
+                data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
+                result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
+                add = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
                 add_torch = add
             else:
                 result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
