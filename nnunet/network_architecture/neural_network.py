@@ -228,8 +228,8 @@ class SegmentationNetwork(NeuralNetwork):
                 add = torch.from_numpy(add).cuda(self.get_device()).float()
                 add_torch = add
             else:
-                result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
-                result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
+                result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
+                result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
                 add_torch = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
 
             # data, result and add_torch and result_numsamples are now on GPU
@@ -507,8 +507,8 @@ class SegmentationNetwork(NeuralNetwork):
                 add = torch.from_numpy(add).cuda(self.get_device()).float()
                 add_torch = add
             else:
-                result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
-                result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=float)
+                result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
+                result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
                 add_torch = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
 
             for x in xsteps:
