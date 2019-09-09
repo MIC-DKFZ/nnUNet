@@ -54,7 +54,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_fixes', # running
         'nnUNetTrainerV2_BN',
         'nnUNetTrainerV2_noDeepSupervision', # running
-        'nnUNetTrainerV2_softDeepSupervision',
+        'nnUNetTrainerV2_softDeepSupervision', # running
         'nnUNetTrainerV2_noDataAugmentation', # running
         'nnUNetTrainerV2_Loss_CE', # running
         'nnUNetTrainerV2_Loss_CEGDL',
