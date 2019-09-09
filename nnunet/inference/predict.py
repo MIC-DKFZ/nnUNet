@@ -210,6 +210,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will 
         then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
         filename or np.ndarray and will handle this automatically"""
+        import IPython;IPython.embed()
         bytes_per_voxel = 4
         if all_in_gpu:
             bytes_per_voxel = 2 # if all_in_gpu then the return value is half (float16)
