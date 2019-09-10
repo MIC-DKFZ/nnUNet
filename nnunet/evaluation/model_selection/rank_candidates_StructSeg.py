@@ -17,12 +17,19 @@ if __name__ == "__main__":
     additional_plans = {
         'nnUNetTrainerV2_2': ["nnUNetPlans_customClip"], # r
         'nnUNetTrainerV2_2_noMirror': ["nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_lessMomentum_noMirror': ["nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_2_structSeg_noMirror': ["nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_2_structSeg': ["nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_lessMomentum_noMirror_structSeg': ["nnUNetPlans_customClip"],  # r
     }
 
     trainers = ['nnUNetTrainer'] + [
         'nnUNetTrainerV2_2',
         'nnUNetTrainerV2_lessMomentum_noMirror',
         'nnUNetTrainerV2_2_noMirror',
+        'nnUNetTrainerV2_2_structSeg_noMirror',
+        'nnUNetTrainerV2_2_structSeg',
+        'nnUNetTrainerV2_lessMomentum_noMirror_structSeg',
     ]
 
     datasets = \

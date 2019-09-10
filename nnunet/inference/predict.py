@@ -307,7 +307,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
 
         # preallocate the output arrays
         # same dtype as the return value in predict_preprocessed_data_return_softmax_and_seg (saves time)
-        all_softmax_outputs = np.zeros((len(params), trainer.num_classes, *d.shape[1:]), dtype=np.float16)
+        softmax_aggr = None # np.zeros((trainer.num_classes, *d.shape[1:]), dtype=np.float16)
         all_seg_outputs = np.zeros((len(params), *d.shape[1:]), dtype=int)
         print("predicting", output_filename)
 
@@ -319,13 +319,17 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
                                                                            all_in_gpu=all_in_gpu)
             if len(params) > 1:
                 # otherwise we dont need this and we can save ourselves the time it takes to copy that
-                all_softmax_outputs[i] = res[1]
+                print("aggregating softmax")
+                if softmax_aggr is None:
+                    softmax_aggr = res[1]
+                else:
+                    softmax_aggr += res[1]
             all_seg_outputs[i] = res[0]
 
-        print("aggregating predictions")
+        print("obtaining segmentation map")
         if len(params) > 1:
-            softmax_mean = np.mean(all_softmax_outputs, 0)
-            seg = softmax_mean.argmax(0)
+            # we dont need to normalize the softmax by 1 / len(params) because this would not change the outcome of the argmax
+            seg = softmax_aggr.argmax(0)
         else:
             seg = all_seg_outputs[0]
 

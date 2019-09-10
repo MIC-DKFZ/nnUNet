@@ -179,6 +179,7 @@ class SegmentationNetwork(NeuralNetwork):
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
         assert self.get_device() != "cpu"
         print("step:", step)
+        print("do mirror:", do_mirroring)
 
         torch.cuda.empty_cache()
 
