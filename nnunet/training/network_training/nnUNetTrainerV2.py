@@ -114,7 +114,6 @@ class nnUNetTrainerV2(nnUNetTrainer):
         - SGD instead of Adam
         - self.lr_scheduler = None because we do poly_lr
         - deep supervision = True
-        - ReLU
         - i am sure I forgot something here
 
         Known issue: forgot to set neg_slope=0 in InitWeights_He; should not make a difference though
@@ -132,8 +131,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         norm_op_kwargs = {'eps': 1e-5, 'affine': True}
         dropout_op_kwargs = {'p': 0, 'inplace': True}
-        net_nonlin = nn.ReLU
-        net_nonlin_kwargs = {'inplace': True}
+        net_nonlin = nn.LeakyReLU
+        net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
                                     len(self.net_num_pool_op_kernel_sizes),
                                     2, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
