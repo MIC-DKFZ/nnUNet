@@ -42,6 +42,6 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     fp = np.sum(a_to_b > threshold)
     fn = np.sum(b_to_a > threshold)
 
-    dc = (tp_a + tp_b) / (tp_a + tp_b + fp + fn)
+    dc = (tp_a + tp_b) / (tp_a + tp_b + fp + fn + 1e-8)  # 1e-8 just to that we don't get div by 0
     return dc
 
