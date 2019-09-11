@@ -264,8 +264,12 @@ class ExperimentPlanner(object):
                                                              median_shape_transposed,
                                                              len(self.list_of_cropped_npz_files),
                                                              num_modalities, len(all_classes) + 1))
+
+        # thanks Zakiyi (https://github.com/MIC-DKFZ/nnUNet/issues/61) for spotting this bug :-)
+        #if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
+        #        architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
         if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
-                architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
+                np.prod(self.plans_per_stage[-1]['patch_size'], dtype=np.int64) < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
             more = False
         else:
             more = True
