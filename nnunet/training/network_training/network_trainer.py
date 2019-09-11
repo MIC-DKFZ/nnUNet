@@ -337,6 +337,16 @@ class NetworkTrainer(object):
                 self.lr_scheduler.step(self.epoch)
 
         self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model['plot_stuff']
+
+        # after the training is done, the epoch is incremented one more time in my old code. This results in
+        # self.epoch = 1001 for old trained models when the epoch is actually 1000. This causes issues because
+        # len(self.all_tr_losses) = 1000 and the plot function will fail. We can easily detect and correct that here
+        if self.epoch != len(self.all_tr_losses):
+            self.print_to_log_file("WARNING in loading checkpoint: self.epoch != len(self.all_tr_losses). This is "
+                                   "due to an old bug and should only appear when you are loading old models. New "
+                                   "models should have this fixed! self.epoch is now set to len(self.all_tr_losses)")
+            self.epoch = len(self.all_tr_losses)
+
         self.amp_initialized = False
         self._maybe_init_amp()
 
@@ -424,6 +434,8 @@ class NetworkTrainer(object):
 
             self.epoch += 1
             self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time-epoch_start_time))
+
+        self.epoch -= 1  # if we don't do this we can get a problem with loading model_final_checkpoint.
 
         self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
         # now we can delete latest as it will be identical with final
