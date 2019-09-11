@@ -346,6 +346,10 @@ class NetworkTrainer(object):
                                    "due to an old bug and should only appear when you are loading old models. New "
                                    "models should have this fixed! self.epoch is now set to len(self.all_tr_losses)")
             self.epoch = len(self.all_tr_losses)
+            self.all_tr_losses = self.all_tr_losses[:self.epoch]
+            self.all_val_losses = self.all_val_losses[:self.epoch]
+            self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
+            self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
 
         self.amp_initialized = False
         self._maybe_init_amp()
