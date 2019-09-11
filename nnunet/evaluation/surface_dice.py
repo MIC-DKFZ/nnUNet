@@ -30,7 +30,7 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     (if spacing = (1, 1(, 1)) then one voxel=1mm so the threshold is effectively in voxels)
     :param spacing: how many mm is one voxel in reality? Can be left at None, we then assume an isotropic spacing of 1mm
     :param connectivity: see scipy.ndimage.generate_binary_structure for more information. I suggest you leave that
-    one along
+    one alone
     :return:
     """
     if spacing is None:
