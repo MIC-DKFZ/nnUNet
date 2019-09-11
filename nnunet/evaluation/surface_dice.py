@@ -17,7 +17,7 @@ import numpy as np
 from medpy.metric.binary import __surface_distances
 
 
-def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spacing: tuple = None):
+def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spacing: tuple = None, connectivity=1):
     """
     The normalized surface dice is symmetric, so it should not matter wheter a or b is the reference image
 
@@ -29,12 +29,14 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     :param threshold: distances below this threshold will be counted as true positives. Threshold is in mm, not voxels!
     (if spacing = (1, 1(, 1)) then one voxel=1mm so the threshold is effectively in voxels)
     :param spacing: how many mm is one voxel in reality? Can be left at None, we then assume an isotropic spacing of 1mm
+    :param connectivity: see scipy.ndimage.generate_binary_structure for more information. I suggest you leave that
+    one along
     :return:
     """
     if spacing is None:
         spacing = tuple([1 for _ in range(len(a.shape))])
-    a_to_b = __surface_distances(a, b, spacing, 1)
-    b_to_a = __surface_distances(b, a, spacing, 1)
+    a_to_b = __surface_distances(a, b, spacing, connectivity)
+    b_to_a = __surface_distances(b, a, spacing, connectivity)
 
     tp_a = np.sum(a_to_b <= threshold)
     tp_b = np.sum(b_to_a <= threshold)
@@ -42,6 +44,6 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     fp = np.sum(a_to_b > threshold)
     fn = np.sum(b_to_a > threshold)
 
-    dc = (tp_a + tp_b) / (tp_a + tp_b + fp + fn + 1e-8)  # 1e-8 just to that we don't get div by 0
+    dc = (tp_a + tp_b) / (tp_a + tp_b + fp + fn + 1e-8)  # 1e-8 just so that we don't get div by 0
     return dc
 
