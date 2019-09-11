@@ -22,12 +22,10 @@ class ExperimentPlannerIso(ExperimentPlanner):
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super().__init__(folder_with_cropped_data, preprocessed_output_folder)
-        self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "isoPatchesInmm_plans_3D.pkl")
+        self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "fixedisoPatchesInmm_plans_3D.pkl")
         self.data_identifier = "nnUNet_isoPatchesInmm"
 
     def plan_experiment(self):
-        architecture_input_voxels = np.prod(Generic_UNet.DEFAULT_PATCH_SIZE_3D)
-
         def get_stage(current_spacing, original_spacing, original_shape, num_cases,
                                      num_modalities, num_classes):
             """
@@ -149,12 +147,12 @@ class ExperimentPlannerIso(ExperimentPlanner):
                                                              num_modalities, len(all_classes) + 1))
 
         # check if we need lowres
-        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels']) / \
-                architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
+        architecture_input_voxels_here = np.prod(self.plans_per_stage[-1]['patch_size'], dtype=np.int64)
+        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
+                architecture_input_voxels_here < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
             more = False
         else:
             more = True
-
 
         if more:
             #print("now onto lowres")
@@ -165,7 +163,7 @@ class ExperimentPlannerIso(ExperimentPlanner):
             lowres_stage_spacing = deepcopy(target_spacing)
             num_voxels = np.prod(median_shape)
 
-            while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 * architecture_input_voxels:
+            while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 * architecture_input_voxels_here:
                 max_spacing = max(lowres_stage_spacing)
                 if np.any((max_spacing / lowres_stage_spacing) > 2):
                     lowres_stage_spacing[(max_spacing / lowres_stage_spacing) > 2] \

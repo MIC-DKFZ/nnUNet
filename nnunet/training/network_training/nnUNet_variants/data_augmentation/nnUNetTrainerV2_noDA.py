@@ -98,3 +98,9 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
         self.was_initialized = True
 
+    def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
+                 use_gaussian=True, compute_global_dice=True, override=True, validation_folder_name='validation_raw'):
+        do_mirroring = False
+        ret = super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
+                               override, validation_folder_name)
+        return ret
