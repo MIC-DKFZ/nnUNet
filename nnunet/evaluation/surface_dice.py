@@ -34,7 +34,7 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     one alone
     :return:
     """
-    assert all([i == j] for i, j in zip(a.shape, b.shape)), "a and b must have the same shape. a.shape= %s, " \
+    assert all([i == j for i, j in zip(a.shape, b.shape)]), "a and b must have the same shape. a.shape= %s, " \
                                                             "b.shape= %s" % (str(a.shape), str(b.shape))
     if spacing is None:
         spacing = tuple([1 for _ in range(len(a.shape))])
