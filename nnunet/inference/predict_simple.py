@@ -80,8 +80,6 @@ if __name__ == "__main__":
                                                                                           "(=existing segmentations "
                                                                                           "in output_folder will be "
                                                                                           "overwritten)")
-    parser.add_argument("--mode", type=str, default="normal", required=False)
-    parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True")
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -94,8 +92,6 @@ if __name__ == "__main__":
     num_threads_preprocessing = args.num_threads_preprocessing
     num_threads_nifti_save = args.num_threads_nifti_save
     tta = args.tta
-    mode = args.mode
-    all_in_gpu = args.all_in_gpu
     overwrite = args.overwrite_existing
 
     output_folder_name = join(network_training_output_dir, args.model, args.task_name, args.nnunet_trainer + "__" +
@@ -130,15 +126,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unexpected value for overwrite, Use 1 or 0")
 
-    assert all_in_gpu in ['None', 'False', 'True']
-    if all_in_gpu == "None":
-        all_in_gpu = None
-    elif all_in_gpu == "True":
-        all_in_gpu = True
-    elif all_in_gpu == "False":
-        all_in_gpu = False
-
     predict_from_folder(output_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu)
+                        overwrite_existing=overwrite)
 
