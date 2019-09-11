@@ -6,7 +6,8 @@ from nnunet.experiment_planning.common_utils import get_pool_and_conv_props_pool
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, crop
 from nnunet.experiment_planning.configuration import FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK, \
-    batch_size_covers_max_percent_of_dataset, dataset_min_batch_size_cap, RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
+    batch_size_covers_max_percent_of_dataset, dataset_min_batch_size_cap, RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD, \
+    HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0
 import shutil
 from nnunet.paths import *
 from nnunet.network_architecture.generic_UNet import Generic_UNet
@@ -134,10 +135,12 @@ class ExperimentPlanner3D_IsoPatchesInVoxels(ExperimentPlanner):
                                                              len(self.list_of_cropped_npz_files),
                                                              num_modalities, len(all_classes) + 1))
 
-        HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0_HERE = 4
         # check if we need lowres
-        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels']) / \
-                architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0_HERE:
+        # thanks Zakiyi (https://github.com/MIC-DKFZ/nnUNet/issues/61) for spotting this bug :-)
+        #if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
+        #        architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
+        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
+                np.prod(self.plans_per_stage[-1]['patch_size'], dtype=np.int64) < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
             more = False
         else:
             more = True
@@ -151,7 +154,7 @@ class ExperimentPlanner3D_IsoPatchesInVoxels(ExperimentPlanner):
             lowres_stage_spacing = deepcopy(target_spacing)
             num_voxels = np.prod(median_shape)
 
-            while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0_HERE * architecture_input_voxels:
+            while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 * architecture_input_voxels:
                 max_spacing = max(lowres_stage_spacing)
                 if np.any((max_spacing / lowres_stage_spacing) > 2):
                     lowres_stage_spacing[(max_spacing / lowres_stage_spacing) > 2] \
