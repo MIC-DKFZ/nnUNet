@@ -54,7 +54,7 @@ class ConvDropoutNormNonlin(nn.Module):
         else:
             self.dropout = None
         self.instnorm = self.norm_op(output_channels, **self.norm_op_kwargs)
-        self.lrelu = nn.LeakyReLU(**self.nonlin_kwargs)
+        self.lrelu = self.nonlin(**self.nonlin_kwargs)
 
     def forward(self, x):
         x = self.conv(x)
