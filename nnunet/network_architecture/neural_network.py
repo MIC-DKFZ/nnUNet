@@ -126,7 +126,6 @@ class SegmentationNetwork(NeuralNetwork):
 
         if len(mirror_axes) > 0 and max(mirror_axes) > 1:
             raise ValueError("mirror axes. duh")
-        assert len(x.shape) == 3, "data must have shape (c,x,y)"
         current_mode = self.training
         if use_train_mode is not None and use_train_mode:
             self.train()
@@ -447,13 +446,14 @@ class SegmentationNetwork(NeuralNetwork):
 
         return result_torch
 
+
     def _internal_maybe_mirror_and_pred_2D(self, x, num_repeats, mirror_axes, do_mirroring=True, mult=None):
         # everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         # we now return a cuda tensor! Not numpy array!
         with torch.no_grad():
             x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
             mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
-            result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
+            result_torch = torch.zeros([x.shape[0], self.num_classes] + list(x.shape[2:]),
                                        dtype=torch.float).cuda(self.get_device(), non_blocking=True)
 
             num_results = num_repeats
@@ -497,14 +497,17 @@ class SegmentationNetwork(NeuralNetwork):
             # pad images so that their size is a multiple of tile_size
             data, slicer = pad_nd_image(patient_data, tile_size, pad_border_mode, pad_kwargs, True)
 
-            data = data[None]
+            if len(data.shape) == 3:
+                data = data[None]
 
-            if BATCH_SIZE is not None:
-                data = np.vstack([data] * BATCH_SIZE)
+                if BATCH_SIZE is not None:
+                    data = np.vstack([data] * BATCH_SIZE)
+            else:
+                assert BATCH_SIZE is None, "cannot overwrite batch size if a batch of data is provided"
 
-            input_size = [1, patient_data.shape[0]] + list(tile_size)
-            input_size = [int(i) for i in input_size]
             if nb_of_classes is None:
+                input_size = [1, patient_data.shape[0]] + list(tile_size)
+                input_size = [int(i) for i in input_size]
                 a = torch.zeros(input_size, dtype=torch.float).cuda(self.get_device(), non_blocking=True)
 
                 # dummy run to see number of classes
@@ -538,13 +541,13 @@ class SegmentationNetwork(NeuralNetwork):
             if all_in_gpu:
                 # some of these can remain in half. We just need the reuslts for softmax so it won't hurt at all to reduce
                 # precision. Inference is of course done in float
-                result = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
+                result = torch.zeros([data.shape[0], nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
                 data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
                 result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
                 add = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
                 add_torch = add
             else:
-                result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
+                result = np.zeros([data.shape[0], nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
                 result_numsamples = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
                 add_torch = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True)
 
@@ -556,13 +559,13 @@ class SegmentationNetwork(NeuralNetwork):
                     ub_y = y + patch_size[1] // 2
                     predicted_patch = \
                         self._internal_maybe_mirror_and_pred_2D(data[:, :, lb_x:ub_x, lb_y:ub_y],
-                                                                num_repeats, mirror_axes, do_mirroring, add_torch)[0]
+                                                                num_repeats, mirror_axes, do_mirroring, add_torch)
                     if all_in_gpu:
                         predicted_patch = predicted_patch.half()
                     else:
                         predicted_patch = predicted_patch.cpu().numpy()
 
-                    result[:, lb_x:ub_x, lb_y:ub_y] += predicted_patch
+                    result[:, :, lb_x:ub_x, lb_y:ub_y] += predicted_patch
 
                     if all_in_gpu:
                         result_numsamples[:, lb_x:ub_x, lb_y:ub_y] += add.half()
@@ -571,23 +574,24 @@ class SegmentationNetwork(NeuralNetwork):
 
             slicer = tuple(
                 [slice(0, result.shape[i]) for i in range(len(result.shape) - (len(slicer) - 1))] + slicer[1:])
-            result = result[slicer]
-            result_numsamples = result_numsamples[slicer]
 
-            softmax_pred = result / result_numsamples
+            result = result[slicer]
+            result_numsamples = result_numsamples[slicer[1:]]
+
+            softmax_pred = result[:] / result_numsamples
 
             if regions_class_order is None:
-                predicted_segmentation = softmax_pred.argmax(0)
+                predicted_segmentation = softmax_pred.argmax(1)
             else:
                 if all_in_gpu:
                     softmax_pred_here = softmax_pred.detach().cpu().numpy()
                 else:
                     softmax_pred_here = softmax_pred
-                predicted_segmentation_shp = softmax_pred_here[0].shape
-                predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
-                for i, c in enumerate(regions_class_order):
-                    predicted_segmentation[softmax_pred_here[i] > 0.5] = c
-
+                predicted_segmentation_shp = softmax_pred_here[0, 0].shape
+                predicted_segmentation = np.zeros([softmax_pred_here.shape[0], *predicted_segmentation_shp], dtype=np.float32)
+                for b in range(softmax_pred_here.shape[0]):
+                    for i, c in enumerate(regions_class_order):
+                        predicted_segmentation[b, softmax_pred_here[i] > 0.5] = c
             if all_in_gpu:
                 predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
                 softmax_pred = softmax_pred.half().detach().cpu().numpy()
