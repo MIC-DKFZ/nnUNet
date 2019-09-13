@@ -581,17 +581,28 @@ class SegmentationNetwork(NeuralNetwork):
             softmax_pred = result[:] / result_numsamples
 
             if regions_class_order is None:
-                predicted_segmentation = softmax_pred.argmax(1)
+                if BATCH_SIZE is not None:
+                    softmax_pred = softmax_pred.mean(0)
+                predicted_segmentation = softmax_pred.argmax(0)
             else:
+
                 if all_in_gpu:
                     softmax_pred_here = softmax_pred.detach().cpu().numpy()
                 else:
                     softmax_pred_here = softmax_pred
-                predicted_segmentation_shp = softmax_pred_here[0, 0].shape
-                predicted_segmentation = np.zeros([softmax_pred_here.shape[0], *predicted_segmentation_shp], dtype=np.float32)
-                for b in range(softmax_pred_here.shape[0]):
+
+                if BATCH_SIZE is None:
+                    predicted_segmentation_shp = softmax_pred_here[0, 0].shape
+                    predicted_segmentation = np.zeros([softmax_pred_here.shape[0], *predicted_segmentation_shp], dtype=np.float32)
+                    for b in range(softmax_pred_here.shape[0]):
+                        for i, c in enumerate(regions_class_order):
+                            predicted_segmentation[b, softmax_pred_here[i] > 0.5] = c
+                else:
+                    predicted_segmentation_shp = softmax_pred_here[0].shape
+                    predicted_segmentation = np.zeros(predicted_segmentation_shp, dtype=np.float32)
                     for i, c in enumerate(regions_class_order):
-                        predicted_segmentation[b, softmax_pred_here[i] > 0.5] = c
+                        predicted_segmentation[softmax_pred_here[i] > 0.5] = c
+
             if all_in_gpu:
                 predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
                 softmax_pred = softmax_pred.half().detach().cpu().numpy()

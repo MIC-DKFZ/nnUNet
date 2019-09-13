@@ -583,7 +583,6 @@ class NetworkTrainer(object):
         target = target.cuda(non_blocking=True)
 
         self.optimizer.zero_grad()
-
         output = self.network(data)
         del data
         l = self.loss(output, target)
