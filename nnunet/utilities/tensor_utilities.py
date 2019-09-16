@@ -14,6 +14,7 @@
 
 import numpy as np
 import torch
+from torch import nn
 
 
 def sum_tensor(inp, axes, keepdim=False):
@@ -49,3 +50,8 @@ def flip(x, dim):
     indices[dim] = torch.arange(x.size(dim) - 1, -1, -1,
                                 dtype=torch.long, device=x.device)
     return x[tuple(indices)]
+
+
+class Identity(nn.Module):
+    def forward(self, input):
+        return input

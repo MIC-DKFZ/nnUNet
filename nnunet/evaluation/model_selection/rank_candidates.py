@@ -14,8 +14,8 @@ if __name__ == "__main__":
 
     plans = "nnUNetPlans"
 
-    additional_plans = {
-        'nnUNetTrainerV2_2': ["nnUNetPlansisoPatchesInVoxels"] # r
+    overwrite_plans = {
+        'nnUNetTrainerV2_2': ["nnUNetPlans", "nnUNetPlansisoPatchesInVoxels"] # r
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_clean_improvedDA_newElDef',
 
         'nnUNetTrainerV2_2_fixes', # running
-        'nnUNetTrainerV2_BN',
+        'nnUNetTrainerV2_BN', # running
         'nnUNetTrainerV2_noDeepSupervision', # running
         'nnUNetTrainerV2_softDeepSupervision', # running
         'nnUNetTrainerV2_noDataAugmentation', # running
@@ -64,13 +64,19 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Adam', # running
         'nnUNetTrainerV2_Adam_nnUNetTrainerlr', # running
         'nnUNetTrainerV2_SGD_ReduceOnPlateau', # running
-        'nnUNetTrainerV2_SGD_lr1en1',
-        'nnUNetTrainerV2_SGD_lr1en3',
+        'nnUNetTrainerV2_SGD_lr1en1', # running
+        'nnUNetTrainerV2_SGD_lr1en3', # running
         'nnUNetTrainerV2_fixedNonlin', # running
         'nnUNetTrainerV2_GeLU', # running
-        # NoNormalization
-        # nonCT
-        # CT2
+        # 'nnUNetTrainerV2_3ConvPerStage',
+        # 'nnUNetTrainerV2_NoNormalization',
+        # 'nnUNetTrainerV2_Adam_ReduceOnPlateau',
+        # 'nnUNetTrainerV2_fp16',
+        # 'nnUNetTrainerV2_3ConvPerStage',
+        # 'nnUNetTrainerV2_3ConvPerStage',
+        # 'nnUNetTrainerV2_3ConvPerStage',
+        # 'nnUNetTrainerV2_3ConvPerStage',
+        # 'nnUNetTrainerV2_3ConvPerStage',
     ]
 
     datasets = \
@@ -113,8 +119,8 @@ if __name__ == "__main__":
 
         for trainer in trainers:
             trainer_plans = [plans]
-            if trainer in additional_plans.keys():
-                trainer_plans += additional_plans[trainer]
+            if trainer in overwrite_plans.keys():
+                trainer_plans = overwrite_plans[trainer]
 
             result_per_dataset_here = {}
             for d in datasets:

@@ -259,7 +259,12 @@ class NetworkTrainer(object):
     def load_best_checkpoint(self, train=True):
         if self.fold is None:
             raise RuntimeError("Cannot load best checkpoint if self.fold is None")
-        self.load_checkpoint(join(self.output_folder, "model_best.model"), train=train)
+        if isfile(join(self.output_folder, "model_best.model")):
+            self.load_checkpoint(join(self.output_folder, "model_best.model"), train=train)
+        else:
+            self.print_to_log_file("WARNING! model_best.model does not exist! Cannot load best checkpoint. Falling "
+                                   "back to load_latest_checkpoint")
+            self.load_latest_checkpoint(train)
 
     def load_latest_checkpoint(self, train=True):
         if isfile(join(self.output_folder, "model_final_checkpoint.model")):

@@ -14,13 +14,13 @@ if __name__ == "__main__":
 
     plans = "nnUNetPlans"
 
-    additional_plans = {
-        'nnUNetTrainerV2_2': ["nnUNetPlans_customClip"], # r
-        'nnUNetTrainerV2_2_noMirror': ["nnUNetPlans_customClip"],  # r
-        'nnUNetTrainerV2_lessMomentum_noMirror': ["nnUNetPlans_customClip"],  # r
-        'nnUNetTrainerV2_2_structSeg_noMirror': ["nnUNetPlans_customClip"],  # r
-        'nnUNetTrainerV2_2_structSeg': ["nnUNetPlans_customClip"],  # r
-        'nnUNetTrainerV2_lessMomentum_noMirror_structSeg': ["nnUNetPlans_customClip"],  # r
+    overwrite_plans = {
+        'nnUNetTrainerV2_2': ["nnUNetPlans", "nnUNetPlans_customClip"], # r
+        'nnUNetTrainerV2_2_noMirror': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_lessMomentum_noMirror': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_2_structSeg_noMirror': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_2_structSeg': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_lessMomentum_noMirror_structSeg': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
     }
 
     trainers = ['nnUNetTrainer'] + [
@@ -69,8 +69,8 @@ if __name__ == "__main__":
 
         for trainer in trainers:
             trainer_plans = [plans]
-            if trainer in additional_plans.keys():
-                trainer_plans += additional_plans[trainer]
+            if trainer in overwrite_plans.keys():
+                trainer_plans = overwrite_plans[trainer]
 
             result_per_dataset_here = {}
             for d in datasets:
