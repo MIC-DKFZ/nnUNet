@@ -271,12 +271,9 @@ class NetworkTrainer(object):
             return self.load_checkpoint(join(self.output_folder, "model_final_checkpoint.model"), train=train)
         if isfile(join(self.output_folder, "model_latest.model")):
             return self.load_checkpoint(join(self.output_folder, "model_latest.model"), train=train)
-        all_checkpoints = [i for i in os.listdir(self.output_folder) if i.endswith(".model") and i.find("_ep_") != -1]
-        if len(all_checkpoints) == 0:
-            return self.load_best_checkpoint(train=train)
-        corresponding_epochs = [int(i.split("_")[-1].split(".")[0]) for i in all_checkpoints]
-        checkpoint = all_checkpoints[np.argmax(corresponding_epochs)]
-        self.load_checkpoint(join(self.output_folder, checkpoint), train=train)
+        if isfile(join(self.output_folder, "model_best.model")):
+            self.load_best_checkpoint(train)
+        raise RuntimeError("No checkpoint found")
 
     def load_checkpoint(self, fname, train=True):
         self.print_to_log_file("loading checkpoint", fname, "train=", train)
