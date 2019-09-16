@@ -7,7 +7,7 @@ from torch import nn
 
 class nnUNetTrainerV2_3ConvPerStage(nnUNetTrainerV2):
     def initialize_network(self):
-        self.base_num_features = 20  # otherwise we run out of VRAM
+        self.base_num_features = 24  # otherwise we run out of VRAM
         if self.threeD:
             conv_op = nn.Conv3d
             dropout_op = nn.Dropout3d
