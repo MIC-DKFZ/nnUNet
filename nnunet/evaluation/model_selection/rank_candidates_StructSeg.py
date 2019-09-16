@@ -4,10 +4,10 @@ from nnunet.paths import network_training_output_dir
 
 if __name__ == "__main__":
     # run collect_all_fold0_results_and_summarize_in_one_csv.py first
-    summary_files_dir = join(network_training_output_dir, "summary_jsons_fold0_new")
-    output_file = join(network_training_output_dir, "summary_structseg.csv")
+    summary_files_dir = join(network_training_output_dir, "summary_jsons_new")
+    output_file = join(network_training_output_dir, "summary_structseg_5folds.csv")
 
-    folds = (0, )
+    folds = (0, 1, 2, 3, 4)
     folds_str = ""
     for f in folds:
         folds_str += str(f)
@@ -21,6 +21,10 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_structSeg_noMirror': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
         'nnUNetTrainerV2_2_structSeg': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
         'nnUNetTrainerV2_lessMomentum_noMirror_structSeg': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_FabiansResUNet_structSet_NoMirror_leakyDecoder': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_FabiansResUNet_structSet_NoMirror': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+        'nnUNetTrainerV2_FabiansResUNet_structSet': ["nnUNetPlans", "nnUNetPlans_customClip"],  # r
+
     }
 
     trainers = ['nnUNetTrainer'] + [
@@ -30,6 +34,9 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2_structSeg_noMirror',
         'nnUNetTrainerV2_2_structSeg',
         'nnUNetTrainerV2_lessMomentum_noMirror_structSeg',
+        'nnUNetTrainerV2_FabiansResUNet_structSet_NoMirror_leakyDecoder',
+        'nnUNetTrainerV2_FabiansResUNet_structSet_NoMirror',
+        'nnUNetTrainerV2_FabiansResUNet_structSet',
     ]
 
     datasets = \
