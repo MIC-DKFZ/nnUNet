@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", '--task_ids', nargs="+", required=False, default=list(range(100)))
 
     args = parser.parse_args()
-    tasks = args.task_id
+    tasks = args.task_ids
     models = args.models
 
     out_dir_all_json = join(network_training_output_dir, "summary_jsons")
@@ -54,6 +54,7 @@ if __name__ == "__main__":
 
     # for each task, run ensembling using all combinations of two models
     for t in tasks:
+        t = int(t)
         json_files_task = [i for i in subfiles(out_dir_all_json, prefix="Task%02.0d_" % t) if i.find("ensemble") == -1]
         if len(json_files_task) > 0:
             task_name = json_files_task[0].split("/")[-1].split("__")[0]
@@ -65,13 +66,13 @@ if __name__ == "__main__":
                     # task__configuration__trainer__plans
                     network1 = json_files_task[i].split("/")[-1].split("__")
                     network1[-1] = network1[-1].split(".")[0]
-                    task, configuration, trainer, plans_identifier = network1
+                    task, configuration, trainer, plans_identifier, _ = network1
                     network1_folder = get_output_folder(configuration, task, trainer, plans_identifier)
                     name1 = configuration + "__" + trainer + "__" + plans_identifier
 
                     network2 = json_files_task[j].split("/")[-1].split("__")
                     network2[-1] = network2[-1].split(".")[0]
-                    task, configuration, trainer, plans_identifier = network2
+                    task, configuration, trainer, plans_identifier, _ = network2
                     network2_folder = get_output_folder(configuration, task, trainer, plans_identifier)
                     name2 = configuration + "__" + trainer + "__" + plans_identifier
 
@@ -94,6 +95,7 @@ if __name__ == "__main__":
     # now load all json for each task and find best
     with open(join(network_training_output_dir, "use_this_for_test.csv"), 'w') as f:
         for t in tasks:
+            t = int(t)
             json_files_task = subfiles(out_dir_all_json, prefix="Task%02.0d_" % t)
             if len(json_files_task) > 0:
                 task_name = json_files_task[0].split("/")[-1].split("__")[0]
