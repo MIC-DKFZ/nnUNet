@@ -30,6 +30,7 @@ def summarize(tasks, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fullre
 
     for model in models:
         for t in tasks:
+            t = int(t)
             if not isdir(join(network_training_output_dir, model)):
                 continue
             task_name = subfolders(join(network_training_output_dir, model), prefix="Task%02.0d" % t, join=False)
