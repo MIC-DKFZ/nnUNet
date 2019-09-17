@@ -272,7 +272,7 @@ class NetworkTrainer(object):
         if isfile(join(self.output_folder, "model_latest.model")):
             return self.load_checkpoint(join(self.output_folder, "model_latest.model"), train=train)
         if isfile(join(self.output_folder, "model_best.model")):
-            self.load_best_checkpoint(train)
+            return self.load_best_checkpoint(train)
         raise RuntimeError("No checkpoint found")
 
     def load_checkpoint(self, fname, train=True):
