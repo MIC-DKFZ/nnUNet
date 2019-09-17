@@ -68,10 +68,10 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_SGD_lr1en3', # running
         'nnUNetTrainerV2_fixedNonlin', # running
         'nnUNetTrainerV2_GeLU', # running
-        # 'nnUNetTrainerV2_3ConvPerStage',
-        # 'nnUNetTrainerV2_NoNormalization',
-        # 'nnUNetTrainerV2_Adam_ReduceOnPlateau',
-        # 'nnUNetTrainerV2_fp16',
+        'nnUNetTrainerV2_3ConvPerStage',
+        'nnUNetTrainerV2_NoNormalization',
+        'nnUNetTrainerV2_Adam_ReduceOnPlateau',
+        'nnUNetTrainerV2_fp16',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',

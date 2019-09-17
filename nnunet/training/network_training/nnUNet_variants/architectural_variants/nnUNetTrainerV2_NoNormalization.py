@@ -11,14 +11,14 @@ class nnUNetTrainerV2_NoNormalization(nnUNetTrainerV2):
         if self.threeD:
             conv_op = nn.Conv3d
             dropout_op = nn.Dropout3d
-            norm_op = Identity()
+            norm_op = Identity
 
         else:
             conv_op = nn.Conv2d
             dropout_op = nn.Dropout2d
-            norm_op = Identity()
+            norm_op = Identity
 
-        norm_op_kwargs = {'eps': 1e-5, 'affine': True}
+        norm_op_kwargs = {}
         dropout_op_kwargs = {'p': 0, 'inplace': True}
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
