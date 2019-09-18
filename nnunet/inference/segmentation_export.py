@@ -65,7 +65,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
     # current_spacing = dct.get('spacing_after_resampling')
     # original_spacing = dct.get('original_spacing')
 
-    if np.any(np.array(current_shape[1:]) != np.array(shape_original_after_cropping)):
+    if np.any([i != j for i, j in zip(np.array(current_shape[1:]), np.array(shape_original_after_cropping))]):
         if force_separate_z is None:
             if get_do_separate_z(dct.get('original_spacing')):
                 do_separate_z = True

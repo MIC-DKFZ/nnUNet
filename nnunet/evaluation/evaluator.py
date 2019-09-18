@@ -445,11 +445,12 @@ def aggregate_scores_for_experiment(score_file,
     return json_dict
 
 
-def evaluate_folder(folder_with_gts, folder_with_predictions, labels):
+def evaluate_folder(folder_with_gts: str, folder_with_predictions: str, labels: tuple):
     """
     writes a summary.json to folder_with_predictions
-    :param folder_with_gts:
-    :param folder_with_predictions:
+    :param folder_with_gts: folder where the ground truth segmentations are saved. Must be nifti files.
+    :param folder_with_predictions: folder where the predicted segmentations are saved. Must be nifti files.
+    :param labels: tuple of int with the labels in the dataset. For example (0, 1, 2, 3) for Task01_BrainTumour.
     :return:
     """
     files_gt = subfiles(folder_with_gts, suffix=".nii.gz", join=False)
@@ -457,5 +458,6 @@ def evaluate_folder(folder_with_gts, folder_with_predictions, labels):
     assert all([i in files_pred for i in files_gt]), "files missing in folder_with_predictions"
     assert all([i in files_gt for i in files_pred]), "files missing in folder_with_gts"
     test_ref_pairs = [(join(folder_with_predictions, i), join(folder_with_gts, i)) for i in files_pred]
-    res = aggregate_scores(test_ref_pairs, json_output_file=join(folder_with_predictions, "summary.json"), num_threads=8, labels=labels)
+    res = aggregate_scores(test_ref_pairs, json_output_file=join(folder_with_predictions, "summary.json"),
+                           num_threads=8, labels=labels)
     return res

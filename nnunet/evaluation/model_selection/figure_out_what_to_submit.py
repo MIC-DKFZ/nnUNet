@@ -43,6 +43,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     tasks = [int(i) for i in args.task_ids]
+
     models = args.models
     validation_folder = args.validation_folder
 
@@ -96,6 +97,7 @@ if __name__ == "__main__":
     # now load all json for each task and find best
     with open(join(network_training_output_dir, "use_this_for_test.csv"), 'w') as f:
         for t in tasks:
+            t = int(t)
             json_files_task = subfiles(out_dir_all_json, prefix="Task%02.0d_" % t)
             if len(json_files_task) > 0:
                 task_name = json_files_task[0].split("/")[-1].split("__")[0]
