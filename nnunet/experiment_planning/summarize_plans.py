@@ -35,6 +35,7 @@ def summarize_plans(file):
 
 
 def write_plans_to_file(f, plans_file):
+    print(plans_file)
     a = load_pickle(plans_file)
     stages = list(a['plans_per_stage'].keys())
     stages.sort()
