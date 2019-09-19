@@ -30,7 +30,7 @@ class nnUNetTrainerV2_Adam_ReduceOnPlateau(nnUNetTrainerV2):
 
             if isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
                 # lr scheduler is updated with moving average val loss. should be more robust
-                if self.epoch > 0:  # otherwise self.train_loss_MA is None
+                if self.epoch > 0 and self.train_loss_MA is not None:  # otherwise self.train_loss_MA is None
                     self.lr_scheduler.step(self.train_loss_MA)
             else:
                 self.lr_scheduler.step(self.epoch + 1)
