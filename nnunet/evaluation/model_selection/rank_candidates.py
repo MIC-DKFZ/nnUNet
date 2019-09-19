@@ -15,7 +15,8 @@ if __name__ == "__main__":
     plans = "nnUNetPlans"
 
     overwrite_plans = {
-        'nnUNetTrainerV2_2': ["nnUNetPlans", "nnUNetPlansisoPatchesInVoxels"] # r
+        'nnUNetTrainerV2_2': ["nnUNetPlans", "nnUNetPlansisoPatchesInVoxels"], # r
+        'nnUNetTrainerV2': ["nnUNetPlansnonCT", "nnUNetPlansnonCT2"]
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
@@ -72,7 +73,8 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_NoNormalization',
         'nnUNetTrainerV2_Adam_ReduceOnPlateau',
         'nnUNetTrainerV2_fp16',
-        # 'nnUNetTrainerV2_3ConvPerStage',
+        # 'nnUNetTrainerV2', # see overwrite_plans
+        # 'nnUNetTrainerV2_noMirroring',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
