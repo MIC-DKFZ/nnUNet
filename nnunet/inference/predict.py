@@ -256,7 +256,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
 def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
                        num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None,
-                       overwrite_existing=False, all_in_gpu=True, step=2):
+                       overwrite_existing=False, all_in_gpu=True, step=2, checkpoint_name="model_best"):
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
@@ -288,7 +288,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
     torch.cuda.empty_cache()
 
     print("loading parameters for folds,", folds)
-    trainer, params = load_model_and_checkpoint_files(model, folds, fp16=fp16)
+    trainer, params = load_model_and_checkpoint_files(model, folds, fp16=fp16, checkpoint_name=checkpoint_name)
 
     print("starting preprocessing generator")
     preprocessing = preprocess_multithreaded(trainer, list_of_lists, cleaned_output_files, num_threads_preprocessing,
