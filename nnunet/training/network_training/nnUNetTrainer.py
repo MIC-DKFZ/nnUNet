@@ -448,9 +448,9 @@ class nnUNetTrainer(NetworkTrainer):
                                       pad_kwargs=self.inference_pad_kwargs, all_in_gpu=all_in_gpu)
         return [res[i] for i in [0, 2]]
 
-    def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, overwrite=True, validation_folder_name="validation_raw",
-                 debug=False):
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+                 validation_folder_name: str = 'validation_raw', debug: bool = False):
         """
         2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
         that selecting models is easier when computing the Dice globally instead of independently for each case and

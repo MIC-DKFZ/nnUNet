@@ -99,7 +99,7 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
         self.was_initialized = True
 
     def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, compute_global_dice=True, override=True, validation_folder_name='validation_raw'):
+                 use_gaussian=True, compute_global_dice=True, overwrite=True, validation_folder_name='validation_raw'):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
 
@@ -110,7 +110,7 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
         :param save_softmax:
         :param use_gaussian:
         :param compute_global_dice:
-        :param override:
+        :param overwrite:
         :param validation_folder_name:
         :return:
         """
@@ -121,7 +121,7 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
         do_mirroring = False
         self.network.do_ds = False
         ret = super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
-                               override, validation_folder_name)
+                               overwrite, validation_folder_name)
         self.network.do_ds = ds
         return ret
 
