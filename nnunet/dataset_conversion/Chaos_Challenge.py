@@ -1,3 +1,4 @@
+from PIL import Image
 import shutil
 from collections import OrderedDict
 
@@ -9,6 +10,7 @@ from PIL import Image
 import SimpleITK as sitk
 from nnunet.paths import preprocessing_output_dir, splitted_4d_output_dir
 from nnunet.utilities.sitk_stuff import copy_geometry
+from nnunet.inference.ensemble_predictions import merge
 
 
 def load_png_stack(folder):
@@ -27,11 +29,112 @@ def convert_CT_seg(loaded_png):
 
 def convert_MR_seg(loaded_png):
     result = np.zeros(loaded_png.shape)
-    result[(loaded_png > 55) & (loaded_png <= 70)] = 1
-    result[(loaded_png > 110) & (loaded_png <= 135)] = 2
-    result[(loaded_png > 175) & (loaded_png <= 200)] = 3
-    result[(loaded_png > 240) & (loaded_png <= 255)] = 4
+    result[(loaded_png > 55) & (loaded_png <= 70)] = 1 # liver
+    result[(loaded_png > 110) & (loaded_png <= 135)] = 2 # right kidney
+    result[(loaded_png > 175) & (loaded_png <= 200)] = 3 # left kidney
+    result[(loaded_png > 240) & (loaded_png <= 255)] = 4 # spleen
     return result
+
+
+def convert_seg_to_intensity_task5(seg):
+    seg_new = np.zeros(seg.shape, dtype=np.uint8)
+    seg_new[seg == 1] = 63
+    seg_new[seg == 2] = 126
+    seg_new[seg == 3] = 189
+    seg_new[seg == 4] = 252
+    return seg_new
+
+
+def convert_seg_to_intensity_task3(seg):
+    seg_new = np.zeros(seg.shape, dtype=np.uint8)
+    seg_new[seg == 1] = 63
+    return seg_new
+
+
+def write_pngs_from_nifti(nifti, output_folder, converter=convert_seg_to_intensity_task3):
+    npy = sitk.GetArrayFromImage(sitk.ReadImage(nifti))
+    seg_new = converter(npy)
+    for z in range(len(npy)):
+        Image.fromarray(seg_new[z]).save(join(output_folder, "img%03.0d.png" % z))
+
+
+def convert_variant2_predicted_test_to_submission_format(folder_with_predictions,
+                                                         output_folder="/media/fabian/DeepLearningData/CHAOS_testSet_Variant2/imagesTs_pred_submission/CHAOS_submission_template_new"):
+    """
+    output_folder is where the extracted template is
+    :param folder_with_predictions:
+    :param output_folder:
+    :return:
+    """
+    postprocessing_file = "/media/fabian/Results/nnUNet/3d_fullres/Task39_CHAOS_Task_3_5_Variant2_highres/" \
+                          "nnUNetTrainerV2__nnUNetPlansfixed/postprocessing.json"
+
+    # variant 2 treats in and out phase as two training examples, so we need to ensemble these two again
+    final_predictions_folder = join(output_folder, "final")
+    maybe_mkdir_p(final_predictions_folder)
+    t1_patient_names = [i.split("_")[-1][:-7] for i in subfiles(folder_with_predictions, prefix="T1", suffix=".nii.gz", join=False)]
+    folder_for_ensembing0 = join(output_folder, "ens0")
+    folder_for_ensembing1 = join(output_folder, "ens1")
+    maybe_mkdir_p(folder_for_ensembing0)
+    maybe_mkdir_p(folder_for_ensembing1)
+    # now copy all t1 out phases in ens0 and all in phases in ens1. Name them the same.
+    for t1 in t1_patient_names:
+        shutil.copy(join(folder_with_predictions, "T1_in_%s.npz" % t1), join(folder_for_ensembing1, "T1_%s.npz" % t1))
+        shutil.copy(join(folder_with_predictions, "T1_in_%s.pkl" % t1), join(folder_for_ensembing1, "T1_%s.pkl" % t1))
+        shutil.copy(join(folder_with_predictions, "T1_out_%s.npz" % t1), join(folder_for_ensembing0, "T1_%s.npz" % t1))
+        shutil.copy(join(folder_with_predictions, "T1_out_%s.pkl" % t1), join(folder_for_ensembing0, "T1_%s.pkl" % t1))
+    shutil.copy(join(folder_with_predictions, "plans.pkl"), join(folder_for_ensembing0, "plans.pkl"))
+    shutil.copy(join(folder_with_predictions, "plans.pkl"), join(folder_for_ensembing1, "plans.pkl"))
+
+    # there is a problem with T1_35 that I need to correct manually (different crop size, will not negatively impact results)
+    #ens0_softmax = np.load(join(folder_for_ensembing0, "T1_35.npz"))['softmax']
+    ens1_softmax = np.load(join(folder_for_ensembing1, "T1_35.npz"))['softmax']
+    #ens0_props = load_pickle(join(folder_for_ensembing0, "T1_35.pkl"))
+    #ens1_props = load_pickle(join(folder_for_ensembing1, "T1_35.pkl"))
+    ens1_softmax = ens1_softmax[:, :, :-1, :]
+    np.savez_compressed(join(folder_for_ensembing1, "T1_35.npz"), softmax=ens1_softmax)
+    shutil.copy(join(folder_for_ensembing0, "T1_35.pkl"), join(folder_for_ensembing1, "T1_35.pkl"))
+
+    # now call my ensemble function
+    merge((folder_for_ensembing0, folder_for_ensembing1), final_predictions_folder, 8, True,
+          postprocessing_file="/media/fabian/Results/nnUNet/3d_fullres/Task39_CHAOS_Task_3_5_Variant2_highres/"
+                              "nnUNetTrainerV2__nnUNetPlansfixed/postprocessing.json")
+    # copy t2 files to final_predictions_folder as well
+    t2_files = subfiles(folder_with_predictions, prefix="T2", suffix=".nii.gz", join=False)
+    for t2 in t2_files:
+        shutil.copy(join(folder_with_predictions, t2), join(final_predictions_folder, t2))
+
+    # apply postprocessing
+    from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_for_which_classes
+    postprocessed_folder = join(output_folder, "final_postprocessed")
+    apply_postprocessing_to_folder(final_predictions_folder, postprocessed_folder,
+                                   load_for_which_classes(postprocessing_file), 8)
+
+    # now export the niftis in the weird png format
+    # task 3
+    output_dir = join(output_folder, "CHAOS_submission_template_new", "Task3", "MR")
+    for t1 in t1_patient_names:
+        output_folder_here = join(output_dir, t1, "T1DUAL", "Results")
+        nifti_file = join(postprocessed_folder, "T1_%s.nii.gz" % t1)
+        write_pngs_from_nifti(nifti_file, output_folder_here, converter=convert_seg_to_intensity_task3)
+    for t2 in t2_files:
+        patname = t2.split("_")[-1][:-7]
+        output_folder_here = join(output_dir, patname, "T2SPIR", "Results")
+        nifti_file = join(postprocessed_folder, "T2_%s.nii.gz" % patname)
+        write_pngs_from_nifti(nifti_file, output_folder_here, converter=convert_seg_to_intensity_task3)
+
+    # task 5
+    output_dir = join(output_folder, "CHAOS_submission_template_new", "Task5", "MR")
+    for t1 in t1_patient_names:
+        output_folder_here = join(output_dir, t1, "T1DUAL", "Results")
+        nifti_file = join(postprocessed_folder, "T1_%s.nii.gz" % t1)
+        write_pngs_from_nifti(nifti_file, output_folder_here, converter=convert_seg_to_intensity_task5)
+    for t2 in t2_files:
+        patname = t2.split("_")[-1][:-7]
+        output_folder_here = join(output_dir, patname, "T2SPIR", "Results")
+        nifti_file = join(postprocessed_folder, "T2_%s.nii.gz" % patname)
+        write_pngs_from_nifti(nifti_file, output_folder_here, converter=convert_seg_to_intensity_task5)
+
 
 
 if __name__ == "__main__":
@@ -56,6 +159,7 @@ if __name__ == "__main__":
     """
 
     root = "/media/fabian/My Book/datasets/CHAOS_challenge/Train_Sets"
+    root_test = "/media/fabian/My Book/datasets/CHAOS_challenge/Test_Sets"
     out_base = splitted_4d_output_dir
     # CT
     # we ignore CT because
@@ -64,16 +168,19 @@ if __name__ == "__main__":
     # Variant 1
     ##############################################################
     patient_ids = []
+    patient_ids_test = []
 
     output_folder = join(out_base, "Task37_CHAOS_Task_3_5_Variant1")
     output_images = join(output_folder, "imagesTr")
     output_labels = join(output_folder, "labelsTr")
+    output_imagesTs = join(output_folder, "imagesTs")
     maybe_mkdir_p(output_images)
     maybe_mkdir_p(output_labels)
+    maybe_mkdir_p(output_imagesTs)
 
+
+    # Process T1 train
     d = join(root, "MR")
-
-    # Process T1
     patients = subdirs(d, join=False)
     for p in patients:
         patient_name = "T1_" + p
@@ -95,7 +202,26 @@ if __name__ == "__main__":
         sitk.WriteImage(seg_itk, join(output_labels, patient_name + ".nii.gz"))
         patient_ids.append(patient_name)
 
-    # Process T2
+    # Process T1 test
+    d = join(root_test, "MR")
+    patients = subdirs(d, join=False)
+    for p in patients:
+        patient_name = "T1_" + p
+
+        img_dir = join(d, p, "T1DUAL", "DICOM_anon", "InPhase")
+        img_outfile = join(output_imagesTs, patient_name + "_0000.nii.gz")
+        _ = dicom2nifti.convert_dicom.dicom_series_to_nifti(img_dir, img_outfile, reorient_nifti=False)
+
+        img_dir = join(d, p, "T1DUAL", "DICOM_anon", "OutPhase")
+        img_outfile = join(output_imagesTs, patient_name + "_0001.nii.gz")
+        _ = dicom2nifti.convert_dicom.dicom_series_to_nifti(img_dir, img_outfile, reorient_nifti=False)
+
+        img_sitk = sitk.ReadImage(img_outfile)
+        img_sitk_npy = sitk.GetArrayFromImage(img_sitk)
+        patient_ids_test.append(patient_name)
+
+    # Process T2 train
+    d = join(root, "MR")
     patients = subdirs(d, join=False)
     for p in patients:
         patient_name = "T2_" + p
@@ -114,6 +240,23 @@ if __name__ == "__main__":
         seg_itk = copy_geometry(seg_itk, img_sitk)
         sitk.WriteImage(seg_itk, join(output_labels, patient_name + ".nii.gz"))
         patient_ids.append(patient_name)
+
+    # Process T2 test
+    d = join(root_test, "MR")
+    patients = subdirs(d, join=False)
+    for p in patients:
+        patient_name = "T2_" + p
+
+        gt_dir = join(d, p, "T2SPIR", "Ground")
+
+        img_dir = join(d, p, "T2SPIR", "DICOM_anon")
+        img_outfile = join(output_imagesTs, patient_name + "_0000.nii.gz")
+        _ = dicom2nifti.convert_dicom.dicom_series_to_nifti(img_dir, img_outfile, reorient_nifti=False)
+        shutil.copy(join(output_imagesTs, patient_name + "_0000.nii.gz"), join(output_imagesTs, patient_name + "_0001.nii.gz"))
+
+        img_sitk = sitk.ReadImage(img_outfile)
+        img_sitk_npy = sitk.GetArrayFromImage(img_sitk)
+        patient_ids_test.append(patient_name)
 
     json_dict = OrderedDict()
     json_dict['name'] = "Chaos Challenge Task3/5 Variant 1"
@@ -146,14 +289,18 @@ if __name__ == "__main__":
     ##############################################################
 
     patient_ids = []
+    patient_ids_test = []
 
     output_folder = join(out_base, "Task38_CHAOS_Task_3_5_Variant2")
     output_images = join(output_folder, "imagesTr")
+    output_imagesTs = join(output_folder, "imagesTs")
     output_labels = join(output_folder, "labelsTr")
     maybe_mkdir_p(output_images)
+    maybe_mkdir_p(output_imagesTs)
     maybe_mkdir_p(output_labels)
 
-    # Process T1
+    # Process T1 train
+    d = join(root, "MR")
     patients = subdirs(d, join=False)
     for p in patients:
         patient_name_in = "T1_in_" + p
@@ -178,7 +325,29 @@ if __name__ == "__main__":
         patient_ids.append(patient_name_out)
         patient_ids.append(patient_name_in)
 
-    # Process T2
+    # Process T1 test
+    d = join(root_test, "MR")
+    patients = subdirs(d, join=False)
+    for p in patients:
+        patient_name_in = "T1_in_" + p
+        patient_name_out = "T1_out_" + p
+        gt_dir = join(d, p, "T1DUAL", "Ground")
+
+        img_dir = join(d, p, "T1DUAL", "DICOM_anon", "InPhase")
+        img_outfile = join(output_imagesTs, patient_name_in + "_0000.nii.gz")
+        _ = dicom2nifti.convert_dicom.dicom_series_to_nifti(img_dir, img_outfile, reorient_nifti=False)
+
+        img_dir = join(d, p, "T1DUAL", "DICOM_anon", "OutPhase")
+        img_outfile = join(output_imagesTs, patient_name_out + "_0000.nii.gz")
+        _ = dicom2nifti.convert_dicom.dicom_series_to_nifti(img_dir, img_outfile, reorient_nifti=False)
+
+        img_sitk = sitk.ReadImage(img_outfile)
+        img_sitk_npy = sitk.GetArrayFromImage(img_sitk)
+        patient_ids_test.append(patient_name_out)
+        patient_ids_test.append(patient_name_in)
+
+    # Process T2 train
+    d = join(root, "MR")
     patients = subdirs(d, join=False)
     for p in patients:
         patient_name = "T2_" + p
@@ -196,6 +365,22 @@ if __name__ == "__main__":
         seg_itk = copy_geometry(seg_itk, img_sitk)
         sitk.WriteImage(seg_itk, join(output_labels, patient_name + ".nii.gz"))
         patient_ids.append(patient_name)
+
+    # Process T2 test
+    d = join(root_test, "MR")
+    patients = subdirs(d, join=False)
+    for p in patients:
+        patient_name = "T2_" + p
+
+        gt_dir = join(d, p, "T2SPIR", "Ground")
+
+        img_dir = join(d, p, "T2SPIR", "DICOM_anon")
+        img_outfile = join(output_imagesTs, patient_name + "_0000.nii.gz")
+        _ = dicom2nifti.convert_dicom.dicom_series_to_nifti(img_dir, img_outfile, reorient_nifti=False)
+
+        img_sitk = sitk.ReadImage(img_outfile)
+        img_sitk_npy = sitk.GetArrayFromImage(img_sitk)
+        patient_ids_test.append(patient_name)
 
     json_dict = OrderedDict()
     json_dict['name'] = "Chaos Challenge Task3/5 Variant 2"

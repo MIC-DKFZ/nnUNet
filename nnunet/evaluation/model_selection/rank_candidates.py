@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     overwrite_plans = {
         'nnUNetTrainerV2_2': ["nnUNetPlans", "nnUNetPlansisoPatchesInVoxels"], # r
-        'nnUNetTrainerV2': ["nnUNetPlansnonCT", "nnUNetPlansnonCT2", "nnUNetPlansallConv3x3",
+        'nnUNetTrainerV2': ["nnUNetPlansnonCT", "nnUNetPlansCT2", "nnUNetPlansallConv3x3",
                             "nnUNetPlansfixedisoPatchesInVoxels", "nnUNetPlanstargetSpacingForAnisoAxis",
                             "nnUNetPlanspoolBasedOnSpacing", "nnUNetPlansfixedisoPatchesInmm"]
     }
