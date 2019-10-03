@@ -223,11 +223,11 @@ class SoftDiceLossSquared(nn.Module):
                 y_onehot = torch.zeros(shp_x)
                 if x.device.type == "cuda":
                     y_onehot = y_onehot.cuda(x.device.index)
-                y_onehot.scatter_(1, y, 1)
+                y_onehot.scatter_(1, y, 1).float()
 
         intersect = x * y_onehot
         # values in the denominator get smoothed
-        denominator = x ** 2 + y ** 2
+        denominator = x ** 2 + y_onehot ** 2
 
         # aggregation was previously done in get_tp_fp_fn, but needs to be done here now (needs to be done after
         # squaring)
@@ -242,8 +242,7 @@ class SoftDiceLossSquared(nn.Module):
             else:
                 dc = dc[:, 1:]
         dc = dc.mean()
-        if dc > 1.05:
-            import IPython;IPython.embed()
+
         return -dc
 
 
