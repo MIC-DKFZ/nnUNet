@@ -101,7 +101,7 @@ def get_tp_fp_fn(net_output, gt, axes=None, mask=None, square=False):
     if mask is provided it must have shape (b, 1, x, y(, z)))
     :param net_output:
     :param gt:
-    :param axes:
+    :param axes: can be (, ) = no summation
     :param mask: mask must be 1 for valid pixels and 0 for invalid pixels
     :param square: if True then fp, tp and fn will be squared before summation
     :return:
@@ -140,22 +140,20 @@ def get_tp_fp_fn(net_output, gt, axes=None, mask=None, square=False):
         fp = fp ** 2
         fn = fn ** 2
 
-    tp = sum_tensor(tp, axes, keepdim=False)
-    fp = sum_tensor(fp, axes, keepdim=False)
-    fn = sum_tensor(fn, axes, keepdim=False)
+    if len(axes) > 0:
+        tp = sum_tensor(tp, axes, keepdim=False)
+        fp = sum_tensor(fp, axes, keepdim=False)
+        fn = sum_tensor(fn, axes, keepdim=False)
 
     return tp, fp, fn
 
 
 class SoftDiceLoss(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.,
-                 square=False):
+    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.):
         """
-
         """
         super(SoftDiceLoss, self).__init__()
 
-        self.square = square
         self.do_bg = do_bg
         self.batch_dice = batch_dice
         self.apply_nonlin = apply_nonlin
@@ -172,9 +170,12 @@ class SoftDiceLoss(nn.Module):
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
-        tp, fp, fn = get_tp_fp_fn(x, y, axes, loss_mask, self.square)
+        tp, fp, fn = get_tp_fp_fn(x, y, axes, loss_mask, False)
 
-        dc = (2 * tp + self.smooth) / (2 * tp + fp + fn + self.smooth)
+        nominator = 2 * tp + self.smooth
+        denominator = 2 * tp + fp + fn + self.smooth
+
+        dc = nominator / denominator
 
         if not self.do_bg:
             if self.batch_dice:
@@ -186,12 +187,75 @@ class SoftDiceLoss(nn.Module):
         return -dc
 
 
+class SoftDiceLossSquared(nn.Module):
+    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.):
+        """
+        squares the terms in the denominator as proposed by Milletari et al.
+        """
+        super(SoftDiceLossSquared, self).__init__()
+
+        self.do_bg = do_bg
+        self.batch_dice = batch_dice
+        self.apply_nonlin = apply_nonlin
+        self.smooth = smooth
+
+    def forward(self, x, y, loss_mask=None):
+        shp_x = x.shape
+        shp_y = y.shape
+
+        if self.batch_dice:
+            axes = [0] + list(range(2, len(shp_x)))
+        else:
+            axes = list(range(2, len(shp_x)))
+
+        if self.apply_nonlin is not None:
+            x = self.apply_nonlin(x)
+
+        with torch.no_grad():
+            if len(shp_x) != len(shp_y):
+                y = y.view((shp_y[0], 1, *shp_y[1:]))
+
+            if all([i == j for i, j in zip(x.shape, y.shape)]):
+                # if this is the case then gt is probably already a one hot encoding
+                y_onehot = y
+            else:
+                y = y.long()
+                y_onehot = torch.zeros(shp_x)
+                if x.device.type == "cuda":
+                    y_onehot = y_onehot.cuda(x.device.index)
+                y_onehot.scatter_(1, y, 1)
+
+        intersect = x * y_onehot
+        # values in the denominator get smoothed
+        denominator = x ** 2 + y ** 2
+
+        # aggregation was previously done in get_tp_fp_fn, but needs to be done here now (needs to be done after
+        # squaring)
+        intersect = sum_tensor(intersect, axes, False) + self.smooth
+        denominator = sum_tensor(denominator, axes, False) + self.smooth
+
+        dc = 2 * intersect / denominator
+
+        if not self.do_bg:
+            if self.batch_dice:
+                dc = dc[1:]
+            else:
+                dc = dc[:, 1:]
+        dc = dc.mean()
+        if dc > 1.05:
+            import IPython;IPython.embed()
+        return -dc
+
+
 class DC_and_CE_loss(nn.Module):
-    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum"):
+    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum", square_dice=False):
         super(DC_and_CE_loss, self).__init__()
         self.aggregate = aggregate
         self.ce = CrossentropyND(**ce_kwargs)
-        self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+        if not square_dice:
+            self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+        else:
+            self.dc = SoftDiceLossSquared(apply_nonlin=softmax_helper, **soft_dice_kwargs)
 
     def forward(self, net_output, target):
         dc_loss = self.dc(net_output, target)
@@ -221,11 +285,14 @@ class GDL_and_CE_loss(nn.Module):
 
 
 class DC_and_topk_loss(nn.Module):
-    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum"):
+    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum", square_dice=False):
         super(DC_and_topk_loss, self).__init__()
         self.aggregate = aggregate
         self.ce = TopKLoss(**ce_kwargs)
-        self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+        if not square_dice:
+            self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+        else:
+            self.dc = SoftDiceLossSquared(apply_nonlin=softmax_helper, **soft_dice_kwargs)
 
     def forward(self, net_output, target):
         dc_loss = self.dc(net_output, target)
