@@ -19,6 +19,8 @@ from medpy.metric.binary import __surface_distances
 
 def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spacing: tuple = None, connectivity=1):
     """
+    This implementation differs from the official surface dice implementation! These two are not comparable!!!!!
+
     The normalized surface dice is symmetric, so it should not matter wheter a or b is the reference image
 
     This implementation natively supports 2D and 3D images. Whether other dimensions are supported depends in the
