@@ -82,7 +82,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_warmup',
         'nnUNetTrainerV2_Loss_Dice_LR1en3',
         'nnUNetTrainerV2_NoNormalization_lr1en3',
-        # 'nnUNetTrainerV2_3ConvPerStage',
+        'nnUNetTrainerV2_Loss_Dice_squared',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
