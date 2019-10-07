@@ -32,13 +32,13 @@ from nnunet.paths import *
 
 class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
     """
-    Same as ExperimentPlanner3D_v21, but designed to fill a RTX2080 ti (11GB) in fp16
+    Same as ExperimentPlanner3D_v21, but designed to fill a V100 (32GB) in fp16
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner3D_v21_big, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         #self.data_identifier = "nnUNetData_plans_v2.1_big"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "v2.1_big_plans_3D.pkl")
+                                default_plans_identifier + "v2.1_verybig_plans_3D.pkl")
 
     @staticmethod
     def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases,
@@ -70,7 +70,7 @@ class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
                                                              FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
                                                              Generic_UNet.MAX_NUMPOOL_3D)
         #     use_this_for_batch_size_computation_3D = 520000000 # 505789440
-        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 11 / 7
+        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 32 / 7
         here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
                                                             Generic_UNet.BASE_NUM_FEATURES_3D,
                                                             Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
