@@ -128,9 +128,6 @@ class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
         }
         return plan
 
-    def run_preprocessing(self, num_threads):
-        pass
-
 
 if __name__ == "__main__":
     import argparse

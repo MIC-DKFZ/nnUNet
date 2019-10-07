@@ -7,3 +7,9 @@ class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 2
+
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+                 validation_folder_name: str = 'validation_raw', debug: bool = False):
+        pass
+    
