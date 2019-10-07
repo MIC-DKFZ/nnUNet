@@ -36,7 +36,7 @@ class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner3D_v21_big, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
-        #self.data_identifier = "nnUNetData_plans_v2.1_big"
+        self.data_identifier = "nnUNetData_plans_v2.1_big"
         self.plans_fname = join(self.preprocessed_output_folder,
                                 default_plans_identifier + "v2.1_big_plans_3D.pkl")
 

@@ -12,4 +12,3 @@ class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False):
         pass
-    
