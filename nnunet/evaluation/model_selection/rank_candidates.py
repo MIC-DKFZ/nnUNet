@@ -18,7 +18,8 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_2': ["nnUNetPlans", "nnUNetPlansisoPatchesInVoxels"], # r
         'nnUNetTrainerV2': ["nnUNetPlansnonCT", "nnUNetPlansCT2", "nnUNetPlansallConv3x3",
                             "nnUNetPlansfixedisoPatchesInVoxels", "nnUNetPlanstargetSpacingForAnisoAxis",
-                            "nnUNetPlanspoolBasedOnSpacing", "nnUNetPlansfixedisoPatchesInmm"]
+                            "nnUNetPlanspoolBasedOnSpacing", "nnUNetPlansfixedisoPatchesInmm", "nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_warmup': ["nnUNetPlans", "nnUNetPlansv2.1", "nnUNetPlansv2.1_big", "WnnUNetPlansv2.1_verybig"]
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
@@ -83,8 +84,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Loss_Dice_LR1en3',
         'nnUNetTrainerV2_NoNormalization_lr1en3',
         'nnUNetTrainerV2_Loss_Dice_squared',
-        # 'nnUNetTrainerV2_3ConvPerStage',
-        # 'nnUNetTrainerV2_3ConvPerStage',
+        'nnUNetTrainerV2_newElDef',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
         # 'nnUNetTrainerV2_3ConvPerStage',
