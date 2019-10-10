@@ -43,11 +43,14 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     a_to_b = __surface_distances(a, b, spacing, connectivity)
     b_to_a = __surface_distances(b, a, spacing, connectivity)
 
-    tp_a = np.sum(a_to_b <= threshold)
-    tp_b = np.sum(b_to_a <= threshold)
+    numel_a = len(a_to_b)
+    numel_b = len(b_to_a)
 
-    fp = np.sum(a_to_b > threshold)
-    fn = np.sum(b_to_a > threshold)
+    tp_a = np.sum(a_to_b <= threshold) / numel_a
+    tp_b = np.sum(b_to_a <= threshold) / numel_b
+
+    fp = np.sum(a_to_b > threshold) / numel_a
+    fn = np.sum(b_to_a > threshold) / numel_b
 
     dc = (tp_a + tp_b) / (tp_a + tp_b + fp + fn + 1e-8)  # 1e-8 just so that we don't get div by 0
     return dc
