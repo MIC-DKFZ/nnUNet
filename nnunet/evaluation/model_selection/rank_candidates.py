@@ -87,11 +87,11 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Loss_Dice_squared',
         'nnUNetTrainerV2_newElDef',
         'nnUNetTrainerV2_fp32',
-        # 'nnUNetTrainerV2_3ConvPerStage',
-        # 'nnUNetTrainerV2_3ConvPerStage',
-        # 'nnUNetTrainerV2_3ConvPerStage',
-        # 'nnUNetTrainerV2_3ConvPerStage',
-        # 'nnUNetTrainerV2_3ConvPerStage',
+        'nnUNetTrainerV2_cycleAtEnd',
+        'nnUNetTrainerV2_reduceMomentumDuringTraining',
+        'nnUNetTrainerV2_graduallyTransitionFromCEToDice',
+        'nnUNetTrainerV2_insaneDA',
+        'nnUNetTrainerV2_independentScalePerAxis',
     ]
 
     datasets = \

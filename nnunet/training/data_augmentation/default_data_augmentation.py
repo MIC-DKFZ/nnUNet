@@ -67,7 +67,7 @@ default_3D_augmentation_params = {
     "cascade_remove_conn_comp_p": 0.2,
     "cascade_remove_conn_comp_max_size_percent_threshold": 0.15,
     "cascade_remove_conn_comp_fill_with_other_class_p": 0.0,
-
+    "independent_scale_factor_for_each_axis": False,
 }
 
 default_2D_augmentation_params = deepcopy(default_3D_augmentation_params)
@@ -132,7 +132,8 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
         border_mode_data=params.get("border_mode_data"), border_cval_data=0, order_data=3, border_mode_seg="constant",
         border_cval_seg=border_val_seg,
         order_seg=1, random_crop=params.get("random_crop"), p_el_per_sample=params.get("p_eldef"),
-        p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot")
+        p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot"),
+        independent_scale_for_each_axis=params.get("independent_scale_factor_for_each_axis")
     ))
     if params.get("dummy_2D") is not None and params.get("dummy_2D"):
         tr_transforms.append(Convert2DTo3DTransform())
@@ -298,7 +299,8 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
         border_mode_data=params.get("border_mode_data"), border_cval_data=0, order_data=order_data,
         border_mode_seg="constant", border_cval_seg=border_val_seg,
         order_seg=order_seg, random_crop=params.get("random_crop"), p_el_per_sample=params.get("p_eldef"),
-        p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot")
+        p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot"),
+        independent_scale_for_each_axis=params.get("independent_scale_factor_for_each_axis")
     ))
 
     if params.get("dummy_2D"):
@@ -428,7 +430,8 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
         border_mode_data=params.get("border_mode_data"), border_cval_data=0, order_data=order_data,
         border_mode_seg="constant", border_cval_seg=border_val_seg,
         order_seg=order_seg, random_crop=params.get("random_crop"), p_el_per_sample=params.get("p_eldef"),
-        p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot")
+        p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot"),
+        independent_scale_for_each_axis=params.get("independent_scale_factor_for_each_axis")
     ))
 
     if params.get("dummy_2D"):

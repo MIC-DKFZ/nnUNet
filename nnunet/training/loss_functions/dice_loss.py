@@ -247,8 +247,19 @@ class SoftDiceLossSquared(nn.Module):
 
 
 class DC_and_CE_loss(nn.Module):
-    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum", square_dice=False):
+    def __init__(self, soft_dice_kwargs, ce_kwargs, aggregate="sum", square_dice=False, weight_ce=1, weight_dice=1):
+        """
+        CAREFUL. Weights for CE and Dice do not need to sum to one. You can set whatever you want.
+        :param soft_dice_kwargs:
+        :param ce_kwargs:
+        :param aggregate:
+        :param square_dice:
+        :param weight_ce:
+        :param weight_dice:
+        """
         super(DC_and_CE_loss, self).__init__()
+        self.weight_dice = weight_dice
+        self.weight_ce = weight_ce
         self.aggregate = aggregate
         self.ce = CrossentropyND(**ce_kwargs)
         if not square_dice:
@@ -257,10 +268,10 @@ class DC_and_CE_loss(nn.Module):
             self.dc = SoftDiceLossSquared(apply_nonlin=softmax_helper, **soft_dice_kwargs)
 
     def forward(self, net_output, target):
-        dc_loss = self.dc(net_output, target)
-        ce_loss = self.ce(net_output, target)
+        dc_loss = self.dc(net_output, target) if self.weight_dice != 0 else 0
+        ce_loss = self.ce(net_output, target) if self.weight_ce != 0 else 0
         if self.aggregate == "sum":
-            result = ce_loss + dc_loss
+            result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         else:
             raise NotImplementedError("nah son") # reserved for other stuff (later)
         return result
