@@ -1,3 +1,4 @@
+from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
@@ -28,6 +29,8 @@ class nnUNetTrainerV2_graduallyTransitionFromCEToDice(nnUNetTrainerV2):
 
         self.loss = DC_and_CE_loss({'batch_dice': self.batch_dice, 'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=weight_ce,
                                    weight_dice=weight_dice)
+
+        self.loss = MultipleOutputLoss2(self.loss, self.ds_loss_weights)
 
     def on_epoch_end(self):
         ret = super().on_epoch_end()

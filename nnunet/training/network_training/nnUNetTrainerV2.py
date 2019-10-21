@@ -37,6 +37,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         self.max_num_epochs = 1000
         self.initial_lr = 1e-2
         self.deep_supervision_scales = None
+        self.ds_loss_weights = None
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -70,9 +71,9 @@ class nnUNetTrainerV2(nnUNetTrainer):
             mask = np.array([True if i < net_numpool - 1 else False for i in range(net_numpool)])
             weights[~mask] = 0
             weights = weights / weights.sum()
-
+            self.ds_loss_weights = weights
             # now wrap the loss
-            self.loss = MultipleOutputLoss2(self.loss, weights)
+            self.loss = MultipleOutputLoss2(self.loss, self.ds_loss_weights)
             ################# END ###################
 
             self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
