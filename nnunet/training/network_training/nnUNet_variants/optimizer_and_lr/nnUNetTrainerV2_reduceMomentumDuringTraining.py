@@ -1,3 +1,5 @@
+import torch
+
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 
@@ -16,7 +18,12 @@ class nnUNetTrainerV2_reduceMomentumDuringTraining(nnUNetTrainerV2):
 
         self.print_to_log_file("current momentum", current_momentum)
         assert self.network is not None, "self.initialize_network must be called first"
-        self.optimizer.param_groups["momentum"] = current_momentum
+        if self.optimizer is None:
+            self.optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+                                             momentum=0.99, nesterov=True)
+        else:
+            # can't reinstantiate because that would break NVIDIA AMP
+            self.optimizer.param_groups["momentum"] = current_momentum
         self.lr_scheduler = None
 
     def on_epoch_end(self):
