@@ -23,7 +23,7 @@ class nnUNetTrainerV2_reduceMomentumDuringTraining(nnUNetTrainerV2):
                                              momentum=0.99, nesterov=True)
         else:
             # can't reinstantiate because that would break NVIDIA AMP
-            self.optimizer.param_groups["momentum"] = current_momentum
+            self.optimizer.param_groups[0]["momentum"] = current_momentum
         self.lr_scheduler = None
 
     def on_epoch_end(self):
