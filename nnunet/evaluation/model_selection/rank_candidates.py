@@ -92,6 +92,8 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_graduallyTransitionFromCEToDice',
         'nnUNetTrainerV2_insaneDA',
         'nnUNetTrainerV2_independentScalePerAxis',
+        'nnUNetTrainerV2_Mish',
+        'nnUNetTrainerV2_Ranger_lr3en4',
     ]
 
     datasets = \
