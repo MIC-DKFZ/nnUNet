@@ -12,7 +12,6 @@ from torch.optim import lr_scheduler
 import matplotlib.pyplot as plt
 import sys
 from collections import OrderedDict
-from datetime import datetime
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
@@ -321,7 +320,7 @@ class NetworkTrainer(object):
 
         # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
         if self.fp16:
-            del self.network, self.optimizer, self.lr_scheduler
+            self.network, self.optimizer, self.lr_scheduler = None, None, None
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
 
