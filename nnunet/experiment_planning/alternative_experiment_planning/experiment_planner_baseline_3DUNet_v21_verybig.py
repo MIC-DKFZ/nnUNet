@@ -99,8 +99,7 @@ class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
                                                                 Generic_UNet.BASE_NUM_FEATURES_3D,
                                                                 Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
                                                                 num_classes, pool_op_kernel_sizes)
-            print(new_shp)
-
+            # print(new_shp)
         input_patch_size = new_shp
 
         batch_size = Generic_UNet.DEFAULT_BATCH_SIZE_3D  # This is what wirks with 128**3

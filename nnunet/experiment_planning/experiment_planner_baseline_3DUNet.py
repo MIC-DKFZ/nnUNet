@@ -201,7 +201,7 @@ class ExperimentPlanner(object):
                                                                 Generic_UNet.BASE_NUM_FEATURES_3D,
                                                                 Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
                                                                 num_classes, pool_op_kernel_sizes)
-            print(new_shp)
+            #print(new_shp)
 
         input_patch_size = new_shp
 
@@ -314,6 +314,8 @@ class ExperimentPlanner(object):
         self.plans_per_stage = {i: self.plans_per_stage[i] for i in range(len(self.plans_per_stage))}  # convert to dict
 
         print(self.plans_per_stage)
+        print("transpose forward", self.transpose_forward)
+        print("transpose backward", self.transpose_backward)
 
         normalization_schemes = self.determine_normalization_scheme()
         only_keep_largest_connected_component, min_size_per_class, min_region_size_per_class = \
