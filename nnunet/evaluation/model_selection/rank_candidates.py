@@ -19,8 +19,14 @@ if __name__ == "__main__":
         'nnUNetTrainerV2': ["nnUNetPlansnonCT", "nnUNetPlansCT2", "nnUNetPlansallConv3x3",
                             "nnUNetPlansfixedisoPatchesInVoxels", "nnUNetPlanstargetSpacingForAnisoAxis",
                             "nnUNetPlanspoolBasedOnSpacing", "nnUNetPlansfixedisoPatchesInmm", "nnUNetPlansv2.1"],
-        'nnUNetTrainerV2_warmup': ["nnUNetPlans", "nnUNetPlansv2.1", "nnUNetPlansv2.1_big", "WnnUNetPlansv2.1_verybig"],
-        'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"]
+        'nnUNetTrainerV2_warmup': ["nnUNetPlans", "nnUNetPlansv2.1", "nnUNetPlansv2.1_big", "nnUNetPlansv2.1_verybig"],
+        'nnUNetTrainerV2_cycleAtEnd': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_reduceMomentumDuringTraining': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_graduallyTransitionFromCEToDice': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_independentScalePerAxis': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_Mish': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_Ranger_lr3en4': ["nnUNetPlansv2.1"],
+
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
