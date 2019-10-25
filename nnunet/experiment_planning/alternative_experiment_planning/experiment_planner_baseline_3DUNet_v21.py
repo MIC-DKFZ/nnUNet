@@ -75,6 +75,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         if has_aniso_spacing and has_aniso_voxels:
             spacings_of_that_axis = np.vstack(spacings)[:, worst_spacing_axis]
             target_spacing_of_that_axis = np.percentile(spacings_of_that_axis, 10)
+            # don't let the spacing of that axis get higher than the other axes
+            target_spacing_of_that_axis = max(min(other_spacings), target_spacing_of_that_axis)
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
