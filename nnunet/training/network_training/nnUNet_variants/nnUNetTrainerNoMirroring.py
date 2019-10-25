@@ -14,6 +14,9 @@ class nnUNetTrainerNoMirroring(nnUNetTrainer):
     def setup_DA_params(self):
         super().setup_DA_params()
         self.data_aug_params["do_mirror"] = False
+        # you can also use self.data_aug_params["mirror_axes"] to set axes for mirroring.
+        # Default is self.data_aug_params["mirror_axes"] = (0, 1, 2)
+        # 0, 1, 2 are the first, second and thirs spatial axes.
 
     def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
                                                  mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
