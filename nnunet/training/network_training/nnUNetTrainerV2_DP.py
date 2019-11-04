@@ -143,6 +143,8 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
 
     def run_training(self):
         self.maybe_update_lr(self.epoch)
+
+        # amp must be initialized before DP
         self._maybe_init_amp()
 
         ds = self.network.do_ds
