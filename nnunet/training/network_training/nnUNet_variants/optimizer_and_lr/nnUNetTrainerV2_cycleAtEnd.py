@@ -44,3 +44,28 @@ class nnUNetTrainerV2_cycleAtEnd(nnUNetTrainerV2):
             new_lr = cycle_lr(ep, 100, min_lr=1e-6, max_lr=1e-3) # we don't go all the way back up to initial lr
             self.optimizer.param_groups[0]['lr'] = new_lr
             self.print_to_log_file("lr:", new_lr)
+
+
+class nnUNetTrainerV2_cycleAtEnd2(nnUNetTrainerV2):
+    """
+    after 1000 epoch, run one iteration through the cycle lr schedule. I want to see if the train loss starts
+    increasing again
+    """
+    def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
+                 unpack_data=True, deterministic=True, fp16=False):
+        super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+                         deterministic, fp16)
+        self.max_num_epochs = 1200
+
+    def maybe_update_lr(self, epoch=None):
+        if epoch is None:
+            ep = self.epoch + 1
+        else:
+            ep = epoch
+
+        if ep < 1000:
+            return super().maybe_update_lr(epoch)
+        else:
+            new_lr = cycle_lr(ep, 200, min_lr=1e-6, max_lr=1e-2) # we don't go all the way back up to initial lr
+            self.optimizer.param_groups[0]['lr'] = new_lr
+            self.print_to_log_file("lr:", new_lr)

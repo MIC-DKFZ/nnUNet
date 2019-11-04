@@ -21,11 +21,14 @@ if __name__ == "__main__":
                             "nnUNetPlanspoolBasedOnSpacing", "nnUNetPlansfixedisoPatchesInmm", "nnUNetPlansv2.1"],
         'nnUNetTrainerV2_warmup': ["nnUNetPlans", "nnUNetPlansv2.1", "nnUNetPlansv2.1_big", "nnUNetPlansv2.1_verybig"],
         'nnUNetTrainerV2_cycleAtEnd': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_cycleAtEnd2': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_reduceMomentumDuringTraining': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_graduallyTransitionFromCEToDice': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_independentScalePerAxis': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_Mish': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_Ranger_lr3en4': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_Ranger_lr1en2': ["nnUNetPlansv2.1"],
 
     }
 
@@ -100,6 +103,14 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_independentScalePerAxis',
         'nnUNetTrainerV2_Mish',
         'nnUNetTrainerV2_Ranger_lr3en4',
+        'nnUNetTrainerV2_cycleAtEnd2',
+        'nnUNetTrainerV2_Ranger_lr1en2',
+        #'nnUNetTrainerV2_Ranger_lr3en4',
+        #'nnUNetTrainerV2_Ranger_lr3en4',
+        #'nnUNetTrainerV2_Ranger_lr3en4',
+        #'nnUNetTrainerV2_Ranger_lr3en4',
+        #'nnUNetTrainerV2_Ranger_lr3en4',
+        #'nnUNetTrainerV2_Ranger_lr3en4',
     ]
 
     datasets = \
@@ -172,9 +183,11 @@ if __name__ == "__main__":
                             f.write("%02.4f," % result)
                         else:
                             f.write("NA,")
+                            result_per_dataset_here[dataset][configuration] = 0
+
                 f.write("\n")
 
-                if all_present:
+                if True:
                     valid_trainers.append(name)
                     for d in datasets:
                         for c in datasets[d]:
