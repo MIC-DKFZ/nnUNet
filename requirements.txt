@@ -1,4 +1,6 @@
 torch>1.0.0
+apex
+hiddenlayer
 tqdm
 dicom2nifti
 scikit-image>=0.14
@@ -6,6 +8,6 @@ medpy
 scipy
 batchgenerators>=0.19.4
 numpy
-sklearn
+scikit-learn
 SimpleITK
 pandas

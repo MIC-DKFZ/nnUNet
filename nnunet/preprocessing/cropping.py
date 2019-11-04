@@ -12,12 +12,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import shutil
+from collections import OrderedDict
+from multiprocessing import Pool
+
 import SimpleITK as sitk
 import numpy as np
-import shutil
-from batchgenerators.utilities.file_and_folder_operations import *
-from multiprocessing import Pool
-from collections import OrderedDict
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, os, pickle, subfiles
 
 
 def create_nonzero_mask(data):
@@ -127,7 +128,6 @@ class ImageCropper(object):
         In the case of BRaTS and ISLES data this results in a significant reduction in image size
         :param num_threads:
         :param output_folder: whete to store the cropped data
-        :param list_of_files:
         """
         self.output_folder = output_folder
         self.num_threads = num_threads

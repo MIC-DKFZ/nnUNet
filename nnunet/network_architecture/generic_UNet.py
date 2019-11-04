@@ -13,13 +13,15 @@
 #    limitations under the License.
 
 from copy import deepcopy
-from nnunet.utilities.nd_softmax import softmax_helper
-from torch import nn
-import torch
+
 import numpy as np
+import torch
+import torch.nn.functional
+from torch import nn
+
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-import torch.nn.functional
+from nnunet.utilities.nd_softmax import softmax_helper
 
 
 class ConvDropoutNormNonlin(nn.Module):
@@ -69,7 +71,7 @@ class StackedConvLayers(nn.Module):
                  norm_op=nn.BatchNorm2d, norm_op_kwargs=None,
                  dropout_op=nn.Dropout2d, dropout_op_kwargs=None,
                  nonlin=nn.LeakyReLU, nonlin_kwargs=None, first_stride=None):
-        '''
+        """
         stacks ConvDropoutNormLReLU layers. initial_stride will only be applied to first layer in the stack. The other parameters affect all layers
         :param input_feature_channels:
         :param output_feature_channels:
@@ -86,7 +88,7 @@ class StackedConvLayers(nn.Module):
         :param neg_slope:
         :param norm_affine:
         :param conv_bias:
-        '''
+        """
         self.input_channels = input_feature_channels
         self.output_channels = output_feature_channels
 

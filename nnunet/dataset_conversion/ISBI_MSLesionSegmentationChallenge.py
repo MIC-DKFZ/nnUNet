@@ -12,12 +12,14 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import multiprocessing
 import shutil
 from collections import OrderedDict
-import numpy as np
+
 import SimpleITK as sitk
-import multiprocessing
-from batchgenerators.utilities.file_and_folder_operations import *
+import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import isfile, join, maybe_mkdir_p, os, save_json, \
+    save_pickle, subfiles
 
 
 def convert_to_nii_gz(filename):

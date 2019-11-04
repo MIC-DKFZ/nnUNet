@@ -13,10 +13,11 @@
 #    limitations under the License.
 
 from collections import OrderedDict
-import SimpleITK as sitk
-from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing import Pool
+
+import SimpleITK as sitk
 import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import join, json, maybe_mkdir_p, os, subfiles
 from scipy.ndimage import label
 
 

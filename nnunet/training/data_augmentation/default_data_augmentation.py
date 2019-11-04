@@ -13,17 +13,18 @@
 #    limitations under the License.
 
 from copy import deepcopy
+
 import numpy as np
 from batchgenerators.dataloading import MultiThreadedAugmenter
 from batchgenerators.transforms import Compose, RenameTransform, GammaTransform, SpatialTransform
 from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform
 from batchgenerators.transforms import MirrorTransform, NumpyToTensor
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform
-from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData, \
-    RemoveRandomConnectedComponentFromOneHotEncodingTransform, ApplyRandomBinaryOperatorTransform
+
 from nnunet.training.data_augmentation.custom_transforms import Convert3DTo2DTransform, Convert2DTo3DTransform, \
     MaskTransform
-
+from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData, \
+    RemoveRandomConnectedComponentFromOneHotEncodingTransform, ApplyRandomBinaryOperatorTransform
 
 default_3D_augmentation_params = {
     "selected_data_channels": None,
@@ -94,8 +95,11 @@ def get_patch_size(final_patch_size, rot_x, rot_y, rot_z, scale_range):
     return final_shape.astype(int)
 
 
-def get_default_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params, border_val_seg=-1, pin_memory=True,
+def get_default_augmentation(dataloader_train, dataloader_val, patch_size, params=None, border_val_seg=-1,
+                             pin_memory=True,
                              seeds_train=None, seeds_val=None):
+    if params is None:
+        params = default_3D_augmentation_params
     tr_transforms = []
 
     if params.get("selected_data_channels") is not None:
@@ -153,8 +157,7 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
 
     batchgenerator_train = MultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'), params.get("num_cached_per_thread"), seeds=seeds_train, pin_memory=pin_memory)
 
-    val_transforms = []
-    val_transforms.append(RemoveLabelTransform(-1, 0))
+    val_transforms = [RemoveLabelTransform(-1, 0)]
     if params.get("selected_data_channels") is not None:
         val_transforms.append(DataChannelSelectionTransform(params.get("selected_data_channels")))
     if params.get("selected_seg_channels") is not None:
@@ -172,7 +175,7 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
     return batchgenerator_train, batchgenerator_val
 
 
-def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params, border_val_seg=-1):
+def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=None, border_val_seg=-1):
     """
     use this instead of get_default_augmentation (drop in replacement) to turn off all data augmentation
     :param dataloader_train:
@@ -182,6 +185,8 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
     :param border_val_seg:
     :return:
     """
+    if params is None:
+        params = default_3D_augmentation_params
     tr_transforms = []
 
     if params.get("selected_data_channels") is not None:
@@ -201,8 +206,7 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
                                                   seeds=range(params.get('num_threads')), pin_memory=True)
     batchgenerator_train.restart()
 
-    val_transforms = []
-    val_transforms.append(RemoveLabelTransform(-1, 0))
+    val_transforms = [RemoveLabelTransform(-1, 0)]
     if params.get("selected_data_channels") is not None:
         val_transforms.append(DataChannelSelectionTransform(params.get("selected_data_channels")))
     if params.get("selected_seg_channels") is not None:
@@ -220,13 +224,13 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
 
 
 if __name__ == "__main__":
-    from nnunet.training.dataloading.dataset_loading import DataLoader2D, DataLoader3D, load_dataset
+    from nnunet.training.dataloading.dataset_loading import DataLoader3D, load_dataset
     from nnunet.paths import preprocessing_output_dir
     import os
     import pickle
     t = "Task02_Heart"
     p = os.path.join(preprocessing_output_dir, t)
-    dataset = load_dataset(p, 0)
+    dataset = load_dataset(p)
     with open(os.path.join(p, "plans.pkl"), 'rb') as f:
         plans = pickle.load(f)
 

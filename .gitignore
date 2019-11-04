@@ -98,18 +98,13 @@ ENV/
 .idea
 *.txt
 .idea/*
-*.png
 *.nii.gz
 *.nii
 *.tif
 *.bmp
 *.pkl
 *.xml
-*.pkl
 *.pdf
-*.png
-*.jpg
-*.jpeg
 
 *.model
 

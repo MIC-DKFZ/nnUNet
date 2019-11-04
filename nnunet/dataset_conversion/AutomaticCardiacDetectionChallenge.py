@@ -12,9 +12,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from collections import OrderedDict
-from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
+from collections import OrderedDict
+
+from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, os, save_json, save_pickle, \
+    subfiles, subfolders
 
 
 def convert_to_submission(source_dir, target_dir):

@@ -1,7 +1,10 @@
 from _warnings import warn
+
 import matplotlib
-from batchgenerators.utilities.file_and_folder_operations import *
+from batchgenerators.utilities.file_and_folder_operations import isfile, join, load_pickle, maybe_mkdir_p, os, \
+    save_pickle
 from sklearn.model_selection import KFold
+
 matplotlib.use("agg")
 from time import time, sleep
 import torch
@@ -10,7 +13,6 @@ from torch.optim import lr_scheduler
 import matplotlib.pyplot as plt
 import sys
 from collections import OrderedDict
-from datetime import datetime
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
@@ -460,8 +462,8 @@ class NetworkTrainer(object):
             # check if the current epoch is the best one according to moving average of validation criterion. If so
             # then save 'best' model
             # Do not use this for validation. This is intended for test set prediction only.
-            self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % self.best_val_eval_criterion_MA)
-            self.print_to_log_file("current val_eval_criterion_MA is %.4f" % self.val_eval_criterion_MA)
+            self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % str(self.best_val_eval_criterion_MA))
+            self.print_to_log_file("current val_eval_criterion_MA is %.4f" % str(self.val_eval_criterion_MA))
 
             if self.val_eval_criterion_MA > self.best_val_eval_criterion_MA:
                 self.best_val_eval_criterion_MA = self.val_eval_criterion_MA
@@ -473,7 +475,8 @@ class NetworkTrainer(object):
             if self.train_loss_MA + self.train_loss_MA_eps < self.best_MA_tr_loss_for_patience:
                 self.best_MA_tr_loss_for_patience = self.train_loss_MA
                 self.best_epoch_based_on_MA_tr_loss = self.epoch
-                self.print_to_log_file("New best epoch (train loss MA): %03.4f" % self.best_MA_tr_loss_for_patience)
+                self.print_to_log_file(
+                    "New best epoch (train loss MA): %03.4f" % str(self.best_MA_tr_loss_for_patience))
             else:
                 self.print_to_log_file("No improvement: current train MA %03.4f, best: %03.4f, eps is %03.4f" %
                                        (self.train_loss_MA, self.best_MA_tr_loss_for_patience, self.train_loss_MA_eps))

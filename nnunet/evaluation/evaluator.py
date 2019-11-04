@@ -16,17 +16,19 @@
 # -*- coding: utf-8 -*-
 
 import collections
+import hashlib
 import inspect
 import json
-import hashlib
+from collections import OrderedDict
 from datetime import datetime
 from multiprocessing.pool import Pool
+
+import SimpleITK as sitk
 import numpy as np
 import pandas as pd
-import SimpleITK as sitk
-from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
 from batchgenerators.utilities.file_and_folder_operations import save_json, subfiles, join
-from collections import OrderedDict
+
+from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
 
 
 class Evaluator:
@@ -236,7 +238,7 @@ class Evaluator:
         """Return result as numpy array (labels x metrics)."""
 
         if self.result is None:
-            self.evaluate
+            self.evaluate()
 
         result_metrics = sorted(self.result[list(self.result.keys())[0]].keys())
 
@@ -404,14 +406,15 @@ def aggregate_scores(test_ref_pairs,
 
 def aggregate_scores_for_experiment(score_file,
                                     labels=None,
-                                    metrics=Evaluator.default_metrics,
+                                    metrics=None,
                                     nanmean=True,
                                     json_output_file=None,
                                     json_name="",
                                     json_description="",
                                     json_author="Fabian",
                                     json_task=""):
-
+    if metrics is None:
+        metrics = Evaluator.default_metrics
     scores = np.load(score_file)
     scores_mean = scores.mean(0)
     if labels is None:

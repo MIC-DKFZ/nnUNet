@@ -13,15 +13,16 @@
 #    limitations under the License.
 
 import shutil
+
+import numpy as np
+
+from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
+from nnunet.experiment_planning.configuration import *
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset
-from nnunet.preprocessing.preprocessing import PreprocessorFor2D
-from nnunet.experiment_planning.configuration import *
-from nnunet.paths import *
 from nnunet.network_architecture.generic_UNet import Generic_UNet
-import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, load_pickle
-from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
+from nnunet.paths import *
+from nnunet.preprocessing.preprocessing import PreprocessorFor2D
 
 
 class ExperimentPlanner2D(ExperimentPlanner):
@@ -177,6 +178,6 @@ if __name__ == "__main__":
     print("number of threads: ", threads, "\n")
 
     print("\n\n\n", t)
-    exp_planner = ExperimentPlanner2D(cropped_out_dir, preprocessing_output_dir_this_task, threads)
+    exp_planner = ExperimentPlanner2D(cropped_out_dir, preprocessing_output_dir_this_task)
     exp_planner.plan_experiment()
-    exp_planner.run_preprocessing()
+    exp_planner.run_preprocessing(num_threads=threads)

@@ -12,15 +12,16 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import *
 import argparse
-from nnunet.preprocessing.preprocessing import resample_data_or_seg
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p
-import nnunet
-from nnunet.run.default_configuration import get_default_configuration
 from multiprocessing import Pool
 
+import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import join, pardir
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p
+
+import nnunet
+from nnunet.preprocessing.preprocessing import resample_data_or_seg
+from nnunet.run.default_configuration import get_default_configuration
 from nnunet.training.model_restore import recursive_find_trainer
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 

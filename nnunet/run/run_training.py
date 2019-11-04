@@ -13,9 +13,11 @@
 #    limitations under the License.
 
 import argparse
-from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.run.default_configuration import get_default_configuration
+
+from batchgenerators.utilities.file_and_folder_operations import join
+
 from nnunet.paths import default_plans_identifier
+from nnunet.run.default_configuration import get_default_configuration
 from nnunet.training.cascade_stuff.predict_next_stage import predict_next_stage
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes

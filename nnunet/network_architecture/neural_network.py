@@ -11,14 +11,16 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+from abc import ABC
 
 import numpy as np
+import torch
 from batchgenerators.augmentations.utils import pad_nd_image
+from scipy.ndimage.filters import gaussian_filter
+from torch import nn
+
 from nnunet.utilities.tensor_utilities import flip
 from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
-from torch import nn
-import torch
-from scipy.ndimage.filters import gaussian_filter
 
 
 class NeuralNetwork(nn.Module):
@@ -41,7 +43,7 @@ class NeuralNetwork(nn.Module):
         raise NotImplementedError
 
 
-class SegmentationNetwork(NeuralNetwork):
+class SegmentationNetwork(NeuralNetwork, ABC):
     def __init__(self):
         self.input_shape_must_be_divisible_by = None
         self.conv_op = None
@@ -82,7 +84,7 @@ class SegmentationNetwork(NeuralNetwork):
         if use_train_mode is not None and use_train_mode:
             raise RuntimeError(
                 "use_train_mode=True is currently broken! @Fabian needs to fix this (don't put batchnorm layer into train, just dropout)")
-            self.train()
+            # this code is unreachable self.train()
         elif use_train_mode is not None and not use_train_mode:
             self.eval()
         else:

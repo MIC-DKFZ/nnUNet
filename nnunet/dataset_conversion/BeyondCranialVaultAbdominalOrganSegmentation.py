@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 
+from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles
 
 if __name__ == "__main__":
     indir = "/home/fabian/drives/datasets/results/nnUNetOutput_final/predicted_test_sets/Task17_AbdominalOrganSegmentation/ensemble_3d_fullres_cascade_and_3d_fullres"

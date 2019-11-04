@@ -12,11 +12,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import nnunet
-import torch
-from batchgenerators.utilities.file_and_folder_operations import *
 import importlib
 import pkgutil
+
+import torch
+from batchgenerators.utilities.file_and_folder_operations import isdir, join, load_pickle, subfolders
+
+import nnunet
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
@@ -119,7 +121,7 @@ def load_model_and_checkpoint_files(folder, folds=None):
         assert all([isdir(i) for i in folds]), "list of folds specified but not all output folders are present"
     elif isinstance(folds, int):
         folds = [join(folder, "fold_%d" % folds)]
-        assert all([isdir(i) for i in folds]), "output folder missing for fold %d" % folds
+        assert all([isdir(i) for i in folds]), "output folder missing for fold %d" % str(folds)
     elif folds is None:
         print("folds is None so we will automatically look for output folders (not using \'all\'!)")
         folds = subfolders(folder, prefix="fold")
