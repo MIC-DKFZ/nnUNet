@@ -1,7 +1,7 @@
 from batchgenerators.utilities.file_and_folder_operations import subdirs
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
-from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset
+from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, split_4d, crop
 import shutil
 from nnunet.paths import *
 from collections import OrderedDict
@@ -48,12 +48,34 @@ if __name__ == "__main__":
     tl = args.tl
     tf = args.tf
 
+    # we need splitted and cropped data. This could be improved in the future TODO
     tasks = []
     for i in task_ids:
         i = int(i)
-        candidates = subdirs(cropped_output_dir, prefix="Task%02.0d" % i, join=False)
-        assert len(candidates) == 1
-        tasks.append(candidates[0])
+
+        splitted_taskString_candidates = subdirs(splitted_4d_output_dir, prefix="Task%02.0d" % i, join=False)
+        raw_taskString_candidates = subdirs(raw_dataset_dir, prefix="Task%02.0d" % i, join=False)
+        cropped_taskString_candidates = subdirs(cropped_output_dir, prefix="Task%02.0d" % i, join=False)
+
+        # is splitted data there?
+        if len(splitted_taskString_candidates) == 0:
+            # splitted not there
+            assert len(raw_taskString_candidates) > 0, \
+                "splitted data is not present and so is raw data (Task %d)" % i
+            assert len(raw_taskString_candidates) == 1, "ambiguous task string (raw Task %d)" % i
+            # split raw data into splitted
+            split_4d(raw_taskString_candidates[0])
+        elif len(splitted_taskString_candidates) > 1:
+            raise RuntimeError("ambiguous task string (raw Task %d)" % i)
+        else:
+            pass
+
+        if len(cropped_taskString_candidates) > 1:
+            raise RuntimeError("ambiguous task string (raw Task %d)" % i)
+        else:
+            crop(splitted_taskString_candidates[0], False, tf)
+
+        tasks.append(cropped_taskString_candidates[0])
 
     for t in tasks:
         try:
