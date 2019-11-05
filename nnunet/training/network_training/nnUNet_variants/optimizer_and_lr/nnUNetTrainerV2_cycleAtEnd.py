@@ -1,3 +1,4 @@
+from nnunet.training.learning_rate.poly_lr import poly_lr
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 import matplotlib.pyplot as plt
 
@@ -39,7 +40,8 @@ class nnUNetTrainerV2_cycleAtEnd(nnUNetTrainerV2):
             ep = epoch
 
         if ep < 1000:
-            return super().maybe_update_lr(epoch)
+            self.optimizer.param_groups[0]['lr'] = poly_lr(ep, 1000, self.initial_lr, 0.9)
+            self.print_to_log_file("lr:", poly_lr(ep, 1000, self.initial_lr, 0.9))
         else:
             new_lr = cycle_lr(ep, 100, min_lr=1e-6, max_lr=1e-3) # we don't go all the way back up to initial lr
             self.optimizer.param_groups[0]['lr'] = new_lr
@@ -64,7 +66,8 @@ class nnUNetTrainerV2_cycleAtEnd2(nnUNetTrainerV2):
             ep = epoch
 
         if ep < 1000:
-            return super().maybe_update_lr(epoch)
+            self.optimizer.param_groups[0]['lr'] = poly_lr(ep, 1000, self.initial_lr, 0.9)
+            self.print_to_log_file("lr:", poly_lr(ep, 1000, self.initial_lr, 0.9))
         else:
             new_lr = cycle_lr(ep, 200, min_lr=1e-6, max_lr=1e-2) # we don't go all the way back up to initial lr
             self.optimizer.param_groups[0]['lr'] = new_lr
