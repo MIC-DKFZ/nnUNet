@@ -145,7 +145,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
                                                                 Generic_UNet.BASE_NUM_FEATURES_3D,
                                                                 Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
                                                                 num_classes, pool_op_kernel_sizes)
-            # print(new_shp)
+            #print(new_shp)
+        #print(here, ref)
 
         input_patch_size = new_shp
 

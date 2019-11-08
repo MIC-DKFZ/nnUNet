@@ -7,9 +7,9 @@ def cycle_lr(current_epoch, cycle_length=100, min_lr=1e-6, max_lr=1e-3):
     num_rising = cycle_length // 2
     epoch = current_epoch % cycle_length
     if epoch < num_rising:
-        lr = min_lr + (max_lr - min_lr) / cycle_length * epoch
+        lr = min_lr + (max_lr - min_lr) / num_rising * epoch
     else:
-        lr = max_lr - (max_lr - min_lr) / cycle_length * epoch
+        lr = max_lr - (max_lr - min_lr) / num_rising * (epoch - num_rising)
     return lr
 
 

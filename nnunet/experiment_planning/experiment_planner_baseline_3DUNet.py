@@ -266,6 +266,7 @@ class ExperimentPlanner(object):
         median_shape_transposed = np.array(median_shape)[self.transpose_forward]
         print("the transposed median shape of the dataset is ", median_shape_transposed)
 
+        print("generating configuration for 3d_fullres")
         self.plans_per_stage.append(self.get_properties_for_stage(target_spacing_transposed, target_spacing_transposed,
                                                              median_shape_transposed,
                                                              len(self.list_of_cropped_npz_files),
@@ -282,6 +283,7 @@ class ExperimentPlanner(object):
             more = True
 
         if more:
+            print("generating configuration for 3d_lowres")
             # if we are doing more than one stage then we want the lowest stage to have exactly
             # HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 (this is 4 by default so the number of voxels in the
             # median shape of the lowest stage must be 4 times as much as the network can process at once (128x128x128 by
@@ -305,6 +307,7 @@ class ExperimentPlanner(object):
                                                median_shape_transposed,
                                                len(self.list_of_cropped_npz_files),
                                                num_modalities, len(all_classes) + 1)
+                architecture_input_voxels_here = np.prod(new['patch_size'], dtype=np.int64)
 
             if 2 * np.prod(new['median_patient_size_in_voxels'], dtype=np.int64) < np.prod(
                     self.plans_per_stage[0]['median_patient_size_in_voxels'], dtype=np.int64):
