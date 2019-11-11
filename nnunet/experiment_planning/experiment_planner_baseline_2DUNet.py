@@ -11,18 +11,18 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
 import shutil
 
-from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
-from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
-from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset
-from nnunet.preprocessing.preprocessing import PreprocessorFor2D
-from nnunet.paths import *
-from nnunet.network_architecture.generic_UNet import Generic_UNet
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, subdirs
+from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, subfiles
+from multiprocess.pool import Pool
+from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
+from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
+from nnunet.experiment_planning.find_classes_in_slice import add_classes_in_slice_info
+from nnunet.network_architecture.generic_UNet import Generic_UNet
+from nnunet.paths import *
+from nnunet.preprocessing.preprocessing import PreprocessorFor2D
 
 
 class ExperimentPlanner2D(ExperimentPlanner):
@@ -58,7 +58,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
 
         batch_size = int(np.floor(Generic_UNet.use_this_for_batch_size_computation_2D /
                                   estimated_gpu_ram_consumption * Generic_UNet.DEFAULT_BATCH_SIZE_2D))
-        if batch_size < dataset_min_batch_size_cap:
+        if batch_size < self.unet_min_batch_size:
             raise RuntimeError("This framework is not made to process patches this large. We will add patch-based "
                                "2D networks later. Sorry for the inconvenience")
 
@@ -129,8 +129,8 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.plans_per_stage = {i: self.plans_per_stage[i] for i in range(len(self.plans_per_stage))}  # convert to dict
 
         normalization_schemes = self.determine_normalization_scheme()
-        only_keep_largest_connected_component, min_size_per_class, min_region_size_per_class = \
-            self.determine_postprocessing()
+        # deprecated
+        only_keep_largest_connected_component, min_size_per_class, min_region_size_per_class = None, None, None
 
         # these are independent of the stage
         plans = {'num_stages': len(list(self.plans_per_stage.keys())), 'num_modalities': num_modalities,
@@ -160,55 +160,35 @@ class ExperimentPlanner2D(ExperimentPlanner):
                                          self.transpose_forward,
                                          intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
+        if self.plans['num_stages'] > 1 and not isinstance(num_threads, (list, tuple)):
+            num_threads = (default_num_threads, num_threads)
+        elif self.plans['num_stages'] == 1 and isinstance(num_threads, (list, tuple)):
+            num_threads = num_threads[-1]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
                          self.plans['data_identifier'], num_threads)
 
+        self.add_classes_in_slice_info()
 
-if __name__ == "__main__":
-    import argparse
+    def add_classes_in_slice_info(self):
+        """
+        this speeds up oversampling foreground during training
+        :return:
+        """
+        p = Pool(default_num_threads)
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--task_ids", nargs="+", help="list of int")
-    parser.add_argument("-p", action="store_true", help="set this if you actually want to run the preprocessing. If "
-                                                        "this is not set then this script will only create the plans file")
-    parser.add_argument("-tl", type=int, required=False, default=8, help="num_threads_lowres")
-    parser.add_argument("-tf", type=int, required=False, default=8, help="num_threads_fullres")
+        # if there is more than one my_data_identifier (different brnaches) then this code will run for all of them if
+        # they start with the same string. not problematic, but not pretty
+        stages = [join(self.preprocessed_output_folder, self.data_identifier + "_stage%d" % i) for i in range(len(self.plans_per_stage))]
 
-    args = parser.parse_args()
-    task_ids = args.task_ids
-    run_preprocessing = args.p
-    tl = args.tl
-    tf = args.tf
-
-    tasks = []
-    for i in task_ids:
-        i = int(i)
-        candidates = subdirs(cropped_output_dir, prefix="Task%02.0d" % i, join=False)
-        assert len(candidates) == 1
-        tasks.append(candidates[0])
-
-    for t in tasks:
-        try:
-            print("\n\n\n", t)
-            cropped_out_dir = os.path.join(cropped_output_dir, t)
-            preprocessing_output_dir_this_task = os.path.join(preprocessing_output_dir, t)
-            splitted_4d_output_dir_task = os.path.join(splitted_4d_output_dir, t)
-            lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
-
-            dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)
-            _ = dataset_analyzer.analyze_dataset()  # this will write output files that will be used by the ExperimentPlanner
-
-            maybe_mkdir_p(preprocessing_output_dir_this_task)
-            shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
-            shutil.copy(join(splitted_4d_output_dir, t, "dataset.json"), preprocessing_output_dir_this_task)
-
-            threads = (tl, tf)
-
-            print("number of threads: ", threads, "\n")
-
-            exp_planner = ExperimentPlanner2D(cropped_out_dir, preprocessing_output_dir_this_task)
-            exp_planner.plan_experiment()
-            if run_preprocessing:
-                exp_planner.run_preprocessing(threads)
-        except Exception as e:
-            print(e)
+        for s in stages:
+            print(s.split("/")[-1])
+            list_of_npz_files = subfiles(s, True, None, ".npz", True)
+            list_of_pkl_files = [i[:-4]+".pkl" for i in list_of_npz_files]
+            all_classes = []
+            for pk in list_of_pkl_files:
+                props = load_pickle(pk)
+                all_classes_tmp = np.array(props['classes'])
+                all_classes.append(all_classes_tmp[all_classes_tmp >= 0])
+            p.map(add_classes_in_slice_info, zip(list_of_npz_files, list_of_pkl_files, all_classes))
+        p.close()
+        p.join()

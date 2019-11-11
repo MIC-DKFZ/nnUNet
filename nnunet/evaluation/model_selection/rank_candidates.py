@@ -28,8 +28,6 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Mish': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_Ranger_lr3en4': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
-        'nnUNetTrainerV2_Ranger_lr1en2': ["nnUNetPlansv2.1"],
-        'nnUNetTrainerV2_Ranger_lr3en3': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_GN': ["nnUNetPlansv2.1"],
     }
 
@@ -105,8 +103,6 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Mish',
         'nnUNetTrainerV2_Ranger_lr3en4',
         'nnUNetTrainerV2_cycleAtEnd2',
-        'nnUNetTrainerV2_Ranger_lr1en2',
-        'nnUNetTrainerV2_Ranger_lr3en3',
         'nnUNetTrainerV2_GN',
         #'nnUNetTrainerV2_Ranger_lr3en4',
         #'nnUNetTrainerV2_Ranger_lr3en4',
