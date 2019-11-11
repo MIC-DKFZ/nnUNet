@@ -17,11 +17,9 @@ import shutil
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
-from nnunet.experiment_planning.configuration import TARGET_SPACING_PERCENTILE
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, split_4d, crop
 from nnunet.paths import *
-from nnunet.experiment_planning.configuration import RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
 
 
 class ExperimentPlannerTargetSpacingForAnisoAxis(ExperimentPlanner):
@@ -44,8 +42,8 @@ class ExperimentPlannerTargetSpacingForAnisoAxis(ExperimentPlanner):
         spacings = self.dataset_properties['all_spacings']
         sizes = self.dataset_properties['all_sizes']
 
-        target = np.percentile(np.vstack(spacings), TARGET_SPACING_PERCENTILE, 0)
-        target_size = np.percentile(np.vstack(sizes), TARGET_SPACING_PERCENTILE, 0)
+        target = np.percentile(np.vstack(spacings), self.target_spacing_percentile, 0)
+        target_size = np.percentile(np.vstack(sizes), self.target_spacing_percentile, 0)
         target_size_mm = np.array(target) * np.array(target_size)
         # we need to identify datasets for which a different target spacing could be beneficial. These datasets have
         # the following properties:
@@ -57,8 +55,8 @@ class ExperimentPlannerTargetSpacingForAnisoAxis(ExperimentPlanner):
         other_spacings = [target[i] for i in other_axes]
         other_sizes = [target_size[i] for i in other_axes]
 
-        has_aniso_spacing = target[worst_spacing_axis] > (RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD * max(other_spacings))
-        has_aniso_voxels = target_size[worst_spacing_axis] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < max(other_sizes)
+        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * max(other_spacings))
+        has_aniso_voxels = target_size[worst_spacing_axis] * self.anisotropy_threshold < max(other_sizes)
         # we don't use the last one for now
         #median_size_in_mm = target[target_size_mm] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < max(target_size_mm)
 

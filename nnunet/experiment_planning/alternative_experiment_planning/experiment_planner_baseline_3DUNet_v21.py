@@ -19,9 +19,6 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
-from nnunet.experiment_planning.configuration import FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK, \
-    batch_size_covers_max_percent_of_dataset, dataset_min_batch_size_cap, \
-    RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD, TARGET_SPACING_PERCENTILE
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, split_4d, crop
 from nnunet.network_architecture.generic_UNet import Generic_UNet
@@ -39,7 +36,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         super(ExperimentPlanner3D_v21, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_plans_v2.1"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "v2.1_plans_3D.pkl")
+                                default_plans_identifier + "v2.2_plans_3D.pkl")
+        self.unet_base_num_features = 32
 
     def get_target_spacing(self):
         """
@@ -54,8 +52,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         spacings = self.dataset_properties['all_spacings']
         sizes = self.dataset_properties['all_sizes']
 
-        target = np.percentile(np.vstack(spacings), TARGET_SPACING_PERCENTILE, 0)
-        target_size = np.percentile(np.vstack(sizes), TARGET_SPACING_PERCENTILE, 0)
+        target = np.percentile(np.vstack(spacings), self.target_spacing_percentile, 0)
+        target_size = np.percentile(np.vstack(sizes), self.target_spacing_percentile, 0)
         target_size_mm = np.array(target) * np.array(target_size)
         # we need to identify datasets for which a different target spacing could be beneficial. These datasets have
         # the following properties:
@@ -67,8 +65,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         other_spacings = [target[i] for i in other_axes]
         other_sizes = [target_size[i] for i in other_axes]
 
-        has_aniso_spacing = target[worst_spacing_axis] > (RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD * min(other_spacings))
-        has_aniso_voxels = target_size[worst_spacing_axis] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < min(other_sizes)
+        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * min(other_spacings))
+        has_aniso_voxels = target_size[worst_spacing_axis] * self.anisotropy_threshold < min(other_sizes)
         # we don't use the last one for now
         #median_size_in_mm = target[target_size_mm] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < max(target_size_mm)
 
@@ -81,8 +79,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
-    @staticmethod
-    def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases,
+    def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):
         """
         ExperimentPlanner configures pooling so that we pool late. Meaning that if the number of pooling per axis is
@@ -113,13 +110,17 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
 
         network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, new_shp, \
         shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing, input_patch_size,
-                                                             FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                                             Generic_UNet.MAX_NUMPOOL_3D)
+                                                             self.unet_featuremap_min_edge_length,
+                                                             self.unet_max_numpool)
 
-        ref = Generic_UNet.use_this_for_batch_size_computation_3D
+        # we compute as if we were using only 30 feature maps. We can do that because fp16 training is the standard
+        # now. That frees up some space. The decision to go with 32 is solely due to the speedup we get (non-multiples
+        # of 8 are not supported in nvidia amp)
+        ref = Generic_UNet.use_this_for_batch_size_computation_3D * self.unet_base_num_features / \
+              Generic_UNet.BASE_NUM_FEATURES_3D
         here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
-                                                            Generic_UNet.BASE_NUM_FEATURES_3D,
-                                                            Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
+                                                            self.unet_base_num_features,
+                                                            self.unet_max_num_filters, num_modalities,
                                                             num_classes,
                                                             pool_op_kernel_sizes)
         while here > ref:
@@ -129,21 +130,21 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
             tmp[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
             _, _, _, _, shape_must_be_divisible_by_new = \
                 get_pool_and_conv_props(current_spacing, tmp,
-                                        FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                        Generic_UNet.MAX_NUMPOOL_3D,
+                                        self.unet_featuremap_min_edge_length,
+                                        self.unet_max_numpool,
                                         )
             new_shp[axis_to_be_reduced] -= shape_must_be_divisible_by_new[axis_to_be_reduced]
 
             # we have to recompute numpool now:
             network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, new_shp, \
             shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing, new_shp,
-                                                                 FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                                                 Generic_UNet.MAX_NUMPOOL_3D,
+                                                                 self.unet_featuremap_min_edge_length,
+                                                                 self.unet_max_numpool,
                                                                  )
 
             here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
-                                                                Generic_UNet.BASE_NUM_FEATURES_3D,
-                                                                Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
+                                                                self.unet_base_num_features,
+                                                                self.unet_max_num_filters, num_modalities,
                                                                 num_classes, pool_op_kernel_sizes)
             #print(new_shp)
         #print(here, ref)
@@ -154,13 +155,13 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         batch_size = int(np.floor(max(ref / here, 1) * batch_size))
 
         # check if batch size is too large
-        max_batch_size = np.round(batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
+        max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
                                   np.prod(input_patch_size, dtype=np.int64)).astype(int)
-        max_batch_size = max(max_batch_size, dataset_min_batch_size_cap)
+        max_batch_size = max(max_batch_size, self.unet_min_batch_size)
         batch_size = min(batch_size, max_batch_size)
 
         do_dummy_2D_data_aug = (max(input_patch_size) / input_patch_size[
-            0]) > RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
+            0]) > self.anisotropy_threshold
 
         plan = {
             'batch_size': batch_size,
@@ -174,11 +175,6 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
             'conv_kernel_sizes': conv_kernel_sizes,
         }
         return plan
-
-    def plan_experiment(self):
-        super().plan_experiment()
-        self.plans['base_num_features'] = 32
-        self.save_my_plans()
 
 
 if __name__ == "__main__":
@@ -215,11 +211,13 @@ if __name__ == "__main__":
             # split raw data into splitted
             split_4d(raw_taskString_candidates[0])
         elif len(splitted_taskString_candidates) > 1:
+            print(splitted_taskString_candidates)
             raise RuntimeError("ambiguous task string (raw Task %d)" % i)
         else:
             pass
 
         if len(cropped_taskString_candidates) > 1:
+            print(cropped_taskString_candidates)
             raise RuntimeError("ambiguous task string (raw Task %d)" % i)
         else:
             crop(splitted_taskString_candidates[0], False, tf)

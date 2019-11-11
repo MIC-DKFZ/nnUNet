@@ -15,7 +15,6 @@
 import numpy as np
 from copy import deepcopy
 from nnunet.network_architecture.generic_UNet import Generic_UNet
-from nnunet.experiment_planning.configuration import FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK
 import SimpleITK as sitk
 import shutil
 from batchgenerators.utilities.file_and_folder_operations import join
@@ -179,8 +178,7 @@ def pad_shape(shape, must_be_divisible_by):
     return new_shp
 
 
-def get_network_numpool(patch_size, maxpool_cap=Generic_UNet.MAX_NUMPOOL_3D,
-                        min_feature_map_size=FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK):
+def get_network_numpool(patch_size, maxpool_cap=999, min_feature_map_size=4):
     network_numpool_per_axis = np.floor([np.log(i / min_feature_map_size) / np.log(2) for i in patch_size]).astype(int)
     network_numpool_per_axis = [min(i, maxpool_cap) for i in network_numpool_per_axis]
     return network_numpool_per_axis

@@ -21,10 +21,6 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props_poolLateV2
-from nnunet.experiment_planning.configuration import FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK, TARGET_SPACING_PERCENTILE, \
-    batch_size_covers_max_percent_of_dataset, dataset_min_batch_size_cap, \
-    HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0, MIN_SIZE_PER_CLASS_FACTOR, \
-    RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
@@ -50,6 +46,20 @@ class ExperimentPlanner(object):
         self.transpose_forward = [0, 1, 2]
         self.transpose_backward = [0, 1, 2]
 
+        self.unet_base_num_features = Generic_UNet.BASE_NUM_FEATURES_3D
+        self.unet_max_num_filters = 320
+        self.unet_max_numpool = 999
+        self.unet_min_batch_size = 2
+        self.unet_featuremap_min_edge_length = 4
+
+        self.target_spacing_percentile = 50
+        self.anisotropy_threshold = 3
+        self.how_much_of_a_patient_must_the_network_see_at_stage0 = 4  # 1/4 of a patient
+        self.batch_size_covers_max_percent_of_dataset = 0.05 # all samples in the batch together cannot cover more
+        # than 5% of the entire dataset
+
+
+
     def get_target_spacing(self):
         spacings = self.dataset_properties['all_spacings']
 
@@ -62,7 +72,7 @@ class ExperimentPlanner(object):
             target_spacing_of_that_axis = np.percentile(spacings_of_that_axis, 5)
             target[worst_spacing_axis] = target_spacing_of_that_axis"""
 
-        target = np.percentile(np.vstack(spacings), TARGET_SPACING_PERCENTILE, 0)
+        target = np.percentile(np.vstack(spacings), self.target_spacing_percentile, 0)
         return target
 
     def save_my_plans(self):
@@ -79,10 +89,10 @@ class ExperimentPlanner(object):
         self.transpose_backward = self.plans['transpose_backward']
 
     def determine_postprocessing(self):
+        pass
         """
         Spoiler: This is unused, postprocessing was removed. Ignore it.
         :return:
-        """
         print("determining postprocessing...")
 
         props_per_patient = self.dataset_properties['segmentation_props_per_patient']
@@ -126,9 +136,9 @@ class ExperimentPlanner(object):
         print("Postprocessing: min_size_per_class", min_size_per_class)
         print("Postprocessing: min_region_size_per_class", min_region_size_per_class)
         return only_keep_largest_connected_component, min_size_per_class, min_region_size_per_class
+        """
 
-    @staticmethod
-    def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases,
+    def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):
         """
         Computation of input patch size starts out with the new median shape (in voxels) of a dataset. This is
@@ -168,14 +178,14 @@ class ExperimentPlanner(object):
 
         network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, new_shp, \
         shape_must_be_divisible_by = get_pool_and_conv_props_poolLateV2(input_patch_size,
-                                                                        FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                                                        Generic_UNet.MAX_NUMPOOL_3D,
+                                                                        self.unet_featuremap_min_edge_length,
+                                                                        self.unet_max_numpool,
                                                                         current_spacing)
 
         ref = Generic_UNet.use_this_for_batch_size_computation_3D
         here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
-                                                            Generic_UNet.BASE_NUM_FEATURES_3D,
-                                                            Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
+                                                            self.unet_base_num_features,
+                                                            self.unet_max_num_filters, num_modalities,
                                                             num_classes,
                                                             pool_op_kernel_sizes)
         while here > ref:
@@ -185,23 +195,23 @@ class ExperimentPlanner(object):
             tmp[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
             _, _, _, _, shape_must_be_divisible_by_new = \
                 get_pool_and_conv_props_poolLateV2(tmp,
-                                                   FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                                   Generic_UNet.MAX_NUMPOOL_3D,
+                                                   self.unet_featuremap_min_edge_length,
+                                                   self.unet_max_numpool,
                                                    current_spacing)
             new_shp[axis_to_be_reduced] -= shape_must_be_divisible_by_new[axis_to_be_reduced]
 
             # we have to recompute numpool now:
             network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, new_shp, \
             shape_must_be_divisible_by = get_pool_and_conv_props_poolLateV2(new_shp,
-                                                                            FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                                                            Generic_UNet.MAX_NUMPOOL_3D,
+                                                                            self.unet_featuremap_min_edge_length,
+                                                                            self.unet_max_numpool,
                                                                             current_spacing)
 
             here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
-                                                                Generic_UNet.BASE_NUM_FEATURES_3D,
-                                                                Generic_UNet.MAX_NUM_FILTERS_3D, num_modalities,
+                                                                self.unet_base_num_features,
+                                                                self.unet_max_num_filters, num_modalities,
                                                                 num_classes, pool_op_kernel_sizes)
-            #print(new_shp)
+            # print(new_shp)
 
         input_patch_size = new_shp
 
@@ -209,13 +219,13 @@ class ExperimentPlanner(object):
         batch_size = int(np.floor(max(ref / here, 1) * batch_size))
 
         # check if batch size is too large
-        max_batch_size = np.round(batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
+        max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
                                   np.prod(input_patch_size, dtype=np.int64)).astype(int)
-        max_batch_size = max(max_batch_size, dataset_min_batch_size_cap)
+        max_batch_size = max(max_batch_size, self.unet_min_batch_size)
         batch_size = min(batch_size, max_batch_size)
 
         do_dummy_2D_data_aug = (max(input_patch_size) / input_patch_size[
-            0]) > RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
+            0]) > self.anisotropy_threshold
 
         plan = {
             'batch_size': batch_size,
@@ -257,7 +267,7 @@ class ExperimentPlanner(object):
         min_shape = np.min(np.vstack(new_shapes), 0)
         print("the min shape in the dataset is ", min_shape)
 
-        print("we don't want feature maps smaller than ", FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK, " in the bottleneck")
+        print("we don't want feature maps smaller than ", self.unet_featuremap_min_edge_length, " in the bottleneck")
 
         # how many stages will the image pyramid have?
         self.plans_per_stage = list()
@@ -268,16 +278,16 @@ class ExperimentPlanner(object):
 
         print("generating configuration for 3d_fullres")
         self.plans_per_stage.append(self.get_properties_for_stage(target_spacing_transposed, target_spacing_transposed,
-                                                             median_shape_transposed,
-                                                             len(self.list_of_cropped_npz_files),
-                                                             num_modalities, len(all_classes) + 1))
+                                                                  median_shape_transposed,
+                                                                  len(self.list_of_cropped_npz_files),
+                                                                  num_modalities, len(all_classes) + 1))
 
         # thanks Zakiyi (https://github.com/MIC-DKFZ/nnUNet/issues/61) for spotting this bug :-)
         # if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
         #        architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
         architecture_input_voxels_here = np.prod(self.plans_per_stage[-1]['patch_size'], dtype=np.int64)
         if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
-                architecture_input_voxels_here < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
+                architecture_input_voxels_here < self.how_much_of_a_patient_must_the_network_see_at_stage0:
             more = False
         else:
             more = True
@@ -293,7 +303,7 @@ class ExperimentPlanner(object):
 
             lowres_stage_spacing = deepcopy(target_spacing)
             num_voxels = np.prod(median_shape, dtype=np.int64)
-            while num_voxels > HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0 * architecture_input_voxels_here:
+            while num_voxels > self.how_much_of_a_patient_must_the_network_see_at_stage0 * architecture_input_voxels_here:
                 max_spacing = max(lowres_stage_spacing)
                 if np.any((max_spacing / lowres_stage_spacing) > 2):
                     lowres_stage_spacing[(max_spacing / lowres_stage_spacing) > 2] \
@@ -304,9 +314,9 @@ class ExperimentPlanner(object):
 
                 lowres_stage_spacing_transposed = np.array(lowres_stage_spacing)[self.transpose_forward]
                 new = self.get_properties_for_stage(lowres_stage_spacing_transposed, target_spacing_transposed,
-                                               median_shape_transposed,
-                                               len(self.list_of_cropped_npz_files),
-                                               num_modalities, len(all_classes) + 1)
+                                                    median_shape_transposed,
+                                                    len(self.list_of_cropped_npz_files),
+                                                    num_modalities, len(all_classes) + 1)
                 architecture_input_voxels_here = np.prod(new['patch_size'], dtype=np.int64)
 
             if 2 * np.prod(new['median_patient_size_in_voxels'], dtype=np.int64) < np.prod(
@@ -321,8 +331,8 @@ class ExperimentPlanner(object):
         print("transpose backward", self.transpose_backward)
 
         normalization_schemes = self.determine_normalization_scheme()
-        only_keep_largest_connected_component, min_size_per_class, min_region_size_per_class = \
-            self.determine_postprocessing()
+        only_keep_largest_connected_component, min_size_per_class, min_region_size_per_class = None, None, None
+        # removed training data based postprocessing. This is deprecated
 
         # these are independent of the stage
         plans = {'num_stages': len(list(self.plans_per_stage.keys())), 'num_modalities': num_modalities,
@@ -330,7 +340,7 @@ class ExperimentPlanner(object):
                  'dataset_properties': self.dataset_properties, 'list_of_npz_files': self.list_of_cropped_npz_files,
                  'original_spacings': spacings, 'original_sizes': sizes,
                  'preprocessed_data_folder': self.preprocessed_output_folder, 'num_classes': len(all_classes),
-                 'all_classes': all_classes, 'base_num_features': Generic_UNet.BASE_NUM_FEATURES_3D,
+                 'all_classes': all_classes, 'base_num_features': self.unet_base_num_features,
                  'use_mask_for_norm': use_nonzero_mask_for_normalization,
                  'keep_only_largest_region': only_keep_largest_connected_component,
                  'min_region_size_per_class': min_region_size_per_class, 'min_size_per_class': min_size_per_class,

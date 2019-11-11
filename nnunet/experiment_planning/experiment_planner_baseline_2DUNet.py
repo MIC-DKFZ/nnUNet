@@ -18,7 +18,6 @@ from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset
 from nnunet.preprocessing.preprocessing import PreprocessorFor2D
-from nnunet.experiment_planning.configuration import *
 from nnunet.paths import *
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 import numpy as np
@@ -33,52 +32,55 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.data_identifier = default_data_identifier + "_2D"
         self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "_plans_2D.pkl")
 
+        self.unet_base_num_features = 30
+        self.unet_max_num_filters = 512
+        self.unet_max_numpool = 999
+
+    def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
+                                 num_modalities, num_classes):
+
+        new_median_shape = np.round(original_spacing / current_spacing * original_shape).astype(int)
+
+        dataset_num_voxels = np.prod(new_median_shape, dtype=np.int64) * num_cases
+        input_patch_size = new_median_shape[1:]
+
+        network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
+        shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing[1:], input_patch_size,
+                                                             self.unet_featuremap_min_edge_length,
+                                                             self.unet_max_numpool)
+
+        estimated_gpu_ram_consumption = Generic_UNet.compute_approx_vram_consumption(input_patch_size,
+                                                                                     network_numpool,
+                                                                                     self.unet_base_num_features,
+                                                                                     self.unet_max_num_filters,
+                                                                                     num_modalities, num_classes,
+                                                                                     net_pool_kernel_sizes)
+
+        batch_size = int(np.floor(Generic_UNet.use_this_for_batch_size_computation_2D /
+                                  estimated_gpu_ram_consumption * Generic_UNet.DEFAULT_BATCH_SIZE_2D))
+        if batch_size < dataset_min_batch_size_cap:
+            raise RuntimeError("This framework is not made to process patches this large. We will add patch-based "
+                               "2D networks later. Sorry for the inconvenience")
+
+        # check if batch size is too large (more than 5 % of dataset)
+        max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
+                                  np.prod(input_patch_size, dtype=np.int64)).astype(int)
+        batch_size = min(batch_size, max_batch_size)
+
+        plan = {
+            'batch_size': batch_size,
+            'num_pool_per_axis': network_numpool,
+            'patch_size': input_patch_size,
+            'median_patient_size_in_voxels': new_median_shape,
+            'current_spacing': current_spacing,
+            'original_spacing': original_spacing,
+            'pool_op_kernel_sizes': net_pool_kernel_sizes,
+            'conv_kernel_sizes': net_conv_kernel_sizes,
+            'do_dummy_2D_data_aug': False
+        }
+        return plan
+
     def plan_experiment(self):
-
-        def get_properties_for_stage(current_spacing, original_spacing, original_shape, num_cases,
-                                     num_modalities, num_classes):
-
-            new_median_shape = np.round(original_spacing / current_spacing * original_shape).astype(int)
-
-            dataset_num_voxels = np.prod(new_median_shape, dtype=np.int64) * num_cases
-            input_patch_size = new_median_shape[1:]
-
-            network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
-                shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing[1:], input_patch_size,
-                                                                     FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK,
-                                                                     Generic_UNet.MAX_NUMPOOL_2D)
-
-            estimated_gpu_ram_consumption = Generic_UNet.compute_approx_vram_consumption(input_patch_size,
-                                                                                         network_numpool,
-                                                                                         Generic_UNet.BASE_NUM_FEATURES_2D,
-                                                                                         Generic_UNet.MAX_FILTERS_2D,
-                                                                                         num_modalities, num_classes,
-                                                                                         net_pool_kernel_sizes)
-
-            batch_size = int(np.floor(Generic_UNet.use_this_for_batch_size_computation_2D /
-                                      estimated_gpu_ram_consumption * Generic_UNet.DEFAULT_BATCH_SIZE_2D))
-            if batch_size < dataset_min_batch_size_cap:
-                raise RuntimeError("This framework is not made to process patches this large. We will add patch-based "
-                                   "2D networks later. Sorry for the inconvenience")
-
-            # check if batch size is too large (more than 5 % of dataset)
-            max_batch_size = np.round(batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
-                                      np.prod(input_patch_size, dtype=np.int64)).astype(int)
-            batch_size = min(batch_size, max_batch_size)
-
-            plan = {
-                'batch_size': batch_size,
-                'num_pool_per_axis': network_numpool,
-                'patch_size': input_patch_size,
-                'median_patient_size_in_voxels': new_median_shape,
-                'current_spacing': current_spacing,
-                'original_spacing': original_spacing,
-                'pool_op_kernel_sizes': net_pool_kernel_sizes,
-                'conv_kernel_sizes': net_conv_kernel_sizes,
-                'do_dummy_2D_data_aug': False
-            }
-            return plan
-
         use_nonzero_mask_for_normalization = self.determine_whether_to_use_mask_for_norm()
         print("Are we using the nonzero maks for normalizaion?", use_nonzero_mask_for_normalization)
 
@@ -105,7 +107,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
         min_shape = np.min(np.vstack(new_shapes), 0)
         print("the min shape in the dataset is ", min_shape)
 
-        print("we don't want feature maps smaller than ", FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK, " in the bottleneck")
+        print("we don't want feature maps smaller than ", self.unet_featuremap_min_edge_length, " in the bottleneck")
 
         # how many stages will the image pyramid have?
         self.plans_per_stage = []
@@ -114,11 +116,12 @@ class ExperimentPlanner2D(ExperimentPlanner):
         median_shape_transposed = np.array(median_shape)[self.transpose_forward]
         print("the transposed median shape of the dataset is ", median_shape_transposed)
 
-        self.plans_per_stage.append(get_properties_for_stage(target_spacing_transposed, target_spacing_transposed, median_shape_transposed,
-                                                             num_cases=len(self.list_of_cropped_npz_files),
-                                                             num_modalities=num_modalities,
-                                                             num_classes=len(all_classes) + 1),
-                                    )
+        self.plans_per_stage.append(
+            self.get_properties_for_stage(target_spacing_transposed, target_spacing_transposed, median_shape_transposed,
+                                          num_cases=len(self.list_of_cropped_npz_files),
+                                          num_modalities=num_modalities,
+                                          num_classes=len(all_classes) + 1),
+            )
 
         print(self.plans_per_stage)
 
@@ -135,7 +138,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
                  'dataset_properties': self.dataset_properties, 'list_of_npz_files': self.list_of_cropped_npz_files,
                  'original_spacings': spacings, 'original_sizes': sizes,
                  'preprocessed_data_folder': self.preprocessed_output_folder, 'num_classes': len(all_classes),
-                 'all_classes': all_classes, 'base_num_features': Generic_UNet.BASE_NUM_FEATURES_3D,
+                 'all_classes': all_classes, 'base_num_features': self.unet_base_num_features,
                  'use_mask_for_norm': use_nonzero_mask_for_normalization,
                  'keep_only_largest_region': only_keep_largest_connected_component,
                  'min_region_size_per_class': min_region_size_per_class, 'min_size_per_class': min_size_per_class,
@@ -153,8 +156,9 @@ class ExperimentPlanner2D(ExperimentPlanner):
         normalization_schemes = self.plans['normalization_schemes']
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization, self.transpose_forward,
-                                           intensityproperties)
+        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization,
+                                         self.transpose_forward,
+                                         intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
                          self.plans['data_identifier'], num_threads)
@@ -162,6 +166,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task_ids", nargs="+", help="list of int")
     parser.add_argument("-p", action="store_true", help="set this if you actually want to run the preprocessing. If "
@@ -191,7 +196,7 @@ if __name__ == "__main__":
             lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
             dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)
-            _ = dataset_analyzer.analyze_dataset() # this will write output files that will be used by the ExperimentPlanner
+            _ = dataset_analyzer.analyze_dataset()  # this will write output files that will be used by the ExperimentPlanner
 
             maybe_mkdir_p(preprocessing_output_dir_this_task)
             shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
@@ -207,4 +212,3 @@ if __name__ == "__main__":
                 exp_planner.run_preprocessing(threads)
         except Exception as e:
             print(e)
-

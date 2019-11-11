@@ -19,13 +19,12 @@ from nnunet.preprocessing.cropping import get_case_identifier_from_npz, ImageCro
 from skimage.transform import resize
 from scipy.ndimage.interpolation import map_coordinates
 import numpy as np
-from nnunet.experiment_planning.configuration import RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
 from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing.pool import Pool
 
 
-def get_do_separate_z(spacing):
-    do_separate_z = (np.max(spacing) / np.min(spacing)) > RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD
+def get_do_separate_z(spacing, anisotropy_threshold):
+    do_separate_z = (np.max(spacing) / np.min(spacing)) > anisotropy_threshold
     return do_separate_z
 
 
@@ -35,7 +34,7 @@ def get_lowres_axis(new_spacing):
 
 
 def resample_patient(data, seg, original_spacing, target_spacing, order_data=3, order_seg=0, force_separate_z=False,
-                     cval_data=0, cval_seg=-1, order_z_data=0, order_z_seg=0):
+                     cval_data=0, cval_seg=-1, order_z_data=0, order_z_seg=0, separate_z_anisotropy_threshold=3):
     """
     :param cval_seg:
     :param cval_data:
@@ -49,6 +48,9 @@ def resample_patient(data, seg, original_spacing, target_spacing, order_data=3, 
     /never resample along z separately
     :param order_z_seg: only applies if do_separate_z is True
     :param order_z_data: only applies if do_separate_z is True
+    :param separate_z_anisotropy_threshold: if max_spacing > separate_z_anisotropy_threshold * min_spacing (per axis)
+    then resample along lowres axis with order_z_data/order_z_seg instead of order_data/order_seg
+
     :return:
     """
     assert not ((data is None) and (seg is None))
@@ -70,10 +72,10 @@ def resample_patient(data, seg, original_spacing, target_spacing, order_data=3, 
         else:
             axis = None
     else:
-        if get_do_separate_z(original_spacing):
+        if get_do_separate_z(original_spacing, separate_z_anisotropy_threshold):
             do_separate_z = True
             axis = get_lowres_axis(original_spacing)
-        elif get_do_separate_z(target_spacing):
+        elif get_do_separate_z(target_spacing, separate_z_anisotropy_threshold):
             do_separate_z = True
             axis = get_lowres_axis(target_spacing)
         else:
@@ -197,6 +199,8 @@ class GenericPreprocessor(object):
         self.normalization_scheme_per_modality = normalization_scheme_per_modality
         self.use_nonzero_mask = use_nonzero_mask
 
+        self.resample_separate_z_anisotropy_threshold = 3
+
     @staticmethod
     def load_cropped(cropped_output_dir, case_identifier):
         all_data = np.load(os.path.join(cropped_output_dir, "%s.npz" % case_identifier))['data']
@@ -231,7 +235,8 @@ class GenericPreprocessor(object):
         data[np.isnan(data)] = 0
 
         data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
-                                     force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
+                                     force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0,
+                                     separate_z_anisotropy_threshold=self.resample_separate_z_anisotropy_threshold)
         after = {
             'spacing': target_spacing,
             'data.shape (data is resampled)': data.shape
@@ -389,7 +394,8 @@ class PreprocessorFor2D(GenericPreprocessor):
         }
         target_spacing[0] = original_spacing_transposed[0]
         data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
-                                     force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0)
+                                     force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0,
+                                     separate_z_anisotropy_threshold=self.resample_separate_z_anisotropy_threshold)
         after = {
             'spacing': target_spacing,
             'data.shape (data is resampled)': data.shape
