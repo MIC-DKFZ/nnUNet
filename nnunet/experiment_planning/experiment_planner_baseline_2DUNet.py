@@ -14,8 +14,8 @@
 import shutil
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, subfiles
-from multiprocess.pool import Pool
+from batchgenerators.utilities.file_and_folder_operations import load_pickle, subfiles
+from multiprocessing.pool import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
