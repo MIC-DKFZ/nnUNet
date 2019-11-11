@@ -38,7 +38,7 @@ try:
     cropped_output_dir = join(base, "nnUNet_raw_cropped")
     maybe_mkdir_p(splitted_4d_output_dir)
     maybe_mkdir_p(raw_dataset_dir)
-    maybe_mkdir_p(raw_dataset_dir)
+    maybe_mkdir_p(cropped_output_dir)
 except KeyError:
     cropped_output_dir = splitted_4d_output_dir = raw_dataset_dir = base = None
 
