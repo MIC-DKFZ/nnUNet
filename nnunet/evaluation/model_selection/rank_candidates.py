@@ -29,6 +29,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Ranger_lr3en4': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_GN': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_DP': ["nnUNetPlansv2.1_verybig"],
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
@@ -104,7 +105,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Ranger_lr3en4',
         'nnUNetTrainerV2_cycleAtEnd2',
         'nnUNetTrainerV2_GN',
-        #'nnUNetTrainerV2_Ranger_lr3en4',
+        'nnUNetTrainerV2_DP',
         #'nnUNetTrainerV2_Ranger_lr3en4',
         #'nnUNetTrainerV2_Ranger_lr3en4',
         #'nnUNetTrainerV2_Ranger_lr3en4',

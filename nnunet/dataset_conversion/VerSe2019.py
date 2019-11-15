@@ -1,3 +1,4 @@
+import subprocess
 from collections import OrderedDict
 from nnunet.paths import splitted_4d_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -6,6 +7,16 @@ import shutil
 
 if __name__ == "__main__":
     base = "/media/fabian/DeepLearningData/VerSe2019"
+    # the orientation of VerSe is all fing over the place. run fslreorient2std to correct that (hopefully!)
+    # THIS CAN HAVE CONSEQUENCES FOR THE TEST SET SUBMISSION! CAREFUL!
+    train_files_base = subfiles(join(base, "train"), join=True, suffix="_seg.nii.gz")
+    train_segs = [i[:-len("_seg.nii.gz")] + "_seg.nii.gz" for i in train_files_base]
+    train_data = [i[:-len("_seg.nii.gz")] + ".nii.gz" for i in train_files_base]
+    test_files_base = [i[:-len(".nii.gz")] for i in subfiles(join(base, "test"), join=True, suffix=".nii.gz")]
+    test_data = [i + ".nii.gz" for i in test_files_base]
+    for f in train_segs + train_data + test_data:
+        subprocess.call(['fslreorient2std', f, f])
+
 
     task_id = 56
     task_name = "VerSe"
@@ -54,3 +65,4 @@ if __name__ == "__main__":
     json_dict['test'] = ["./imagesTs/%s.nii.gz" % i.split("/")[-1] for i in test_patient_names]
 
     save_json(json_dict, os.path.join(out_base, "dataset.json"))
+

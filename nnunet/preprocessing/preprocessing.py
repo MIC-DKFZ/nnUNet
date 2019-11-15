@@ -14,7 +14,7 @@
 
 from collections import OrderedDict
 from batchgenerators.augmentations.utils import resize_segmentation
-from nnunet.configuration import default_num_threads
+from nnunet.configuration import default_num_threads, RESAMPLING_SEPARATE_Z_ANISO_THRESHOLD
 from nnunet.preprocessing.cropping import get_case_identifier_from_npz, ImageCropper
 from skimage.transform import resize
 from scipy.ndimage.interpolation import map_coordinates
@@ -23,7 +23,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing.pool import Pool
 
 
-def get_do_separate_z(spacing, anisotropy_threshold):
+def get_do_separate_z(spacing, anisotropy_threshold=RESAMPLING_SEPARATE_Z_ANISO_THRESHOLD):
     do_separate_z = (np.max(spacing) / np.min(spacing)) > anisotropy_threshold
     return do_separate_z
 
@@ -34,7 +34,8 @@ def get_lowres_axis(new_spacing):
 
 
 def resample_patient(data, seg, original_spacing, target_spacing, order_data=3, order_seg=0, force_separate_z=False,
-                     cval_data=0, cval_seg=-1, order_z_data=0, order_z_seg=0, separate_z_anisotropy_threshold=3):
+                     cval_data=0, cval_seg=-1, order_z_data=0, order_z_seg=0,
+                     separate_z_anisotropy_threshold=RESAMPLING_SEPARATE_Z_ANISO_THRESHOLD):
     """
     :param cval_seg:
     :param cval_data:
@@ -199,7 +200,7 @@ class GenericPreprocessor(object):
         self.normalization_scheme_per_modality = normalization_scheme_per_modality
         self.use_nonzero_mask = use_nonzero_mask
 
-        self.resample_separate_z_anisotropy_threshold = 3
+        self.resample_separate_z_anisotropy_threshold = RESAMPLING_SEPARATE_Z_ANISO_THRESHOLD
 
     @staticmethod
     def load_cropped(cropped_output_dir, case_identifier):

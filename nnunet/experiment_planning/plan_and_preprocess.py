@@ -11,7 +11,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-pl", "--planner", type=str, default="ExperimentPlanner3D", help="Name of the ExperimentPlanner class")
+    parser.add_argument("-pl", "--planner", type=str, default="ExperimentPlanner3D_v21", help="Name of the ExperimentPlanner class")
     parser.add_argument("-t", "--task_ids", nargs="+", help="list of int")
     parser.add_argument("-no_pp", action="store_true", help="set this if you dont want to run the preprocessing. If "
                                                         "this is set then this script will only create the plans file")
@@ -48,11 +48,16 @@ if __name__ == "__main__":
         else:
             pass
 
+        splitted_taskString_candidates = subdirs(splitted_4d_output_dir, prefix="Task%02.0d" % i, join=False)
+
+        # we always call crop because it will only crop files that are not yet present
         if len(cropped_taskString_candidates) > 1:
             print(cropped_taskString_candidates)
             raise RuntimeError("ambiguous task string (raw Task %d)" % i)
         else:
             crop(splitted_taskString_candidates[0], False, tf)
+
+        cropped_taskString_candidates = subdirs(cropped_output_dir, prefix="Task%02.0d" % i, join=False)
 
         tasks.append(cropped_taskString_candidates[0])
 
