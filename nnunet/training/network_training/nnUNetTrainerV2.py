@@ -282,6 +282,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         :return:
         """
+        self.data_aug_params["num_cached_per_thread"] = 2
+
         self.deep_supervision_scales = [[1, 1, 1]] + list(list(i) for i in 1 / np.cumprod(
             np.vstack(self.net_num_pool_op_kernel_sizes), axis=0))[:-1]
 
