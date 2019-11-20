@@ -3,6 +3,7 @@ from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUN
 
 class nnUNetTrainerV2CascadeFullRes_noConnComp(nnUNetTrainerV2CascadeFullRes):
     def setup_DA_params(self):
+        super().setup_DA_params()
         self.data_aug_params['cascade_do_cascade_augmentations'] = True
 
         self.data_aug_params['cascade_random_binary_transform_p'] = 0.4
@@ -16,6 +17,7 @@ class nnUNetTrainerV2CascadeFullRes_noConnComp(nnUNetTrainerV2CascadeFullRes):
 
 class nnUNetTrainerV2CascadeFullRes_smallerBinStrel(nnUNetTrainerV2CascadeFullRes):
     def setup_DA_params(self):
+        super().setup_DA_params()
         self.data_aug_params['cascade_do_cascade_augmentations'] = True
 
         self.data_aug_params['cascade_random_binary_transform_p'] = 0.4
@@ -29,6 +31,7 @@ class nnUNetTrainerV2CascadeFullRes_smallerBinStrel(nnUNetTrainerV2CascadeFullRe
 
 class nnUNetTrainerV2CascadeFullRes_EducatedGuess(nnUNetTrainerV2CascadeFullRes):
     def setup_DA_params(self):
+        super().setup_DA_params()
         self.data_aug_params['cascade_do_cascade_augmentations'] = True
 
         self.data_aug_params['cascade_random_binary_transform_p'] = 0.5
