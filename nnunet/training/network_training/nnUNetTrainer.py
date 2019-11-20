@@ -450,20 +450,8 @@ class nnUNetTrainer(NetworkTrainer):
 
     def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
-                 validation_folder_name: str = 'validation_raw', debug: bool = False):
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False):
         """
-        2018_12_05: I added global accumulation of TP, FP and FN for the validation in here. This is because I believe
-        that selecting models is easier when computing the Dice globally instead of independently for each case and
-        then averaging over cases. The Lung dataset in particular is very unstable because of the small size of the
-        Lung Lesions. My theory is that even though the global Dice is different than the acutal target metric it is
-        still a good enough substitute that allows us to get a lot more stable results when rerunning the same
-        experiment twice. FYI: computer vision community uses the global jaccard for the evaluation of Cityscapes etc,
-        not the per-image jaccard averaged over images.
-        The reason I am accumulating TP/FP/FN here and not from the nifti files (which are used by our Evaluator) is
-        that all predictions made here will have identical voxel spacing whereas voxel spacings in the nifti files
-        will be different (which we could compensate for by using the volume per voxel but that would require the
-        evaluator to understand spacings which is does not at this point)
-
         if debug=True then the temporary files generated for postprocessing determination will be kept
         :return:
         """
@@ -489,7 +477,6 @@ class nnUNetTrainer(NetworkTrainer):
         results = []
 
         for k in self.dataset_val.keys():
-            print(k)
             properties = self.dataset[k]['properties']
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
@@ -502,7 +489,8 @@ class nnUNetTrainer(NetworkTrainer):
                 softmax_pred = self.predict_preprocessed_data_return_softmax(data[:-1], do_mirroring, 1,
                                                                              use_train_mode, 1, mirror_axes, tiled,
                                                                              True, step, self.patch_size,
-                                                                             use_gaussian=use_gaussian)
+                                                                             use_gaussian=use_gaussian,
+                                                                             all_in_gpu=all_in_gpu)
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
@@ -563,13 +551,18 @@ class nnUNetTrainer(NetworkTrainer):
         for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
             success = False
             attempts = 0
+            e = None
             while not success and attempts < 10:
                 try:
                     shutil.copy(f, gt_nifti_folder)
                     success = True
-                except OSError:
+                except OSError as e:
                     attempts += 1
                     sleep(1)
+            if not success:
+                print("Could not copy gt nifti file %s into folder %s" % (f, gt_nifti_folder))
+                if e is not None:
+                    raise e
 
     def run_online_evaluation(self, output, target):
         with torch.no_grad():

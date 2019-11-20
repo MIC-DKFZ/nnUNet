@@ -29,6 +29,7 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_Ranger_lr3en4': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_GN': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_momentum098': ["nnUNetPlans", "nnUNetPlansv2.1"],
         'nnUNetTrainerV2_DP': ["nnUNetPlansv2.1_verybig"],
     }
 

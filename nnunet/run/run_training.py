@@ -19,6 +19,7 @@ from nnunet.paths import default_plans_identifier
 from nnunet.training.cascade_stuff.predict_next_stage import predict_next_stage
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
+from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUNetTrainerV2CascadeFullRes
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -34,8 +35,8 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--unpack_data", help="Leave it as 1, development only", required=False, default=1,
                         type=int)
     parser.add_argument("--ndet", help="Per default training is deterministic, "
-                                                   "nondeterministic allows cudnn.benchmark which will can give up to "
-                                                   "20%% performance. Set this to do nondeterministic training",
+                                       "nondeterministic allows cudnn.benchmark which will can give up to "
+                                       "20%% performance. Set this to do nondeterministic training",
                         required=False, default=False, action="store_true")
     parser.add_argument("--npz", required=False, default=False, action="store_true", help="if set then nnUNet will "
                                                                                           "export npz files of "
@@ -45,9 +46,12 @@ if __name__ == "__main__":
                                                                                           "ensembling step so unless "
                                                                                           "you are developing nnUNet "
                                                                                           "you should enable this")
-    parser.add_argument("--find_lr", required=False, default=False, action="store_true", help="not used here, just for fun")
-    parser.add_argument("--valbest", required=False, default=False, action="store_true", help="hands off. This is not intended to be used")
-    parser.add_argument("--fp16", required=False, default=False, action="store_true", help="enable fp16 training. Makes sense for 2d only! (and only on supported hardware!)")
+    parser.add_argument("--find_lr", required=False, default=False, action="store_true",
+                        help="not used here, just for fun")
+    parser.add_argument("--valbest", required=False, default=False, action="store_true",
+                        help="hands off. This is not intended to be used")
+    parser.add_argument("--fp16", required=False, default=False, action="store_true",
+                        help="enable fp16 training. Makes sense for 2d only! (and only on supported hardware!)")
 
     args = parser.parse_args()
 
@@ -76,17 +80,19 @@ if __name__ == "__main__":
         fold = int(fold)
 
     plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
-        trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
+    trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
 
     if trainer_class is None:
         raise RuntimeError("Could not find trainer class in nnunet.training.network_training")
 
     if network == "3d_cascade_fullres":
-        assert issubclass(trainer_class, nnUNetTrainerCascadeFullRes), "If running 3d_cascade_fullres then your " \
-                                                                       "trainer class must be derived from " \
-                                                                       "nnUNetTrainerCascadeFullRes"
+        assert issubclass(trainer_class, (nnUNetTrainerCascadeFullRes, nnUNetTrainerV2CascadeFullRes)), \
+            "If running 3d_cascade_fullres then your " \
+            "trainer class must be derived from " \
+            "nnUNetTrainerCascadeFullRes"
     else:
-        assert issubclass(trainer_class, nnUNetTrainer), "network_trainer was found but is not derived from nnUNetTrainer"
+        assert issubclass(trainer_class,
+                          nnUNetTrainer), "network_trainer was found but is not derived from nnUNetTrainer"
 
     trainer = trainer_class(plans_file, fold, output_folder=output_folder_name, dataset_directory=dataset_directory,
                             batch_dice=batch_dice, stage=stage, unpack_data=unpack, deterministic=deterministic,

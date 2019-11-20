@@ -10,7 +10,6 @@ from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import default_2D_augmentation_params, \
     get_patch_size, default_3D_augmentation_params
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
-from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
@@ -161,25 +160,14 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
     def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
-                 validation_folder_name: str = 'validation_raw', debug: bool = False):
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
-
-        :param do_mirroring:
-        :param use_train_mode:
-        :param tiled:
-        :param step:
-        :param save_softmax:
-        :param use_gaussian:
-        :param compute_global_dice:
-        :param overwrite:
-        :param validation_folder_name:
-        :return:
         """
         ds = self.network.do_ds
         self.network.do_ds = False
         ret = super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug)
+                               overwrite, validation_folder_name, debug, all_in_gpu)
         self.network.do_ds = ds
         return ret
 
@@ -291,7 +279,6 @@ class nnUNetTrainerV2(nnUNetTrainer):
         - we increase roation angle from [-15, 15] to [-30, 30]
         - scale range is now (0.7, 1.4), was (0.85, 1.25)
         - we don't do elastic deformation anymore
-        - add self.deep_supervision_scales
 
         :return:
         """

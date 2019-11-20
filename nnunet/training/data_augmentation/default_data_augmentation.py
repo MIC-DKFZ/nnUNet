@@ -63,6 +63,7 @@ default_3D_augmentation_params = {
     "border_mode_data": "constant",
     "cascade_do_cascade_augmentations": False,  # used for cascade
     "cascade_random_binary_transform_p": 0.4,
+    "cascade_random_binary_transform_p_per_label": 1,
     "cascade_random_binary_transform_size": (1, 8),
     "cascade_remove_conn_comp_p": 0.2,
     "cascade_remove_conn_comp_max_size_percent_threshold": 0.15,
@@ -201,10 +202,10 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
 
 
 def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params,
-                            border_val_seg=-1,
-                            seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
-                            soft_ds=False,
-                            classes=None, pin_memory=True):
+                        border_val_seg=-1,
+                        seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
+                        soft_ds=False,
+                        classes=None, pin_memory=True):
     """
     use this instead of get_default_augmentation (drop in replacement) to turn off all data augmentation
     :param dataloader_train:
@@ -337,14 +338,15 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
 
     if params.get("move_last_seg_chanel_to_data") is not None and params.get("move_last_seg_chanel_to_data"):
         tr_transforms.append(MoveSegAsOneHotToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
-        if params.get("cascade_do_cascade_augmentations") and not None and params.get(
+        if params.get("cascade_do_cascade_augmentations") is not None and params.get(
                 "cascade_do_cascade_augmentations"):
             if params.get("cascade_random_binary_transform_p") > 0:
                 tr_transforms.append(ApplyRandomBinaryOperatorTransform(
                     channel_idx=list(range(-len(params.get("all_segmentation_labels")), 0)),
                     p_per_sample=params.get("cascade_random_binary_transform_p"),
                     key="data",
-                    strel_size=params.get("cascade_random_binary_transform_size")))
+                    strel_size=params.get("cascade_random_binary_transform_size"),
+                    p_per_label=params.get("cascade_random_binary_transform_p_per_label")))
             if params.get("cascade_remove_conn_comp_p") > 0:
                 tr_transforms.append(
                     RemoveRandomConnectedComponentFromOneHotEncodingTransform(
@@ -401,10 +403,10 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
 
 
 def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params,
-                            border_val_seg=-1,
-                            seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
-                            soft_ds=False,
-                            classes=None, pin_memory=True):
+                              border_val_seg=-1,
+                              seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
+                              soft_ds=False,
+                              classes=None, pin_memory=True):
     assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
 
     tr_transforms = []
@@ -529,7 +531,6 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
                                                 params.get("num_cached_per_thread"),
                                                 seeds=seeds_val, pin_memory=pin_memory)
     return batchgenerator_train, batchgenerator_val
-
 
 
 if __name__ == "__main__":
