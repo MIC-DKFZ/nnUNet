@@ -169,7 +169,19 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         self.optimizer.zero_grad()
 
         ###############
-        ces, tps, fps, fns = self.network(data, target)
+        ret = self.network(data, target, return_hard_tp_fp_fn=run_online_evaluation)
+        if run_online_evaluation:
+            ces, tps, fps, fns, tp_hard, fp_hard, fn_hard = ret
+            tp_hard = tp_hard.detach().cpu().numpy().mean(0)
+            fp_hard = fp_hard.detach().cpu().numpy().mean(0)
+            fn_hard = fn_hard.detach().cpu().numpy().mean(0)
+            self.online_eval_foreground_dc.append(list((2 * tp_hard) / (2 * tp_hard + fp_hard + fn_hard + 1e-8)))
+            self.online_eval_tp.append(list(tp_hard))
+            self.online_eval_fp.append(list(fp_hard))
+            self.online_eval_fn.append(list(fn_hard))
+        else:
+            ces, tps, fps, fns = ret
+
         del data, target
 
         # we now need to effectively reimplement the loss
@@ -201,10 +213,6 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
                 loss += self.loss_weights[i] * (ces[i].mean() + dice_loss)
         ###########
 
-        if run_online_evaluation:
-            # not implemented
-            pass
-
         if do_backprop:
             if not self.fp16 or amp is None:
                 loss.backward()
@@ -214,20 +222,3 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
             _ = clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
         return loss.detach().cpu().numpy()
-
-    def finish_online_evaluation(self):
-        # online evaluation is not implemented for this network. Implementing it is not a problem though and I should do
-        # it in the future TODO
-        pass
-
-    def on_epoch_end(self):
-        """
-        nnUNetTrainerV2 has no all_val_eval_metrics because that is not (yet) implemented (TODO). So we can't reduce
-        momentum to 0.95 based on that as is done in nnUNetTrainerV2
-        """
-        nnUNetTrainer.on_epoch_end(self)
-        continue_training = self.epoch < self.max_num_epochs
-
-        # it can rarely happen that the momentum of nnUNetTrainerV2 is too high for some dataset. If at epoch 100 the
-        # estimated validation Dice is still 0 then we reduce the momentum from 0.99 to 0.95
-        return continue_training

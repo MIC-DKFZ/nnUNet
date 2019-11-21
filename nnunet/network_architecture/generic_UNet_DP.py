@@ -1,8 +1,11 @@
+import torch
+
 from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn
 from nnunet.utilities.nd_softmax import softmax_helper
+from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 
 
@@ -41,7 +44,7 @@ class Generic_UNet_DP(Generic_UNet):
                                               max_num_features)
         self.ce_loss = CrossentropyND()
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, return_hard_tp_fp_fn=False):
         res = super(Generic_UNet_DP, self).forward(x)  # regular Generic_UNet forward pass
 
         if y is None:
@@ -66,7 +69,7 @@ class Generic_UNet_DP(Generic_UNet):
                     tps.append(tp)
                     fps.append(fp)
                     fns.append(fn)
-                return ce_losses, tps, fps, fns
+                ret = ce_losses, tps, fps, fns
             else:
                 ce_loss = self.ce_loss(res, y).unsqueeze(0)
 
@@ -75,4 +78,33 @@ class Generic_UNet_DP(Generic_UNet):
 
                 tp, fp, fn = get_tp_fp_fn(res_softmax, y)
 
-                return ce_loss, tp, fp, fn
+                ret = ce_loss, tp, fp, fn
+
+            if return_hard_tp_fp_fn:
+                if self._deep_supervision and self.do_ds:
+                    output = res[0]
+                    target = y[0]
+                else:
+                    target = y
+                    output = res
+
+                with torch.no_grad():
+                    num_classes = output.shape[1]
+                    output_softmax = softmax_helper(output)
+                    output_seg = output_softmax.argmax(1)
+                    target = target[:, 0]
+                    axes = tuple(range(1, len(target.shape)))
+                    tp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
+                    fp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
+                    fn_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
+                    for c in range(1, num_classes):
+                        tp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target == c).float(), axes=axes)
+                        fp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target != c).float(), axes=axes)
+                        fn_hard[:, c - 1] = sum_tensor((output_seg != c).float() * (target == c).float(), axes=axes)
+
+                    tp_hard = tp_hard.sum(0, keepdim=False)[None]
+                    fp_hard = fp_hard.sum(0, keepdim=False)[None]
+                    fn_hard = fn_hard.sum(0, keepdim=False)[None]
+
+                    ret = *ret, tp_hard, fp_hard, fn_hard
+            return ret
