@@ -219,3 +219,15 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         # online evaluation is not implemented for this network. Implementing it is not a problem though and I should do
         # it in the future TODO
         pass
+
+    def on_epoch_end(self):
+        """
+        nnUNetTrainerV2 has no all_val_eval_metrics because that is not (yet) implemented (TODO). So we can't reduce
+        momentum to 0.95 based on that as is done in nnUNetTrainerV2
+        """
+        nnUNetTrainer.on_epoch_end(self)
+        continue_training = self.epoch < self.max_num_epochs
+
+        # it can rarely happen that the momentum of nnUNetTrainerV2 is too high for some dataset. If at epoch 100 the
+        # estimated validation Dice is still 0 then we reduce the momentum from 0.99 to 0.95
+        return continue_training
