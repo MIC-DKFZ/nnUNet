@@ -43,7 +43,7 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
     maybe_mkdir_p(output_folder)
 
-    process_manager = Pool(2)
+    export_pool = Pool(2)
     results = []
 
     for pat in trainer.dataset_val.keys():
@@ -63,9 +63,11 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
             np.save(output_file[:-4] + ".npy", predicted)
             predicted = output_file[:-4] + ".npy"
 
-        results.append(process_manager.starmap_async(resample_and_save, [(predicted, target_shp, output_file)]))
+        results.append(export_pool.starmap_async(resample_and_save, [(predicted, target_shp, output_file)]))
 
     _ = [i.get() for i in results]
+    export_pool.close()
+    export_pool.join()
 
 
 if __name__ == "__main__":
