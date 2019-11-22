@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+from copy import deepcopy
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -26,6 +27,13 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
 def resample_and_save(predicted, target_shape, output_file):
+    if isinstance(predicted, str):
+        assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
+                                             "isfile(segmentation_softmax) must be True"
+        del_file = deepcopy(predicted)
+        predicted = np.load(predicted)
+        os.remove(del_file)
+
     predicted_new_shape = resample_data_or_seg(predicted, target_shape, False, order=1, do_separate_z=False, cval=0)
     seg_new_shape = predicted_new_shape.argmax(0)
     np.savez_compressed(output_file, data=seg_new_shape.astype(np.uint8))
@@ -50,6 +58,11 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
         data_nextstage = np.load(data_file_nextstage)['data']
         target_shp = data_nextstage.shape[1:]
         output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
+
+        if np.prod(predicted.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            np.save(output_file[:-4] + ".npy", predicted)
+            predicted = output_file[:-4] + ".npy"
+
         results.append(process_manager.starmap_async(resample_and_save, [(predicted, target_shp, output_file)]))
 
     _ = [i.get() for i in results]
