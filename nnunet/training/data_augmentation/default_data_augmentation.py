@@ -23,13 +23,12 @@ from batchgenerators.transforms.color_transforms import BrightnessMultiplicative
 from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform, GaussianBlurTransform
 from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
-from meddec.dataloading.deep_supervision_stuff.downsampling import DownsampleSegForDSTransform3
 from nnunet.training.data_augmentation.custom_transforms import Convert3DTo2DTransform, Convert2DTo3DTransform, \
     MaskTransform
+from nnunet.training.data_augmentation.downsampling import DownsampleSegForDSTransform3, DownsampleSegForDSTransform2
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData, \
     ApplyRandomBinaryOperatorTransform, \
     RemoveRandomConnectedComponentFromOneHotEncodingTransform
-from repos.NeuralNetworks.Datasets.custom_transforms import DownsampleSegForDSTransform2
 
 default_3D_augmentation_params = {
     "selected_data_channels": None,

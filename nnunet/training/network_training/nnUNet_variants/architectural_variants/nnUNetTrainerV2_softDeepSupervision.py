@@ -1,6 +1,11 @@
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
-from meddec.model_training.ablation_studies.new_nnUNet_candidates.nnUNetTrainerCandidate23_softDeepSupervision4 import \
-    MyDSLoss4
+
+try:
+    from meddec.model_training.ablation_studies.new_nnUNet_candidates.nnUNetTrainerCandidate23_softDeepSupervision4 import \
+        MyDSLoss4
+except ImportError:
+    MyDSLoss4 = None
+
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
@@ -51,6 +56,9 @@ class nnUNetTrainerV2_softDeepSupervision(nnUNetTrainerV2):
             weights = weights / weights.sum()
 
             # now wrap the loss
+            if MyDSLoss4 is None:
+                raise RuntimeError("This aint ready for prime time yet")
+
             self.loss = MyDSLoss4(self.batch_dice, weights)
             #self.loss = MultipleOutputLoss2(self.loss, weights)
             ################# END ###################

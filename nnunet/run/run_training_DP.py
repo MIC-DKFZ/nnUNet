@@ -1,5 +1,4 @@
 import argparse
-import meddec
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.run.default_configuration import get_default_configuration
 from nnunet.paths import default_plans_identifier
@@ -78,8 +77,7 @@ if __name__ == "__main__":
 
     if trainer_class is None:
         plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
-            trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier,
-                                                      (meddec.__path__[0], 'model_training'), 'meddec.model_training')
+            trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
 
     if trainer_class is None:
         raise RuntimeError("Could not find trainer class")

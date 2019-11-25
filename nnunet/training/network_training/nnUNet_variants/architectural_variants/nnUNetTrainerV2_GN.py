@@ -1,7 +1,7 @@
-from meddec.playground.run_nnUNetV2_3D_fullres_GN import MyGroupNorm
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
+from nnunet.utilities.helperModules import MyGroupNorm
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
 

@@ -1,27 +1,25 @@
 from time import sleep
-from nnunet.training.data_augmentation.default_data_augmentation import get_default_augmentation, \
-    get_moreDA_augmentation
-from nnunet.training.dataloading.dataset_loading import unpack_dataset
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
-from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
-from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn
-from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
-from apex.parallel import DistributedDataParallel as DDP
-import torch.distributed as dist
+
+import numpy as np
 import torch
+import torch.distributed as dist
+from apex import amp
+from apex.parallel import DistributedDataParallel as DDP
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
+from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
+from nnunet.training.dataloading.dataset_loading import unpack_dataset
+from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
+from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn
+from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
+from nnunet.utilities.distributed import awesome_allgather_function
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
-from torch.optim import lr_scheduler
-from apex import amp
-import numpy as np
-from meddec.utilities.allgather import awesome_allgather_function
 
 
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
