@@ -163,6 +163,9 @@ def summarize2(task_ids, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fu
                         # names of computed metics, we ignore the precomputed mean and do it ourselfes again
                         mean_metrics = all_metrics["mean"]
                         all_labels = [i for i in list(mean_metrics.keys()) if i != "mean"]
+
+                        if len(all_labels) == 0: print(v, fld); break
+
                         all_metrics_names = list(mean_metrics[all_labels[0]].keys())
                         for l in all_labels:
                             # initialize the data structure, no values are copied yet

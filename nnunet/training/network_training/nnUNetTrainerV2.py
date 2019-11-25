@@ -358,10 +358,11 @@ class nnUNetTrainerV2(nnUNetTrainer):
         if self.epoch == 100:
             if self.all_val_eval_metrics[-1] == 0:
                 self.optimizer.param_groups[0]["momentum"] = 0.95
+                self.network.apply(InitWeights_He(1e-2))
                 self.print_to_log_file("At epoch 100, the mean foreground Dice was 0. This can be caused by a too "
                                        "high momentum. High momentum (0.99) is good for datasets where it works, but "
                                        "sometimes causes issues such as this one. Momentum has now been reduced to "
-                                       "0.95")
+                                       "0.95 and network weights have been reinitialized")
         return continue_training
 
     def run_training(self):
