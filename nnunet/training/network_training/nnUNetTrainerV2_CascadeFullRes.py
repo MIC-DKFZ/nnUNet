@@ -84,7 +84,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def setup_DA_params(self):
         super().setup_DA_params()
 
-        self.data_aug_params["num_cached_per_thread"] = 6
+        self.data_aug_params["num_cached_per_thread"] = 9
 
         self.data_aug_params['move_last_seg_chanel_to_data'] = True
         self.data_aug_params['cascade_do_cascade_augmentations'] = True
