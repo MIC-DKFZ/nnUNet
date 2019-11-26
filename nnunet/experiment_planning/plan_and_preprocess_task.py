@@ -213,7 +213,7 @@ if __name__ == "__main__":
     elif no_preprocessing == 1:
         no_preprocessing = True
     else:
-        raise ValueError("only 0 or 1 allowed for override")
+        raise ValueError("only 0 or 1 allowed for no_preprocessing")
 
     if use_splitted == 0:
         use_splitted = False
