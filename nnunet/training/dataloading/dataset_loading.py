@@ -155,7 +155,7 @@ class DataLoader3D(SlimDataLoaderBase):
         and increase CPU usage. Therefore, I advise you to call unpack_dataset(folder) first, which will unpack all npz
         to npy. Don't forget to call delete_npy(folder) after you are done with training?
         Why all the hassle? Well the decathlon dataset is huge. Using npy for everything will consume >1 TB and that is uncool
-        given that I (Fabian) will have to store that permanently on /datasets and my local computer. With htis strategy all
+        given that I (Fabian) will have to store that permanently on /datasets and my local computer. With this strategy all
         data is stored in a compressed format (factor 10 smaller) and only unpacked when needed.
         :param data: get this with load_dataset(folder, stage=0). Plug the return value in here and you are g2g (good to go)
         :param patch_size: what patch size will this data loader return? it is common practice to first load larger
