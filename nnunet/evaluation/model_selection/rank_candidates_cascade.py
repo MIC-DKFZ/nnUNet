@@ -44,7 +44,7 @@ if __name__ == "__main__":
         "Task09_Spleen": ("3d_cascade_fullres", ),
         "Task10_Colon": ("3d_cascade_fullres", ),
         "Task17_AbdominalOrganSegmentation": ("3d_cascade_fullres", ),
-        "Task29_LITS": ("3d_cascade_fullres", ),
+        #"Task29_LITS": ("3d_cascade_fullres", ),
         "Task48_KiTS_clean": ("3d_cascade_fullres", ),
         "Task55_SegTHOR": ("3d_cascade_fullres", ),
         "Task56_VerSe": ("3d_cascade_fullres", ),

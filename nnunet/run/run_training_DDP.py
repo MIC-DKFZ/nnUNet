@@ -1,6 +1,5 @@
 import argparse
 
-import meddec
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.run.default_configuration import get_default_configuration
 from nnunet.paths import default_plans_identifier
