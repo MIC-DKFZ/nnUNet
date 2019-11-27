@@ -51,6 +51,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
     /never resample along z separately. Do not touch unless you know what you are doing
     :return:
     """
+    print("force_separate_z:", force_separate_z)
     if isinstance(segmentation_softmax, str):
         assert isfile(segmentation_softmax), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
@@ -83,7 +84,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
             else:
                 lowres_axis = None
 
-        print("separate z:",do_separate_z, "lowres axis", lowres_axis)
+        print("separate z:", do_separate_z, "lowres axis", lowres_axis)
         seg_old_spacing = resample_data_or_seg(segmentation_softmax, shape_original_after_cropping, is_seg=False,
                                                axis=lowres_axis, order=order, do_separate_z=do_separate_z, cval=0)
         #seg_old_spacing = resize_softmax_output(segmentation_softmax, shape_original_after_cropping, order=order)
