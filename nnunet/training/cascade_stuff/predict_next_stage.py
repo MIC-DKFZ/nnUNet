@@ -26,7 +26,8 @@ from nnunet.training.model_restore import recursive_find_trainer
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
-def resample_and_save(predicted, target_shape, output_file):
+def resample_and_save(predicted, target_shape, output_file, force_separate_z=False,
+                         interpolation_order=1):
     if isinstance(predicted, str):
         assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
@@ -34,12 +35,13 @@ def resample_and_save(predicted, target_shape, output_file):
         predicted = np.load(predicted)
         os.remove(del_file)
 
-    predicted_new_shape = resample_data_or_seg(predicted, target_shape, False, order=1, do_separate_z=False, cval=0)
+    predicted_new_shape = resample_data_or_seg(predicted, target_shape, False, order=interpolation_order,
+                                               do_separate_z=force_separate_z, cval=0)
     seg_new_shape = predicted_new_shape.argmax(0)
     np.savez_compressed(output_file, data=seg_new_shape.astype(np.uint8))
 
 
-def predict_next_stage(trainer, stage_to_be_predicted_folder):
+def predict_next_stage(trainer, stage_to_be_predicted_folder, force_separate_z=False, interpolation_order=1):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
     maybe_mkdir_p(output_folder)
 
@@ -63,7 +65,8 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
             np.save(output_file[:-4] + ".npy", predicted)
             predicted = output_file[:-4] + ".npy"
 
-        results.append(export_pool.starmap_async(resample_and_save, [(predicted, target_shp, output_file)]))
+        results.append(export_pool.starmap_async(resample_and_save, [(predicted, target_shp, output_file,
+                                                                      force_separate_z, interpolation_order)]))
 
     _ = [i.get() for i in results]
     export_pool.close()

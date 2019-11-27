@@ -188,7 +188,9 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
     def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
-                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False):
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
+                 force_separate_z: bool = None, interpolation_order: int = 3
+                 ):
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
 
         # save whether network is in deep supervision mode or not
@@ -255,7 +257,8 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                     softmax_pred = join(output_folder, fname + ".npy")
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, 3, None, None, None, softmax_fname, None),
+                                                           properties, interpolation_order, None, None, None,
+                                                           softmax_fname, force_separate_z),
                                                           )
                                                          )
                                )

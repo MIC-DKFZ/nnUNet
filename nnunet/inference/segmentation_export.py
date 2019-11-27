@@ -88,6 +88,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
                                                axis=lowres_axis, order=order, do_separate_z=do_separate_z, cval=0)
         #seg_old_spacing = resize_softmax_output(segmentation_softmax, shape_original_after_cropping, order=order)
     else:
+        print("no resampling necessary")
         seg_old_spacing = segmentation_softmax
 
     if resampled_npz_fname is not None:

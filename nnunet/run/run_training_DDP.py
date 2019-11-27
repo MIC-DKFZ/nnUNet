@@ -45,6 +45,12 @@ if __name__ == "__main__":
                                                                                           "you should enable this")
     parser.add_argument("--valbest", required=False, default=False, action="store_true", help="")
     parser.add_argument("--find_lr", required=False, default=False, action="store_true", help="")
+    parser.add_argument("--val_folder", required=False, default="validation_raw",
+                        help="name of the validation folder")
+    parser.add_argument("--interp_order", required=False, default=3, type=int,
+                        help="order of interpolation for segmentations")
+    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+                        help="force_separate_z resampling. Can be None, True or False")
 
     args = parser.parse_args()
 
@@ -58,6 +64,9 @@ if __name__ == "__main__":
     deterministic = not args.ndet
     valbest = args.valbest
     find_lr = args.find_lr
+    val_folder = args.val_folder
+    interp_order = args.interp_order
+    force_separate_z = args.force_separate_z
 
     if unpack == 0:
         unpack = False
@@ -70,6 +79,15 @@ if __name__ == "__main__":
         pass
     else:
         fold = int(fold)
+
+    if force_separate_z == "None":
+        force_separate_z = None
+    elif force_separate_z == "False":
+        force_separate_z = False
+    elif force_separate_z == "True":
+        force_separate_z = True
+    else:
+        raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
 
     plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
         trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
@@ -104,7 +122,8 @@ if __name__ == "__main__":
             trainer.load_latest_checkpoint(train=False)
 
         # predict validation
-        trainer.validate(save_softmax=args.npz)
+        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder, force_separate_z=force_separate_z,
+                         interpolation_order=interp_order)
 
         if network == '3d_lowres':
             trainer.load_best_checkpoint(False)
