@@ -212,7 +212,7 @@ class SegmentationNetwork(NeuralNetwork):
                     tmp[tuple(center_coords)] = 1
                     tmp_smooth = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
                     tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
-                    add = tmp_smooth + 1e-8
+                    add = tmp_smooth + 1e-7
 
                     # we only need to compute that once. It can take a while to compute this due to the large sigma in
                     # gaussian_filter
@@ -251,7 +251,7 @@ class SegmentationNetwork(NeuralNetwork):
                 print("initializing result_numsamples (on GPU)")
                 result_numsamples = torch.zeros([nb_of_classes] + list(data.shape[2:]), dtype=torch.half, device=self.get_device())
                 print("moving add to GPU")
-                add = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True).float()
+                add = torch.from_numpy(add).cuda(self.get_device(), non_blocking=True).half()
                 add_torch = add
             else:
                 result = np.zeros([nb_of_classes] + list(data.shape[2:]), dtype=np.float32)
@@ -281,7 +281,7 @@ class SegmentationNetwork(NeuralNetwork):
                         else:
                             predicted_patch = predicted_patch.cpu().numpy()
 
-                        result[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += predicted_patch
+                        result[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += (predicted_patch + 1e-7)
 
                         if all_in_gpu:
                             result_numsamples[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += add.half()

@@ -31,7 +31,7 @@ def merge(args):
         res2 = np.load(file2)['softmax']
         props = load_pickle(properties_file)
         mn = np.mean((res1, res2), 0)
-        save_segmentation_nifti_from_softmax(mn, out_file, props, 1, None, None, None)
+        save_segmentation_nifti_from_softmax(mn, out_file, props, 3, None, None, None, force_separate_z=False)
 
 
 if __name__ == "__main__":
@@ -76,8 +76,10 @@ if __name__ == "__main__":
         # we don't do postprocessing anymore so there should not be any of that noPostProcess
         patient_identifiers1_nii = [i for i in subfiles(validation_folder_net1, False, None, suffix='nii.gz', sort=True) if not i.endswith("noPostProcess.nii.gz") and not i.endswith('_postprocessed.nii.gz')]
         patient_identifiers2_nii = [i for i in subfiles(validation_folder_net2, False, None, suffix='nii.gz', sort=True) if not i.endswith("noPostProcess.nii.gz") and not i.endswith('_postprocessed.nii.gz')]
-        assert all([i[:-4] == j[:-7] for i, j in zip(patient_identifiers1, patient_identifiers1_nii)]), "npz seem to be missing. run validation with save_softmax=True"
-        assert all([i[:-4] == j[:-7] for i, j in zip(patient_identifiers2, patient_identifiers2_nii)]), "npz seem to be missing. run validation with save_softmax=True"
+        assert len(patient_identifiers1) == len(patient_identifiers1_nii), "npz seem to be missing. run validation with --npz"
+        assert len(patient_identifiers1) == len(patient_identifiers1_nii), "npz seem to be missing. run validation with --npz"
+        assert all([i[:-4] == j[:-7] for i, j in zip(patient_identifiers1, patient_identifiers1_nii)]), "npz seem to be missing. run validation with --npz"
+        assert all([i[:-4] == j[:-7] for i, j in zip(patient_identifiers2, patient_identifiers2_nii)]), "npz seem to be missing. run validation with --npz"
 
         all_patient_identifiers = patient_identifiers1
         for p in patient_identifiers2:
@@ -107,16 +109,17 @@ if __name__ == "__main__":
                      json_output_file=join(output_folder, "summary.json"), json_task=task,
                      json_name=task + "__" + output_folder_base.split("/")[-1], num_threads=default_num_threads)
 
-    # now lets also look at postprocessing. We cannot just take what we determined in cross-validation and apply it
-    # here because things may have changed and may also be too inconsistent between the two networks
-    determine_postprocessing(output_folder_base, folder_with_gt_segs, "ensembled_raw", "temp",
-                             "ensembled_postprocessed", default_num_threads, dice_threshold=0)
+    if not isfile(join(output_folder_base, "postprocessing.json")):
+        # now lets also look at postprocessing. We cannot just take what we determined in cross-validation and apply it
+        # here because things may have changed and may also be too inconsistent between the two networks
+        determine_postprocessing(output_folder_base, folder_with_gt_segs, "ensembled_raw", "temp",
+                                 "ensembled_postprocessed", default_num_threads, dice_threshold=0)
 
-    out_dir_all_json = join(network_training_output_dir, "summary_jsons")
-    json_out = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))
+        out_dir_all_json = join(network_training_output_dir, "summary_jsons")
+        json_out = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))
 
-    json_out["experiment_name"] = output_folder_base.split("/")[-1]
-    save_json(json_out, join(output_folder_base, "ensembled_postprocessed", "summary.json"))
+        json_out["experiment_name"] = output_folder_base.split("/")[-1]
+        save_json(json_out, join(output_folder_base, "ensembled_postprocessed", "summary.json"))
 
-    shutil.copy(join(output_folder_base, "ensembled_postprocessed", "summary.json"),
-                join(out_dir_all_json, "%s__%s.json" % (task, output_folder_base.split("/")[-1])))
+        shutil.copy(join(output_folder_base, "ensembled_postprocessed", "summary.json"),
+                    join(out_dir_all_json, "%s__%s.json" % (task, output_folder_base.split("/")[-1])))

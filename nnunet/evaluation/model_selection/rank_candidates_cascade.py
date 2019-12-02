@@ -21,6 +21,8 @@ if __name__ == "__main__":
     trainers = [
         'nnUNetTrainerCascadeFullRes',
         'nnUNetTrainerV2CascadeFullRes_EducatedGuess',
+        'nnUNetTrainerV2CascadeFullRes_EducatedGuess2',
+        'nnUNetTrainerV2CascadeFullRes_EducatedGuess3',
         'nnUNetTrainerV2CascadeFullRes_lowerLR',
         'nnUNetTrainerV2CascadeFullRes',
         'nnUNetTrainerV2CascadeFullRes_noConnComp',

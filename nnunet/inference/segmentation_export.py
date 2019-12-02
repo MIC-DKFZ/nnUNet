@@ -51,7 +51,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax, out_fname, dct, o
     /never resample along z separately. Do not touch unless you know what you are doing
     :return:
     """
-    print("force_separate_z:", force_separate_z)
+    print("force_separate_z:", force_separate_z, "interpolation order:", order)
     if isinstance(segmentation_softmax, str):
         assert isfile(segmentation_softmax), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
@@ -147,6 +147,7 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
     :return:
     """
     # suppress output
+    print("force_separate_z:", force_separate_z, "interpolation order:", order)
     sys.stdout = open(os.devnull, 'w')
 
     if isinstance(segmentation, str):

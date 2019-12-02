@@ -85,6 +85,10 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str, default="normal", required=False)
     parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True")
     parser.add_argument("--step", type=float, default=2, required=False, help="don't touch")
+    parser.add_argument("--interp_order", required=False, default=3, type=int,
+                        help="order of interpolation for segmentations, has no effect if mode=fastest")
+    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+                        help="force_separate_z resampling. Can be None, True or False, has no effect if mode=fastest")
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -99,6 +103,17 @@ if __name__ == "__main__":
     tta = args.tta
     fp16 = args.fp16
     step = args.step
+    interp_order = args.interp_order
+    force_separate_z = args.force_separate_z
+
+    if force_separate_z == "None":
+        force_separate_z = None
+    elif force_separate_z == "False":
+        force_separate_z = False
+    elif force_separate_z == "True":
+        force_separate_z = True
+    else:
+        raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
 
     if fp16:
         raise RuntimeError("FP16 support for inference does not work yet. Sorry :-/")
@@ -149,5 +164,6 @@ if __name__ == "__main__":
 
     predict_from_folder(output_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
-                        overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16, step=step)
+                        overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16, step=step,
+                        force_separate_z=force_separate_z, interp_order=interp_order)
 

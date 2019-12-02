@@ -11,103 +11,191 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from itertools import combinations
 import nnunet
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.paths import network_training_output_dir
 import numpy as np
-from nnunet.evaluation.add_mean_dice_to_json import foreground_mean
 from subprocess import call
-import SimpleITK as sitk
-from nnunet.run.default_configuration import get_output_folder
+from nnunet.postprocessing.consolidate_postprocessing import consolidate_folds
+from nnunet.utilities.folder_names import get_output_folder_name
 
 
-def copy_nifti_and_convert_to_uint8(args):
-    source_file, target_file = args
-    i = sitk.ReadImage(source_file)
-    j = sitk.GetImageFromArray(sitk.GetArrayFromImage(i).astype(np.uint8))
-    j.CopyInformation(i)
-    sitk.WriteImage(j, target_file)
+def find_task_name(folder, task_id):
+    candidates = subdirs(folder, prefix="Task%02.0d_" % task_id, join=False)
+    assert len(candidates) > 0, "no candidate for Task id %d found in folder %s" % (task_id, folder)
+    assert len(candidates) == 1, "more than one candidate for Task id %d found in folder %s" % (task_id, folder)
+    return candidates[0]
+
+
+def get_mean_foreground_dice(json_file):
+    results = load_json(json_file)
+    results_mean = results['results']['mean']
+    dice_scores = [results_mean[i]['Dice'] for i in results_mean.keys() if i != "0"]
+    return np.mean(dice_scores)
 
 
 if __name__ == "__main__":
-    # This script was hacked together at some point and is ugly af. TODO this needs to be redone properly
     import argparse
     parser = argparse.ArgumentParser(usage="This is intended to identify the best model based on the five fold "
-                                           "cross-validation. Running this script requires alle models to have been run "
+                                           "cross-validation. Running this script requires all models to have been run "
                                            "already. This script will summarize the results of the five folds of all "
                                            "models in one json each for easy interpretability")
-    parser.add_argument("-m", '--models', nargs="+", required=False, default=['2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres'])
-    parser.add_argument("-t", '--task_ids', nargs="+", required=False, default=list(range(100)))
-    parser.add_argument("-v", '--validation_folder', required=False, default="validation_raw")
+
+    parser.add_argument("-m", '--models', nargs="+", required=False, default=['2d', '3d_lowres', '3d_fullres',
+                                                                              '3d_cascade_fullres'])
+    parser.add_argument("-t", '--task_ids', nargs="+", required=True)
+
+    parser.add_argument("-tr", type=str, required=False, default="nnUNetTrainerV2",
+                           help="nnUNetTrainer class. Default: nnUNetTrainerV2")
+    parser.add_argument("-trc", type=str, required=False, default="nnUNetTrainerV2CascadeFullRes",
+                           help="nnUNetTrainer class for cascade model. Default: nnUNetTrainerV2CascadeFullRes")
+    parser.add_argument("-pl", type=str, required=False, default="nnUNetPlansv2.1",
+                           help="plans name, Default: nnUNetPlansv2.1")
+    parser.add_argument("-summary_file", type=str, required=False, default=None,
+                           help="summarizes all results in this file")
+
+    parser.add_argument("--strict", required=False, action="store_true", help="set this flag if you want this script "
+                                                                              "to crash of one of the models is missing")
+
+    parser.add_argument("--allow_missing_pp", required=False, action="store_true", help="if set then missing "
+                                                                                        "postprocessing will be run "
+                                                                                        "automatically")
 
     args = parser.parse_args()
     tasks = [int(i) for i in args.task_ids]
 
     models = args.models
-    validation_folder = args.validation_folder
+    tr = args.tr
+    trc = args.trc
+    strict = args.strict
+    allow_missing_pp = args.allow_missing_pp
+    summary_all_file = args.summary_file
+    pl = args.pl
 
-    out_dir_all_json = join(network_training_output_dir, "summary_jsons")
+    validation_folder = "validation_raw"
 
-    json_files = [i for i in subfiles(out_dir_all_json, suffix=".json", join=True) if i.find("ensemble") == -1]
-
-    # do mean over foreground
-    for j in json_files:
-        foreground_mean(j)
-
+    # this script now acts independently from the summary jsons. That was unnecessary
+    id_task_mapping = {}
     # for each task, run ensembling using all combinations of two models
     for t in tasks:
-        json_files_task = [i for i in subfiles(out_dir_all_json, prefix="Task%02.0d_" % t) if i.find("ensemble") == -1 and i.endswith(validation_folder + ".json")]
-        if len(json_files_task) > 0:
-            task_name = json_files_task[0].split("/")[-1].split("__")[0]
-            print(task_name)
+        # first collect pure model performance (postprocessed)
+        results = {}
+        all_results = {}
+        valid_models = []
+        for m in models:
+            try:
+                if m == "3d_cascade_fullres":
+                    trainer = trc
+                else:
+                    trainer = tr
 
-            for i in range(len(json_files_task) - 1):
-                for j in range(i+1, len(json_files_task)):
-                    # networks are stored as
-                    # task__configuration__trainer__plans
-                    network1 = json_files_task[i].split("/")[-1].split("__")
-                    network1[-1] = network1[-1].split(".")[0]
-                    task, configuration, trainer, plans_identifier, _ = network1
-                    network1_folder = get_output_folder(configuration, task, trainer, plans_identifier)
-                    name1 = configuration + "__" + trainer + "__" + plans_identifier
+                if t not in id_task_mapping.keys():
+                    task_name = find_task_name(get_output_folder_name(m), t)
+                    id_task_mapping[t] = task_name
 
-                    network2 = json_files_task[j].split("/")[-1].split("__")
-                    network2[-1] = network2[-1].split(".")[0]
-                    task, configuration, trainer, plans_identifier, _ = network2
-                    network2_folder = get_output_folder(configuration, task, trainer, plans_identifier)
-                    name2 = configuration + "__" + trainer + "__" + plans_identifier
+                output_folder = get_output_folder_name(m, id_task_mapping[t], trainer, pl)
 
-                    if np.argsort((name1, name2))[0] == 1:
-                        name1, name2 = name2, name1
-                        network1_folder, network2_folder = network2_folder, network1_folder
+                # we need a postprocessing_json for inference, so that must be present
+                postprocessing_json = join(output_folder, "postprocessing.json")
+                # we need cv_niftis_postprocessed to know the single model performance
+                cv_niftis_postprocessed_folder = join(output_folder, "cv_niftis_postprocessed")
+                if not isfile(postprocessing_json) or not isdir(cv_niftis_postprocessed_folder):
+                    if allow_missing_pp:
+                        print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
+                        consolidate_folds(output_folder)
+                assert isfile(postprocessing_json)
+                assert isdir(cv_niftis_postprocessed_folder)
 
-                    output_folder = join(network_training_output_dir, "ensembles", task_name, "ensemble_" + name1 + "--" + name2)
-                    # now ensemble
-                    print(network1_folder, network2_folder)
-                    p = call(["python", join(nnunet.__path__[0], "evaluation/model_selection/ensemble.py"), network1_folder, network2_folder, output_folder, task_name, validation_folder])
+                # obtain mean foreground dice
+                summary_file = join(cv_niftis_postprocessed_folder, "summary.json")
+                results[m] = get_mean_foreground_dice(summary_file)
+                all_results[m] = load_json(summary_file)['results']['mean']
+                valid_models.append(m)
 
-    # now rerun adding the mean foreground dice
-    json_files = subfiles(out_dir_all_json, suffix=".json", join=True)
+            except Exception as e:
+                if strict:
+                    raise e
+                else:
+                    print("WARNING!")
+                    print(e)
 
-    # do mean over foreground
-    for j in json_files:
-        foreground_mean(j)
+        # now run ensembling and add ensembling to results
+        if len(valid_models) > 1:
+            for m1, m2 in combinations(valid_models, 2):
 
-    # now load all json for each task and find best
-    with open(join(network_training_output_dir, "use_this_for_test.csv"), 'w') as f:
-        for t in tasks:
-            t = int(t)
-            json_files_task = subfiles(out_dir_all_json, prefix="Task%02.0d_" % t)
-            if len(json_files_task) > 0:
-                task_name = json_files_task[0].split("/")[-1].split("__")[0]
-                print(task_name)
-                mean_dice = []
-                for j in json_files_task:
-                    js = load_json(j)
-                    mean_dice.append(js['results']['mean']['mean']['Dice'])
-                best = np.argsort(mean_dice)[::-1][0]
-                j = json_files_task[best].split("/")[-1]
+                trainer_m1 = trc if m1 == "3d_cascade_fullres" else tr
+                trainer_m2 = trc if m2 == "3d_cascade_fullres" else tr
 
-                print("%s: submit model %s" % (task_name, j))
-                f.write("%s,%s\n" % (task_name, j))
+                ensemble_name = "ensemble_" + m1 + "__" + trainer_m1 + "__" + pl + "--" + m2 + "__" + trainer_m2 + "__" + pl
+                output_folder_base = join(network_training_output_dir, "ensembles", id_task_mapping[t], ensemble_name)
+
+                network1_folder = get_output_folder_name(m1, id_task_mapping[t], trainer_m1, pl)
+                network2_folder = get_output_folder_name(m2, id_task_mapping[t], trainer_m2, pl)
+
+                print("ensembling", network1_folder, network2_folder)
+                p = call(["python", join(nnunet.__path__[0], "evaluation/model_selection/ensemble.py"),
+                          network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder])
+
+                # ensembling will automatically do postprocessing
+
+                # now get result of ensemble
+                results[ensemble_name] = get_mean_foreground_dice(join(output_folder_base, "ensembled_postprocessed", "summary.json"))
+                all_results[ensemble_name] = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))['results']['mean']
+
+        # now print all mean foreground dice and highlight the best
+        foreground_dices = list(results.values())
+        best = np.max(foreground_dices)
+        for k, v in results.items():
+            print(k, v)
+
+        best_model = None
+        for k, v in results.items():
+            if v == best:
+                print("%s submit model %s" % (id_task_mapping[t], k), v)
+                best_model = k
+                print("Here is how you should predict test cases. Run in sequential order and replace all input and output folder names with your personalized ones")
+                if k.startswith("ensemble"):
+                    tmp = k[len("ensemble_"):]
+                    model1, model2 = tmp.split("--")
+                    m1, t1, pl1 = model1.split("__")
+                    m2, t2, pl2 = model2.split("__")
+                    if m1 == "3d_cascade_fullres":
+                        print(
+                            "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr",
+                            tr, "-m", "3d_lowres", "-p", pl, "-t", id_task_mapping[t])
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr", trc,
+                              "-m", m1, "-p", pl, "-t", id_task_mapping[t], "-l OUTPUT_FOLDER_LOWRES", "-z")
+                    else:
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr", tr,
+                              "-m", m1, "-p", pl, "-t", id_task_mapping[t], "-z")
+                    if m2 == "3d_cascade_fullres":
+                        print(
+                            "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr",
+                            tr, "-m", "3d_lowres", "-p", pl, "-t", id_task_mapping[t])
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr", trc,
+                              "-m", m2, "-p", pl, "-t", id_task_mapping[t], "-l OUTPUT_FOLDER_LOWRES", "-z")
+                    else:
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr", tr,
+                              "-m", m2, "-p", pl, "-t", id_task_mapping[t], "-z")
+                    print("python inference/ensemble_predictions.py -f OUTPUT_FOLDER_MODEL1, OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp",
+                          join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json"))
+                else:
+                    if k == "3d_cascade_fullres":
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr", tr, "-m", "3d_lowres", "-p", pl, "-t", id_task_mapping[t])
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER -tr", trc, "-m", k, "-p", pl, "-t", id_task_mapping[t], "-l OUTPUT_FOLDER_LOWRES")
+                    else:
+                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER -tr", tr, "-m", k, "-p", pl, "-t", id_task_mapping[t])
+
+        if summary_all_file is not None:
+            num_classes = len(all_results[best_model].keys())
+            with open(summary_all_file, 'w') as f:
+                f.write("model")
+                for c in range(1, num_classes + 1):
+                    f.write(",class%d" % c)
+                f.write("\n")
+                for m in all_results.keys():
+                    f.write(m)
+                    for c in range(1, num_classes + 1):
+                        f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
+                    f.write("\n")
