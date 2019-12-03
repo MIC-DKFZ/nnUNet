@@ -87,7 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--step", type=float, default=2, required=False, help="don't touch")
     parser.add_argument("--interp_order", required=False, default=3, type=int,
                         help="order of interpolation for segmentations, has no effect if mode=fastest")
-    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+    parser.add_argument("--force_separate_z", required=False, default="False", type=str,
                         help="force_separate_z resampling. Can be None, True or False, has no effect if mode=fastest")
 
     args = parser.parse_args()
