@@ -63,7 +63,6 @@ if __name__ == "__main__":
     gt_segmentations = []
 
     folder_with_gt_segs = join(dataset_directory, "gt_segmentations")
-    folder_where_some_pkl_are = join(dataset_directory, "nnUNet_2D_stage0") # we can use this because npz are already
     # in the correct shape and we need the original geometry to restore the niftis
 
     folds = np.arange(5)
@@ -95,7 +94,7 @@ if __name__ == "__main__":
         for p in all_patient_identifiers:
             files1.append(join(validation_folder_net1, p))
             files2.append(join(validation_folder_net2, p))
-            property_files.append(join(folder_where_some_pkl_are, p)[:-3] + "pkl")
+            property_files.append(join(validation_folder_net1, p)[:-3] + "pkl")
             out_files.append(join(output_folder, p[:-4] + ".nii.gz"))
             gt_segmentations.append(join(folder_with_gt_segs, p[:-4] + ".nii.gz"))
 
