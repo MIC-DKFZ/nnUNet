@@ -49,7 +49,7 @@ if __name__ == "__main__":
                         help="name of the validation folder")
     parser.add_argument("--interp_order", required=False, default=3, type=int,
                         help="order of interpolation for segmentations")
-    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+    parser.add_argument("--force_separate_z", required=False, default="False", type=str,
                         help="force_separate_z resampling. Can be None, True or False")
 
     args = parser.parse_args()
