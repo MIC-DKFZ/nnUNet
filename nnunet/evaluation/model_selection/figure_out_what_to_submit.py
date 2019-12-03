@@ -158,7 +158,7 @@ if __name__ == "__main__":
             if v == best:
                 print("%s submit model %s" % (id_task_mapping[t], k), v)
                 best_model = k
-                print("Here is how you should predict test cases. Run in sequential order and replace all input and output folder names with your personalized ones")
+                print("\nHere is how you should predict test cases. Run in sequential order and replace all input and output folder names with your personalized ones\n")
                 if k.startswith("ensemble"):
                     tmp = k[len("ensemble_"):]
                     model1, model2 = tmp.split("--")
@@ -171,10 +171,10 @@ if __name__ == "__main__":
                         predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + m1 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
                     if m2 == "3d_cascade_fullres":
                         predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + trc + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES -z" + "\n"
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr " + trc + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES -z" + "\n"
                     else:
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
-                    predict_str += "python inference/ensemble_predictions.py -f OUTPUT_FOLDER_MODEL1, OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp " + join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json") + "\n"
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr " + tr + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
+                    predict_str += "python inference/ensemble_predictions.py -f OUTPUT_FOLDER_MODEL1 OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp " + join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json") + "\n"
                 else:
                     if k == "3d_cascade_fullres":
                         predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"

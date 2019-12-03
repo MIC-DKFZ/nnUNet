@@ -1,4 +1,3 @@
-import shutil
 from copy import deepcopy
 
 from batchgenerators.utilities.file_and_folder_operations import *

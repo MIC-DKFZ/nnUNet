@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import shutil
 
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -64,6 +65,8 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
     if postprocessing_file is not None:
         apply_postprocessing_to_folder(output_folder, output_folder + "_postprocessed",
                                        load_for_which_classes(postprocessing_file), threads)
+        shutil.copy(postprocessing_file, output_folder + "_postprocessed")
+
 
 if __name__ == "__main__":
     import argparse
