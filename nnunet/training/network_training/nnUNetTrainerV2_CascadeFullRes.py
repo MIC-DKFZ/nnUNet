@@ -135,6 +135,9 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
             self.loss = MultipleOutputLoss2(self.loss, self.ds_loss_weights)
             ################# END ###################
 
+            self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
+                                                      "_stage%d" % self.stage)
+
             if training:
                 # copy segs from prev stage to separate folder and extract them
 
@@ -153,8 +156,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                     unpack_dataset(self.folder_with_segs_from_prev_stage_for_train)
 
                 self.folder_with_segs_from_prev_stage = self.folder_with_segs_from_prev_stage_for_train
-                self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                          "_stage%d" % self.stage)
+
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
                     print("unpacking dataset")
