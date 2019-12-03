@@ -15,6 +15,8 @@
 from collections import OrderedDict
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
+import numpy as np
+from sklearn.model_selection import KFold
 
 
 def convert_to_submission(source_dir, target_dir):
@@ -89,9 +91,6 @@ if __name__ == "__main__":
     save_json(json_dict, os.path.join(out_folder, "dataset.json"))
 
     # create a dummy split (patients need to be separated)
-    import numpy as np
-    from sklearn.model_selection import KFold
-
     splits = []
     patients = np.unique([i[:10] for i in all_train_files])
     patientids = [i[:-12] for i in all_train_files]

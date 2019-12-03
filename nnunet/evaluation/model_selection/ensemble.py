@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     # only_keep_largest_connected_component is the same for all stages
     dataset_directory = join(preprocessing_output_dir, task)
-    plans = load_pickle(join(preprocessing_output_dir, task, default_plans_identifier + "_plans_2D.pkl")) # we need this only for the labels
+    plans = load_pickle(join(training_output_folder1, "plans.pkl"))  # we need this only for the labels
 
     files1 = []
     files2 = []

@@ -59,7 +59,7 @@ def write_pngs_from_nifti(nifti, output_folder, converter=convert_seg_to_intensi
 
 
 def convert_variant2_predicted_test_to_submission_format(folder_with_predictions,
-                                                         output_folder="/media/fabian/DeepLearningData/CHAOS_testSet_Variant2/imagesTs_pred_submission/CHAOS_submission_template_new"):
+                                                         output_folder="/home/fabian/drives/datasets/results/nnUNet/test_sets/Task38_CHAOS_Task_3_5_Variant2/ready_to_submit"):
     """
     output_folder is where the extracted template is
     :param folder_with_predictions:
@@ -97,8 +97,7 @@ def convert_variant2_predicted_test_to_submission_format(folder_with_predictions
 
     # now call my ensemble function
     merge((folder_for_ensembing0, folder_for_ensembing1), final_predictions_folder, 8, True,
-          postprocessing_file="/media/fabian/Results/nnUNet/3d_fullres/Task39_CHAOS_Task_3_5_Variant2_highres/"
-                              "nnUNetTrainerV2__nnUNetPlansfixed/postprocessing.json")
+          postprocessing_file="/home/fabian/drives/datasets/results/nnUNet/test_sets/Task38_CHAOS_Task_3_5_Variant2/predicted_3d_fullres/postprocessing.json")
     # copy t2 files to final_predictions_folder as well
     t2_files = subfiles(folder_with_predictions, prefix="T2", suffix=".nii.gz", join=False)
     for t2 in t2_files:
