@@ -52,8 +52,8 @@ if __name__ == "__main__":
                            help="nnUNetTrainer class for cascade model. Default: nnUNetTrainerV2CascadeFullRes")
     parser.add_argument("-pl", type=str, required=False, default="nnUNetPlansv2.1",
                            help="plans name, Default: nnUNetPlansv2.1")
-    parser.add_argument("-summary_file", type=str, required=False, default=None,
-                           help="summarizes all results in this file")
+    parser.add_argument("-summary_folder", type=str, required=False, default=None,
+                           help="summarizes all results in this folder")
 
     parser.add_argument("--strict", required=False, action="store_true", help="set this flag if you want this script "
                                                                               "to crash of one of the models is missing")
@@ -70,10 +70,13 @@ if __name__ == "__main__":
     trc = args.trc
     strict = args.strict
     allow_missing_pp = args.allow_missing_pp
-    summary_all_file = args.summary_file
+    summary_folder = args.summary_folder
     pl = args.pl
 
     validation_folder = "validation_raw"
+
+    if summary_folder is not None:
+        maybe_mkdir_p(summary_folder)
 
     # this script now acts independently from the summary jsons. That was unnecessary
     id_task_mapping = {}
@@ -149,6 +152,7 @@ if __name__ == "__main__":
         for k, v in results.items():
             print(k, v)
 
+        predict_str = ""
         best_model = None
         for k, v in results.items():
             if v == best:
@@ -161,41 +165,38 @@ if __name__ == "__main__":
                     m1, t1, pl1 = model1.split("__")
                     m2, t2, pl2 = model2.split("__")
                     if m1 == "3d_cascade_fullres":
-                        print(
-                            "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr",
-                            tr, "-m", "3d_lowres", "-p", pl, "-t", id_task_mapping[t])
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr", trc,
-                              "-m", m1, "-p", pl, "-t", id_task_mapping[t], "-l OUTPUT_FOLDER_LOWRES", "-z")
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + trc + " -m " + m1 + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES -z" + "\n"
                     else:
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr", tr,
-                              "-m", m1, "-p", pl, "-t", id_task_mapping[t], "-z")
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + m1 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
                     if m2 == "3d_cascade_fullres":
-                        print(
-                            "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr",
-                            tr, "-m", "3d_lowres", "-p", pl, "-t", id_task_mapping[t])
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr", trc,
-                              "-m", m2, "-p", pl, "-t", id_task_mapping[t], "-l OUTPUT_FOLDER_LOWRES", "-z")
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + trc + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES -z" + "\n"
                     else:
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr", tr,
-                              "-m", m2, "-p", pl, "-t", id_task_mapping[t], "-z")
-                    print("python inference/ensemble_predictions.py -f OUTPUT_FOLDER_MODEL1, OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp",
-                          join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json"))
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
+                    predict_str += "python inference/ensemble_predictions.py -f OUTPUT_FOLDER_MODEL1, OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp " + join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json") + "\n"
                 else:
                     if k == "3d_cascade_fullres":
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr", tr, "-m", "3d_lowres", "-p", pl, "-t", id_task_mapping[t])
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER -tr", trc, "-m", k, "-p", pl, "-t", id_task_mapping[t], "-l OUTPUT_FOLDER_LOWRES")
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + trc + " -m " + k + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES" + "\n"
                     else:
-                        print("python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER -tr", tr, "-m", k, "-p", pl, "-t", id_task_mapping[t])
+                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + k + " -p " + pl + " -t " + id_task_mapping[t] + "\n"
+                print(predict_str)
 
-        if summary_all_file is not None:
+        if summary_folder is not None:
+            with open(join(summary_folder, "prediction_commands.txt"), 'w') as f:
+                f.write(predict_str)
+
             num_classes = len(all_results[best_model].keys())
-            with open(summary_all_file, 'w') as f:
+            with open(join(summary_folder, "summary.csv"), 'w') as f:
                 f.write("model")
                 for c in range(1, num_classes + 1):
                     f.write(",class%d" % c)
+                f.write(",average")
                 f.write("\n")
                 for m in all_results.keys():
                     f.write(m)
                     for c in range(1, num_classes + 1):
                         f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
+                    f.write(",%01.4f" % results[m])
                     f.write("\n")
