@@ -205,6 +205,22 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         output_folder = join(self.output_folder, validation_folder_name)
         maybe_mkdir_p(output_folder)
+        # this is for debug purposes
+        my_input_args = {'do_mirroring': do_mirroring,
+                         'use_train_mode': use_train_mode,
+                         'tiled': tiled,
+                         'step': step,
+                         'save_softmax': save_softmax,
+                         'use_gaussian': use_gaussian,
+                         'overwrite': overwrite,
+                         'validation_folder_name': validation_folder_name,
+                         'debug': debug,
+                         'all_in_gpu': all_in_gpu,
+                         'force_separate_z': force_separate_z,
+                         'interpolation_order': interpolation_order,
+                         'interpolation_order_z': interpolation_order_z,
+                         }
+        save_json(my_input_args, join(output_folder, "validation_args.json"))
 
         if do_mirroring:
             if not self.data_aug_params['do_mirror']:

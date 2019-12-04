@@ -22,6 +22,7 @@ from torch import nn
 from torch.optim import lr_scheduler
 from collections import OrderedDict
 from nnunet.postprocessing.connected_components import determine_postprocessing
+
 matplotlib.use("agg")
 
 
@@ -464,6 +465,22 @@ class nnUNetTrainer(NetworkTrainer):
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name)
         maybe_mkdir_p(output_folder)
+        # this is for debug purposes
+        my_input_args = {'do_mirroring': do_mirroring,
+                         'use_train_mode': use_train_mode,
+                         'tiled': tiled,
+                         'step': step,
+                         'save_softmax': save_softmax,
+                         'use_gaussian': use_gaussian,
+                         'overwrite': overwrite,
+                         'validation_folder_name': validation_folder_name,
+                         'debug': debug,
+                         'all_in_gpu': all_in_gpu,
+                         'force_separate_z': force_separate_z,
+                         'interpolation_order': interpolation_order,
+                         'interpolation_order_z': interpolation_order_z,
+                         }
+        save_json(my_input_args, join(output_folder, "validation_args.json"))
 
         if do_mirroring:
             if not self.data_aug_params['do_mirror']:
@@ -514,7 +531,8 @@ class nnUNetTrainer(NetworkTrainer):
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
                                                            properties, interpolation_order, None, None, None,
-                                                           softmax_fname, None, force_separate_z, interpolation_order_z),
+                                                           softmax_fname, None, force_separate_z,
+                                                           interpolation_order_z),
                                                           )
                                                          )
                                )
