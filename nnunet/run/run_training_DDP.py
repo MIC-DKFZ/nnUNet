@@ -49,6 +49,8 @@ if __name__ == "__main__":
                         help="name of the validation folder")
     parser.add_argument("--interp_order", required=False, default=3, type=int,
                         help="order of interpolation for segmentations")
+    parser.add_argument("--interp_order_z", required=False, default=0, type=int,
+                        help="order of interpolation along z if z is resampled separately")
     parser.add_argument("--force_separate_z", required=False, default="False", type=str,
                         help="force_separate_z resampling. Can be None, True or False")
 
@@ -66,6 +68,7 @@ if __name__ == "__main__":
     find_lr = args.find_lr
     val_folder = args.val_folder
     interp_order = args.interp_order
+    interp_order_z = args.interp_order_z
     force_separate_z = args.force_separate_z
 
     if unpack == 0:
@@ -123,7 +126,7 @@ if __name__ == "__main__":
 
         # predict validation
         trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder, force_separate_z=force_separate_z,
-                         interpolation_order=interp_order)
+                         interpolation_order=interp_order, interpolation_order_z=interp_order_z)
 
         if network == '3d_lowres':
             trainer.load_best_checkpoint(False)

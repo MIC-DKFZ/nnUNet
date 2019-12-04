@@ -10,7 +10,8 @@ class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
 
     def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
-                 validation_folder_name: str = 'validation_raw', debug: bool = False):
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
+                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         pass
 
     def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,

@@ -451,7 +451,7 @@ class nnUNetTrainer(NetworkTrainer):
     def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3):
+                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
         """
         if debug=True then the temporary files generated for postprocessing determination will be kept
         :return:
@@ -514,7 +514,7 @@ class nnUNetTrainer(NetworkTrainer):
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
                                                            properties, interpolation_order, None, None, None,
-                                                           softmax_fname, None, force_separate_z),
+                                                           softmax_fname, None, force_separate_z, interpolation_order_z),
                                                           )
                                                          )
                                )

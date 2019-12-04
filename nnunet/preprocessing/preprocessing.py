@@ -122,7 +122,7 @@ def resample_data_or_seg(data, new_shape, is_seg, axis=None, order=3, do_separat
     new_shape = np.array(new_shape)
     if np.any(shape != new_shape):
         if do_separate_z:
-            print("separate z")
+            print("separate z, order", order_z)
             assert len(axis) == 1, "only one anisotropic axis supported"
             axis = axis[0]
             if axis == 0:

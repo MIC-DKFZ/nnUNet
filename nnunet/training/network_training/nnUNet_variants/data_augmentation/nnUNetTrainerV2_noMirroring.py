@@ -2,8 +2,10 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 
 class nnUNetTrainerV2_noMirroring(nnUNetTrainerV2):
-    def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, compute_global_dice=True, overwrite=True, validation_folder_name='validation_raw'):
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
+                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
 
@@ -25,7 +27,9 @@ class nnUNetTrainerV2_noMirroring(nnUNetTrainerV2):
         do_mirroring = False
         self.network.do_ds = False
         ret = super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name)
+                               overwrite, validation_folder_name, debug, all_in_gpu,
+                               force_separate_z=force_separate_z, interpolation_order=interpolation_order,
+                               interpolation_order_z=interpolation_order_z)
         self.network.do_ds = ds
         return ret
 
