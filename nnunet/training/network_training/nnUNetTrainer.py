@@ -1,7 +1,10 @@
 import shutil
+from collections import OrderedDict
 from multiprocessing import Pool
 from time import sleep
+
 import matplotlib
+import nnunet
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -11,6 +14,7 @@ from nnunet.inference.segmentation_export import save_segmentation_nifti_from_so
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
+from nnunet.postprocessing.connected_components import determine_postprocessing
 from nnunet.training.data_augmentation.default_data_augmentation import default_3D_augmentation_params, \
     default_2D_augmentation_params, get_default_augmentation, get_patch_size
 from nnunet.training.dataloading.dataset_loading import load_dataset, DataLoader3D, DataLoader2D, unpack_dataset
@@ -20,8 +24,6 @@ from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 from torch.optim import lr_scheduler
-from collections import OrderedDict
-from nnunet.postprocessing.connected_components import determine_postprocessing
 
 matplotlib.use("agg")
 
@@ -363,13 +365,22 @@ class nnUNetTrainer(NetworkTrainer):
         :param input_files:
         :return:
         """
-        from nnunet.preprocessing.preprocessing import GenericPreprocessor, PreprocessorFor2D
-        if self.threeD:
-            preprocessor = GenericPreprocessor(self.normalization_schemes, self.use_mask_for_norm,
-                                               self.transpose_forward, self.intensity_properties)
-        else:
-            preprocessor = PreprocessorFor2D(self.normalization_schemes, self.use_mask_for_norm,
-                                             self.transpose_forward, self.intensity_properties)
+        from nnunet.training.model_restore import recursive_find_trainer
+        preprocessor_name = self.plans.get('preprocessor_name')
+        if preprocessor_name is None:
+            if self.threeD:
+                preprocessor_name = "GenericPreprocessor"
+            else:
+                preprocessor_name = "PreprocessorFor2D"
+
+        print("using preprocessor", preprocessor_name)
+        preprocessor_class = recursive_find_trainer([join(nnunet.__path__[0], "preprocessing")],
+                                                    preprocessor_name,
+                                                    current_module="nnunet.preprocessing")
+        assert preprocessor_class is not None, "Could not find preprocessor %s in nnunet.preprocessing" % \
+                                               preprocessor_name
+        preprocessor = preprocessor_class(self.normalization_schemes, self.use_mask_for_norm,
+                                           self.transpose_forward, self.intensity_properties)
 
         d, s, properties = preprocessor.preprocess_test_case(input_files,
                                                              self.plans['plans_per_stage'][self.stage][

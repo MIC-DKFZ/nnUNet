@@ -87,6 +87,8 @@ if __name__ == "__main__":
     parser.add_argument("--step", type=float, default=2, required=False, help="don't touch")
     parser.add_argument("--interp_order", required=False, default=3, type=int,
                         help="order of interpolation for segmentations, has no effect if mode=fastest")
+    parser.add_argument("--interp_order_z", required=False, default=0, type=int,
+                        help="order of interpolation along z is z is done differently")
     parser.add_argument("--force_separate_z", required=False, default="False", type=str,
                         help="force_separate_z resampling. Can be None, True or False, has no effect if mode=fastest")
 
@@ -104,6 +106,7 @@ if __name__ == "__main__":
     fp16 = args.fp16
     step = args.step
     interp_order = args.interp_order
+    interp_order_z = args.interp_order_z
     force_separate_z = args.force_separate_z
 
     if force_separate_z == "None":
@@ -165,5 +168,5 @@ if __name__ == "__main__":
     predict_from_folder(output_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta,
                         overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16, step=step,
-                        force_separate_z=force_separate_z, interp_order=interp_order)
+                        force_separate_z=force_separate_z, interp_order=interp_order, interp_order_z=interp_order_z)
 

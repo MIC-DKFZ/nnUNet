@@ -31,7 +31,8 @@ def merge(args):
         res2 = np.load(file2)['softmax']
         props = load_pickle(properties_file)
         mn = np.mean((res1, res2), 0)
-        save_segmentation_nifti_from_softmax(mn, out_file, props, 3, None, None, None, force_separate_z=False)
+        save_segmentation_nifti_from_softmax(mn, out_file, props, 3, None, None, None, force_separate_z=None,
+                                             interpolation_order_z=0)
 
 
 if __name__ == "__main__":

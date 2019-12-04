@@ -171,7 +171,7 @@ def resample_data_or_seg(data, new_shape, is_seg, axis=None, order=3, do_separat
                             reshaped_multihot = np.round(
                                 map_coordinates((reshaped_data == cl).astype(float), coord_map, order=order_z,
                                                 cval=cval, mode='nearest'))
-                            reshaped[reshaped_multihot >= 0.5] = cl
+                            reshaped[reshaped_multihot > 0.5] = cl
                         reshaped_final_data.append(reshaped[None])
                 else:
                     reshaped_final_data.append(reshaped_data[None])

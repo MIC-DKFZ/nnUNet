@@ -33,7 +33,7 @@ from nnunet.utilities.one_hot_encoding import to_one_hot
 
 def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes, transpose_forward):
     # suppress output
-    sys.stdout = open(os.devnull, 'w')
+    #sys.stdout = open(os.devnull, 'w')
 
     errors_in = []
     for i, l in enumerate(list_of_lists):
@@ -85,7 +85,7 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
     else:
         print("This worker has ended successfully, no errors to report")
     # restore output
-    sys.stdout = sys.__stdout__
+    #sys.stdout = sys.__stdout__
 
 
 def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes=2, segs_from_prev_stage=None):
@@ -126,7 +126,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None, overwrite_existing=False,
-                  all_in_gpu=False, step=2, force_separate_z=None, interp_order=1):
+                  all_in_gpu=False, step=2, force_separate_z=None, interp_order=3, interp_order_z=0):
     """
 
     :param model:
@@ -228,7 +228,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
         results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
                                           ((softmax_mean, output_filename, dct, interp_order, None, None, None,
-                                            npz_file, None, force_separate_z),)
+                                            npz_file, None, force_separate_z, interp_order_z),)
                                           ))
 
     print("inference done. Now waiting for the segmentation export to finish...")
@@ -259,7 +259,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
                        num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None,
                        overwrite_existing=False, all_in_gpu=True, step=2, checkpoint_name="model_final_checkpoint",
-                       force_separate_z=None, interp_order=1):
+                       force_separate_z=None, interp_order=3):
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
@@ -488,7 +488,7 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=False,
                         overwrite_existing=True, mode='normal', overwrite_all_in_gpu=None, step=2,
-                        force_separate_z=None, interp_order=1):
+                        force_separate_z=None, interp_order=3, interp_order_z=0):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -535,7 +535,7 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
                              save_npz,
                              num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                              tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu, step=step,
-                             force_separate_z=force_separate_z, interp_order=interp_order)
+                             force_separate_z=force_separate_z, interp_order=interp_order, interp_order_z=interp_order_z)
     elif mode == "fast":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
@@ -626,6 +626,8 @@ if __name__ == "__main__":
     parser.add_argument("--step", type=float, default=2, required=False, help="don't touch")
     parser.add_argument("--interp_order", required=False, default=3, type=int,
                         help="order of interpolation for segmentations, has no effect if mode=fastest")
+    parser.add_argument("--interp_order_z", required=False, default=0, type=int,
+                        help="order of interpolation along z is z is done differently")
     parser.add_argument("--force_separate_z", required=False, default="False", type=str,
                         help="force_separate_z resampling. Can be None, True or False, has no effect if mode=fastest")
 
@@ -645,6 +647,7 @@ if __name__ == "__main__":
     step = args.step
 
     interp_order = args.interp_order
+    interp_order_z = args.interp_order_z
     force_separate_z = args.force_separate_z
 
     if force_separate_z == "None":
@@ -701,4 +704,4 @@ if __name__ == "__main__":
     predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=fp16,
                         overwrite_existing=overwrite, mode=mode, overwrite_all_in_gpu=all_in_gpu, step=step,
-                        force_separate_z=force_separate_z, interp_order=interp_order)
+                        force_separate_z=force_separate_z, interp_order=interp_order, interp_order_z=interp_order_z)

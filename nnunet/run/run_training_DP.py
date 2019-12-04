@@ -49,7 +49,7 @@ if __name__ == "__main__":
                         help="order of interpolation for segmentations")
     parser.add_argument("--interp_order_z", required=False, default=0, type=int,
                         help="order of interpolation along z if z is resampled separately")
-    parser.add_argument("--force_separate_z", required=False, default="False", type=str,
+    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
                         help="force_separate_z resampling. Can be None, True or False")
 
     args = parser.parse_args()

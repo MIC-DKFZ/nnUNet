@@ -228,7 +228,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                 softmax_pred = fname + ".npy"
             results.append(process_manager.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, 1, None, None, None, softmax_fname, None),
+                                                           properties, 3, None, None, None, softmax_fname, None),
                                                           )
                                                          )
                            )

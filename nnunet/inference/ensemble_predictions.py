@@ -27,7 +27,7 @@ def merge_files(args):
         softmax = np.vstack(softmax)
         softmax = np.mean(softmax, 0)
         props = load_pickle(properties_file)
-        save_segmentation_nifti_from_softmax(softmax, out_file, props, 3, None, None, None, force_separate_z=False)
+        save_segmentation_nifti_from_softmax(softmax, out_file, props, 3, None, None, None, force_separate_z=None)
 
 
 def merge(folders, output_folder, threads, override=True, postprocessing_file=None):
