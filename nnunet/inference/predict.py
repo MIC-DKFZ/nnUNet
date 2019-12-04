@@ -31,7 +31,7 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.one_hot_encoding import to_one_hot
 
 
-def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes):
+def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes, transpose_forward):
     # suppress output
     sys.stdout = open(os.devnull, 'w')
 
@@ -54,6 +54,7 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
                                                                                  "stage don't have the same pixel array " \
                                                                                  "shape! image: %s, seg_prev: %s" % \
                                                                                  (l[0], segs_from_prev_stage[i])
+                seg_prev = seg_prev.transpose(transpose_forward)
                 seg_reshaped = resize_segmentation(seg_prev, d.shape[1:], order=1, cval=0)
                 seg_reshaped = to_one_hot(seg_reshaped, classes)
                 d = np.vstack((d, seg_reshaped)).astype(np.float32)
@@ -100,7 +101,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
                                                          list_of_lists[i::num_processes],
                                                          output_files[i::num_processes],
                                                          segs_from_prev_stage[i::num_processes],
-                                                            classes))
+                                                         classes, trainer.plans['transpose_forward']))
         pr.start()
         processes.append(pr)
 
@@ -188,7 +189,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             d = data
 
         print("predicting", output_filename)
-
+        import IPython;IPython.embed()
         softmax = []
         for p in params:
             trainer.load_checkpoint_ram(p, False)
