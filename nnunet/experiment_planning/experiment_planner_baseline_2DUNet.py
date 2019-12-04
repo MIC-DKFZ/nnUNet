@@ -13,6 +13,7 @@
 #    limitations under the License.
 import shutil
 
+import nnunet
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_pickle, subfiles
 from multiprocessing.pool import Pool
@@ -23,6 +24,7 @@ from nnunet.experiment_planning.find_classes_in_slice import add_classes_in_slic
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 from nnunet.preprocessing.preprocessing import PreprocessorFor2D
+from nnunet.training.model_restore import recursive_find_trainer
 
 
 class ExperimentPlanner2D(ExperimentPlanner):
@@ -35,6 +37,8 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.unet_base_num_features = 30
         self.unet_max_num_filters = 512
         self.unet_max_numpool = 999
+
+        self.preprocessor_name = "PreprocessorFor2D"
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):
@@ -149,24 +153,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
         self.save_my_plans()
 
     def run_preprocessing(self, num_threads):
-        if os.path.isdir(join(self.preprocessed_output_folder, "gt_segmentations")):
-            shutil.rmtree(join(self.preprocessed_output_folder, "gt_segmentations"))
-        shutil.copytree(join(self.folder_with_cropped_data, "gt_segmentations"), join(self.preprocessed_output_folder,
-                                                                                      "gt_segmentations"))
-        normalization_schemes = self.plans['normalization_schemes']
-        use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
-        intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor = PreprocessorFor2D(normalization_schemes, use_nonzero_mask_for_normalization,
-                                         self.transpose_forward,
-                                         intensityproperties)
-        target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
-        if self.plans['num_stages'] > 1 and not isinstance(num_threads, (list, tuple)):
-            num_threads = (default_num_threads, num_threads)
-        elif self.plans['num_stages'] == 1 and isinstance(num_threads, (list, tuple)):
-            num_threads = num_threads[-1]
-        preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
-                         self.plans['data_identifier'], num_threads)
-
+        super().run_preprocessing(num_threads)
         self.add_classes_in_slice_info()
 
     def add_classes_in_slice_info(self):

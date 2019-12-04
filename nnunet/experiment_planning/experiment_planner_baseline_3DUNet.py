@@ -16,6 +16,7 @@ import shutil
 from collections import OrderedDict
 from copy import deepcopy
 
+import nnunet
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
@@ -26,6 +27,7 @@ from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 from nnunet.preprocessing.cropping import get_case_identifier_from_npz
 from nnunet.preprocessing.preprocessing import GenericPreprocessor
+from nnunet.training.model_restore import recursive_find_trainer
 
 
 class ExperimentPlanner(object):
@@ -33,6 +35,8 @@ class ExperimentPlanner(object):
         self.folder_with_cropped_data = folder_with_cropped_data
         self.preprocessed_output_folder = preprocessed_output_folder
         self.list_of_cropped_npz_files = subfiles(self.folder_with_cropped_data, True, None, ".npz", True)
+
+        self.preprocessor_name = "GenericPreprocessor"
 
         assert isfile(join(self.folder_with_cropped_data, "dataset_properties.pkl")), \
             "folder_with_cropped_data must contain dataset_properties.pkl"
@@ -343,7 +347,8 @@ class ExperimentPlanner(object):
                  'keep_only_largest_region': only_keep_largest_connected_component,
                  'min_region_size_per_class': min_region_size_per_class, 'min_size_per_class': min_size_per_class,
                  'transpose_forward': self.transpose_forward, 'transpose_backward': self.transpose_backward,
-                 'data_identifier': self.data_identifier, 'plans_per_stage': self.plans_per_stage}
+                 'data_identifier': self.data_identifier, 'plans_per_stage': self.plans_per_stage,
+                 'preprocessor_name': self.preprocessor_name}
 
         self.plans = plans
         self.save_my_plans()
@@ -414,13 +419,17 @@ class ExperimentPlanner(object):
     def run_preprocessing(self, num_threads):
         if os.path.isdir(join(self.preprocessed_output_folder, "gt_segmentations")):
             shutil.rmtree(join(self.preprocessed_output_folder, "gt_segmentations"))
-        shutil.copytree(join(self.folder_with_cropped_data, "gt_segmentations"),
-                        join(self.preprocessed_output_folder, "gt_segmentations"))
+        shutil.copytree(join(self.folder_with_cropped_data, "gt_segmentations"), join(self.preprocessed_output_folder,
+                                                                                      "gt_segmentations"))
         normalization_schemes = self.plans['normalization_schemes']
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor = GenericPreprocessor(normalization_schemes, use_nonzero_mask_for_normalization,
-                                           self.transpose_forward, intensityproperties)
+        preprocessor_class = recursive_find_trainer([join(nnunet.__path__[0], "preprocessing")],
+                                                    self.preprocessor_name, current_module="nnunet.preprocessing")
+        assert preprocessor_class is not None
+        preprocessor = preprocessor_class(normalization_schemes, use_nonzero_mask_for_normalization,
+                                         self.transpose_forward,
+                                          intensityproperties)
         target_spacings = [i["current_spacing"] for i in self.plans_per_stage.values()]
         if self.plans['num_stages'] > 1 and not isinstance(num_threads, (list, tuple)):
             num_threads = (default_num_threads, num_threads)
