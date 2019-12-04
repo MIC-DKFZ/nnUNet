@@ -189,7 +189,6 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             d = data
 
         print("predicting", output_filename)
-        import IPython;IPython.embed()
         softmax = []
         for p in params:
             trainer.load_checkpoint_ram(p, False)
