@@ -177,6 +177,7 @@ class SegmentationNetwork(NeuralNetwork):
         """
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
         assert self.get_device() != "cpu"
+        assert not all_in_gpu, "all_in_gpu is currently broken. Rounding errors in fp16... needs to be reimplemented with fp32"
         print("step:", step)
         print("do mirror:", do_mirroring)
 
@@ -212,7 +213,7 @@ class SegmentationNetwork(NeuralNetwork):
                     tmp[tuple(center_coords)] = 1
                     tmp_smooth = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
                     tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
-                    add = tmp_smooth + 1e-7
+                    add = tmp_smooth  # + 1e-7
 
                     # we only need to compute that once. It can take a while to compute this due to the large sigma in
                     # gaussian_filter
@@ -281,7 +282,7 @@ class SegmentationNetwork(NeuralNetwork):
                         else:
                             predicted_patch = predicted_patch.cpu().numpy()
 
-                        result[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += (predicted_patch + 1e-7)
+                        result[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += predicted_patch
 
                         if all_in_gpu:
                             result_numsamples[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += add.half()

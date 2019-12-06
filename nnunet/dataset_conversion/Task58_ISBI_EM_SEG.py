@@ -1,11 +1,25 @@
-import numpy as np
-import subprocess
 from collections import OrderedDict
-from nnunet.paths import splitted_4d_output_dir
-from batchgenerators.utilities.file_and_folder_operations import *
-import shutil
-from skimage import io
+
 import SimpleITK as sitk
+import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.paths import splitted_4d_output_dir
+from skimage import io
+
+
+def export_for_submission(predicted_npz, out_file):
+    """
+    they expect us to submit a 32 bit 3d tif image with values between 0 (100% membrane certainty) and 1
+    (100% non-membrane certainty). We use the softmax output for that
+    :return:
+    """
+    a = np.load(predicted_npz)['softmax']
+    a = a / a.sum(0)[None]
+    # channel 0 is non-membrane prob
+    nonmembr_prob = a[0]
+    assert out_file.endswith(".tif")
+    io.imsave(out_file, nonmembr_prob.astype(np.float32))
+
 
 
 if __name__ == "__main__":

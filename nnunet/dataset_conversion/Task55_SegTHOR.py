@@ -2,6 +2,23 @@ from collections import OrderedDict
 from nnunet.paths import splitted_4d_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
+import SimpleITK as sitk
+
+
+def convert_for_submission(source_dir, target_dir):
+    """
+    I believe they want .nii, not .nii.gz
+    :param source_dir:
+    :param target_dir:
+    :return:
+    """
+    files = subfiles(source_dir, suffix=".nii.gz", join=False)
+    maybe_mkdir_p(target_dir)
+    for f in files:
+        img = sitk.ReadImage(join(source_dir, f))
+        out_file = join(target_dir, f[:-7] + ".nii")
+        sitk.WriteImage(img, out_file)
+
 
 
 if __name__ == "__main__":

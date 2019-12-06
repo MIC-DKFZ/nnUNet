@@ -21,16 +21,19 @@ from nnunet.postprocessing.connected_components import apply_postprocessing_to_f
 
 
 def merge_files(args):
-    files, properties_file, out_file, only_keep_largest_connected_component, min_region_size_per_class, override = args
+    files, properties_file, out_file, only_keep_largest_connected_component, min_region_size_per_class, override, store_npz = args
     if override or not isfile(out_file):
         softmax = [np.load(f)['softmax'][None] for f in files]
         softmax = np.vstack(softmax)
         softmax = np.mean(softmax, 0)
         props = load_pickle(properties_file)
         save_segmentation_nifti_from_softmax(softmax, out_file, props, 3, None, None, None, force_separate_z=None)
+        if store_npz:
+            np.savez_compressed(out_file[:-7] + ".npz", softmax=softmax)
+            save_pickle(props, out_file[:-7] + ".pkl")
 
 
-def merge(folders, output_folder, threads, override=True, postprocessing_file=None):
+def merge(folders, output_folder, threads, override=True, postprocessing_file=None, store_npz=False):
     maybe_mkdir_p(output_folder)
 
     patient_ids = [subfiles(i, suffix=".npz", join=False) for i in folders]
@@ -58,7 +61,7 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
                                                                        plans['min_region_size_per_class']
     p = Pool(threads)
     p.map(merge_files, zip(files, property_files, out_files, [only_keep_largest_connected_component] * len(out_files),
-                           [min_region_size_per_class] * len(out_files), [override] * len(out_files)))
+                           [min_region_size_per_class] * len(out_files), [override] * len(out_files), [store_npz] * len(out_files)))
     p.close()
     p.join()
 
@@ -84,6 +87,7 @@ if __name__ == "__main__":
                                                              "will be made. It is strongly recommended to provide the "
                                                              "postprocessing file!",
                         required=False, type=str, default=None)
+    parser.add_argument('--npz', action="store_true", required=False, help="stores npz and pkl")
 
     args = parser.parse_args()
 
@@ -91,5 +95,6 @@ if __name__ == "__main__":
     threads = args.threads
     output_folder = args.output_folder
     pp_file = args.postprocessing_file
+    npz = args.npz
 
-    merge(folders, output_folder, threads, override=True, postprocessing_file=pp_file)
+    merge(folders, output_folder, threads, override=True, postprocessing_file=pp_file, store_npz=npz)
