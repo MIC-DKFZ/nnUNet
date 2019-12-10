@@ -7,6 +7,7 @@ from multiprocessing import Pool
 from medpy.metric import dc
 import numpy as np
 from nnunet.paths import network_training_output_dir
+from scipy.ndimage import label
 
 
 def compute_dice_scores(ref: str, pred: str):
@@ -44,6 +45,50 @@ def evaluate_folder(folder_gt: str, folder_pred: str):
             f.write("%s,%0.4f,%0.4f,%0.4f\n" % (ni, *results[i]))
 
 
+def remove_all_but_the_two_largest_conn_comp(img_itk_file: str, file_out: str):
+    """
+    This was not used. I was just curious because others used this. Turns out this is not necessary for my networks
+    """
+    img_itk = sitk.ReadImage(img_itk_file)
+    img_npy = sitk.GetArrayFromImage(img_itk)
+
+    labelmap, num_labels = label((img_npy > 0).astype(int))
+
+    if num_labels > 2:
+        label_sizes = []
+        for i in range(1, num_labels + 1):
+            label_sizes.append(np.sum(labelmap == i))
+        argsrt = np.argsort(label_sizes)[::-1] # two largest are now argsrt[0] and argsrt[1]
+        keep_mask = (labelmap == argsrt[0] + 1) | (labelmap == argsrt[1] + 1)
+        img_npy[~keep_mask] = 0
+        new = sitk.GetImageFromArray(img_npy)
+        new.CopyInformation(img_itk)
+        sitk.WriteImage(new, file_out)
+        print(os.path.basename(img_itk_file), num_labels, label_sizes)
+    else:
+        shutil.copy(img_itk_file, file_out)
+
+
+def manual_postprocess(folder_in,
+                       folder_out):
+    """
+    This was not used. I was just curious because others used this. Turns out this is not necessary for my networks
+    """
+    maybe_mkdir_p(folder_out)
+    infiles = subfiles(folder_in, suffix=".nii.gz", join=False)
+
+    outfiles = [join(folder_out, i) for i in infiles]
+    infiles = [join(folder_in, i) for i in infiles]
+
+    p = Pool(8)
+    _ = p.starmap_async(remove_all_but_the_two_largest_conn_comp, zip(infiles, outfiles))
+    _ = _.get()
+    p.close()
+    p.join()
+
+
+
+
 def copy_npz_fom_valsets():
     '''
     this is preparation for ensembling
@@ -75,8 +120,8 @@ def ensemble(experiments=('nnUNetTrainerNewCandidate23_FabiansPreActResNet__nnUN
     merge(folders, out_dir, 8)
 
 
-def prepare_submission(fld='/home/fabian/datasets_fabian/predicted_KiTS_nnUNetTrainerNewCandidate23_FabiansResNet',
-                       out='/home/fabian/datasets_fabian/predicted_KiTS_nnUNetTrainerNewCandidate23_FabiansResNet_submitted'):
+def prepare_submission(fld= "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task48_KiTS_clean/predicted_ens_3d_fullres_3d_cascade_fullres_postprocessed", # '/home/fabian/datasets_fabian/predicted_KiTS_nnUNetTrainerNewCandidate23_FabiansResNet',
+                       out='/home/fabian/drives/datasets/results/nnUNet/test_sets/Task48_KiTS_clean/submission'):
     nii = subfiles(fld, join=False, suffix='.nii.gz')
     maybe_mkdir_p(out)
     for n in nii:

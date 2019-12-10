@@ -30,10 +30,6 @@ from nnunet.paths import *
 
 class ExperimentPlanner3D_v23(ExperimentPlanner3D_v21):
     """
-    Combines ExperimentPlannerPoolBasedOnSpacing and ExperimentPlannerTargetSpacingForAnisoAxis
-
-    We also increase the base_num_features to 32. This is solely because mixed precision training with 3D convs and
-    Nvidia apex/amp is A LOT faster if the number of filters is divisible by 8
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner3D_v23, self).__init__(folder_with_cropped_data, preprocessed_output_folder)

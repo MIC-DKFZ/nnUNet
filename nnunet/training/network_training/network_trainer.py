@@ -16,7 +16,6 @@ import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
 
-
 try:
     from apex import amp
 except ImportError:
@@ -68,7 +67,7 @@ class NetworkTrainer(object):
 
         ################# SET THESE IN LOAD_DATASET OR DO_SPLIT ############################
         self.dataset = None  # these can be None for inference mode
-        self.dataset_tr = self.dataset_val = None # do not need to be used, they just appear if you are using the suggested load_dataset_and_do_split
+        self.dataset_tr = self.dataset_val = None  # do not need to be used, they just appear if you are using the suggested load_dataset_and_do_split
 
         ################# THESE DO NOT NECESSARILY NEED TO BE MODIFIED #####################
         self.patience = 50
@@ -94,11 +93,10 @@ class NetworkTrainer(object):
         self.all_tr_losses = []
         self.all_val_losses = []
         self.all_val_losses_tr_mode = []
-        self.all_val_eval_metrics = [] # does not have to be used
+        self.all_val_eval_metrics = []  # does not have to be used
         self.epoch = 0
         self.log_file = None
         self.deterministic = deterministic
-
 
     @abstractmethod
     def initialize(self, training=True):
@@ -207,7 +205,8 @@ class NetworkTrainer(object):
             maybe_mkdir_p(self.output_folder)
             timestamp = datetime.now()
             self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
-                                         (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute, timestamp.second))
+                                 (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
+                                  timestamp.second))
             with open(self.log_file, 'w') as f:
                 f.write("Starting... \n")
         successful = False
@@ -234,7 +233,8 @@ class NetworkTrainer(object):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].cpu()
         lr_sched_state_dct = None
-        if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'state_dict'): #not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
+        if self.lr_scheduler is not None and hasattr(self.lr_scheduler,
+                                                     'state_dict'):  # not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
             lr_sched_state_dct = self.lr_scheduler.state_dict()
             # WTF is this!?
             # for key in lr_sched_state_dct.keys():
@@ -278,7 +278,7 @@ class NetworkTrainer(object):
         self.print_to_log_file("loading checkpoint", fname, "train=", train)
         if not self.was_initialized:
             self.initialize(train)
-        #saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
+        # saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
         saved_model = torch.load(fname, map_location=torch.device('cpu'))
         self.load_checkpoint_ram(saved_model, train)
 
@@ -331,13 +331,15 @@ class NetworkTrainer(object):
             if optimizer_state_dict is not None:
                 self.optimizer.load_state_dict(optimizer_state_dict)
 
-            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model['lr_scheduler_state_dict'] is not None:
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
+                'lr_scheduler_state_dict'] is not None:
                 self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
 
             if issubclass(self.lr_scheduler.__class__, _LRScheduler):
                 self.lr_scheduler.step(self.epoch)
 
-        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model['plot_stuff']
+        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
+            'plot_stuff']
 
         # after the training is done, the epoch is incremented one more time in my old code. This results in
         # self.epoch = 1001 for old trained models when the epoch is actually 1000. This causes issues because
@@ -363,8 +365,8 @@ class NetworkTrainer(object):
                     self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
                     self.amp_initialized = True
                 else:
-                    self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
-                                           "Install it from https://github.com/NVIDIA/apex")
+                    raise RuntimeError("WARNING: FP16 training was requested but nvidia apex is not installed. "
+                                       "Install it from https://github.com/NVIDIA/apex")
 
     def plot_network_architecture(self):
         """
@@ -377,7 +379,7 @@ class NetworkTrainer(object):
     def run_training(self):
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
-        
+
         torch.cuda.empty_cache()
 
         self._maybe_init_amp()
@@ -438,7 +440,7 @@ class NetworkTrainer(object):
                 break
 
             self.epoch += 1
-            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time-epoch_start_time))
+            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time - epoch_start_time))
 
         self.epoch -= 1  # if we don't do this we can get a problem with loading model_final_checkpoint.
 
@@ -491,11 +493,11 @@ class NetworkTrainer(object):
                 is better, so we need to negate it. 
                 """
                 self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA - (
-                            1 - self.val_eval_criterion_alpha) * \
+                        1 - self.val_eval_criterion_alpha) * \
                                              self.all_val_losses[-1]
             else:
                 self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA + (
-                            1 - self.val_eval_criterion_alpha) * \
+                        1 - self.val_eval_criterion_alpha) * \
                                              self.all_val_eval_metrics[-1]
 
     def manage_patience(self):
@@ -549,7 +551,7 @@ class NetworkTrainer(object):
         return continue_training
 
     def on_epoch_end(self):
-        self.finish_online_evaluation() # does not have to do anything, but can be used to update self.all_val_eval_
+        self.finish_online_evaluation()  # does not have to do anything, but can be used to update self.all_val_eval_
         # metrics
 
         self.plot_progress()
@@ -634,7 +636,7 @@ class NetworkTrainer(object):
         """
         import math
         self._maybe_init_amp()
-        mult = (final_value / init_value) ** (1/num_iters)
+        mult = (final_value / init_value) ** (1 / num_iters)
         lr = init_value
         self.optimizer.param_groups[0]['lr'] = lr
         avg_loss = 0.
@@ -647,15 +649,15 @@ class NetworkTrainer(object):
             loss = self.run_iteration(self.tr_gen, do_backprop=True, run_online_evaluation=False).data.item() + 1
 
             # Compute the smoothed loss
-            avg_loss = beta * avg_loss + (1-beta) * loss
-            smoothed_loss = avg_loss / (1 - beta**batch_num)
+            avg_loss = beta * avg_loss + (1 - beta) * loss
+            smoothed_loss = avg_loss / (1 - beta ** batch_num)
 
             # Stop if the loss is exploding
             if batch_num > 1 and smoothed_loss > 4 * best_loss:
                 break
 
             # Record the best loss
-            if smoothed_loss < best_loss or batch_num==1:
+            if smoothed_loss < best_loss or batch_num == 1:
                 best_loss = smoothed_loss
 
             # Store the values

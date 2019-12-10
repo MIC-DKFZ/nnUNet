@@ -17,8 +17,8 @@ import shutil
 
 
 if __name__ == "__main__":
-    indir = "/home/fabian/drives/datasets/results/nnUNetOutput_final/predicted_test_sets/Task17_AbdominalOrganSegmentation/ensemble_3d_fullres_cascade_and_3d_fullres"
-    outdir = "/home/fabian/drives/datasets/results/nnUNetOutput_final/predicted_test_sets/Task17_AbdominalOrganSegmentation/submit"
+    indir = "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task17_AbdominalOrganSegmentation/predicted_3d_cascade_fullres"
+    outdir = "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task17_AbdominalOrganSegmentation/ready_for_submission"
     files = subfiles(indir, suffix='nii.gz', prefix="img", join=False)
     maybe_mkdir_p(outdir)
     for f in files:
