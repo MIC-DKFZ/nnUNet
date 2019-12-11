@@ -4,7 +4,7 @@ from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
-from nnunet.utilities.helperModules import Identity
+from nnunet.network_architecture.custom_modules.helperModules import Identity
 
 
 class nnUNetTrainerV2_FRN(nnUNetTrainerV2):

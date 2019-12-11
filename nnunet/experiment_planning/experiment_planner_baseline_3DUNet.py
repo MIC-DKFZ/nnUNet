@@ -320,7 +320,6 @@ class ExperimentPlanner(object):
                                                     len(self.list_of_cropped_npz_files),
                                                     num_modalities, len(all_classes) + 1)
                 architecture_input_voxels_here = np.prod(new['patch_size'], dtype=np.int64)
-
             if 2 * np.prod(new['median_patient_size_in_voxels'], dtype=np.int64) < np.prod(
                     self.plans_per_stage[0]['median_patient_size_in_voxels'], dtype=np.int64):
                 self.plans_per_stage.append(new)

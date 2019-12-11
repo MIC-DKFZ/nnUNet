@@ -1,21 +1,48 @@
 import subprocess
 from collections import OrderedDict
+
+from nnunet.dataset_conversion.Task56_Verse_normalize_orientation import normalize_slice_orientation, read_image, save_image, restore_original_slice_orientation
 from nnunet.paths import splitted_4d_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 
 
+def load_corr_save(in_folder: str, out_folder: str, filename: str):
+    assert filename.endswith(".nii.gz")
+    maybe_mkdir_p(out_folder)
+    img, header = read_image(join(in_folder, filename))
+    img_corr, header_corr = normalize_slice_orientation(img, header)
+    # now we save without restoring original slice orientation. We pickle the header for later
+    save_image(img_corr, header_corr, join(out_folder, filename))
+    save_pickle(header, join(out_folder, filename[:-7] + ".pkl"))
+
+    # just a test to see if we can reproduce the original image
+    # img_corr2, header_corr2 = restore_original_slice_orientation(img_corr, header_corr)
+    # save_image(img_corr2, header_corr2, join(out_folder, filename[:-7] + "_re.nii.gz"))
+    # seems to work
+
+
 if __name__ == "__main__":
     base = "/media/fabian/DeepLearningData/VerSe2019"
-    # the orientation of VerSe is all fing over the place. run fslreorient2std to correct that (hopefully!)
-    # THIS CAN HAVE CONSEQUENCES FOR THE TEST SET SUBMISSION! CAREFUL!
-    train_files_base = subfiles(join(base, "train"), join=True, suffix="_seg.nii.gz")
+    base_corrOrient = "/media/fabian/DeepLearningData/VerSe2019_corrOrient"
+
+    # correct orientation
+    train_files_base = subfiles(join(base, "train"), join=False, suffix="_seg.nii.gz")
     train_segs = [i[:-len("_seg.nii.gz")] + "_seg.nii.gz" for i in train_files_base]
     train_data = [i[:-len("_seg.nii.gz")] + ".nii.gz" for i in train_files_base]
-    test_files_base = [i[:-len(".nii.gz")] for i in subfiles(join(base, "test"), join=True, suffix=".nii.gz")]
+    test_files_base = [i[:-len(".nii.gz")] for i in subfiles(join(base, "test"), join=False, suffix=".nii.gz")]
     test_data = [i + ".nii.gz" for i in test_files_base]
-    for f in train_segs + train_data + test_data:
-        subprocess.call(['fslreorient2std', f, f])
+
+    for i in train_segs + train_data:
+        load_corr_save(join(base, "train"), join(base_corrOrient, "train"), i)
+    for i in test_data:
+        load_corr_save(join(base, "test"), join(base_corrOrient, "test"), i)
+
+    train_files_base = subfiles(join(base_corrOrient, "train"), join=True, suffix="_seg.nii.gz")
+    train_segs = [i[:-len("_seg.nii.gz")] + "_seg.nii.gz" for i in train_files_base]
+    train_data = [i[:-len("_seg.nii.gz")] + ".nii.gz" for i in train_files_base]
+    test_files_base = [i[:-len(".nii.gz")] for i in subfiles(join(base_corrOrient, "test"), join=True, suffix=".nii.gz")]
+    test_data = [i + ".nii.gz" for i in test_files_base]
 
 
     task_id = 56
@@ -31,17 +58,17 @@ if __name__ == "__main__":
     maybe_mkdir_p(imagests)
     maybe_mkdir_p(labelstr)
 
-    train_patient_names = [i[:-len("_seg.nii.gz")] for i in subfiles(join(base, "train"), join=False, suffix="_seg.nii.gz")]
+    train_patient_names = [i[:-len("_seg.nii.gz")] for i in subfiles(join(base_corrOrient, "train"), join=False, suffix="_seg.nii.gz")]
     for p in train_patient_names:
-        curr = join(base, "train")
+        curr = join(base_corrOrient, "train")
         label_file = join(curr, p + "_seg.nii.gz")
         image_file = join(curr, p + ".nii.gz")
         shutil.copy(image_file, join(imagestr, p + "_0000.nii.gz"))
         shutil.copy(label_file, join(labelstr, p + ".nii.gz"))
 
-    test_patient_names = [i[:-7] for i in subfiles(join(base, "test"), join=False, suffix=".nii.gz")]
+    test_patient_names = [i[:-7] for i in subfiles(join(base_corrOrient, "test"), join=False, suffix=".nii.gz")]
     for p in test_patient_names:
-        curr = join(base, "test")
+        curr = join(base_corrOrient, "test")
         image_file = join(curr, p + ".nii.gz")
         shutil.copy(image_file, join(imagests, p + "_0000.nii.gz"))
 
