@@ -17,7 +17,7 @@ from nnunet.inference.segmentation_export import save_segmentation_nifti_from_so
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 from multiprocessing import Pool
-from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_for_which_classes
+from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_postprocessing
 
 
 def merge_files(args):
@@ -66,8 +66,10 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
     p.join()
 
     if postprocessing_file is not None:
+        for_which_classes, min_valid_obj_size = load_postprocessing(postprocessing_file)
+
         apply_postprocessing_to_folder(output_folder, output_folder + "_postprocessed",
-                                       load_for_which_classes(postprocessing_file), threads)
+                                       for_which_classes, min_valid_obj_size, threads)
         shutil.copy(postprocessing_file, output_folder + "_postprocessed")
 
 

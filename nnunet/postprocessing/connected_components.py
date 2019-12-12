@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import ast
 from copy import deepcopy
 from multiprocessing.pool import Pool
 
@@ -24,55 +25,92 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 
 
-def load_remove_save(input_file: str, output_file: str, for_which_classes: list):
+def load_remove_save(input_file: str, output_file: str, for_which_classes: list,
+                     minimum_valid_object_size: dict = None):
+    # Only objects larger than minimum_valid_object_size will be removed. Keys in minimum_valid_object_size must
+    # match entries in for_which_classes
     img_in = sitk.ReadImage(input_file)
     img_npy = sitk.GetArrayFromImage(img_in)
+    volume_per_voxel = float(np.prod(img_in.GetSpacing(), dtype=np.float64))
 
-    img_out_itk = sitk.GetImageFromArray(remove_all_but_the_largest_connected_component(img_npy, for_which_classes))
+    image, largest_removed, kept_size = remove_all_but_the_largest_connected_component(img_npy, for_which_classes,
+                                                                                       volume_per_voxel,
+                                                                                       minimum_valid_object_size)
+    # print(input_file, "kept:", kept_size)
+    img_out_itk = sitk.GetImageFromArray(image)
     img_out_itk = copy_geometry(img_out_itk, img_in)
     sitk.WriteImage(img_out_itk, output_file)
+    return largest_removed, kept_size
 
 
-def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_classes: list):
+def remove_all_but_the_largest_connected_component(image: np.ndarray, for_which_classes: list, volume_per_voxel: float,
+                                                   minimum_valid_object_size: dict = None):
     """
     removes all but the largest connected component, individually for each class
     :param image:
     :param for_which_classes: can be None. Should be list of int. Can also be something like [(1, 2), 2, 4].
     Here (1, 2) will be treated as a joint region, not individual classes (example LiTS here we can use (1, 2)
     to use all foreground classes together)
+    :param minimum_valid_object_size: Only objects larger than minimum_valid_object_size will be removed. Keys in
+    minimum_valid_object_size must match entries in for_which_classes
     :return:
     """
     if for_which_classes is None:
         for_which_classes = np.unique(image)
         for_which_classes = for_which_classes[for_which_classes > 0]
 
-    assert 0 not in for_which_classes
-
+    assert 0 not in for_which_classes, "cannot remove background"
+    largest_removed = {}
+    kept_size = {}
     for c in for_which_classes:
         if isinstance(c, (list, tuple)):
+            c = tuple(c)  # otherwise it cant be used as key in the dict
             mask = np.zeros_like(image, dtype=bool)
             for cl in c:
                 mask[image == cl] = True
         else:
             mask = image == c
+        # get labelmap and number of objects
         lmap, num_objects = label(mask.astype(int))
-        if num_objects > 1:
-            sizes = []
-            for o in range(1, num_objects + 1):
-                sizes.append((lmap == o).sum())
-            mx = np.argmax(sizes) + 1
-            image[(lmap != mx) & mask] = 0
-    return image
+
+        # collect object sizes
+        object_sizes = {}
+        for object_id in range(1, num_objects + 1):
+            object_sizes[object_id] = (lmap == object_id).sum() * volume_per_voxel
+
+        largest_removed[c] = None
+        kept_size[c] = None
+
+        if num_objects > 0:
+            # we always keep the largest object. We could also consider removing the largest object if it is smaller
+            # than minimum_valid_object_size in the future but we don't do that now.
+            maximum_size = max(object_sizes.values())
+            kept_size[c] = maximum_size
+
+            for object_id in range(1, num_objects + 1):
+                # we only remove objects that are not the largest
+                if object_sizes[object_id] != maximum_size:
+                    # we only remove objects that are smaller than minimum_valid_object_size
+                    remove = True
+                    if minimum_valid_object_size is not None:
+                        remove = object_sizes[object_id] < minimum_valid_object_size[c]
+                    if remove:
+                        image[(lmap == object_id) & mask] = 0
+                        if largest_removed[c] is None:
+                            largest_removed[c] = object_sizes[object_id]
+                        else:
+                            largest_removed[c] = max(largest_removed[c], object_sizes[object_id])
+    return image, largest_removed, kept_size
 
 
-def load_for_which_classes(json_file):
+def load_postprocessing(json_file):
     '''
     loads the relevant part of the pkl file that is needed for applying postprocessing
     :param pkl_file:
     :return:
     '''
     a = load_json(json_file)
-    return a['for_which_classes']
+    return a['for_which_classes'], ast.literal_eval(a['min_valid_object_sizes'])
 
 
 def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
@@ -91,7 +129,8 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     :return:
     """
     # lets see what classes are in the dataset
-    classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['mean'].keys() if int(i) != 0]
+    classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['mean'].keys() if
+               int(i) != 0]
 
     folder_all_classes_as_fg = join(base, temp_folder + "_allClasses")
     folder_per_class = join(base, temp_folder + "_perClass")
@@ -122,19 +161,58 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     pp_results['dc_per_class_pp_per_class'] = {}  # dice scores after removing everything except larges cc
     # independently for each class after we already did dc_per_class_pp_all
     pp_results['for_which_classes'] = []
+    pp_results['min_valid_object_sizes'] = {}
+
 
     validation_result_raw = load_json(join(base, raw_subfolder_name, "summary.json"))['results']
     pp_results['num_samples'] = len(validation_result_raw['all'])
     validation_result_raw = validation_result_raw['mean']
-
-    pred_gt_tuples = []
 
     # first treat all foreground classes as one and remove all but the largest foreground connected component
     for f in fnames:
         predicted_segmentation = join(base, raw_subfolder_name, f)
         # now remove all but the largest connected component for each class
         output_file = join(folder_all_classes_as_fg, f)
-        results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, (classes, )),)))
+        results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, (classes,)),)))
+
+    results = [i.get() for i in results]
+
+    # aggregate max_size_removed and min_size_kept
+    max_size_removed = {}
+    min_size_kept = {}
+    for tmp in results:
+        mx_rem, min_kept = tmp[0]
+        for k in mx_rem:
+            if mx_rem[k] is not None:
+                if max_size_removed.get(k) is None:
+                    max_size_removed[k] = mx_rem[k]
+                else:
+                    max_size_removed[k] = max(max_size_removed[k], mx_rem[k])
+        for k in min_kept:
+            if min_kept[k] is not None:
+                if min_size_kept.get(k) is None:
+                    min_size_kept[k] = min_kept[k]
+                else:
+                    min_size_kept[k] = min(min_size_kept[k], min_kept[k])
+
+    print("foreground vs background, smallest valid object size was", min_size_kept[tuple(classes)])
+    print("removing only objects smaller than that...")
+
+    # get the maximum object size for which we allow removal
+    # we do not allow the removal of components smaller than the largest component that was kept fpr now.
+    # Optional for the future:
+    # (we do not allow the removel of components larger than the largest one that was removed)
+
+    # we need to rerun the step from above, now with the size constraint
+    pred_gt_tuples = []
+    results = []
+    # first treat all foreground classes as one and remove all but the largest foreground connected component
+    for f in fnames:
+        predicted_segmentation = join(base, raw_subfolder_name, f)
+        # now remove all but the largest connected component for each class
+        output_file = join(folder_all_classes_as_fg, f)
+        results.append(
+            p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, (classes,), min_size_kept),)))
         pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
 
     _ = [i.get() for i in results]
@@ -157,60 +235,115 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
 
     # true if new is better
     do_fg_cc = False
-    comp = [pp_results['dc_per_class_pp_all'][str(cl)] > (pp_results['dc_per_class_raw'][str(cl)] + dice_threshold) for cl in classes]
+    comp = [pp_results['dc_per_class_pp_all'][str(cl)] > (pp_results['dc_per_class_raw'][str(cl)] + dice_threshold) for
+            cl in classes]
+    before = np.mean([pp_results['dc_per_class_raw'][str(cl)] for cl in classes])
+    after = np.mean([pp_results['dc_per_class_pp_all'][str(cl)] for cl in classes])
+    print("Foreground vs background")
+    print("before:", before)
+    print("after: ", after)
     if any(comp):
         # at least one class improved - yay!
         # now check if another got worse
         # true if new is worse
-        any_worse = any([pp_results['dc_per_class_pp_all'][str(cl)] < pp_results['dc_per_class_raw'][str(cl)] for cl in classes])
+        any_worse = any(
+            [pp_results['dc_per_class_pp_all'][str(cl)] < pp_results['dc_per_class_raw'][str(cl)] for cl in classes])
         if not any_worse:
             pp_results['for_which_classes'].append(classes)
+            pp_results['min_valid_object_sizes'].update(deepcopy(min_size_kept))
             do_fg_cc = True
+            print("Removing all but the largest foreground region improved results!")
+            print('for_which_classes', classes)
+            print('min_valid_object_sizes', min_size_kept)
     else:
         # did not improve things - don't do it
         pass
 
-    # now depending on whether we do remove all but the largest foreground connected component we define the source dir
-    # for the next one to be the raw or the temp dir
-    if do_fg_cc:
-        source = folder_all_classes_as_fg
+    if len(classes) > 1:
+        # now depending on whether we do remove all but the largest foreground connected component we define the source dir
+        # for the next one to be the raw or the temp dir
+        if do_fg_cc:
+            source = folder_all_classes_as_fg
+        else:
+            source = join(base, raw_subfolder_name)
+
+        # now run this for each class separately
+        results = []
+        for f in fnames:
+            predicted_segmentation = join(source, f)
+            output_file = join(folder_per_class, f)
+            results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, classes),)))
+
+        results = [i.get() for i in results]
+
+        # aggregate max_size_removed and min_size_kept
+        max_size_removed = {}
+        min_size_kept = {}
+        for tmp in results:
+            mx_rem, min_kept = tmp[0]
+            for k in mx_rem:
+                if mx_rem[k] is not None:
+                    if max_size_removed.get(k) is None:
+                        max_size_removed[k] = mx_rem[k]
+                    else:
+                        max_size_removed[k] = max(max_size_removed[k], mx_rem[k])
+            for k in min_kept:
+                if min_kept[k] is not None:
+                    if min_size_kept.get(k) is None:
+                        min_size_kept[k] = min_kept[k]
+                    else:
+                        min_size_kept[k] = min(min_size_kept[k], min_kept[k])
+
+        print("classes treated separately, smallest valid object sizes are")
+        print(min_size_kept)
+        print("removing only objects smaller than that")
+        # rerun with the size thresholds from above
+        pred_gt_tuples = []
+        results = []
+        for f in fnames:
+            predicted_segmentation = join(source, f)
+            output_file = join(folder_per_class, f)
+            results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, classes, min_size_kept),)))
+            pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
+
+        _ = [i.get() for i in results]
+
+        # evaluate postprocessed predictions
+        _ = aggregate_scores(pred_gt_tuples, labels=classes,
+                             json_output_file=join(folder_per_class, "summary.json"),
+                             json_author="Fabian", num_threads=processes)
+
+        if do_fg_cc:
+            old_res = deepcopy(validation_result_PP_test)
+        else:
+            old_res = validation_result_raw
+
+        # these are the new dice scores
+        validation_result_PP_test = load_json(join(folder_per_class, "summary.json"))['results']['mean']
+
+        for c in classes:
+            dc_raw = old_res[str(c)]['Dice']
+            dc_pp = validation_result_PP_test[str(c)]['Dice']
+            pp_results['dc_per_class_pp_per_class'][str(c)] = dc_pp
+            print(c)
+            print("before:", dc_raw)
+            print("after: ", dc_pp)
+
+            if dc_pp > (dc_raw + dice_threshold):
+                pp_results['for_which_classes'].append(int(c))
+                pp_results['min_valid_object_sizes'].update({c: min_size_kept[c]})
+                print("Removing all but the largest region for class %d improved results!" % c)
+                print('min_valid_object_sizes', min_size_kept)
     else:
-        source = join(base, raw_subfolder_name)
-
-    pred_gt_tuples = []
-    for f in fnames:
-        predicted_segmentation = join(source, f)
-        output_file = join(folder_per_class, f)
-        results.append(p.starmap_async(load_remove_save, ((predicted_segmentation, output_file, classes),)))
-        pred_gt_tuples.append([output_file, join(gt_labels_folder, f)])
-
-    _ = [i.get() for i in results]
-
-    # evaluate postprocessed predictions
-    _ = aggregate_scores(pred_gt_tuples, labels=classes,
-                         json_output_file=join(folder_per_class, "summary.json"),
-                         json_author="Fabian", num_threads=processes)
-
-    if do_fg_cc:
-        old_res = deepcopy(validation_result_PP_test)
-    else:
-        old_res = validation_result_raw
-
-    # these are the new dice scores
-    validation_result_PP_test = load_json(join(folder_per_class, "summary.json"))['results']['mean']
-
-    for c in classes:
-        dc_raw = old_res[str(c)]['Dice']
-        dc_pp = validation_result_PP_test[str(c)]['Dice']
-        pp_results['dc_per_class_pp_per_class'][str(c)] = dc_pp
-
-        if dc_pp > (dc_raw + dice_threshold):
-            pp_results['for_which_classes'].append(int(c))
+        print("Only one class present, no need to do each class separately as this is covered in fg vs bg")
+    print("done")
+    print("for which classes:")
+    print(pp_results['for_which_classes'])
+    print("min_object_sizes")
+    print(pp_results['min_valid_object_sizes'])
 
     pp_results['validation_raw'] = raw_subfolder_name
     pp_results['validation_final'] = final_subf_name
-
-    save_json(pp_results, join(base, "postprocessing.json"))
 
     # now that we have a proper for_which_classes, apply that
     pred_gt_tuples = []
@@ -221,7 +354,8 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
         # now remove all but the largest connected component for each class
         output_file = join(base, final_subf_name, f)
         results.append(p.starmap_async(load_remove_save, (
-        (predicted_segmentation, output_file, pp_results['for_which_classes']),)))
+            (predicted_segmentation, output_file, pp_results['for_which_classes'],
+             pp_results['min_valid_object_sizes']),)))
 
         pred_gt_tuples.append([output_file,
                                join(gt_labels_folder, f)])
@@ -231,6 +365,10 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     _ = aggregate_scores(pred_gt_tuples, labels=classes,
                          json_output_file=join(base, final_subf_name, "summary.json"),
                          json_author="Fabian", num_threads=processes)
+
+    pp_results['min_valid_object_sizes'] = str(pp_results['min_valid_object_sizes'])
+
+    save_json(pp_results, join(base, "postprocessing_V2.json"))
 
     # delete temp
     if not debug:
@@ -242,9 +380,12 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     print("done")
 
 
-def apply_postprocessing_to_folder(input_folder: str, output_folder: str, for_which_classes: list, num_processes=8):
+def apply_postprocessing_to_folder(input_folder: str, output_folder: str, for_which_classes: list,
+                                   min_valid_object_size:dict=None, num_processes=8):
     """
     applies removing of all but the largest connected component to all niftis in a folder
+    :param min_valid_object_size:
+    :param min_valid_object_size:
     :param input_folder:
     :param output_folder:
     :param for_which_classes:
@@ -256,7 +397,8 @@ def apply_postprocessing_to_folder(input_folder: str, output_folder: str, for_wh
     nii_files = subfiles(input_folder, suffix=".nii.gz", join=False)
     input_files = [join(input_folder, i) for i in nii_files]
     out_files = [join(output_folder, i) for i in nii_files]
-    results = p.starmap_async(load_remove_save, zip(input_files, out_files, [for_which_classes] * len(input_files)))
+    results = p.starmap_async(load_remove_save, zip(input_files, out_files, [for_which_classes] * len(input_files),
+                                                    [min_valid_object_size] * len(input_files)))
     res = results.get()
     p.close()
     p.join()

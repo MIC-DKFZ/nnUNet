@@ -105,10 +105,11 @@ def convert_variant2_predicted_test_to_submission_format(folder_with_predictions
         shutil.copy(join(folder_with_predictions, t2), join(final_predictions_folder, t2))
 
     # apply postprocessing
-    from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_for_which_classes
+    from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_postprocessing
     postprocessed_folder = join(output_folder, "final_postprocessed")
+    for_which_classes, min_valid_obj_size = load_postprocessing(postprocessing_file)
     apply_postprocessing_to_folder(final_predictions_folder, postprocessed_folder,
-                                   load_for_which_classes(postprocessing_file), 8)
+                                   for_which_classes, min_valid_obj_size, 8)
 
     # now export the niftis in the weird png format
     # task 3

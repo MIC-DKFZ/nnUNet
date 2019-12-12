@@ -38,7 +38,6 @@ try:
     cropped_output_dir = join(base, "nnUNet_raw_cropped")
     maybe_mkdir_p(splitted_4d_output_dir)
     maybe_mkdir_p(raw_dataset_dir)
-    maybe_mkdir_p(raw_dataset_dir)
 except KeyError:
     cropped_output_dir = splitted_4d_output_dir = raw_dataset_dir = base = None
 
@@ -49,6 +48,7 @@ try:
     # different systems (and our compute cluster). You can replace this line with something like:
     # preprocessing_output_dir = "/path/to/my/folder_with_preprocessed_data"
     preprocessing_output_dir = os.environ['nnUNet_preprocessed']
+    maybe_mkdir_p(preprocessing_output_dir)
 except KeyError:
     preprocessing_output_dir = None
 

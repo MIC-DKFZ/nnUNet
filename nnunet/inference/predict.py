@@ -25,7 +25,7 @@ import torch
 import SimpleITK as sitk
 import shutil
 from multiprocessing import Pool
-from nnunet.postprocessing.connected_components import load_remove_save, load_for_which_classes
+from nnunet.postprocessing.connected_components import load_remove_save, load_postprocessing
 from nnunet.training.model_restore import load_model_and_checkpoint_files
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.one_hot_encoding import to_one_hot
@@ -242,10 +242,11 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         shutil.copy(pp_file, os.path.dirname(output_filenames[0]))
         # for_which_classes stores for which of the classes everything but the largest connected component needs to be
         # removed
-        for_which_classes = load_for_which_classes(pp_file)
+        for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
         results.append(pool.starmap_async(load_remove_save,
                                           zip(output_filenames, output_filenames,
-                                              [for_which_classes] * len(output_filenames))))
+                                              [for_which_classes] * len(output_filenames),
+                                              [min_valid_obj_size] * len(output_filenames))))
         _ = [i.get() for i in results]
     else:
         print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
@@ -359,10 +360,11 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
         shutil.copy(pp_file, os.path.dirname(output_filenames[0]))
         # for_which_classes stores for which of the classes everything but the largest connected component needs to be
         # removed
-        for_which_classes = load_for_which_classes(pp_file)
+        for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
         results.append(pool.starmap_async(load_remove_save,
                                           zip(output_filenames, output_filenames,
-                                              [for_which_classes] * len(output_filenames))))
+                                              [for_which_classes] * len(output_filenames),
+                                              [min_valid_obj_size] * len(output_filenames))))
         _ = [i.get() for i in results]
     else:
         print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
@@ -471,10 +473,11 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
         shutil.copy(pp_file, os.path.dirname(output_filenames[0]))
         # for_which_classes stores for which of the classes everything but the largest connected component needs to be
         # removed
-        for_which_classes = load_for_which_classes(pp_file)
+        for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
         results.append(pool.starmap_async(load_remove_save,
                                           zip(output_filenames, output_filenames,
-                                              [for_which_classes] * len(output_filenames))))
+                                              [for_which_classes] * len(output_filenames),
+                                              [min_valid_obj_size] * len(output_filenames))))
         _ = [i.get() for i in results]
     else:
         print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
