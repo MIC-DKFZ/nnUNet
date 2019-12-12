@@ -118,7 +118,7 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
                              final_subf_name="validation_final", processes=default_num_threads,
                              dice_threshold=0, debug=False,
                              advanced_postprocessing=False,
-                             pp_filename="postprocessing_V1.json"):
+                             pp_filename="postprocessing.json"):
     """
     :param base:
     :param gt_labels_folder: subfolder of base with niftis of ground truth labels
