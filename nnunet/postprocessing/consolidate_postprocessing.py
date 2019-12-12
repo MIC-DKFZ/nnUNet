@@ -21,12 +21,13 @@ from nnunet.postprocessing.connected_components import determine_postprocessing
 import argparse
 
 
-def consolidate_folds(output_folder_base, validation_folder_name='validation_raw'):
+def consolidate_folds(output_folder_base, validation_folder_name='validation_raw', advanced_postprocessing: bool = False):
     """
     Used to determine the postprocessing for an experiment after all five folds have been completed. In the validation of
     each fold, the postprocessing can only be determined on the cases within that fold. This can result in different
     postprocessing decisions for different folds. In the end, we can only decide for one postprocessing per experiment,
     so we have to rerun it
+    :param advanced_postprocessing:
     :param output_folder_base:experiment output folder (fold_0, fold_1, etc must be subfolders of the given folder)
     :param validation_folder_name: dont use this
     :return:
@@ -68,7 +69,8 @@ def consolidate_folds(output_folder_base, validation_folder_name='validation_raw
                      num_threads=default_num_threads)
 
     determine_postprocessing(output_folder_base, join(output_folder_base, "gt_niftis"), 'cv_niftis_raw',
-                             final_subf_name="cv_niftis_postprocessed", processes=default_num_threads)
+                             final_subf_name="cv_niftis_postprocessed", processes=default_num_threads,
+                             advanced_postprocessing=advanced_postprocessing)
     # determine_postprocessing will create a postprocessing.json file that can be used for inference
 
 
