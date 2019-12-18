@@ -31,6 +31,16 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_GN': ["nnUNetPlansv2.1"],
         'nnUNetTrainerV2_momentum098': ["nnUNetPlans", "nnUNetPlansv2.1"],
         'nnUNetTrainerV2_DP': ["nnUNetPlansv2.1_verybig"],
+        'nnUNetTrainerV2_DDP': ["nnUNetPlansv2.1_verybig"],
+        'nnUNetTrainerV2_FRN': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_resample33': ["nnUNetPlansv2.3"],
+        'nnUNetTrainerV2_O2': ["nnUNetPlansv2.1"],
+        'nnUNetTrainerV2_ResencUNet': ["nnUNetPlans_FabiansResUNet_v2.1"],
+        # 'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
+        # 'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
+        # 'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
+        # 'nnUNetTrainerV2_fp32': ["nnUNetPlansv2.1"],
+
     }
 
     trainers = ['nnUNetTrainer'] + ['nnUNetTrainerNewCandidate%d' % i for i in range(1, 28)] + [
@@ -107,6 +117,10 @@ if __name__ == "__main__":
         'nnUNetTrainerV2_cycleAtEnd2',
         'nnUNetTrainerV2_GN',
         'nnUNetTrainerV2_DP',
+        'nnUNetTrainerV2_FRN',
+        'nnUNetTrainerV2_resample33',
+        'nnUNetTrainerV2_O2',
+        'nnUNetTrainerV2_ResencUNet',
         #'nnUNetTrainerV2_Ranger_lr3en4',
         #'nnUNetTrainerV2_Ranger_lr3en4',
         #'nnUNetTrainerV2_Ranger_lr3en4',
