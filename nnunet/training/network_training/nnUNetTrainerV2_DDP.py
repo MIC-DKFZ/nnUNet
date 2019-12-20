@@ -23,12 +23,14 @@ from torch.nn.utils import clip_grad_norm_
 
 
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
-    def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
+    def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True,
+                 stage=None,
                  unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage,
-                                                unpack_data, deterministic, fp16)
-        self.init_args = (plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                          deterministic, distribute_batch_size, fp16)
+                         unpack_data, deterministic, fp16)
+        self.init_args = (
+        plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+        deterministic, distribute_batch_size, fp16)
         self.distribute_batch_size = distribute_batch_size
         np.random.seed(local_rank)
         torch.manual_seed(local_rank)
@@ -282,13 +284,13 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                 fp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
                 fn_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
                 for c in range(1, num_classes):
-                    tp_hard[:, c-1] = sum_tensor((output_seg == c).float() * (target == c).float(), axes=axes)
-                    fp_hard[:, c-1] = sum_tensor((output_seg == c).float() * (target != c).float(), axes=axes)
+                    tp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target == c).float(), axes=axes)
+                    fp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target != c).float(), axes=axes)
                     fn_hard[:, c - 1] = sum_tensor((output_seg != c).float() * (target == c).float(), axes=axes)
 
-                #tp_hard, fp_hard, fn_hard = get_tp_fp_fn((output_softmax > (1 / num_classes)).float(), target,
+                # tp_hard, fp_hard, fn_hard = get_tp_fp_fn((output_softmax > (1 / num_classes)).float(), target,
                 #                                         axes, None)
-                #print_if_rank0("before allgather", tp_hard.shape)
+                # print_if_rank0("before allgather", tp_hard.shape)
                 tp_hard = tp_hard.sum(0, keepdim=False)[None]
                 fp_hard = fp_hard.sum(0, keepdim=False)[None]
                 fn_hard = fn_hard.sum(0, keepdim=False)[None]
@@ -296,9 +298,9 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                 tp_hard = awesome_allgather_function.apply(tp_hard)
                 fp_hard = awesome_allgather_function.apply(fp_hard)
                 fn_hard = awesome_allgather_function.apply(fn_hard)
-                #print_if_rank0("after allgather", tp_hard.shape)
+                # print_if_rank0("after allgather", tp_hard.shape)
 
-                #print_if_rank0("after sum", tp_hard.shape)
+                # print_if_rank0("after sum", tp_hard.shape)
 
                 self.run_online_evaluation(tp_hard.detach().cpu().numpy().sum(0),
                                            fp_hard.detach().cpu().numpy().sum(0),
@@ -339,5 +341,22 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         ds = net.do_ds
         net.do_ds = True
         ret = nnUNetTrainer.run_training(self)
+        net.do_ds = ds
+        return ret
+
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
+                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+        if isinstance(self.network, DDP):
+            net = self.network.module
+        else:
+            net = self.network
+        ds = net.do_ds
+        net.do_ds = False
+        ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
+                                     overwrite, validation_folder_name, debug, all_in_gpu,
+                                     force_separate_z=force_separate_z, interpolation_order=interpolation_order,
+                                     interpolation_order_z=interpolation_order_z)
         net.do_ds = ds
         return ret
