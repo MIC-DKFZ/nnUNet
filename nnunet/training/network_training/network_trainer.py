@@ -315,6 +315,7 @@ class NetworkTrainer(object):
         for k, value in saved_model['state_dict'].items():
             key = k
             if key not in curr_state_dict_keys:
+                print("duh")
                 key = key[7:]
             new_state_dict[key] = value
 

@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from time import sleep
 
 import numpy as np
@@ -8,6 +9,7 @@ from apex.parallel import DistributedDataParallel as DDP
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
+from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
@@ -20,6 +22,7 @@ from nnunet.utilities.tensor_utilities import sum_tensor
 from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
+from torch.optim.lr_scheduler import _LRScheduler
 
 
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
@@ -29,8 +32,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage,
                          unpack_data, deterministic, fp16)
         self.init_args = (
-        plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-        deterministic, distribute_batch_size, fp16)
+            plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+            deterministic, distribute_batch_size, fp16)
         self.distribute_batch_size = distribute_batch_size
         np.random.seed(local_rank)
         torch.manual_seed(local_rank)
@@ -360,3 +363,99 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                                      interpolation_order_z=interpolation_order_z)
         net.do_ds = ds
         return ret
+
+    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
+                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
+                                                 all_in_gpu=False):
+        """
+        Don't use this. If you need softmax output, use preprocess_predict_nifti and set softmax_output_file.
+        :param data:
+        :param do_mirroring:
+        :param num_repeats:
+        :param use_train_mode:
+        :param batch_size:
+        :param mirror_axes:
+        :param tiled:
+        :param tile_in_z:
+        :param step:
+        :param min_size:
+        :param use_gaussian:
+        :param use_temporal:
+        :return:
+        """
+        valid = list((SegmentationNetwork, nn.DataParallel, DDP))
+        assert isinstance(self.network, tuple(valid))
+        if isinstance(self.network, DDP):
+            net = self.network.module
+        else:
+            net = self.network
+        ds = net.do_ds
+        net.do_ds = False
+        ret = net.predict_3D(data, do_mirroring, num_repeats, use_train_mode, batch_size, mirror_axes,
+                             tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
+                             pad_border_mode=self.inference_pad_border_mode,
+                             pad_kwargs=self.inference_pad_kwargs, all_in_gpu=all_in_gpu)[2]
+        net.do_ds = ds
+        return ret
+
+    def load_checkpoint_ram(self, saved_model, train=True):
+        """
+        used for if the checkpoint is already in ram
+        :param saved_model:
+        :param train:
+        :return:
+        """
+        if not self.was_initialized:
+            self.initialize(train)
+
+        new_state_dict = OrderedDict()
+        curr_state_dict_keys = list(self.network.state_dict().keys())
+        # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
+        # match. Use heuristic to make it match
+        for k, value in saved_model['state_dict'].items():
+            key = k
+            if key not in curr_state_dict_keys:
+                print("duh")
+                key = key[7:]
+            new_state_dict[key] = value
+
+        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
+        if self.fp16:
+            self.network, self.optimizer, self.lr_scheduler = None, None, None
+            self.initialize_network()
+            self.initialize_optimizer_and_scheduler()
+            # we need to reinitialize DDP here
+            self.network = DDP(self.network)
+
+        self.network.load_state_dict(new_state_dict)
+        self.epoch = saved_model['epoch']
+        if train:
+            optimizer_state_dict = saved_model['optimizer_state_dict']
+            if optimizer_state_dict is not None:
+                self.optimizer.load_state_dict(optimizer_state_dict)
+
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
+                'lr_scheduler_state_dict'] is not None:
+                self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
+
+            if issubclass(self.lr_scheduler.__class__, _LRScheduler):
+                self.lr_scheduler.step(self.epoch)
+
+        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
+            'plot_stuff']
+
+        # after the training is done, the epoch is incremented one more time in my old code. This results in
+        # self.epoch = 1001 for old trained models when the epoch is actually 1000. This causes issues because
+        # len(self.all_tr_losses) = 1000 and the plot function will fail. We can easily detect and correct that here
+        if self.epoch != len(self.all_tr_losses):
+            self.print_to_log_file("WARNING in loading checkpoint: self.epoch != len(self.all_tr_losses). This is "
+                                   "due to an old bug and should only appear when you are loading old models. New "
+                                   "models should have this fixed! self.epoch is now set to len(self.all_tr_losses)")
+            self.epoch = len(self.all_tr_losses)
+            self.all_tr_losses = self.all_tr_losses[:self.epoch]
+            self.all_val_losses = self.all_val_losses[:self.epoch]
+            self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
+            self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
+
+        self.amp_initialized = False
+        self._maybe_init_amp()

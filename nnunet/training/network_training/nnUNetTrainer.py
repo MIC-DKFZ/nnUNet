@@ -27,6 +27,11 @@ from torch.optim import lr_scheduler
 
 matplotlib.use("agg")
 
+try:
+    from apex.parallel import DistributedDataParallel as DDP
+except ImportError:
+    DDP = None
+
 
 class nnUNetTrainer(NetworkTrainer):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
@@ -427,7 +432,8 @@ class nnUNetTrainer(NetworkTrainer):
         :param use_temporal:
         :return:
         """
-        assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
+        valid = list((SegmentationNetwork, nn.DataParallel))
+        assert isinstance(self.network, tuple(valid))
         return self.network.predict_3D(data, do_mirroring, num_repeats, use_train_mode, batch_size, mirror_axes,
                                        tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
                                        pad_border_mode=self.inference_pad_border_mode,
