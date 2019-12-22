@@ -32,10 +32,38 @@ def save_as_nifti(arr, filename, spacing):
     sitk.WriteImage(itk_img, filename)
 
 
+def prepare_submission():
+    from cremi.io import CremiFile
+    from cremi.Volume import Volume
+
+    base = "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task61_CREMI/"
+    # a+
+    pred = sitk.GetArrayFromImage(sitk.ReadImage(join(base, 'results_3d_fullres', "sample_a+.nii.gz"))).astype(np.uint64)
+    pred[pred == 0] = 0xffffffffffffffff
+    out_a = CremiFile(join(base, 'sample_A+_20160601.hdf'), 'w')
+    clefts = Volume(pred, (40., 4., 4.))
+    out_a.write_clefts(clefts)
+    out_a.close()
+
+    pred = sitk.GetArrayFromImage(sitk.ReadImage(join(base, 'results_3d_fullres', "sample_b+.nii.gz"))).astype(np.uint64)
+    pred[pred == 0] = 0xffffffffffffffff
+    out_b = CremiFile(join(base, 'sample_B+_20160601.hdf'), 'w')
+    clefts = Volume(pred, (40., 4., 4.))
+    out_b.write_clefts(clefts)
+    out_b.close()
+
+    pred = sitk.GetArrayFromImage(sitk.ReadImage(join(base, 'results_3d_fullres', "sample_c+.nii.gz"))).astype(np.uint64)
+    pred[pred == 0] = 0xffffffffffffffff
+    out_c = CremiFile(join(base, 'sample_C+_20160601.hdf'), 'w')
+    clefts = Volume(pred, (40., 4., 4.))
+    out_c.write_clefts(clefts)
+    out_c.close()
+
+
 if __name__ == "__main__":
     assert h5py is not None, "you need h5py for this. Install with 'pip install h5py'"
 
-    foldername = "Task61_CEMI"
+    foldername = "Task61_CREMI"
     out_base = join(splitted_4d_output_dir, foldername)
     imagestr = join(out_base, "imagesTr")
     imagests = join(out_base, "imagesTs")
@@ -44,7 +72,7 @@ if __name__ == "__main__":
     maybe_mkdir_p(imagests)
     maybe_mkdir_p(labelstr)
 
-    base = "/media/fabian/My Book/datasets/CEMI"
+    base = "/media/fabian/My Book/datasets/CREMI"
 
     # train
     img, label = load_sample(join(base, "sample_A_20160501.hdf"))

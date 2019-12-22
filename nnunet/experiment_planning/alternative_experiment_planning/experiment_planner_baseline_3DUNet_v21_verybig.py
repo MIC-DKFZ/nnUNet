@@ -26,12 +26,12 @@ from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 
 
-class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
+class ExperimentPlanner3D_v21_verybig(ExperimentPlanner3D_v21):
     """
     Same as ExperimentPlanner3D_v21, but designed to fill a V100 (32GB) in fp16
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
-        super(ExperimentPlanner3D_v21_big, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
+        super(ExperimentPlanner3D_v21_verybig, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_plans_v2.1_verybig"
         self.plans_fname = join(self.preprocessed_output_folder,
                                 default_plans_identifier + "v2.1_verybig_plans_3D.pkl")
