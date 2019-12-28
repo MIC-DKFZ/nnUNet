@@ -19,7 +19,7 @@ from batchgenerators.dataloading import MultiThreadedAugmenter
 from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform, SpatialTransform, \
     GammaTransform, MirrorTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
-    ContrastAugmentationTransform
+    ContrastAugmentationTransform, BrightnessTransform
 from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform, GaussianBlurTransform
 from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
@@ -33,33 +33,41 @@ from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOne
 default_3D_augmentation_params = {
     "selected_data_channels": None,
     "selected_seg_channels": None,
+
     "do_elastic": True,
     "elastic_deform_alpha": (0., 900.),
     "elastic_deform_sigma": (9., 13.),
+    "p_eldef": 0.2,
+
     "do_scaling": True,
     "scale_range": (0.85, 1.25),
+    "independent_scale_factor_for_each_axis": False,
+    "p_scale": 0.2,
+
     "do_rotation": True,
     "rotation_x": (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
     "rotation_y": (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
     "rotation_z": (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
+    "rotation_p_per_axis": 1,
+    "p_rot": 0.2,
+
     "random_crop": False,
     "random_crop_dist_to_border": None,
+
     "do_gamma": True,
     "gamma_retain_stats": True,
     "gamma_range": (0.7, 1.5),
     "p_gamma": 0.3,
-    "num_threads": 12,
-    "num_cached_per_thread": 1,
+
     "do_mirror": True,
     "mirror_axes": (0, 1, 2),
-    "p_eldef": 0.2,
-    "p_scale": 0.2,
-    "p_rot": 0.2,
+
     "dummy_2D": False,
     "mask_was_used_for_normalization": False,
+    "border_mode_data": "constant",
+
     "all_segmentation_labels": None,  # used for cascade
     "move_last_seg_chanel_to_data": False,  # used for cascade
-    "border_mode_data": "constant",
     "cascade_do_cascade_augmentations": False,  # used for cascade
     "cascade_random_binary_transform_p": 0.4,
     "cascade_random_binary_transform_p_per_label": 1,
@@ -67,7 +75,15 @@ default_3D_augmentation_params = {
     "cascade_remove_conn_comp_p": 0.2,
     "cascade_remove_conn_comp_max_size_percent_threshold": 0.15,
     "cascade_remove_conn_comp_fill_with_other_class_p": 0.0,
-    "independent_scale_factor_for_each_axis": False,
+
+    "do_additive_brightness": False,
+    "additive_brightness_p_per_sample": 0.15,
+    "additive_brightness_p_per_channel": 0.5,
+    "additive_brightness_mu": 0.0,
+    "additive_brightness_sigma": 0.1,
+
+    "num_threads": 12,
+    "num_cached_per_thread": 1,
 }
 
 default_2D_augmentation_params = deepcopy(default_3D_augmentation_params)
@@ -292,10 +308,12 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
         ignore_axes = None
 
     tr_transforms.append(SpatialTransform(
-        patch_size, patch_center_dist_from_border=None, do_elastic_deform=params.get("do_elastic"),
-        alpha=params.get("elastic_deform_alpha"), sigma=params.get("elastic_deform_sigma"),
+        patch_size, patch_center_dist_from_border=None,
+        do_elastic_deform=params.get("do_elastic"), alpha=params.get("elastic_deform_alpha"),
+        sigma=params.get("elastic_deform_sigma"),
         do_rotation=params.get("do_rotation"), angle_x=params.get("rotation_x"), angle_y=params.get("rotation_y"),
-        angle_z=params.get("rotation_z"), do_scale=params.get("do_scaling"), scale=params.get("scale_range"),
+        angle_z=params.get("rotation_z"), p_rot_per_axis=params.get("rotation_p_per_axis"),
+        do_scale=params.get("do_scaling"), scale=params.get("scale_range"),
         border_mode_data=params.get("border_mode_data"), border_cval_data=0, order_data=order_data,
         border_mode_seg="constant", border_cval_seg=border_val_seg,
         order_seg=order_seg, random_crop=params.get("random_crop"), p_el_per_sample=params.get("p_eldef"),
@@ -312,6 +330,13 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
     tr_transforms.append(GaussianBlurTransform((0.5, 1.), different_sigma_per_channel=True, p_per_sample=0.2,
                                                p_per_channel=0.5))
     tr_transforms.append(BrightnessMultiplicativeTransform(multiplier_range=(0.75, 1.25), p_per_sample=0.15))
+
+    if params.get("do_additive_brightness"):
+        tr_transforms.append(BrightnessTransform(params.get("additive_brightness_mu"),
+                                                 params.get("additive_brightness_sigma"),
+                                                 True, p_per_sample=params.get("additive_brightness_p_per_sample"),
+                                                 p_per_channel=params.get("additive_brightness_p_per_channel")))
+
     tr_transforms.append(ContrastAugmentationTransform(p_per_sample=0.15))
     tr_transforms.append(SimulateLowResolutionTransform(zoom_range=(0.5, 1), per_channel=True,
                                                         p_per_channel=0.5,
