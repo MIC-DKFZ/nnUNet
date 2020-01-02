@@ -1,10 +1,15 @@
 import subprocess
 from collections import OrderedDict
-
-from nnunet.dataset_conversion.Task56_Verse_normalize_orientation import normalize_slice_orientation, read_image, save_image, restore_original_slice_orientation
+import SimpleITK as sitk
+from multiprocess.pool import Pool
+from nnunet.configuration import default_num_threads
+from nnunet.dataset_conversion.Task56_Verse_normalize_orientation import normalize_slice_orientation, read_image, \
+    save_image, restore_original_slice_orientation
 from nnunet.paths import splitted_4d_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
+from medpy import metric
+import numpy as np
 
 
 def load_corr_save(in_folder: str, out_folder: str, filename: str):
@@ -20,6 +25,47 @@ def load_corr_save(in_folder: str, out_folder: str, filename: str):
     # img_corr2, header_corr2 = restore_original_slice_orientation(img_corr, header_corr)
     # save_image(img_corr2, header_corr2, join(out_folder, filename[:-7] + "_re.nii.gz"))
     # seems to work
+
+
+def evaluate_verse_case(sitk_file_ref:str, sitk_file_test:str):
+    """
+    Only vertebra that are present in the reference will be evaluated
+    :param sitk_file_ref:
+    :param sitk_file_test:
+    :return:
+    """
+    gt_npy = sitk.GetArrayFromImage(sitk.ReadImage(sitk_file_ref))
+    pred_npy = sitk.GetArrayFromImage(sitk.ReadImage(sitk_file_test))
+    dice_scores = []
+    for label in range(1, 26):
+        mask_gt = gt_npy == label
+        if np.sum(mask_gt) > 0:
+            mask_pred = pred_npy == label
+            dc = metric.dc(mask_pred, mask_gt)
+        else:
+            dc = np.nan
+        dice_scores.append(dc)
+    return dice_scores
+
+
+def evaluate_verse_folder(folder_pred, folder_gt, out_json="/home/fabian/verse.json"):
+    p = Pool(default_num_threads)
+    files_gt_bare = subfiles(folder_gt, join=False)
+    assert all([isfile(join(folder_pred, i)) for i in files_gt_bare]), "some files are missing in the predicted folder"
+    files_pred = [join(folder_pred, i) for i in files_gt_bare]
+    files_gt = [join(folder_gt, i) for i in files_gt_bare]
+
+    results = p.starmap_async(evaluate_verse_case, zip(files_gt, files_pred))
+
+    results = results.get()
+
+    dct = {i: j for i, j in zip(files_gt_bare, results)}
+
+    results_stacked = np.vstack(results)
+    results_mean = np.nanmean(results_stacked, 0)
+    overall_mean = np.nanmean(results_mean)
+
+    save_json((dct, list(results_mean), overall_mean), out_json)
 
 
 if __name__ == "__main__":
@@ -92,4 +138,20 @@ if __name__ == "__main__":
     json_dict['test'] = ["./imagesTs/%s.nii.gz" % i.split("/")[-1] for i in test_patient_names]
 
     save_json(json_dict, os.path.join(out_base, "dataset.json"))
+
+
+    # run this part of the code once training is done
+    folder_gt = "/media/fabian/My Book/MedicalDecathlon/nnUNet_raw_splitted/Task56_VerSe/labelsTr"
+
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_fullres/Task56_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
+    out_json = "/home/fabian/Task56_VerSe_3d_fullres_summary.json"
+    evaluate_verse_folder(folder_pred, folder_gt, out_json)
+
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_lowres/Task56_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
+    out_json = "/home/fabian/Task56_VerSe_3d_lowres_summary.json"
+    evaluate_verse_folder(folder_pred, folder_gt, out_json)
+
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_cascade_fullres/Task56_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
+    out_json = "/home/fabian/Task56_VerSe_3d_cascade_fullres_summary.json"
+    evaluate_verse_folder(folder_pred, folder_gt, out_json)
 
