@@ -209,11 +209,14 @@ class SegmentationNetwork(NeuralNetwork):
                 if self._gaussian_3d is None or not all([i == j for i, j in zip(patch_size, self._patch_size_for_gaussian_3d)]):
                     tmp = np.zeros(patch_size)
                     center_coords = [i // 2 for i in patch_size]
-                    sigmas = [i // 8 for i in patch_size]
+                    sigmas = [i / 8 for i in patch_size]
                     tmp[tuple(center_coords)] = 1
                     tmp_smooth = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
                     tmp_smooth = tmp_smooth / tmp_smooth.max() * 1
                     add = tmp_smooth  # + 1e-7
+
+                    # tmp_smooth cannot be 0, otherwise we may end up with nans!
+                    tmp_smooth[tmp_smooth == 0] = np.min(tmp_smooth[tmp_smooth != 0])
 
                     # we only need to compute that once. It can take a while to compute this due to the large sigma in
                     # gaussian_filter
