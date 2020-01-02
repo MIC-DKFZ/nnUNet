@@ -29,7 +29,7 @@ class ExperimentPlannerAllConv3x3(ExperimentPlanner):
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlannerAllConv3x3, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "allConv3x3_plans_3D.pkl")
+                                "nnUNetPlans" + "allConv3x3_plans_3D.pkl")
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):

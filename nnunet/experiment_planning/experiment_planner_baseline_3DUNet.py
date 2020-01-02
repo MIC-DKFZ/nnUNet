@@ -44,7 +44,7 @@ class ExperimentPlanner(object):
 
         self.plans_per_stage = OrderedDict()
         self.plans = OrderedDict()
-        self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "fixed_plans_3D.pkl")
+        self.plans_fname = join(self.preprocessed_output_folder, "nnUNetPlans" + "fixed_plans_3D.pkl")
         self.data_identifier = default_data_identifier
 
         self.transpose_forward = [0, 1, 2]

@@ -27,7 +27,7 @@ class ExperimentPlanner3DFabiansResUNet_v21(ExperimentPlanner3D_v21):
         super(ExperimentPlanner3DFabiansResUNet_v21, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_plans_v2.1"# "nnUNetData_FabiansResUNet_v2.1"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "_FabiansResUNet_v2.1_plans_3D.pkl")
+                                "nnUNetPlans_FabiansResUNet_v2.1_plans_3D.pkl")
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):

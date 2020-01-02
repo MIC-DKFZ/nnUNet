@@ -30,7 +30,7 @@ class ExperimentPlannerPoolBasedOnSpacing(ExperimentPlanner):
         super(ExperimentPlannerPoolBasedOnSpacing, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_poolBasedOnSpacing"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "poolBasedOnSpacing_plans_3D.pkl")
+                                "nnUNetPlans" +  "poolBasedOnSpacing_plans_3D.pkl")
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):

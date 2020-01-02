@@ -22,7 +22,7 @@ class ExperimentPlanner3D_IsoPatchesInVoxels(ExperimentPlanner):
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner3D_IsoPatchesInVoxels, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_isoPatchesInVoxels"
-        self.plans_fname = join(self.preprocessed_output_folder, default_plans_identifier + "fixedisoPatchesInVoxels_plans_3D.pkl")
+        self.plans_fname = join(self.preprocessed_output_folder, "nnUNetPlans" + "fixedisoPatchesInVoxels_plans_3D.pkl")
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                      num_modalities, num_classes):

@@ -35,5 +35,5 @@ class ExperimentPlanner3D_v23(ExperimentPlanner3D_v21):
         super(ExperimentPlanner3D_v23, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_plans_v2.3"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "v2.3_plans_3D.pkl")
+                                "nnUNetPlansv2.3_plans_3D.pkl")
         self.preprocessor_name = "Preprocessor3DDifferentResampling"

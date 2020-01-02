@@ -27,7 +27,7 @@ class ExperimentPlannerTargetSpacingForAnisoAxis(ExperimentPlanner):
         super().__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_targetSpacingForAnisoAxis"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                default_plans_identifier + "targetSpacingForAnisoAxis_plans_3D.pkl")
+                                "nnUNetPlans" + "targetSpacingForAnisoAxis_plans_3D.pkl")
 
     def get_target_spacing(self):
         """
