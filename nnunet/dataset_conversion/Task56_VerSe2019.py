@@ -151,7 +151,7 @@ if __name__ == "__main__":
     out_json = "/home/fabian/Task56_VerSe_3d_lowres_summary.json"
     evaluate_verse_folder(folder_pred, folder_gt, out_json)
 
-    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_cascade_fullres/Task56_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_cascade_fullres/Task56_VerSe/nnUNetTrainerV2CascadeFullRes__nnUNetPlansv2.1/cv_niftis_raw"
     out_json = "/home/fabian/Task56_VerSe_3d_cascade_fullres_summary.json"
     evaluate_verse_folder(folder_pred, folder_gt, out_json)
 
