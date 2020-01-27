@@ -46,7 +46,6 @@ def consolidate_folds(output_folder_base, validation_folder_name='validation_raw
         num_niftis += len(subfiles(v, suffix=".nii.gz"))
 
     num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis")))
-
     assert num_niftis == num_niftis_gt, "some folds are missing predicted niftis :-(. Make sure you ran all folds properly"
 
     # now copy all raw niftis into cv_niftis_raw

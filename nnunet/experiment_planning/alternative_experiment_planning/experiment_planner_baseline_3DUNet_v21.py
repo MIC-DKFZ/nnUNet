@@ -45,7 +45,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
         and thus faster and easier training. Smaller spacing results in larger data and thus longer and harder training
 
         For some datasets the median is not a good choice. Those are the datasets where the spacing is very anisotropic
-        (for example ACDC with (10, 1.5, 1.5)). These datasets still have examples with a pacing of 5 or 6 mm in the low
+        (for example ACDC with (10, 1.5, 1.5)). These datasets still have examples with a spacing of 5 or 6 mm in the low
         resolution axis. Choosing the median here will result in bad interpolation artifacts that can substantially
         impact performance (due to the low number of slices).
         """

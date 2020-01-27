@@ -26,7 +26,6 @@ from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_fro
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 from nnunet.preprocessing.cropping import get_case_identifier_from_npz
-from nnunet.preprocessing.preprocessing import GenericPreprocessor
 from nnunet.training.model_restore import recursive_find_trainer
 
 

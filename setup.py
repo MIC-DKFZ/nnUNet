@@ -37,6 +37,7 @@ setup(name='nnunet',
             "sklearn",
             "SimpleITK",
             "pandas",
+            "nibabel"
       ],
       keywords=['deep learning', 'image segmentation', 'medical image analysis',
                 'medical image segmentation', 'nnU-Net', 'nnunet']
