@@ -268,6 +268,7 @@ class nnUNetTrainer(NetworkTrainer):
             self.print_to_log_file(e)
         finally:
             torch.cuda.empty_cache()
+        self.print_to_log_file(self.network)
 
     def run_training(self):
         dct = OrderedDict()
