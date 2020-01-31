@@ -36,6 +36,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         self.initial_lr = 1e-2
         self.deep_supervision_scales = None
         self.ds_loss_weights = None
+        self.num_batches_per_epoch = 1
 
     def initialize(self, training=True, force_load_plans=False):
         """

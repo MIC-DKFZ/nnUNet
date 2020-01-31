@@ -67,6 +67,14 @@ class ConvDropoutNormNonlin(nn.Module):
         return self.lrelu(self.instnorm(x))
 
 
+class ConvDropoutNonlinNorm(ConvDropoutNormNonlin):
+    def forward(self, x):
+        x = self.conv(x)
+        if self.dropout is not None:
+            x = self.dropout(x)
+        return self.instnorm(self.lrelu(x))
+
+
 class StackedConvLayers(nn.Module):
     def __init__(self, input_feature_channels, output_feature_channels, num_convs,
                  conv_op=nn.Conv2d, conv_kwargs=None,
@@ -180,7 +188,8 @@ class Generic_UNet(SegmentationNetwork):
                  final_nonlin=softmax_helper, weightInitializer=InitWeights_He(1e-2), pool_op_kernel_sizes=None,
                  conv_kernel_sizes=None,
                  upscale_logits=False, convolutional_pooling=False, convolutional_upsampling=False,
-                 max_num_features=None, basic_block=ConvDropoutNormNonlin):
+                 max_num_features=None, basic_block=ConvDropoutNormNonlin,
+                 seg_output_use_bias=False):
         """
         basically more flexible than v1, architecture is the same
 
@@ -346,7 +355,7 @@ class Generic_UNet(SegmentationNetwork):
 
         for ds in range(len(self.conv_blocks_localization)):
             self.seg_outputs.append(conv_op(self.conv_blocks_localization[ds][-1].output_channels, num_classes,
-                                            1, 1, 0, 1, 1, False))
+                                            1, 1, 0, 1, 1, seg_output_use_bias))
 
         self.upscale_logits_ops = []
         cum_upsample = np.cumprod(np.vstack(pool_op_kernel_sizes), axis=0)[::-1]

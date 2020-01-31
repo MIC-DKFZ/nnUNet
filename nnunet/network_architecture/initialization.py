@@ -21,7 +21,7 @@ class InitWeights_He(object):
 
     def __call__(self, module):
         if isinstance(module, nn.Conv3d) or isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d) or isinstance(module, nn.ConvTranspose3d):
-            module.weight = nn.init.kaiming_normal_(module.weight, a=1e-2)
+            module.weight = nn.init.kaiming_normal_(module.weight, a=self.neg_slope)
             if module.bias is not None:
                 module.bias = nn.init.constant_(module.bias, 0)
 
