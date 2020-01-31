@@ -610,7 +610,6 @@ class nnUNetTrainer(NetworkTrainer):
 
     def run_online_evaluation(self, output, target):
         with torch.no_grad():
-            import IPython;IPython.embed()
             num_classes = output.shape[1]
             output_softmax = softmax_helper(output)
             output_seg = output_softmax.argmax(1)
