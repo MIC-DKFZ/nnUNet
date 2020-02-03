@@ -513,16 +513,11 @@ class nnUNetTrainer(NetworkTrainer):
         results = []
 
         for k in self.dataset_val.keys():
-            k = "colon_066"
-
             properties = self.dataset[k]['properties']
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
-
-                data = data[:, 60:-20, 200:500, 200:500]
-                do_mirroring = False
 
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
