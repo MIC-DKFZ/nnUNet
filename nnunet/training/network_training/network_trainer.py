@@ -39,13 +39,13 @@ class NetworkTrainer(object):
         - validate
         - predict_test_case
         """
-        np.random.seed(12345)
-        torch.manual_seed(12345)
-        torch.cuda.manual_seed_all(12345)
         self.fp16 = fp16
         self.amp_initialized = False
 
         if deterministic:
+            np.random.seed(12345)
+            torch.manual_seed(12345)
+            torch.cuda.manual_seed_all(12345)
             cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
         else:

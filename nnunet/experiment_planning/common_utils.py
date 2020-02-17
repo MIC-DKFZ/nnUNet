@@ -106,6 +106,9 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
 
     while True:
         # find axes that are within factor 2 of min axis spacing
+        # TODO this is a problem because sometimes we have spacing 20, 50, 50 and we want to still keep pooling.
+        #  Here we would stop however. This is not what we want! We need to restrict min_spacing = min(current_spacing)
+        #  to only the spacings that belong to axes that can still be pooled :-/
         min_spacing = min(current_spacing)
         valid_axes_for_pool = [i for i in range(dim) if current_spacing[i] / min_spacing < 2]
         axes = []
