@@ -127,12 +127,20 @@ def load_model_and_checkpoint_files(folder, folds=None):
     else:
         raise ValueError("Unknown value for folds. Type: %s. Expected: list of int, int, str or None", str(type(folds)))
 
-    trainer = restore_model(join(folds[0], "model_best.model.pkl"))
+    # try to use best model
+    if all([isfile(join(i, "model_best.model")) for i in folds]):
+        use = "best"
+    elif all([isfile(join(i, "model_final_checkpoint.model")) for i in folds]):
+        use = "final_checkpoint"
+    else:
+        raise RuntimeError("The model does not have a saved checkpoint file for all of the requested folds. "
+                           "Please train the model first.")
+    trainer = restore_model(join(folds[0], "model_%s.model.pkl" % use))
     trainer.output_folder = folder
     trainer.output_folder_base = folder
     trainer.update_fold(0)
     trainer.initialize(False)
-    all_best_model_files = [join(i, "model_best.model") for i in folds]
+    all_best_model_files = [join(i, "model_%s.model" % use) for i in folds]
     print("using the following model files: ", all_best_model_files)
     all_params = [torch.load(i, map_location=torch.device('cuda', torch.cuda.current_device())) for i in all_best_model_files]
     return trainer, all_params
