@@ -63,7 +63,7 @@ class GDL(nn.Module):
             x = x[:, 1:]
             y_onehot = y_onehot[:, 1:]
 
-        tp, fp, fn = get_tp_fp_fn(x, y_onehot, axes, loss_mask, self.square)
+        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y_onehot, axes, loss_mask, self.square)
 
         # GDL weight computation, we use 1/V
         volumes = sum_tensor(y_onehot, axes) + 1e-6 # add some eps to prevent div by zero
@@ -94,7 +94,7 @@ class GDL(nn.Module):
         return -dc
 
 
-def get_tp_fp_fn(net_output, gt, axes=None, mask=None, square=False):
+def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """
     net_output must be (b, c, x, y(, z)))
     gt must be a label map (shape (b, 1, x, y(, z)) OR shape (b, x, y(, z))) or one hot encoding (b, c, x, y(, z))
@@ -129,23 +129,27 @@ def get_tp_fp_fn(net_output, gt, axes=None, mask=None, square=False):
     tp = net_output * y_onehot
     fp = net_output * (1 - y_onehot)
     fn = (1 - net_output) * y_onehot
+    tn = (1 - net_output) * (1 - y_onehot)
 
     if mask is not None:
         tp = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(tp, dim=1)), dim=1)
         fp = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(fp, dim=1)), dim=1)
         fn = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(fn, dim=1)), dim=1)
+        tn = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(tn, dim=1)), dim=1)
 
     if square:
         tp = tp ** 2
         fp = fp ** 2
         fn = fn ** 2
+        tn = tn ** 2
 
     if len(axes) > 0:
         tp = sum_tensor(tp, axes, keepdim=False)
         fp = sum_tensor(fp, axes, keepdim=False)
         fn = sum_tensor(fn, axes, keepdim=False)
+        tn = sum_tensor(tn, axes, keepdim=False)
 
-    return tp, fp, fn
+    return tp, fp, fn, tn
 
 
 class SoftDiceLoss(nn.Module):
@@ -170,7 +174,7 @@ class SoftDiceLoss(nn.Module):
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
-        tp, fp, fn = get_tp_fp_fn(x, y, axes, loss_mask, False)
+        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
 
         nominator = 2 * tp + self.smooth
         denominator = 2 * tp + fp + fn + self.smooth
@@ -185,6 +189,46 @@ class SoftDiceLoss(nn.Module):
         dc = dc.mean()
 
         return -dc
+
+
+class MCCLoss(nn.Module):
+    def __init__(self, apply_nonlin=None, batch_mcc=False, do_bg=True):
+        """
+        based on matthews correlation coefficient
+        https://en.wikipedia.org/wiki/Matthews_correlation_coefficient
+        """
+        super(MCCLoss, self).__init__()
+
+        self.do_bg = do_bg
+        self.batch_mcc = batch_mcc
+        self.apply_nonlin = apply_nonlin
+
+    def forward(self, x, y, loss_mask=None):
+        shp_x = x.shape
+
+        if self.batch_mcc:
+            axes = [0] + list(range(2, len(shp_x)))
+        else:
+            axes = list(range(2, len(shp_x)))
+
+        if self.apply_nonlin is not None:
+            x = self.apply_nonlin(x)
+
+        tp, fp, fn, tn = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+
+        nominator = tp * tn - fp * fn
+        denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
+
+        mcc = nominator / denominator
+
+        if not self.do_bg:
+            if self.batch_mcc:
+                mcc = mcc[1:]
+            else:
+                mcc = mcc[:, 1:]
+        mcc = mcc.mean()
+
+        return -mcc
 
 
 class SoftDiceLossSquared(nn.Module):

@@ -3,7 +3,7 @@ import torch
 from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
-from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn
+from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
@@ -58,14 +58,14 @@ class Generic_UNet_DP(Generic_UNet):
                 fns = []
 
                 res_softmax = softmax_helper(res[0])
-                tp, fp, fn = get_tp_fp_fn(res_softmax, y[0])
+                tp, fp, fn, _ = get_tp_fp_fn_tn(res_softmax, y[0])
                 tps.append(tp)
                 fps.append(fp)
                 fns.append(fn)
                 for i in range(1, len(y)):
                     ce_losses.append(self.ce_loss(res[i], y[i]).unsqueeze(0))
                     res_softmax = softmax_helper(res[i])
-                    tp, fp, fn = get_tp_fp_fn(res_softmax, y[i])
+                    tp, fp, fn, _ = get_tp_fp_fn_tn(res_softmax, y[i])
                     tps.append(tp)
                     fps.append(fp)
                     fns.append(fn)
@@ -76,7 +76,7 @@ class Generic_UNet_DP(Generic_UNet):
                 # tp fp and fn need the output to be softmax
                 res_softmax = softmax_helper(res)
 
-                tp, fp, fn = get_tp_fp_fn(res_softmax, y)
+                tp, fp, fn, _ = get_tp_fp_fn_tn(res_softmax, y)
 
                 ret = ce_loss, tp, fp, fn
 

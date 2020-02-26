@@ -13,7 +13,7 @@ from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
-from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn
+from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.distributed import awesome_allgather_function
@@ -253,7 +253,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             output_softmax = softmax_helper(output[i])
 
             # get the tp, fp and fn terms we need
-            tp, fp, fn = get_tp_fp_fn(output_softmax, target[i], axes, mask=None)
+            tp, fp, fn, _ = get_tp_fp_fn_tn(output_softmax, target[i], axes, mask=None)
             # for dice, compute nominator and denominator so that we have to accumulate only 2 instead of 3 variables
             # do_bg=False in nnUNetTrainer -> [:, 1:]
             nominator = 2 * tp[:, 1:]
