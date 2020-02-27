@@ -32,13 +32,19 @@ setup(name='nnunet',
             "scikit-image>=0.14",
             "medpy",
             "scipy",
-            "batchgenerators>=0.19.4",
+            "batchgenerators>=0.19.7",
             "numpy",
             "sklearn",
             "SimpleITK",
             "pandas",
             "nibabel"
       ],
+      entry_points={
+          'console_scripts': [
+              'nnUNet_convert_decathlon_task = nnunet.experiment_planning.nnUNet_convert_decathlon_task:main',
+              'nnUNet_plan_and_preprocess = nnunet.experiment_planning.nnUNet_plan_and_preprocess:main',
+          ],
+      },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',
                 'medical image segmentation', 'nnU-Net', 'nnunet']
       )

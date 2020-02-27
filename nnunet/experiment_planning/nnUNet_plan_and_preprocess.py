@@ -7,7 +7,7 @@ import shutil
 from nnunet.training.model_restore import recursive_find_python_class
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -111,4 +111,7 @@ if __name__ == "__main__":
             if not dont_run_preprocessing:  # double negative, yooo
                 exp_planner.run_preprocessing(threads)
 
+
+if __name__ == "__main__":
+    main()
 

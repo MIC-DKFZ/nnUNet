@@ -3,13 +3,13 @@ nnU-Net relies on environment variables to know where raw data, preprocessed dat
 To use the full functionality of nnU-Net, the following three environment variables must be set:
 
 1) nnUNet_raw_data_base: This is there nnU-Net finds the raw data and stored the cropped data. The folder located at 
-nnUNet_raw_data_base must have at least the subfolder nnUNet_raw, which in turn contains one subfolder for each Task. 
+nnUNet_raw_data_base must have at least the subfolder nnUNet_raw_data, which in turn contains one subfolder for each Task. 
 It is the responsibility of the user to bring the raw data into the appropriate format - nnU-Net will then take care of 
 the rest ;-) For more information on the required raw data format, see TODO.
 
     Example tree structure:
     ```
-    nnUNet_raw_data_base/nnUNet_raw/Task02_Heart
+    nnUNet_raw_data_base/nnUNet_raw_data/Task02_Heart
     ├── dataset.json
     ├── imagesTr
     │   ├── la_003_0000.nii.gz
@@ -23,7 +23,7 @@ the rest ;-) For more information on the required raw data format, see TODO.
         ├── la_003.nii.gz
         ├── la_004.nii.gz
         ├── ...
-    nnUNet_raw_data_base/nnUNet_raw/Task05_Prostate/
+    nnUNet_raw_data_base/nnUNet_raw_data/Task05_Prostate/
     ├── dataset.json
     ├── imagesTr
     │   ├── prostate_00_0000.nii.gz

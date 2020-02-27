@@ -2,7 +2,7 @@ from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.utils import split_4d
 
 
-if __name__ == "__main__":
+def main():
     import argparse
     parser = argparse.ArgumentParser(description="The MSD provides data as 4D Niftis with the modality being the first"
                                                  " dimension. We think this may be cumbersome for some users and "
@@ -17,3 +17,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     split_4d(args.i, args.p)
+
+
+if __name__ == "__main__":
+    main()
