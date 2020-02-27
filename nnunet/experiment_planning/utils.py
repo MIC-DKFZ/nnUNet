@@ -34,6 +34,9 @@ def split_4d(input_folder, num_processes=default_num_threads):
         "The input folder must be a valid Task folder from the Medical Segmentation Decathlon with at least the " \
         "imagesTr and labelsTr subfolders and the dataset.json file"
 
+    while input_folder.endswith("/"):
+        input_folder = input_folder[:-1]
+
     task_name = input_folder.split("/")[-1]
 
     assert task_name.startswith("Task"), "The input folder must point to a folder that starts with TaskXX_"
