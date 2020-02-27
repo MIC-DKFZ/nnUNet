@@ -3,7 +3,7 @@ from collections import OrderedDict
 import SimpleITK as sitk
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.paths import splitted_4d_output_dir
+from nnunet.paths import nnUNet_raw_data
 from skimage import io
 
 
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     foldername = "Task%02.0d_%s" % (task_id, task_name)
 
-    out_base = join(splitted_4d_output_dir, foldername)
+    out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")
     imagests = join(out_base, "imagesTs")
     labelstr = join(out_base, "labelsTr")

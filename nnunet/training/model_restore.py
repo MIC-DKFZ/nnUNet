@@ -20,7 +20,7 @@ import pkgutil
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
-def recursive_find_trainer(folder, trainer_name, current_module):
+def recursive_find_python_class(folder, trainer_name, current_module):
     tr = None
     for importer, modname, ispkg in pkgutil.iter_modules(folder):
         # print(modname, ispkg)
@@ -34,7 +34,7 @@ def recursive_find_trainer(folder, trainer_name, current_module):
         for importer, modname, ispkg in pkgutil.iter_modules(folder):
             if ispkg:
                 next_current_module = current_module + "." + modname
-                tr = recursive_find_trainer([join(folder[0], modname)], trainer_name, current_module=next_current_module)
+                tr = recursive_find_python_class([join(folder[0], modname)], trainer_name, current_module=next_current_module)
             if tr is not None:
                 break
 
@@ -57,7 +57,7 @@ def restore_model(pkl_file, checkpoint=None, train=False, fp16=None):
     init = info['init']
     name = info['name']
     search_in = join(nnunet.__path__[0], "training", "network_training")
-    tr = recursive_find_trainer([search_in], name, current_module="nnunet.training.network_training")
+    tr = recursive_find_python_class([search_in], name, current_module="nnunet.training.network_training")
 
     if tr is None:
         """
@@ -66,7 +66,7 @@ def restore_model(pkl_file, checkpoint=None, train=False, fp16=None):
         try:
             import meddec
             search_in = join(meddec.__path__[0], "model_training")
-            tr = recursive_find_trainer([search_in], name, current_module="meddec.model_training")
+            tr = recursive_find_python_class([search_in], name, current_module="meddec.model_training")
         except ImportError:
             pass
 

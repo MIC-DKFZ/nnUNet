@@ -30,12 +30,3 @@ def get_output_folder_name(model: str, task: str = None, trainer: str = None, pl
             if fold is not None:
                 current = join(current, "fold_%d" % fold)
     return current
-
-
-def get_nnunet_params_folder(folder: str):
-    """
-    retireves the model, task, trainer, plans anf fold of the given folder name
-    :param folder:
-    :return:
-    """
-    raise NotImplementedError

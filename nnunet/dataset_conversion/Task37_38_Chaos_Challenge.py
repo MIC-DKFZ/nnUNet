@@ -8,7 +8,7 @@ from batchgenerators.utilities.data_splitting import get_split_deterministic
 from batchgenerators.utilities.file_and_folder_operations import *
 from PIL import Image
 import SimpleITK as sitk
-from nnunet.paths import preprocessing_output_dir, splitted_4d_output_dir
+from nnunet.paths import preprocessing_output_dir, nnUNet_raw_data
 from nnunet.utilities.sitk_stuff import copy_geometry
 from nnunet.inference.ensemble_predictions import merge
 
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     root = "/media/fabian/My Book/datasets/CHAOS_challenge/Train_Sets"
     root_test = "/media/fabian/My Book/datasets/CHAOS_challenge/Test_Sets"
-    out_base = splitted_4d_output_dir
+    out_base = nnUNet_raw_data
     # CT
     # we ignore CT because
 

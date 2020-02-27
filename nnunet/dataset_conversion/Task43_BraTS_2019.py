@@ -2,7 +2,7 @@ import numpy as np
 from collections import OrderedDict
 
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.paths import splitted_4d_output_dir
+from nnunet.paths import nnUNet_raw_data
 import SimpleITK as sitk
 import shutil
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     task_name = "Task43_BraTS2019"
     downloaded_data_dir = "/home/fabian/drives/E132-Projekte/Move_to_E132-Rohdaten/BraTS_2019/MICCAI_BraTS_2019_Data_Training"
 
-    target_base = join(splitted_4d_output_dir, task_name)
+    target_base = join(nnUNet_raw_data, task_name)
     target_imagesTr = join(target_base, "imagesTr")
     target_labelsTr = join(target_base, "labelsTr")
 

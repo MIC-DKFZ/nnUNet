@@ -22,7 +22,7 @@ import nnunet
 from nnunet.run.default_configuration import get_default_configuration
 from multiprocessing import Pool
 
-from nnunet.training.model_restore import recursive_find_trainer
+from nnunet.training.model_restore import recursive_find_python_class
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     plans_file, folder_with_preprocessed_data, output_folder_name, dataset_directory, batch_dice, stage = \
         get_default_configuration("3d_lowres", task)
     
-    trainer_class = recursive_find_trainer([join(nnunet.__path__[0], "training", "network_training")], trainerclass,
+    trainer_class = recursive_find_python_class([join(nnunet.__path__[0], "training", "network_training")], trainerclass,
                                            "nnunet.training.network_training")
     
     if trainer_class is None:

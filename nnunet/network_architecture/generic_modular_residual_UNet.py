@@ -7,7 +7,7 @@ from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from torch import nn
 from torch.optim import SGD
-from torch.backends import cudnn, cuda
+from torch.backends import cudnn
 
 
 class ResidualUNetEncoder(nn.Module):

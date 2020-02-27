@@ -12,26 +12,22 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import shutil
 from copy import deepcopy
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
-from nnunet.experiment_planning.alternative_experiment_planning.experiment_planner_baseline_3DUNet_v21 import \
+from nnunet.experiment_planning.experiment_planner_baseline_3DUNet_v21 import \
     ExperimentPlanner3D_v21
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
-from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, crop, split_4d
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 
 
-class ExperimentPlanner3D_v21_big(ExperimentPlanner3D_v21):
+class ExperimentPlanner3D_v21_11GB(ExperimentPlanner3D_v21):
     """
     Same as ExperimentPlanner3D_v21, but designed to fill a RTX2080 ti (11GB) in fp16
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
-        super(ExperimentPlanner3D_v21_big, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
+        super(ExperimentPlanner3D_v21_11GB, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_plans_v2.1_big"
         self.plans_fname = join(self.preprocessed_output_folder,
                                 "nnUNetPlansv2.1_big_plans_3D.pkl")

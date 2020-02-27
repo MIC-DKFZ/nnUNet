@@ -16,7 +16,7 @@ import nnunet
 from nnunet.paths import network_training_output_dir, preprocessing_output_dir, default_plans_identifier
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.summarize_plans import summarize_plans
-from nnunet.training.model_restore import recursive_find_trainer
+from nnunet.training.model_restore import recursive_find_python_class
 
 def get_configuration_from_output_folder(folder):
     # split off network_training_output_dir
@@ -54,8 +54,8 @@ def get_default_configuration(network, task, network_trainer, plans_identifier=d
     else:
         stage = possible_stages[-1]
 
-    trainer_class = recursive_find_trainer([join(*search_in)], network_trainer,
-                                           current_module=base_module)
+    trainer_class = recursive_find_python_class([join(*search_in)], network_trainer,
+                                                current_module=base_module)
 
     output_folder_name = join(network_training_output_dir, network, task, network_trainer + "__" + plans_identifier)
 

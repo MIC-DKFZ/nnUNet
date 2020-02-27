@@ -5,7 +5,7 @@ from multiprocess.pool import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.dataset_conversion.Task56_Verse_normalize_orientation import normalize_slice_orientation, read_image, \
     save_image, restore_original_slice_orientation
-from nnunet.paths import splitted_4d_output_dir
+from nnunet.paths import nnUNet_raw_data
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 from medpy import metric
@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     foldername = "Task%02.0d_%s" % (task_id, task_name)
 
-    out_base = join(splitted_4d_output_dir, foldername)
+    out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")
     imagests = join(out_base, "imagesTs")
     labelstr = join(out_base, "labelsTr")

@@ -13,11 +13,10 @@
 #    limitations under the License.
 
 import argparse
-import sys
 
 import numpy as np
 from batchgenerators.augmentations.utils import resize_segmentation
-from nnunet.experiment_planning.plan_and_preprocess_task import get_caseIDs_from_splitted_dataset_folder
+from nnunet.experiment_planning.utils import get_caseIDs_from_splitted_dataset_folder
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax, save_segmentation_nifti
 from batchgenerators.utilities.file_and_folder_operations import *
 from multiprocessing import Process, Queue

@@ -22,11 +22,11 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props_poolLateV2
-from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset
+from nnunet.experiment_planning.utils import create_lists_from_splitted_dataset
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 from nnunet.preprocessing.cropping import get_case_identifier_from_npz
-from nnunet.training.model_restore import recursive_find_trainer
+from nnunet.training.model_restore import recursive_find_python_class
 
 
 class ExperimentPlanner(object):
@@ -422,8 +422,8 @@ class ExperimentPlanner(object):
         normalization_schemes = self.plans['normalization_schemes']
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor_class = recursive_find_trainer([join(nnunet.__path__[0], "preprocessing")],
-                                                    self.preprocessor_name, current_module="nnunet.preprocessing")
+        preprocessor_class = recursive_find_python_class([join(nnunet.__path__[0], "preprocessing")],
+                                                         self.preprocessor_name, current_module="nnunet.preprocessing")
         assert preprocessor_class is not None
         preprocessor = preprocessor_class(normalization_schemes, use_nonzero_mask_for_normalization,
                                          self.transpose_forward,
@@ -456,16 +456,16 @@ if __name__ == "__main__":
     tasks = []
     for i in task_ids:
         i = int(i)
-        candidates = subdirs(cropped_output_dir, prefix="Task%02.0d" % i, join=False)
+        candidates = subdirs(nnUNet_cropped_data, prefix="Task%02.0d" % i, join=False)
         assert len(candidates) == 1
         tasks.append(candidates[0])
 
     for t in tasks:
         try:
             print("\n\n\n", t)
-            cropped_out_dir = os.path.join(cropped_output_dir, t)
+            cropped_out_dir = os.path.join(nnUNet_cropped_data, t)
             preprocessing_output_dir_this_task = os.path.join(preprocessing_output_dir, t)
-            splitted_4d_output_dir_task = os.path.join(splitted_4d_output_dir, t)
+            splitted_4d_output_dir_task = os.path.join(nnUNet_raw_data, t)
             lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
             dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)
@@ -473,7 +473,7 @@ if __name__ == "__main__":
 
             maybe_mkdir_p(preprocessing_output_dir_this_task)
             shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
-            shutil.copy(join(splitted_4d_output_dir, t, "dataset.json"), preprocessing_output_dir_this_task)
+            shutil.copy(join(nnUNet_raw_data, t, "dataset.json"), preprocessing_output_dir_this_task)
 
             threads = (tl, tf)
 

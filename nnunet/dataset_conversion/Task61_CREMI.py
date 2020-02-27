@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
-from nnunet.paths import splitted_4d_output_dir, preprocessing_output_dir
+from nnunet.paths import nnUNet_raw_data, preprocessing_output_dir
 import shutil
 import SimpleITK as sitk
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     assert h5py is not None, "you need h5py for this. Install with 'pip install h5py'"
 
     foldername = "Task61_CREMI"
-    out_base = join(splitted_4d_output_dir, foldername)
+    out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")
     imagests = join(out_base, "imagesTs")
     labelstr = join(out_base, "labelsTr")

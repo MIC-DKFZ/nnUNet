@@ -12,34 +12,82 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import shutil
 from copy import deepcopy
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
-from nnunet.experiment_planning.alternative_experiment_planning.experiment_planner_baseline_3DUNet_v21 import \
-    ExperimentPlanner3D_v21
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
-from nnunet.experiment_planning.plan_and_preprocess_task import create_lists_from_splitted_dataset, split_4d, crop
+from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 
 
-class ExperimentPlanner3D_v21_verybig(ExperimentPlanner3D_v21):
+class ExperimentPlanner3D_v21(ExperimentPlanner):
     """
-    Same as ExperimentPlanner3D_v21, but designed to fill a V100 (32GB) in fp16
+    Combines ExperimentPlannerPoolBasedOnSpacing and ExperimentPlannerTargetSpacingForAnisoAxis
+
+    We also increase the base_num_features to 32. This is solely because mixed precision training with 3D convs and
+    Nvidia apex/amp is A LOT faster if the number of filters is divisible by 8
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
-        super(ExperimentPlanner3D_v21_verybig, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
-        self.data_identifier = "nnUNetData_plans_v2.1_verybig"
+        super(ExperimentPlanner3D_v21, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
+        self.data_identifier = "nnUNetData_plans_v2.1"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                "nnUNetPlansv2.1_verybig_plans_3D.pkl")
+                                "nnUNetPlansv2.1_plans_3D.pkl")
+        self.unet_base_num_features = 32
+
+    def get_target_spacing(self):
+        """
+        per default we use the 50th percentile=median for the target spacing. Higher spacing results in smaller data
+        and thus faster and easier training. Smaller spacing results in larger data and thus longer and harder training
+
+        For some datasets the median is not a good choice. Those are the datasets where the spacing is very anisotropic
+        (for example ACDC with (10, 1.5, 1.5)). These datasets still have examples with a spacing of 5 or 6 mm in the low
+        resolution axis. Choosing the median here will result in bad interpolation artifacts that can substantially
+        impact performance (due to the low number of slices).
+        """
+        spacings = self.dataset_properties['all_spacings']
+        sizes = self.dataset_properties['all_sizes']
+
+        target = np.percentile(np.vstack(spacings), self.target_spacing_percentile, 0)
+
+        # Todo this should be used to determine the new median shape. The old implementation is not 100% correct
+        # sizes = [np.array(i) / target * np.array(j) for i, j in zip(spacings, sizes)]
+
+        target_size = np.percentile(np.vstack(sizes), self.target_spacing_percentile, 0)
+        target_size_mm = np.array(target) * np.array(target_size)
+        # we need to identify datasets for which a different target spacing could be beneficial. These datasets have
+        # the following properties:
+        # - one axis which much lower resolution than the others
+        # - the lowres axis has much less voxels than the others
+        # - (the size in mm of the lowres axis is also reduced)
+        worst_spacing_axis = np.argmax(target)
+        other_axes = [i for i in range(len(target)) if i != worst_spacing_axis]
+        other_spacings = [target[i] for i in other_axes]
+        other_sizes = [target_size[i] for i in other_axes]
+
+        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * min(other_spacings))
+        has_aniso_voxels = target_size[worst_spacing_axis] * self.anisotropy_threshold < min(other_sizes)
+        # we don't use the last one for now
+        #median_size_in_mm = target[target_size_mm] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < max(target_size_mm)
+
+        if has_aniso_spacing and has_aniso_voxels:
+            spacings_of_that_axis = np.vstack(spacings)[:, worst_spacing_axis]
+            target_spacing_of_that_axis = np.percentile(spacings_of_that_axis, 10)
+            # don't let the spacing of that axis get higher than the other axes
+            if target_spacing_of_that_axis < min(other_spacings):
+                target_spacing_of_that_axis = max(min(other_spacings), target_spacing_of_that_axis) + 1e-5
+            target[worst_spacing_axis] = target_spacing_of_that_axis
+        return target
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):
         """
-        We need to adapt ref
+        ExperimentPlanner configures pooling so that we pool late. Meaning that if the number of pooling per axis is
+        (2, 3, 3), then the first pooling operation will always pool axes 1 and 2 and not 0, irrespective of spacing.
+        This can cause a larger memory footprint, so it can be beneficial to revise this.
+
+        Here we are pooling based on the spacing of the data.
+
         """
         new_median_shape = np.round(original_spacing / current_spacing * original_shape).astype(int)
         dataset_num_voxels = np.prod(new_median_shape) * num_cases
@@ -64,10 +112,12 @@ class ExperimentPlanner3D_v21_verybig(ExperimentPlanner3D_v21):
         shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing, input_patch_size,
                                                              self.unet_featuremap_min_edge_length,
                                                              self.unet_max_numpool)
-        #     use_this_for_batch_size_computation_3D = 520000000 # 505789440
-        # typical ExperimentPlanner3D_v21 configurations use 7.5GB, but on a V100 we have 32. Allow for more space
-        # to be used
-        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 32 / 7
+
+        # we compute as if we were using only 30 feature maps. We can do that because fp16 training is the standard
+        # now. That frees up some space. The decision to go with 32 is solely due to the speedup we get (non-multiples
+        # of 8 are not supported in nvidia amp)
+        ref = Generic_UNet.use_this_for_batch_size_computation_3D * self.unet_base_num_features / \
+              Generic_UNet.BASE_NUM_FEATURES_3D
         here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
                                                             self.unet_base_num_features,
                                                             self.unet_max_num_filters, num_modalities,
@@ -96,7 +146,9 @@ class ExperimentPlanner3D_v21_verybig(ExperimentPlanner3D_v21):
                                                                 self.unet_base_num_features,
                                                                 self.unet_max_num_filters, num_modalities,
                                                                 num_classes, pool_op_kernel_sizes)
-            # print(new_shp)
+            #print(new_shp)
+        #print(here, ref)
+
         input_patch_size = new_shp
 
         batch_size = Generic_UNet.DEFAULT_BATCH_SIZE_3D  # This is what wirks with 128**3

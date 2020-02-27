@@ -20,11 +20,11 @@ from multiprocessing.pool import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet import ExperimentPlanner
-from nnunet.experiment_planning.find_classes_in_slice import add_classes_in_slice_info
+from nnunet.experiment_planning.utils import add_classes_in_slice_info
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 from nnunet.preprocessing.preprocessing import PreprocessorFor2D
-from nnunet.training.model_restore import recursive_find_trainer
+from nnunet.training.model_restore import recursive_find_python_class
 
 
 class ExperimentPlanner2D(ExperimentPlanner):

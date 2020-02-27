@@ -450,7 +450,6 @@ class SegmentationNetwork(NeuralNetwork):
 
         return result_torch
 
-
     def _internal_maybe_mirror_and_pred_2D(self, x, num_repeats, mirror_axes, do_mirroring=True, mult=None):
         # everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         # we now return a cuda tensor! Not numpy array!
