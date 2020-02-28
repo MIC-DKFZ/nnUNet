@@ -38,10 +38,8 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             self.folder_with_segs_from_prev_stage = folder_with_segs_prev_stage
             # Do not put segs_prev_stage into self.output_folder as we need to unpack them for performance and we
             # don't want to do that in self.output_folder because that one is located on some network drive.
-            self.folder_with_segs_from_prev_stage_for_train = join(self.dataset_directory, "segs_prev_stage")
         else:
             self.folder_with_segs_from_prev_stage = None
-            self.folder_with_segs_from_prev_stage_for_train = None
 
     def do_split(self):
         super(nnUNetTrainerCascadeFullRes, self).do_split()
@@ -109,24 +107,6 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
                                                   "_stage%d" % self.stage)
         if training:
-            # copy segs from prev stage to separate folder and extract them
-
-            # If we don't do this then we need to make sure to manually delete the folder if we want to update
-            # segs_from_prev_stage. I will probably forget to do so, so I leave this in as a safeguard
-            if isdir(self.folder_with_segs_from_prev_stage_for_train):
-                shutil.rmtree(self.folder_with_segs_from_prev_stage_for_train)
-
-            maybe_mkdir_p(self.folder_with_segs_from_prev_stage_for_train)
-            segs_from_prev_stage_files = subfiles(self.folder_with_segs_from_prev_stage, suffix='.npz')
-            for s in segs_from_prev_stage_files:
-                shutil.copy(s, self.folder_with_segs_from_prev_stage_for_train)
-
-            # if we don't do this then performance is shit
-            if self.unpack_data:
-                unpack_dataset(self.folder_with_segs_from_prev_stage_for_train)
-
-            self.folder_with_segs_from_prev_stage = self.folder_with_segs_from_prev_stage_for_train
-
             self.setup_DA_params()
 
             if self.folder_with_preprocessed_data is not None:
