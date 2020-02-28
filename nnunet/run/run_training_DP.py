@@ -5,13 +5,14 @@ from nnunet.paths import default_plans_identifier
 from nnunet.training.cascade_stuff.predict_next_stage import predict_next_stage
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
+from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("network")
     parser.add_argument("network_trainer")
-    parser.add_argument("task")
+    parser.add_argument("task", help="can be task name or task id")
     parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
                         action="store_true")
@@ -80,6 +81,10 @@ def main():
     interp_order = args.interp_order
     interp_order_z = args.interp_order_z
     force_separate_z = args.force_separate_z
+
+    if not task.startswith("Task"):
+        task_id = int(task)
+        task = convert_id_to_task_name(task_id)
 
     if fold == 'all':
         pass

@@ -92,6 +92,8 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
     if segs_from_prev_stage is None:
         segs_from_prev_stage = [None] * len(list_of_lists)
 
+    num_processes = min(len(list_of_lists), num_processes)
+
     classes = list(range(1, trainer.num_classes))
     assert isinstance(trainer, nnUNetTrainer)
     q = Queue(2)

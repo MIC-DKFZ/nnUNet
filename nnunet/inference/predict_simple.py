@@ -13,9 +13,12 @@
 #    limitations under the License.
 
 import argparse
+import torch
+
 from nnunet.inference.predict import predict_from_folder
 from nnunet.paths import default_plans_identifier, network_training_output_dir, default_cascade_trainer, default_trainer
 from batchgenerators.utilities.file_and_folder_operations import join, isdir
+from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 
 
 def main():
@@ -25,7 +28,7 @@ def main():
                                                      "CASENAME_XXXX.nii.gz where XXXX is the modality "
                                                      "identifier (0000, 0001, etc)", required=True)
     parser.add_argument('-o', "--output_folder", required=True, help="folder for saving predictions")
-    parser.add_argument('-t', '--task_name', help='task name, required.',
+    parser.add_argument('-t', '--task_name', help='task name or task ID, required.',
                         default=default_plans_identifier, required=True)
 
     parser.add_argument('-tr', '--trainer_class_name',
@@ -136,6 +139,12 @@ def main():
     trainer_class_name = args.trainer_class_name
     cascade_trainer_class_name = args.cascade_trainer_class_name
 
+    task_name = args.task_name
+
+    if not task_name.startswith("Task"):
+        task_id = int(task_name)
+        task_name = convert_id_to_task_name(task_id)
+
     assert model in ["2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"], "-m must be 2d, 3d_lowres, 3d_fullres or " \
                                                                              "3d_cascade_fullres"
 
@@ -180,7 +189,7 @@ def main():
                                                 "inference of the cascade, custom values for part_id and num_parts " \
                                                 "are not supported. If you wish to have multiple parts, please " \
                                                 "run the 3d_lowres inference first (separately)"
-        model_folder_name = join(network_training_output_dir, "3d_lowres", args.task_name, trainer_class_name + "__" +
+        model_folder_name = join(network_training_output_dir, "3d_lowres", task_name, trainer_class_name + "__" +
                                   args.plans_identifier)
         assert isdir(model_folder_name), "model output folder not found. Expected: %s" % model_folder_name
         lowres_output_folder = join(output_folder, "3d_lowres_predictions")
@@ -191,13 +200,15 @@ def main():
                             step=step, force_separate_z=force_separate_z, interp_order=interp_order,
                             interp_order_z=interp_order_z)
         lowres_segmentations = lowres_output_folder
+        torch.cuda.empty_cache()
+        print("3d_lowres done")
 
     if model == "3d_cascade_fullres":
         trainer = cascade_trainer_class_name
     else:
         trainer = trainer_class_name
 
-    model_folder_name = join(network_training_output_dir, model, args.task_name, trainer + "__" +
+    model_folder_name = join(network_training_output_dir, model, task_name, trainer + "__" +
                               args.plans_identifier)
     print("using model stored in ", model_folder_name)
     assert isdir(model_folder_name), "model output folder not found. Expected: %s" % model_folder_name
