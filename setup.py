@@ -37,12 +37,17 @@ setup(name='nnunet',
             "sklearn",
             "SimpleITK",
             "pandas",
+            "pandas",
+            "apex>=0.1",
             "nibabel"
       ],
       entry_points={
           'console_scripts': [
               'nnUNet_convert_decathlon_task = nnunet.experiment_planning.nnUNet_convert_decathlon_task:main',
               'nnUNet_plan_and_preprocess = nnunet.experiment_planning.nnUNet_plan_and_preprocess:main',
+              'nnUNet_train = nnunet.run.run_training:main',
+              'nnUNet_train_DP = nnunet.run.run_training_DP:main',
+              'nnUNet_train_DDP = nnunet.run.run_training_DDP:main',
           ],
       },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',
