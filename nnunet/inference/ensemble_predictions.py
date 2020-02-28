@@ -73,7 +73,7 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
         shutil.copy(postprocessing_file, output_folder + "_postprocessed")
 
 
-if __name__ == "__main__":
+def main():
     import argparse
     parser = argparse.ArgumentParser(description="This script will merge predictions (that were prdicted with the "
                                                  "-npz option!). You need to specify a postprocessing file so that "
@@ -100,3 +100,7 @@ if __name__ == "__main__":
     npz = args.npz
 
     merge(folders, output_folder, threads, override=True, postprocessing_file=pp_file, store_npz=npz)
+
+
+if __name__ == "__main__":
+    main()

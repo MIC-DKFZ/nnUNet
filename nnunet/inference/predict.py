@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 import argparse
+from copy import deepcopy
 
 import numpy as np
 from batchgenerators.augmentations.utils import resize_segmentation
@@ -487,6 +488,40 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
     pool.join()
 
 
+def check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities):
+    print("This model expects %d input modalities for each image" % expected_num_modalities)
+    files = subfiles(input_folder, suffix=".nii.gz", join=False, sort=True)
+
+    maybe_case_ids = np.unique([i[:-12] for i in files])
+
+    remaining = deepcopy(files)
+    missing = []
+
+    assert len(files) > 0, "input folder did not contain any images (expected to find .nii.gz file endings)"
+
+    # now check if all required files are present and that no unexpected files are remaining
+    for c in maybe_case_ids:
+        for n in range(expected_num_modalities):
+            expected_output_file = c + "_%04.0d.nii.gz" % n
+            if not isfile(join(input_folder, expected_output_file)):
+                missing.append(expected_output_file)
+            else:
+                remaining.remove(expected_output_file)
+
+    print("Found %d unique case ids, here are some examples:" % len(maybe_case_ids), np.random.choice(maybe_case_ids, min(len(maybe_case_ids), 10)))
+    print("If they don't look right, make sure to double check your filenames. They must end with _0000.nii.gz etc")
+
+    if len(remaining) > 0:
+        print("found %d unexpected remaining files in the folder. Here are some examples:" % len(remaining), np.random.choice(remaining, min(len(remaining), 10)))
+
+    if len(missing) > 0:
+        print("Some files are missing:")
+        print(missing)
+        raise RuntimeError("missing files in input_folder")
+
+    return maybe_case_ids
+
+
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=False,
                         overwrite_existing=True, mode='normal', overwrite_all_in_gpu=None, step=2,
@@ -512,7 +547,12 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
     maybe_mkdir_p(output_folder)
     shutil.copy(join(model, 'plans.pkl'), output_folder)
 
-    case_ids = get_caseIDs_from_splitted_dataset_folder(input_folder)
+    assert isfile(join(model, "plans.pkl")), "Folder with saved model weights must contain a plans.pkl file"
+    expected_num_modalities = load_pickle(join(model, "plans.pkl"))['num_modalities']
+
+    # check input folder integrity
+    case_ids = check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities)
+
     output_files = [join(output_folder, i + ".nii.gz") for i in case_ids]
     all_files = subfiles(input_folder, suffix=".nii.gz", join=False, sort=True)
     list_of_lists = [[join(input_folder, i) for i in all_files if i[:len(j)].startswith(j) and
