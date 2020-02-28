@@ -101,8 +101,6 @@ def main():
     if trainer_class is None:
         raise RuntimeError("Could not find trainer class")
 
-    #assert issubclass(trainer_class, nnUNetTrainerDP)
-
     if network == "3d_cascade_fullres":
         assert issubclass(trainer_class, nnUNetTrainerCascadeFullRes), "If running 3d_cascade_fullres then your " \
                                                                        "trainer class must be derived from " \

@@ -110,7 +110,11 @@ def load_postprocessing(json_file):
     :return:
     '''
     a = load_json(json_file)
-    return a['for_which_classes'], ast.literal_eval(a['min_valid_object_sizes'])
+    if 'min_valid_object_sizes' in a.keys():
+        min_valid_object_sizes = ast.literal_eval(a['min_valid_object_sizes'])
+    else:
+        min_valid_object_sizes = None
+    return a['for_which_classes'], min_valid_object_sizes
 
 
 def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validation_raw",
