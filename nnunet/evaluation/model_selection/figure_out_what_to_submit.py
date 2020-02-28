@@ -19,6 +19,7 @@ import numpy as np
 from subprocess import call
 from nnunet.postprocessing.consolidate_postprocessing import consolidate_folds
 from nnunet.utilities.folder_names import get_output_folder_name
+from nnunet.paths import default_cascade_trainer, default_trainer, default_plans_identifier
 
 
 def find_task_name(folder, task_id):
@@ -35,7 +36,7 @@ def get_mean_foreground_dice(json_file):
     return np.mean(dice_scores)
 
 
-if __name__ == "__main__":
+def main():
     import argparse
     parser = argparse.ArgumentParser(usage="This is intended to identify the best model based on the five fold "
                                            "cross-validation. Running this script requires all models to have been run "
@@ -46,28 +47,27 @@ if __name__ == "__main__":
                                                                               '3d_cascade_fullres'])
     parser.add_argument("-t", '--task_ids', nargs="+", required=True)
 
-    parser.add_argument("-tr", type=str, required=False, default="nnUNetTrainerV2",
-                           help="nnUNetTrainer class. Default: nnUNetTrainerV2")
-    parser.add_argument("-trc", type=str, required=False, default="nnUNetTrainerV2CascadeFullRes",
-                           help="nnUNetTrainer class for cascade model. Default: nnUNetTrainerV2CascadeFullRes")
-    parser.add_argument("-pl", type=str, required=False, default="nnUNetPlansv2.1",
-                           help="plans name, Default: nnUNetPlansv2.1")
+    parser.add_argument("-tr", type=str, required=False, default=default_trainer,
+                           help="nnUNetTrainer class. Default: %s" % default_trainer)
+    parser.add_argument("-ctr", type=str, required=False, default=default_cascade_trainer,
+                           help="nnUNetTrainer class for cascade model. Default: %s" % default_cascade_trainer)
+    parser.add_argument("-pl", type=str, required=False, default=default_plans_identifier,
+                           help="plans name, Default: %s" % default_plans_identifier)
     parser.add_argument("-summary_folder", type=str, required=False, default=None,
                            help="summarizes all results in this folder")
 
-    parser.add_argument("--strict", required=False, action="store_true", help="set this flag if you want this script "
-                                                                              "to crash of one of the models is missing")
+    parser.add_argument("--strict", required=False, default=False, action="store_true",
+                        help="set this flag if you want this script to crash of one of the models is missing")
 
-    parser.add_argument("--allow_missing_pp", required=False, action="store_true", help="if set then missing "
-                                                                                        "postprocessing will be run "
-                                                                                        "automatically")
+    parser.add_argument("--allow_missing_pp", required=False, default=False, action="store_true",
+                        help="if set then missing postprocessing will be run automatically")
 
     args = parser.parse_args()
     tasks = [int(i) for i in args.task_ids]
 
     models = args.models
     tr = args.tr
-    trc = args.trc
+    trc = args.ctr
     strict = args.strict
     allow_missing_pp = args.allow_missing_pp
     summary_folder = args.summary_folder
@@ -98,6 +98,7 @@ if __name__ == "__main__":
                     id_task_mapping[t] = task_name
 
                 output_folder = get_output_folder_name(m, id_task_mapping[t], trainer, pl)
+                assert isdir(output_folder), "Output folder for model %s is missing, expected: %s" % (m, output_folder)
 
                 # we need a postprocessing_json for inference, so that must be present
                 postprocessing_json = join(output_folder, "postprocessing.json")
@@ -107,8 +108,8 @@ if __name__ == "__main__":
                     if allow_missing_pp:
                         print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
                         consolidate_folds(output_folder)
-                assert isfile(postprocessing_json)
-                assert isdir(cv_niftis_postprocessed_folder)
+                assert isfile(postprocessing_json), "Postprocessing json missing, expected: %s" % postprocessing_json
+                assert isdir(cv_niftis_postprocessed_folder), "Folder with niftis from CV missing, expected: %s" % cv_niftis_postprocessed_folder
 
                 # obtain mean foreground dice
                 summary_file = join(cv_niftis_postprocessed_folder, "summary.json")
@@ -124,6 +125,7 @@ if __name__ == "__main__":
                     print(e)
 
         # now run ensembling and add ensembling to results
+        print("\nFound the following valid models:\n", valid_models)
         if len(valid_models) > 1:
             for m1, m2 in combinations(valid_models, 2):
 
@@ -164,23 +166,15 @@ if __name__ == "__main__":
                     model1, model2 = tmp.split("--")
                     m1, t1, pl1 = model1.split("__")
                     m2, t2, pl2 = model2.split("__")
-                    if m1 == "3d_cascade_fullres":
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + trc + " -m " + m1 + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES -z" + "\n"
-                    else:
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + m1 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
-                    if m2 == "3d_cascade_fullres":
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr " + trc + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES -z" + "\n"
-                    else:
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr " + tr + " -m " + m2 + " -p " + pl + " -t " + id_task_mapping[t] + " -z" + "\n"
-                    predict_str += "python inference/ensemble_predictions.py -f OUTPUT_FOLDER_MODEL1 OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp " + join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json") + "\n"
+                    predict_str += "nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -ctr " + trc + " -m " + m1 + " -p " + pl + " -t " + \
+                                   id_task_mapping[t] + "\n"
+                    predict_str += "nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr " + tr + " -ctr " + trc + " -m " + m2 + " -p " + pl + " -t " + \
+                                   id_task_mapping[t] + "\n"
+
+                    predict_str += "nnUNet_ensemble -f OUTPUT_FOLDER_MODEL1 OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp " + join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json") + "\n"
                 else:
-                    if k == "3d_cascade_fullres":
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_LOWRES -tr " + tr + " -m 3d_lowres -p " + pl + " -t " + id_task_mapping[t] + "\n"
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + trc + " -m " + k + " -p " + pl + " -t " + id_task_mapping[t] + " -l OUTPUT_FOLDER_LOWRES" + "\n"
-                    else:
-                        predict_str += "python inference/predict_simple.py -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -m " + k + " -p " + pl + " -t " + id_task_mapping[t] + "\n"
+                    predict_str += "nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -ctr " + trc + " -m " + k + " -p " + pl + " -t " + \
+                                   id_task_mapping[t] + "\n"
                 print(predict_str)
 
         if summary_folder is not None:
@@ -200,3 +194,7 @@ if __name__ == "__main__":
                         f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
                     f.write(",%01.4f" % results[m])
                     f.write("\n")
+
+
+if __name__ == "__main__":
+    main()
