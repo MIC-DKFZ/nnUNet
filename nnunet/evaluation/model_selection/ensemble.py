@@ -48,6 +48,9 @@ if __name__ == "__main__":
 
     training_output_folder1 = args.training_output_folder1
     training_output_folder2 = args.training_output_folder2
+
+    print("\nEnsembling folders\n", training_output_folder1, "\n", training_output_folder2)
+
     output_folder_base = args.output_folder
     output_folder = join(output_folder_base, "ensembled_raw")
     task = args.task
