@@ -1,9 +1,11 @@
 import nnunet
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
-from nnunet.experiment_planning.utils import create_lists_from_splitted_dataset, crop
+from nnunet.experiment_planning.utils import crop
 from nnunet.paths import *
 import shutil
+
+from nnunet.preprocessing.sanity_checks import verify_dataset_integrity
 from nnunet.training.model_restore import recursive_find_python_class
 
 
@@ -32,6 +34,9 @@ def main():
     parser.add_argument("-tf", type=int, required=False, default=8,
                         help="Number of processes used for preprocessing the full resolution data of the 2D U-Net and "
                              "3D U-Net. Don't overdo it or you will run out of RAM")
+    parser.add_argument("--verify_dataset_integrity", required=False, default=False, action="store_true",
+                        help="set this flag to check the dataset integrity. This is useful and should be done once for "
+                             "each dataset!")
 
     args = parser.parse_args()
     task_ids = args.task_ids
@@ -59,6 +64,9 @@ def main():
             print(cropped_taskString_candidates)
             raise RuntimeError("ambiguous task string (raw Task %d)" % i)
         else:
+            if args.verify_dataset_integrity:
+                verify_dataset_integrity(join(nnUNet_raw_data, taskString_candidates[0]))
+
             crop(taskString_candidates[0], False, tf)
             cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%02.0d" % i, join=False)
 
@@ -86,8 +94,8 @@ def main():
         print("\n\n\n", t)
         cropped_out_dir = os.path.join(nnUNet_cropped_data, t)
         preprocessing_output_dir_this_task = os.path.join(preprocessing_output_dir, t)
-        splitted_4d_output_dir_task = os.path.join(nnUNet_raw_data, t)
-        lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
+        #splitted_4d_output_dir_task = os.path.join(nnUNet_raw_data, t)
+        #lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
         dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)  # this class creates the fingerprint
         _ = dataset_analyzer.analyze_dataset()  # this will write output files that will be used by the ExperimentPlanner
