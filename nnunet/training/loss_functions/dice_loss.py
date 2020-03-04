@@ -17,6 +17,7 @@ from nnunet.training.loss_functions.TopK_loss import TopKLoss
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
+import numpy as np
 
 
 class GDL(nn.Module):
@@ -192,19 +193,23 @@ class SoftDiceLoss(nn.Module):
 
 
 class MCCLoss(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_mcc=False, do_bg=True):
+    def __init__(self, apply_nonlin=None, batch_mcc=False, do_bg=True, smooth=0.0):
         """
         based on matthews correlation coefficient
         https://en.wikipedia.org/wiki/Matthews_correlation_coefficient
+
+        Does not work. Really unstable. F this.
         """
         super(MCCLoss, self).__init__()
 
+        self.smooth = smooth
         self.do_bg = do_bg
         self.batch_mcc = batch_mcc
         self.apply_nonlin = apply_nonlin
 
     def forward(self, x, y, loss_mask=None):
         shp_x = x.shape
+        voxels = np.prod(shp_x[2:])
 
         if self.batch_mcc:
             axes = [0] + list(range(2, len(shp_x)))
@@ -215,9 +220,13 @@ class MCCLoss(nn.Module):
             x = self.apply_nonlin(x)
 
         tp, fp, fn, tn = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+        tp /= voxels
+        fp /= voxels
+        fn /= voxels
+        tn /= voxels
 
-        nominator = tp * tn - fp * fn
-        denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
+        nominator = tp * tn - fp * fn + self.smooth
+        denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5 + self.smooth
 
         mcc = nominator / denominator
 
