@@ -1,3 +1,5 @@
+# Data format for Inference 
+
 The data format for inference must match the one used for the raw data (specifically, the images must be in exactly 
 the same format as in the imagesTr folder). As before, the filenames must start with a
 unique identifier, followed by a 4-digit modality identifier. Here is an example for two different datasets:
@@ -29,4 +31,4 @@ unique identifier, followed by a 4-digit modality identifier. Here is an example
   
 
 The segmentations in the output folder will be named INDENTIFIER.nii.gz (omitting the modality identifier).
-    
+   

@@ -1,4 +1,5 @@
-# Setting up paths.py
+# Setting up Paths
+
 nnU-Net relies on environment variables to know where raw data, preprocessed data and trained model weights are stored. 
 To use the full functionality of nnU-Net, the following three environment variables must be set:
 

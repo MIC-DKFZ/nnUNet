@@ -39,17 +39,17 @@ if __name__ == "__main__":
 
     datasets = \
         {
-        "Task03_Liver": ("3d_cascade_fullres", ),
-        "Task06_Lung": ("3d_cascade_fullres", ),
-        "Task07_Pancreas": ("3d_cascade_fullres", ),
-        "Task08_HepaticVessel": ("3d_cascade_fullres", ),
-        "Task09_Spleen": ("3d_cascade_fullres", ),
-        "Task10_Colon": ("3d_cascade_fullres", ),
-        "Task17_AbdominalOrganSegmentation": ("3d_cascade_fullres", ),
-        #"Task29_LITS": ("3d_cascade_fullres", ),
-        "Task48_KiTS_clean": ("3d_cascade_fullres", ),
-        "Task55_SegTHOR": ("3d_cascade_fullres", ),
-        "Task56_VerSe": ("3d_cascade_fullres", ),
+        "Task003_Liver": ("3d_cascade_fullres", ),
+        "Task006_Lung": ("3d_cascade_fullres", ),
+        "Task007_Pancreas": ("3d_cascade_fullres", ),
+        "Task008_HepaticVessel": ("3d_cascade_fullres", ),
+        "Task009_Spleen": ("3d_cascade_fullres", ),
+        "Task010_Colon": ("3d_cascade_fullres", ),
+        "Task017_AbdominalOrganSegmentation": ("3d_cascade_fullres", ),
+        #"Task029_LITS": ("3d_cascade_fullres", ),
+        "Task048_KiTS_clean": ("3d_cascade_fullres", ),
+        "Task055_SegTHOR": ("3d_cascade_fullres", ),
+        "Task056_VerSe": ("3d_cascade_fullres", ),
         #"": ("3d_cascade_fullres", ),
         }
 

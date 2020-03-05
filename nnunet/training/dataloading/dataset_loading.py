@@ -540,7 +540,7 @@ class DataLoader2D(SlimDataLoaderBase):
 
 
 if __name__ == "__main__":
-    t = "Task02_Heart"
+    t = "Task002_Heart"
     p = join(preprocessing_output_dir, t, "stage1")
     dataset = load_dataset(p)
     with open(join(join(preprocessing_output_dir, t), "plans_stage1.pkl"), 'rb') as f:

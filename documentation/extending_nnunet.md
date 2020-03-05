@@ -1,3 +1,6 @@
+
+# Extending/Changing nnU-Net
+
 To use nnU-Net as a framework and make changes to its components, please make sure to install it with the `git clone` 
 and `pip install -e .` commands so that a local copy of the code is created.
 Changing components of nnU-Net needs to be done in different places, depending on whether these components belong to 

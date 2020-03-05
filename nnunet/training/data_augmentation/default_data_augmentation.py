@@ -563,7 +563,7 @@ if __name__ == "__main__":
     import os
     import pickle
 
-    t = "Task02_Heart"
+    t = "Task002_Heart"
     p = os.path.join(preprocessing_output_dir, t)
     dataset = load_dataset(p, 0)
     with open(os.path.join(p, "plans.pkl"), 'rb') as f:

@@ -40,10 +40,10 @@ if __name__ == "__main__":
     ]
 
     datasets = \
-        {"Task49_StructSeg2019_Task1_HaN_OAR": ("3d_fullres",  "3d_lowres", "2d"),
-        "Task50_StructSeg2019_Task2_Naso_GTV": ("3d_fullres", "3d_lowres", "2d"),
-        "Task51_StructSeg2019_Task3_Thoracic_OAR": ("3d_fullres", "3d_lowres", "2d"),
-        "Task52_StructSeg2019_Task4_Lung_GTV": ("3d_fullres", "3d_lowres", "2d"),
+        {"Task049_StructSeg2019_Task1_HaN_OAR": ("3d_fullres",  "3d_lowres", "2d"),
+        "Task050_StructSeg2019_Task2_Naso_GTV": ("3d_fullres", "3d_lowres", "2d"),
+        "Task051_StructSeg2019_Task3_Thoracic_OAR": ("3d_fullres", "3d_lowres", "2d"),
+        "Task052_StructSeg2019_Task4_Lung_GTV": ("3d_fullres", "3d_lowres", "2d"),
 }
 
     expected_validation_folder = "validation_raw"

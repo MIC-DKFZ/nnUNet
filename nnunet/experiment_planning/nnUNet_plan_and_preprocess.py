@@ -56,8 +56,8 @@ def main():
     for i in task_ids:
         i = int(i)
 
-        taskString_candidates = subdirs(nnUNet_raw_data, prefix="Task%02.0d" % i, join=False)
-        cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%02.0d" % i, join=False)
+        taskString_candidates = subdirs(nnUNet_raw_data, prefix="Task%03.0d" % i, join=False)
+        cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%03.0d" % i, join=False)
 
         # we always call crop because it will only crop files that are not yet present
         if len(cropped_taskString_candidates) > 1:
@@ -68,7 +68,7 @@ def main():
                 verify_dataset_integrity(join(nnUNet_raw_data, taskString_candidates[0]))
 
             crop(taskString_candidates[0], False, tf)
-            cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%02.0d" % i, join=False)
+            cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%03.0d" % i, join=False)
 
         tasks.append(cropped_taskString_candidates[0])
 

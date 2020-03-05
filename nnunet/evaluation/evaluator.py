@@ -450,7 +450,7 @@ def evaluate_folder(folder_with_gts: str, folder_with_predictions: str, labels: 
     writes a summary.json to folder_with_predictions
     :param folder_with_gts: folder where the ground truth segmentations are saved. Must be nifti files.
     :param folder_with_predictions: folder where the predicted segmentations are saved. Must be nifti files.
-    :param labels: tuple of int with the labels in the dataset. For example (0, 1, 2, 3) for Task01_BrainTumour.
+    :param labels: tuple of int with the labels in the dataset. For example (0, 1, 2, 3) for Task001_BrainTumour.
     :return:
     """
     files_gt = subfiles(folder_with_gts, suffix=".nii.gz", join=False)
