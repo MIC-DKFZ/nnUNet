@@ -1,10 +1,7 @@
-import subprocess
 from collections import OrderedDict
-from nnunet.dataset_conversion.Task56_VerSe2019 import load_corr_save
 from nnunet.paths import nnUNet_raw_data
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
-import SimpleITK as sitk
 from multiprocessing import Pool
 import nibabel
 
@@ -33,7 +30,7 @@ if __name__ == "__main__":
     task_id = 62
     task_name = "NIHPancreas"
 
-    foldername = "Task%02.0d_%s" % (task_id, task_name)
+    foldername = "Task%03.0d_%s" % (task_id, task_name)
 
     out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")

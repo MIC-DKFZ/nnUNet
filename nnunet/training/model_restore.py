@@ -149,7 +149,7 @@ def load_model_and_checkpoint_files(folder, folds=None, fp16=None, checkpoint_na
 
 
 if __name__ == "__main__":
-    pkl = "/home/fabian/PhD/results/nnUNetV2/nnUNetV2_3D_fullres/Task04_Hippocampus/fold0/model_best.model.pkl"
+    pkl = "/home/fabian/PhD/results/nnUNetV2/nnUNetV2_3D_fullres/Task004_Hippocampus/fold0/model_best.model.pkl"
     checkpoint = pkl[:-4]
     train = False
     trainer = restore_model(pkl, checkpoint, train)

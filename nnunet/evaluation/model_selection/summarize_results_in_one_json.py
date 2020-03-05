@@ -111,7 +111,7 @@ def summarize2(task_ids, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fu
         for t in task_ids:
             if not isdir(join(network_training_output_dir, model)):
                 continue
-            task_name = subfolders(join(network_training_output_dir, model), prefix="Task%02.0d" % t, join=False)
+            task_name = subfolders(join(network_training_output_dir, model), prefix="Task%03.0d" % t, join=False)
             if len(task_name) != 1:
                 print("did not find unique output folder for network %s and task %s" % (model, t))
                 continue

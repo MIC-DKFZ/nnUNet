@@ -12,3 +12,12 @@ def recursive_rename(folder):
     s = subdirs(folder, join=True)
     for ss in s:
         recursive_rename(ss)
+
+if __name__ == "__main__":
+    recursive_rename("/media/fabian/Results/nnUNet")
+    recursive_rename("/media/fabian/nnunet")
+    recursive_rename("/media/fabian/My Book/MedicalDecathlon")
+    recursive_rename("/home/fabian/drives/datasets/nnUNet_raw")
+    recursive_rename("/home/fabian/drives/datasets/nnUNet_preprocessed")
+    recursive_rename("/home/fabian/drives/datasets/nnUNet_testSets")
+    recursive_rename("/home/fabian/drives/datasets/results/nnUNet")

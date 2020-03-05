@@ -36,7 +36,7 @@ def prepare_submission():
     from cremi.io import CremiFile
     from cremi.Volume import Volume
 
-    base = "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task61_CREMI/"
+    base = "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task061_CREMI/"
     # a+
     pred = sitk.GetArrayFromImage(sitk.ReadImage(join(base, 'results_3d_fullres', "sample_a+.nii.gz"))).astype(np.uint64)
     pred[pred == 0] = 0xffffffffffffffff
@@ -63,7 +63,7 @@ def prepare_submission():
 if __name__ == "__main__":
     assert h5py is not None, "you need h5py for this. Install with 'pip install h5py'"
 
-    foldername = "Task61_CREMI"
+    foldername = "Task061_CREMI"
     out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")
     imagests = join(out_base, "imagesTs")

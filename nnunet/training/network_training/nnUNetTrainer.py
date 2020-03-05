@@ -266,9 +266,12 @@ class nnUNetTrainer(NetworkTrainer):
         except Exception as e:
             self.print_to_log_file("Unable to plot network architecture:")
             self.print_to_log_file(e)
+
+            self.print_to_log_file("\nprinting the network instead:\n")
+            self.print_to_log_file(self.network)
+            self.print_to_log_file("\n")
         finally:
             torch.cuda.empty_cache()
-        self.print_to_log_file(self.network)
 
     def run_training(self):
         dct = OrderedDict()
@@ -637,7 +640,9 @@ class nnUNetTrainer(NetworkTrainer):
                                if not np.isnan(i)]
         self.all_val_eval_metrics.append(np.mean(global_dc_per_class))
 
-        self.print_to_log_file("Val glob dc per class:", str(global_dc_per_class))
+        self.print_to_log_file("Average global foreground Dice:", str(global_dc_per_class))
+        self.print_to_log_file("(interpret this as an estimate for the Dice of the different classes. This is not "
+                               "exact.)")
 
         self.online_eval_foreground_dc = []
         self.online_eval_tp = []

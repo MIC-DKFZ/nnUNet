@@ -4,7 +4,7 @@ import numpy as np
 
 
 def convert_id_to_task_name(task_id: int):
-    startswith = "Task%02.0d" % task_id
+    startswith = "Task%03.0d" % task_id
     if preprocessing_output_dir is not None:
         candidates_preprocessed = subdirs(preprocessing_output_dir, prefix=startswith, join=False)
     else:

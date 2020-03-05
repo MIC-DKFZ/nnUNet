@@ -456,7 +456,7 @@ if __name__ == "__main__":
     tasks = []
     for i in task_ids:
         i = int(i)
-        candidates = subdirs(nnUNet_cropped_data, prefix="Task%02.0d" % i, join=False)
+        candidates = subdirs(nnUNet_cropped_data, prefix="Task%03.0d" % i, join=False)
         assert len(candidates) == 1
         tasks.append(candidates[0])
 

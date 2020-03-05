@@ -56,7 +56,7 @@ if __name__ == "__main__":
     test_dir = "/media/fabian/My Book/datasets/LiTS/test_data"
 
 
-    output_folder = "/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task29_LITS"
+    output_folder = "/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task029_LITS"
     img_dir = join(output_folder, "imagesTr")
     lab_dir = join(output_folder, "labelsTr")
     img_dir_te = join(output_folder, "imagesTs")

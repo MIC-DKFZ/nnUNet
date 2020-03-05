@@ -3,7 +3,7 @@ from collections import OrderedDict
 import SimpleITK as sitk
 from multiprocess.pool import Pool
 from nnunet.configuration import default_num_threads
-from nnunet.dataset_conversion.Task56_Verse_normalize_orientation import normalize_slice_orientation, read_image, \
+from nnunet.dataset_conversion.Task056_Verse_normalize_orientation import normalize_slice_orientation, read_image, \
     save_image, restore_original_slice_orientation
 from nnunet.paths import nnUNet_raw_data
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     task_id = 56
     task_name = "VerSe"
 
-    foldername = "Task%02.0d_%s" % (task_id, task_name)
+    foldername = "Task%03.0d_%s" % (task_id, task_name)
 
     out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")
@@ -141,17 +141,17 @@ if __name__ == "__main__":
 
 
     # run this part of the code once training is done
-    folder_gt = "/media/fabian/My Book/MedicalDecathlon/nnUNet_raw_splitted/Task56_VerSe/labelsTr"
+    folder_gt = "/media/fabian/My Book/MedicalDecathlon/nnUNet_raw_splitted/Task056_VerSe/labelsTr"
 
-    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_fullres/Task56_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
-    out_json = "/home/fabian/Task56_VerSe_3d_fullres_summary.json"
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_fullres/Task056_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
+    out_json = "/home/fabian/Task056_VerSe_3d_fullres_summary.json"
     evaluate_verse_folder(folder_pred, folder_gt, out_json)
 
-    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_lowres/Task56_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
-    out_json = "/home/fabian/Task56_VerSe_3d_lowres_summary.json"
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_lowres/Task056_VerSe/nnUNetTrainerV2__nnUNetPlansv2.1/cv_niftis_raw"
+    out_json = "/home/fabian/Task056_VerSe_3d_lowres_summary.json"
     evaluate_verse_folder(folder_pred, folder_gt, out_json)
 
-    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_cascade_fullres/Task56_VerSe/nnUNetTrainerV2CascadeFullRes__nnUNetPlansv2.1/cv_niftis_raw"
-    out_json = "/home/fabian/Task56_VerSe_3d_cascade_fullres_summary.json"
+    folder_pred = "/home/fabian/drives/datasets/results/nnUNet/3d_cascade_fullres/Task056_VerSe/nnUNetTrainerV2CascadeFullRes__nnUNetPlansv2.1/cv_niftis_raw"
+    out_json = "/home/fabian/Task056_VerSe_3d_cascade_fullres_summary.json"
     evaluate_verse_folder(folder_pred, folder_gt, out_json)
 

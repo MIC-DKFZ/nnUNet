@@ -419,7 +419,7 @@ class NetworkTrainer(object):
                     l = self.run_iteration(self.val_gen, False, True)
                     val_losses.append(l)
                 self.all_val_losses.append(np.mean(val_losses))
-                self.print_to_log_file("val loss (train=False): %.4f" % self.all_val_losses[-1])
+                self.print_to_log_file("validation loss: %.4f" % self.all_val_losses[-1])
 
                 if self.also_val_in_tr_mode:
                     self.network.train()
@@ -429,7 +429,7 @@ class NetworkTrainer(object):
                         l = self.run_iteration(self.val_gen, False)
                         val_losses.append(l)
                     self.all_val_losses_tr_mode.append(np.mean(val_losses))
-                    self.print_to_log_file("val loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
+                    self.print_to_log_file("validation loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
 
             epoch_end_time = time()
 
@@ -519,12 +519,12 @@ class NetworkTrainer(object):
             # check if the current epoch is the best one according to moving average of validation criterion. If so
             # then save 'best' model
             # Do not use this for validation. This is intended for test set prediction only.
-            self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % self.best_val_eval_criterion_MA)
-            self.print_to_log_file("current val_eval_criterion_MA is %.4f" % self.val_eval_criterion_MA)
+            #self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % self.best_val_eval_criterion_MA)
+            #self.print_to_log_file("current val_eval_criterion_MA is %.4f" % self.val_eval_criterion_MA)
 
             if self.val_eval_criterion_MA > self.best_val_eval_criterion_MA:
                 self.best_val_eval_criterion_MA = self.val_eval_criterion_MA
-                self.print_to_log_file("saving best epoch checkpoint...")
+                #self.print_to_log_file("saving best epoch checkpoint...")
                 self.save_checkpoint(join(self.output_folder, "model_best.model"))
 
             # Now see if the moving average of the train loss has improved. If yes then reset patience, else
@@ -532,22 +532,24 @@ class NetworkTrainer(object):
             if self.train_loss_MA + self.train_loss_MA_eps < self.best_MA_tr_loss_for_patience:
                 self.best_MA_tr_loss_for_patience = self.train_loss_MA
                 self.best_epoch_based_on_MA_tr_loss = self.epoch
-                self.print_to_log_file("New best epoch (train loss MA): %03.4f" % self.best_MA_tr_loss_for_patience)
+                #self.print_to_log_file("New best epoch (train loss MA): %03.4f" % self.best_MA_tr_loss_for_patience)
             else:
-                self.print_to_log_file("No improvement: current train MA %03.4f, best: %03.4f, eps is %03.4f" %
-                                       (self.train_loss_MA, self.best_MA_tr_loss_for_patience, self.train_loss_MA_eps))
+                pass
+                #self.print_to_log_file("No improvement: current train MA %03.4f, best: %03.4f, eps is %03.4f" %
+                #                       (self.train_loss_MA, self.best_MA_tr_loss_for_patience, self.train_loss_MA_eps))
 
             # if patience has reached its maximum then finish training (provided lr is low enough)
             if self.epoch - self.best_epoch_based_on_MA_tr_loss > self.patience:
                 if self.optimizer.param_groups[0]['lr'] > self.lr_threshold:
-                    self.print_to_log_file("My patience ended, but I believe I need more time (lr > 1e-6)")
+                    #self.print_to_log_file("My patience ended, but I believe I need more time (lr > 1e-6)")
                     self.best_epoch_based_on_MA_tr_loss = self.epoch - self.patience // 2
                 else:
-                    self.print_to_log_file("My patience ended")
+                    #self.print_to_log_file("My patience ended")
                     continue_training = False
             else:
-                self.print_to_log_file(
-                    "Patience: %d/%d" % (self.epoch - self.best_epoch_based_on_MA_tr_loss, self.patience))
+                pass
+                #self.print_to_log_file(
+                #    "Patience: %d/%d" % (self.epoch - self.best_epoch_based_on_MA_tr_loss, self.patience))
 
         return continue_training
 

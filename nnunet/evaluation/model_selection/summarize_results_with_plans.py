@@ -65,7 +65,7 @@ if __name__ == "__main__":
                 try:
                     summary_folder = join(base_dir, nnunet, "summary_fold0")
                     if isdir(summary_folder):
-                        summary_files = subfiles(summary_folder, join=False, prefix="Task%02.0d_" % i, suffix=".json", sort=True)
+                        summary_files = subfiles(summary_folder, join=False, prefix="Task%03.0d_" % i, suffix=".json", sort=True)
                         for s in summary_files:
                             tmp = s.split("__")
                             trainer = tmp[2]

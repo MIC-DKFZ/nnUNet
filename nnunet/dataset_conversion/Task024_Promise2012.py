@@ -34,7 +34,7 @@ def export_for_submission(source_dir, target_dir):
 
 if __name__ == "__main__":
     folder = "/media/fabian/My Book/datasets/promise2012"
-    out_folder = "/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task24_Promise"
+    out_folder = "/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task024_Promise"
 
     maybe_mkdir_p(join(out_folder, "imagesTr"))
     maybe_mkdir_p(join(out_folder, "imagesTs"))

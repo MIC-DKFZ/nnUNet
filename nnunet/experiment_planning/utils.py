@@ -42,7 +42,7 @@ def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_out
     assert full_task_name.startswith("Task"), "The input folder must point to a folder that starts with TaskXX_"
 
     first_underscore = full_task_name.find("_")
-    assert first_underscore == 6, "Input folder start with TaskXX with XX being a 2-digit id: 00, 01, 02 etc"
+    assert first_underscore == 6, "Input folder start with TaskXX with XX being a 3-digit id: 00, 01, 02 etc"
 
     input_task_id = int(full_task_name[4:6])
     if overwrite_task_output_id is None:

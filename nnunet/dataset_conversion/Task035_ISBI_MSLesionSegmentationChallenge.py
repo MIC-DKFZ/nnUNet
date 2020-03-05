@@ -40,9 +40,9 @@ def convert_for_submission(source_dir, target_dir):
 
 if __name__ == "__main__":
     # convert to nifti.gz
-    dirs = ['/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/imagesTr',
-            '/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/imagesTs',
-            '/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/labelsTr']
+    dirs = ['/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/imagesTr',
+            '/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/imagesTs',
+            '/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/labelsTr']
 
     p = multiprocessing.Pool(3)
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # now we have to deal with the training masks, we do it the quick and dirty way here by just creating copies of the
     # training data
 
-    train_folder = '/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/imagesTr'
+    train_folder = '/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/imagesTr'
 
     for patientid in range(1, 6):
         for t in range(1, 6):
@@ -94,7 +94,7 @@ if __name__ == "__main__":
                 os.remove(f)
 
 
-    labels_folder = '/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/labelsTr'
+    labels_folder = '/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/labelsTr'
 
     for patientid in range(1, 6):
         for t in range(1, 6):
@@ -116,12 +116,12 @@ if __name__ == "__main__":
     ts_files = []
     for patientid in range(1, 20):
         for t in range(1, 20):
-            if isfile(join("/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/imagesTs",
+            if isfile(join("/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/imagesTs",
                            "case__%02.0d__%02.0d_0000.nii.gz" % (patientid, t))):
                 ts_files.append("case__%02.0d__%02.0d.nii.gz" % (patientid, t))
 
 
-    out_base = '/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/'
+    out_base = '/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/'
 
     json_dict = OrderedDict()
     json_dict['name'] = "ISBI_Lesion_Segmentation_Challenge_2015"
@@ -141,14 +141,14 @@ if __name__ == "__main__":
         "1": "lesion"
     }
     json_dict['numTraining'] = len(subfiles(labels_folder))
-    json_dict['numTest'] = len(subfiles('/media/fabian/My Book/MedicalDecathlon/Task35_ISBILesionSegmentation/imagesTs')) // 4
+    json_dict['numTest'] = len(subfiles('/media/fabian/My Book/MedicalDecathlon/Task035_ISBILesionSegmentation/imagesTs')) // 4
     json_dict['training'] = [{'image': "./imagesTr/%s.nii.gz" % i[:-7], "label": "./labelsTr/%s.nii.gz" % i[:-7]} for i in
                              tr_files]
     json_dict['test'] = ["./imagesTs/%s.nii.gz" % i[:-7] for i in ts_files]
 
     save_json(json_dict, join(out_base, "dataset.json"))
 
-    case_identifiers = np.unique([i[:-12] for i in subfiles("/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task35_ISBILesionSegmentation/imagesTr", suffix='.nii.gz', join=False)])
+    case_identifiers = np.unique([i[:-12] for i in subfiles("/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task035_ISBILesionSegmentation/imagesTr", suffix='.nii.gz', join=False)])
 
     splits = []
     for f in range(5):
@@ -158,5 +158,5 @@ if __name__ == "__main__":
         remaining = [i for i in case_identifiers if i not in splits[-1]['val']]
         splits[-1]['train'] = np.array(remaining)
 
-    maybe_mkdir_p("/media/fabian/nnunet/Task35_ISBILesionSegmentation")
-    save_pickle(splits, join("/media/fabian/nnunet/Task35_ISBILesionSegmentation", "splits_final.pkl"))
+    maybe_mkdir_p("/media/fabian/nnunet/Task035_ISBILesionSegmentation")
+    save_pickle(splits, join("/media/fabian/nnunet/Task035_ISBILesionSegmentation", "splits_final.pkl"))

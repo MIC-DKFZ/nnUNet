@@ -23,7 +23,7 @@ from nnunet.paths import default_cascade_trainer, default_trainer, default_plans
 
 
 def find_task_name(folder, task_id):
-    candidates = subdirs(folder, prefix="Task%02.0d_" % task_id, join=False)
+    candidates = subdirs(folder, prefix="Task%03.0d_" % task_id, join=False)
     assert len(candidates) > 0, "no candidate for Task id %d found in folder %s" % (task_id, folder)
     assert len(candidates) == 1, "more than one candidate for Task id %d found in folder %s" % (task_id, folder)
     return candidates[0]

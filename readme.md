@@ -41,7 +41,25 @@ Please also cite this paper if you are using nnU-Net for your research!
 
 
 # Table of Contents
-Todo, use https://ecotrust-canada.github.io/markdown-toc/
+- [Installation](#installation)
+- [Usage](#usage)
+  * [How to run nnU-Net on a new datasets](#how-to-run-nnu-net-on-a-new-datasets)
+    + [Dataset conversion](#dataset-conversion)
+    + [Experiment planning and preprocessing](#experiment-planning-and-preprocessing)
+    + [Model training](#model-training)
+      - [2D U-Net](#2d-u-net)
+      - [3D full resolution U-Net](#3d-full-resolution-u-net)
+      - [3D U-Net cascade](#3d-u-net-cascade)
+        * [3D low resolution U-Net](#3d-low-resolution-u-net)
+        * [3D full resolution U-Net](#3d-full-resolution-u-net-1)
+      - [Multi GPU training](#multi-gpu-training)
+    + [Identifying the best U-Net configuration(s)](#identifying-the-best-u-net-configuration-s-)
+    + [Run inference](#run-inference)
+  * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
+- [Extending/Changing nnU-Net](#extending-changing-nnu-net)
+- [FAQ](#faq)
+
+ecotrust-canada.github.io/markdown-toc/
 
 # Installation
 nnU-Net is only tested on Linux (Ubuntu). It may work on other operating systems as well but we do not guarantee that it will.
@@ -95,7 +113,7 @@ All nnU-Net commands have a `-h` option which gives information on how to use th
 
 # Usage
 
-## How to run nnU-Net on a new datasets
+## How to run nnU-Net on a new dataset
 Given some dataset, nnU-Net fully automatically configures an entire segmentation pipeline that matches its properties. 
 nnU-Net covers the entire pipeline, from preprocessing to model configuration, model training, postprocessing 
 all the way to ensembling. After running nnU-Net, the trained model(s) can be applied to the test cases for inference. 
@@ -122,12 +140,15 @@ nnUNet_plan_and_preprocess -t XXX --verify_dataset_integrity
 
 Running `nnUNet_plan_and_preprocess` will populate your folder with preprocessed data. You will find the output in 
 nnUNet_preprocessed/TaskXXX_MYTASK. `nnUNet_plan_and_preprocess` creates subfolders with preprocessed data for the 2D 
-U-Net as well as all applicable 3D U-Nets. It will also create 'plans' files (with the ending.pkl). These contain the generated
-segmentation pipeline configuration will be read by the nnUNetTrainer (see below).
+U-Net as well as all applicable 3D U-Nets. It will also create 'plans' files (with the ending.pkl) for the 2D and 
+3D configurations. These files contain the generated segmentation pipeline configuration and will be read by the 
+nnUNetTrainer (see below). Note that the preprocessed data folder only contains the training cases. 
+The test images are not preprocessed (they are not looked at at all!). Their preprocessing happens on the fly during 
+inference.
 
 `--verify_dataset_integrity` should be run at least for the first time the command is run on a given dataset. This will execute some
  checks on the dataset to ensure that it is compatible with nnU-Net. If this check has passed once, it can be 
-omitted in future runs.
+omitted in future runs. If you adhere to the dataset conversion guide (see above) then this should pass without issues :-)
 
 Note that `nnUNet_plan_and_preprocess` accepts several additional input arguments. Running `-h` will list all of them 
 along with a description. If you run out of RAM during preprocessing, you may want to adapt the number of processes 
@@ -140,7 +161,7 @@ of the data will be located at nnUNet_preprocessed/TaskXXX_MYTASK.
 nnU-Net trains all U-Net configurations in a 5-fold cross-validation. This enables nnU-Net to determine the 
 postprocessing and ensembling (see next step) on the training dataset. Per default, all U-Net configurations need to 
 be run on a given dataset. There are, however situations in which only some configurations (and maybe even without 
-running the cross-validation) are desired. See **TODO** for more information.
+running the cross-validation) are desired. See [FAQ](#faq) for more information.
 
 Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the U-Net 
 cascade is omitted because the patch size of the full resolution U-Net already covers a large part of the input images.
@@ -179,7 +200,77 @@ For FOLD in [0, 1, 2, 3, 4], run:
 nnUNet_train 3d_cascade_fullres nnUNetTrainerV2CascadeFullRes TaskXXX_MYTASK FOLD
 ```
 
-Note that the 3D full resolution U-Net of the cascade requires the five folds of the low resolution U-Net to be completed beforehand!
+Note that the 3D full resolution U-Net of the cascade requires the five folds of the low resolution U-Net to be 
+completed beforehand!
+
+The trained models will we written to the RESULTS_FOLDER/nnUNet folder. Each training obtains an automatically generated 
+output folder name:
+
+nnUNet_preprocessed/CONFIGURATION/TaskXXX_MYTASKNAME/TRAINER_CLASS_NAME__PLANS_FILE_NAME/FOLD
+
+For Task002_Heart (from the MSD), for example, this looks like this:
+
+    RESULTS_FOLDER/nnUNet/
+    ├── 2d
+    │   └── Task02_Heart
+    │       └── nnUNetTrainerV2__nnUNetPlansv2.1
+    │           ├── fold_0
+    │           ├── fold_1
+    │           ├── fold_2
+    │           ├── fold_3
+    │           └── fold_4
+    ├── 3d_cascade_fullres
+    ├── 3d_fullres
+    │   └── Task02_Heart
+    │       └── nnUNetTrainerV2__nnUNetPlansv2.1
+    │           ├── fold_0
+    │           │   ├── debug.json
+    │           │   ├── model_best.model
+    │           │   ├── model_best.model.pkl
+    │           │   ├── model_final_checkpoint.model
+    │           │   ├── model_final_checkpoint.model.pkl
+    │           │   ├── network_architecture.pdf
+    │           │   ├── progress.png
+    │           │   └── validation_raw
+    │           │       ├── la_007.nii.gz
+    │           │       ├── la_007.pkl
+    │           │       ├── la_016.nii.gz
+    │           │       ├── la_016.pkl
+    │           │       ├── la_021.nii.gz
+    │           │       ├── la_021.pkl
+    │           │       ├── la_024.nii.gz
+    │           │       ├── la_024.pkl
+    │           │       ├── summary.json
+    │           │       └── validation_args.json
+    │           ├── fold_1
+    │           ├── fold_2
+    │           ├── fold_3
+    │           └── fold_4
+    └── 3d_lowres
+
+
+Note that 3d_lowres and 3d_cascade_fullres are not populated because this dataset did not trigger the cascade. In each 
+model training output folder (each of the fold_x folder, 10 in total here), the following files will be created (only 
+shown for one folder above for brevity):
+- debug.json: Contains a summary of blueprint and inferred parameters used for training this model. Not easy to read, 
+but very useful for debugging ;-)
+- model_best.model / model_best.model.pkl: checkpoint files of the best model identified during training. Not used right now.
+- model_final_checkpoint.model / model_final_checkpoint.model.pkl: checkpoint files of the final model (after training 
+has ended). This is what is used for both validation and inference.
+- network_architecture.pdf (only if hiddenlayer is installed!): a pdf document with a figure of the network architecture in it.
+- progress.png: A plot of the training (blue) and validation (red) loss during training. Also shows an approximation of 
+the evlauation metric (green). This approximation is the average Dice score of the foreground classes. It should, 
+however, only to be taken with a grain of salt because it is computed on randomly drawn patches from the validation 
+data at the end of each epoch, and the aggregation of TP, FP and FN for the Dice computation treats the patches as if 
+they all originate from the same volume ('global Dice'; we do not compute a Dice for each validation case and then 
+average over all cases but pretend that there is only one validation case from which we sample patches). The reason for 
+this is that the 'global Dice' is easy to compute during training and is still quite useful to evaluate whether a model 
+is training at all or not. A proper validation is run at the end of the training.
+- validation_raw: in this folder are the predicted validation cases after the training has finished. The summary.json 
+contains the validation metrics (a mean over all cases is provided at the end of the file).
+
+During training it is often useful to watch the progress. We therefore recommend that you have a look at the generated 
+progress.png when running the first training. It will be updated after each epoch.
 
 #### Multi GPU training
 Yes. nnU-Net supports two different multi-GPU implementation: DataParallel (DP) and Distributed Data Parallel (DDP)
@@ -222,11 +313,14 @@ you need to specify a different --master_port for each training!
 
 
 ### Identifying the best U-Net configuration(s)
-Once all models are trained, use the following command to automatically determine what U-Net configuration(s) to use for test set prediction:
+Once all models are trained, use the following 
+command to automatically determine what U-Net configuration(s) to use for test set prediction:
 
 ```bash
 nnUNet_find_best_configuration -m 2d 3d_fullres 3d_lowres 3d_cascade_fullres -t XXX --allow_missing_pp --strict
 ```
+
+(all 5 folds need to be completed for all specified configurations!)
 
 On datasets for which the cascade was not configured, use `-m 2d 3d_fullres` instead. If you wish to only explore some 
 subset of the configurations, you can specify that with the `-m` command. We recommend setting the 
@@ -263,6 +357,10 @@ These files are created when running `nnUNet_find_best_configuration` and are lo
 directory (RESULTS_FOLDER/nnUNet/CONFIGURATION/TaskXXX_MYTASK/TRAINER_CLASS_NAME__PLANS_FILE_IDENTIFIER/postprocessing.json or 
 RESULTS_FOLDER/nnUNet/ensembles/TaskXXX_MYTASK/ensemble_X__Y__Z--X__Y__Z/postprocessing.json). You can also choose to 
 not provide a file (simply omit -pp) and nnU-Net will not run postprocessing.
+
+Note that per default, inference will be done with all available folds. We very strongly recommend you use all 5 folds. 
+Thus, all 5 folds must have been trained prior to running inference. The list of available folds nnU-Net found will be 
+printed at the start of the inference.
 
 ## How to run inference with pretrained models
 TODO, depends on how I upload the models

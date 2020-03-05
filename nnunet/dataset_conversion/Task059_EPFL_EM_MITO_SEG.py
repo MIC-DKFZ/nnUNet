@@ -25,7 +25,7 @@ if __name__ == "__main__":
     task_id = 59
     task_name = "EPFL_EM_MITO_SEG"
 
-    foldername = "Task%02.0d_%s" % (task_id, task_name)
+    foldername = "Task%03.0d_%s" % (task_id, task_name)
 
     out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")

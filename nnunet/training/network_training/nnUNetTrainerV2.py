@@ -346,7 +346,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         else:
             ep = epoch
         self.optimizer.param_groups[0]['lr'] = poly_lr(ep, self.max_num_epochs, self.initial_lr, 0.9)
-        self.print_to_log_file("lr:", poly_lr(ep, self.max_num_epochs, self.initial_lr, 0.9))
+        self.print_to_log_file("lr:", np.round(self.optimizer.param_groups[0]['lr'], decimals=6))
 
     def on_epoch_end(self):
         """

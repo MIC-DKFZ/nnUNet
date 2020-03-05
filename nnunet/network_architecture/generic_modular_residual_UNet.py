@@ -344,7 +344,7 @@ def find_3d_configuration():
     # These default hyperparemeters will then be used by the experiment planner
 
     # since this is more parameter intensive than the UNet, we will test a configuration that has a lot of parameters
-    # herefore we copy the UNet configuration for Task05_Prostate
+    # herefore we copy the UNet configuration for Task005_Prostate
     cudnn.deterministic = False
     cudnn.benchmark = True
 
@@ -418,7 +418,7 @@ def find_2d_configuration():
     # These default hyperparemeters will then be used by the experiment planner
 
     # since this is more parameter intensive than the UNet, we will test a configuration that has a lot of parameters
-    # herefore we copy the UNet configuration for Task03_Liver
+    # herefore we copy the UNet configuration for Task003_Liver
     cudnn.deterministic = False
     cudnn.benchmark = True
 

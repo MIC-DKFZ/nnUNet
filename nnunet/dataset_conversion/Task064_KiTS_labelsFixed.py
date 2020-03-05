@@ -1,23 +1,19 @@
-from nnunet.paths import nnUNet_raw_data
 import shutil
-
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.paths import nnUNet_raw_data
 
+
 if __name__ == "__main__":
     """
-    Nick asked me to rerun the training with other labels (the Kidney region is defined differently).
-    
-    These labels operate in interpolated spacing. I don't like that but that's how it is
+    This is the KiTS dataset after Nick fixed all the labels that had errors. Downloaded on Jan 6th 2020    
     """
 
-    base = "/media/fabian/My Book/datasets/KiTS_NicksLabels/kits19/data"
-    labelsdir = "/media/fabian/My Book/datasets/KiTS_NicksLabels/filled_labels"
+    base = "/media/fabian/My Book/datasets/KiTS_clean/kits19/data"
 
-    task_id = 65
-    task_name = "KiTS_NicksLabels"
+    task_id = 64
+    task_name = "KiTS_labelsFixed"
 
-    foldername = "Task%02.0d_%s" % (task_id, task_name)
+    foldername = "Task%03.0d_%s" % (task_id, task_name)
 
     out_base = join(nnUNet_raw_data, foldername)
     imagestr = join(out_base, "imagesTr")
@@ -36,7 +32,7 @@ if __name__ == "__main__":
 
     for p in train_patients:
         curr = join(base, p)
-        label_file = join(labelsdir, p + ".nii.gz")
+        label_file = join(curr, "segmentation.nii.gz")
         image_file = join(curr, "imaging.nii.gz")
         shutil.copy(image_file, join(imagestr, p + "_0000.nii.gz"))
         shutil.copy(label_file, join(labelstr, p + ".nii.gz"))

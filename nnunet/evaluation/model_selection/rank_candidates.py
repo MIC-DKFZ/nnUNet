@@ -167,18 +167,18 @@ if __name__ == "__main__":
     ]
 
     datasets = \
-        {"Task01_BrainTumour": ("3d_fullres", ),
-        "Task02_Heart": ("3d_fullres",),
-        #"Task24_Promise": ("3d_fullres",),
-        #"Task27_ACDC": ("3d_fullres",),
-        "Task03_Liver": ("3d_fullres", "3d_lowres"),
-        "Task04_Hippocampus": ("3d_fullres",),
-        "Task05_Prostate": ("3d_fullres",),
-        "Task06_Lung": ("3d_fullres", "3d_lowres"),
-        "Task07_Pancreas": ("3d_fullres", "3d_lowres"),
-        "Task08_HepaticVessel": ("3d_fullres", "3d_lowres"),
-        "Task09_Spleen": ("3d_fullres", "3d_lowres"),
-        "Task10_Colon": ("3d_fullres", "3d_lowres"),}
+        {"Task001_BrainTumour": ("3d_fullres", ),
+        "Task002_Heart": ("3d_fullres",),
+        #"Task024_Promise": ("3d_fullres",),
+        #"Task027_ACDC": ("3d_fullres",),
+        "Task003_Liver": ("3d_fullres", "3d_lowres"),
+        "Task004_Hippocampus": ("3d_fullres",),
+        "Task005_Prostate": ("3d_fullres",),
+        "Task006_Lung": ("3d_fullres", "3d_lowres"),
+        "Task007_Pancreas": ("3d_fullres", "3d_lowres"),
+        "Task008_HepaticVessel": ("3d_fullres", "3d_lowres"),
+        "Task009_Spleen": ("3d_fullres", "3d_lowres"),
+        "Task010_Colon": ("3d_fullres", "3d_lowres"),}
 
     expected_validation_folder = "validation_raw"
     alternative_validation_folder = "validation"
