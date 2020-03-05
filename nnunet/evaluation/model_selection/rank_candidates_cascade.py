@@ -71,7 +71,7 @@ if __name__ == "__main__":
     with open(output_file, 'w') as f:
         f.write("trainer,")
         for t in datasets.keys():
-            s = t[4:6]
+            s = t[4:7]
             for c in datasets[t]:
                 s1 = s + "_" + c[3]
                 f.write("%s," % s1)

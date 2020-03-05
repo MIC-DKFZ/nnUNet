@@ -64,7 +64,7 @@ if __name__ == "__main__":
     with open(output_file, 'w') as f:
         f.write("trainer,")
         for t in datasets.keys():
-            s = t[4:6]
+            s = t[4:7]
             for c in datasets[t]:
                 if len(c) > 3:
                     n = c[3]
