@@ -79,5 +79,5 @@ export nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
 export RESULTS_FOLDER="/media/fabian/nnUNet_trained_models"
 ```
 
-This will set the paths for the current terminal session only (the variables will be lost if oyu close the terminal 
+This will set the paths for the current terminal session only (the variables will be lost if you close the terminal 
 and need to be reset every time).

@@ -38,7 +38,6 @@ setup(name='nnunet',
             "SimpleITK",
             "pandas",
             "pandas",
-            "apex>=0.1",
             "nibabel"
       ],
       entry_points={

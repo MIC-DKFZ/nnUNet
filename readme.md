@@ -53,21 +53,36 @@ Volta architecture (Titan V, V100 GPUs) (tensorcore acceleration for 3D convolut
 We recommend you run the following steps in a virtual environment. [Here is a quick how-to for Ubuntu.](documentation/virtualenv.md)
 
 1) Install [PyTorch](https://pytorch.org/get-started/locally/)
-2) Install [Nvidia Apex](https://github.com/NVIDIA/apex). Follow the instructions [here](https://github.com/NVIDIA/apex#quick-start). You can skip this step if all you want to do is run inference with 
-our pretrained models.
+2) Install [Nvidia Apex](https://github.com/NVIDIA/apex). Follow the instructions [here](https://github.com/NVIDIA/apex#quick-start).
+You can skip this step if all you want to do is run inference with our pretrained models. Apex is required for 
+mixed precision training. (Please **do not use** `pip install apex` - this will not install the correct package). 
+When installing apex, you have two choices (both are described on the apex website linked above!):
+    1) Python-only installation:
+    This will not compile custom kernels and is a little bit slower than the other option (<10%). But it is much easier to do, 
+    which is why we recommend this option for less experienced users
+    2) Regular installation:
+    This gives more performance, but requires a CUDA toolkit installation. When installing pytorch, you must make sure to 
+    select the Cuda version that matches the toolkit version you have installed. You can check which version you have by 
+    running `nvcc --version`. You furthermore need to have the python3 dev libraries installed on your system. Follow the
+    instructions [here](https://stackoverflow.com/questions/21530577/fatal-error-python-h-no-such-file-or-directory) for how to do this.
+    Only after these prerequisites are done you can install apex.
+    Note that pytorch will compile the kernels only for the type of GPU that is in your system. If you intend to swap 
+    out your GPU (or are installing this in a cluster environment), run `export TORCH_CUDA_ARCH_LIST="6.1;7.0;7.5"` 
+    prior to installing apex. This will tell pytorch to compile for all currently available GPU types.
+    
 3) Install nnU-Net depending on your use case:
-    - For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running **inference with pretrained models**:
+    1) For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running **inference with pretrained models**:
+      
+        ```pip install nnunet```
     
-      ```pip install nnunet```
-    
-    - For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you can modify it as needed):
-      ```shell
-      git clone https://github.com/MIC-DKFZ/nnUNet.git
-      cd nnUNet
-      pip install -e .
-      ```
-4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. Please follow the 
-instructions [here](documentation/setting_up_paths.md).
+    2) For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you can modify it as needed):
+          ```bash
+          git clone https://github.com/MIC-DKFZ/nnUNet.git
+          cd nnUNet
+          pip install -e .
+          ```
+4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to 
+set a few of environment variables. Please follow the instructions [here](documentation/setting_up_paths.md).
 
 Installing nnU-Net will add several new commands to your terminal. These commands are used to run the entire nnU-Net 
 pipeline. You can execute them from any location on your system. All nnU-Net commands have the prefix `nnUNet_` for 
@@ -104,6 +119,11 @@ nnUNet_plan_and_preprocess -t XXX --verify_dataset_integrity
 ```
 
 `XXX` is the integer identifier associated with your Task name `TaskXXX_MYTASK`. You can pass several task IDs at once.
+
+Running `nnUNet_plan_and_preprocess` will populate your folder with preprocessed data. You will find the output in 
+nnUNet_preprocessed/TaskXXX_MYTASK. `nnUNet_plan_and_preprocess` creates subfolders with preprocessed data for the 2D 
+U-Net as well as all applicable 3D U-Nets. It will also create 'plans' files (with the ending.pkl). These contain the generated
+segmentation pipeline configuration will be read by the nnUNetTrainer (see below).
 
 `--verify_dataset_integrity` should be run at least for the first time the command is run on a given dataset. This will execute some
  checks on the dataset to ensure that it is compatible with nnU-Net. If this check has passed once, it can be 
@@ -161,6 +181,46 @@ nnUNet_train 3d_cascade_fullres nnUNetTrainerV2CascadeFullRes TaskXXX_MYTASK FOL
 
 Note that the 3D full resolution U-Net of the cascade requires the five folds of the low resolution U-Net to be completed beforehand!
 
+#### Multi GPU training
+Yes. nnU-Net supports two different multi-GPU implementation: DataParallel (DP) and Distributed Data Parallel (DDP)
+(but currently only on one host!). DDP is faster than DP and should be preferred if possible. However, if you did not 
+install nnunet as a framework (meaning you used the `pip install nnunet` variant), DDP is not available. It requires a 
+different way of calling the correct python script (see below) which we cannot support from our terminal commands.
+
+Distributed training currently only works for the basic trainers (2D, 3D full resolution and 3D low resolution) and not 
+for the second, high resolution U-Net of the cascade. The reason for this is that distributed training requires some 
+changes to the network and loss function, requiring a new nnUNet trainer class. This is, as of now, simply not 
+implemented for the cascade, but may be added in the future.
+
+To run distributed training (DP), use the following command:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2... nnUNet_train_DP CONFIGURATION nnUNetTrainerV2_DP TASK_NAME_OR_ID FOLD -gpus GPUS --dbs
+```
+
+Note that nnUNetTrainerV2 was replaced with nnUNetTrainerV2_DP. Just like before, CONFIGURATION can be 2d, 3d_lowres or 
+3d_fullres. TASK_NAME_OR_ID refers to the task you would like to train and FOLD is the fold of the cross-validation. 
+GPUS (integer value) specifies the number of GPUs you wish to train on. To specify which GPUs you want to use, please make use of the 
+CUDA_VISIBLE_DEVICES envorinment variable to specify the GPU ids (specify as many as you configure with -gpus GPUS).
+--dbs, if set, will distribute the batch size across GPUs. So if nnUNet configures a batch size of 2 and you run on 2 GPUs
+, each GPU will run with a batch size of 1. If you omit --dbs, each GPU will run with the full batch size (2 for each GPU 
+in this example for a total of batch size 4).
+
+To run the DDP training you must have nnU-Net installed as a framework. Your current working directory must be the 
+nnunet folder (the one that has the dataset_conversion, evaluation, experiment_planning, ... subfolders!). You can then run
+the DDP training with the following command:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2... python -m torch.distributed.launch --master_port=XXXX --nproc_per_node=Y run/run_training_DDP.py CONFIGURATION nnUNetTrainerV2_DDP TASK_NAME_OR_ID FOLD --dbs
+```
+
+XXXX must be an open port for process-process communication (something like 4321 will do on most systems). Y is the 
+number of GPUs you wish to use. Remember that we do not (yet) support distributed training across compute nodes. This 
+all happens on the same system. Again, you can use CUDA_VISIBLE_DEVICES=0,1,2 to control what GPUs are used.
+If you run more than one DDP training on the same system (say you have 4 GPUs and you run two training with 2 GPUs each) 
+you need to specify a different --master_port for each training!
+
+
 ### Identifying the best U-Net configuration(s)
 Once all models are trained, use the following command to automatically determine what U-Net configuration(s) to use for test set prediction:
 
@@ -207,50 +267,8 @@ not provide a file (simply omit -pp) and nnU-Net will not run postprocessing.
 ## How to run inference with pretrained models
 TODO, depends on how I upload the models
 
-# Extending nnU-Net
-To use nnU-Net as a framework and make changes to its components, please make sure to install it with the `git clone` 
-and `pip install -e .` commands so that a local copy of the code is created.
-Changing components of nnU-Net needs to be done in different places, depending on whether these components belong to 
-the inferred, blueprint or empirical parameters. We cover some of the most common use cases below. They should give 
-you a good indication of where to start.
-
-Generally it is recommended to look into the code where the thing you would like to change is currently implemented 
-and then derive a strategy on how to change it. If you have any questions, feel free to open an issue on GitHub and 
-we will help you as much as we can.
-
-## Changes to blueprint parameters
-This section gives guidance on how to implement changes to loss function, training schedule, learning rates, optimizer, 
-some architecture parameters, data augmentation etc. All these parameters are part of the **nnU-Net trainer class**, 
-which we have already seen in the sections above. The default trainer class for 2D, 3D low resolution and 3D full 
-resolution U-Net is nnUNetTrainerV2, the default for the 3D full resolution U-Net from the cascade is 
-nnUNetTrainerV2CascadeFullRes. Trainer classes in nnU-Net inherit form each other, nnUNetTrainerV2CascadeFullRes for 
-example has nnUNetTrainerV2 as parent class and only overrides cascade-specific code.
-
-Due to the inheritance of trainer classes, changes can be integrated into nnU-Net quite easily and with minimal effort. 
-Simply create a new trainer class (with some custom name), change the functionality you need to change and then specify 
-this class (via its name) during training - done.
-
-This process requires the new class to be located in a subfolder of nnunet.training.network_training! Do not save it 
-somewhere else or nnU-Net will not be able to find it! Also don't use the same name twice! nnU-Net always picks the 
-first trainer that matches the requested name.
-
-Don't worry about overwriting results of another trainer class. nnU-Net always generates output folders that are named 
-after the trainer class used to generate the results. 
-
-Due to the variety of possible changes to the blueprint parameters of nnU-Net, we here only present a summary of where 
-to look for what kind of modification. During method development we have already created a large number of nnU-Net 
-blueprint variations which should give a good indication of where to start:
-
-
-
-
-These 
-#
-for changes in training, crearte your own trainer class
-
-for changes in preprocessing, create your own preprocessor and link it in the experiment planner
-
-for changes to architecture and experiment planning, create your own experiment planner
+# Extending/Changing nnU-Net
+Please refer to [this](documentation/extending_nnunet.md) guide.
 
 # FAQ
 #### Manual Splitting of Data
@@ -274,22 +292,38 @@ need segmentations, I recommend you start with this.
   it is possible that the 3d U-Net cannot capture sufficient contextual information in order to be effective. If this 
   is the case, you should consider running the 3d U-Net cascade (3d_lowres followed by 3d_cascade_fullres)
   - If your data is very anisotropic then a 2D U-Net may actually be a better choice (Promise12, ACDC, Task05_Prostate 
-  from the decathlon are good examples)
+  from the decathlon are examples for anisotropic data)
 
 You do not have to run five-fold cross-validation all the time. If you want to test single model performance, use
- *all* for `FOLD` instead of a number.
+ *all* for `FOLD` instead of a number. Note that this will then not give you an estimate of your performance on the 
+ training set. You will also no tbe able to automatically identify which ensembling should be used and nnU-Net will 
+ not be able to configure a postprocessing. 
  
-CAREFUL: DO NOT use fold=all when you intend to run the cascade! You must run the cross-validation in 3d_lowres so that you get proper (=not overfitted) low resolution predictions.
+CAREFUL: DO NOT use fold=all when you intend to run the cascade! You must run the cross-validation in 3d_lowres so 
+that you get proper (=not overfitted) low resolution predictions.
  
 #### Sharing Models
 You can share trained models by simply sending the corresponding output folder from `RESULTS_FOLDER/nnUNet` to 
 whoever you want share them with. The recipient can then use nnU-Net for inference with this model.
 
-#### Can I use multi GPU training?
-TODO
-
 #### Can I run nnU-Net on smaller GPUs?
-TODO
+nnU-Net is guaranteed to run on GPUs with 11GB of memory. Many configurations may also run on 8 GB. If you wish to 
+configure nnU-Net to use a different amount of GPU memory, simply adapt the reference value for the GPU memory estimation 
+accordingly (with some slack because the whole thing is not an exact science!). For example, in 
+[experiment_planner_baseline_3DUNet_v21_11GB.py](nnunet/experiment_planning/experiment_planner_baseline_3DUNet_v21_11GB.py) 
+we provide an example that attempts to maximise the usage of GPU memory on 11GB as opposed to the default which leaves 
+much more headroom). This is simply achieved by this line:
+
+```python
+ref = Generic_UNet.use_this_for_batch_size_computation_3D * 11 / 7.5
+```
+
+with 77.5 being what is currently used (approximately) and 11 being the target. Should you get CUDA out of memory 
+issues, simply reduce the reference value. You should do this adaptation as part of a separate ExperimentPlanner class. 
+Please read the instructions [here](documentation/extending_nnunet.md).
+
+A 32 GB variant is also provided (ExperimentPlanner3D_v21_32GB). Note that increasing the GPU memory target while 
+remaining on the same GPU will increase the computation time during training and thus the run time substantially! 
 
 #### I get the error `seg from prev stage missing` when running the cascade
 You need to run all five folds of `3d_lowres`. Segmentations of the previous stage can only be generated from the 
@@ -308,7 +342,7 @@ If you run `nnUNet_plan_and_preprocess` with the --verify_dataset_integrity opti
 it will check for wrong values in the label images.
 
 #### Why is no 3d_lowres model created?
-3d_lowres is created only if the patch size in 3d_fullres less than 1/4 of the voxels of the median shape of the data 
+3d_lowres is created only if the patch size in 3d_fullres less than 1/8 of the voxels of the median shape of the data 
 in 3d_fullres (for example Liver is about 512x512x512 and the patch size is 128x128x128, so that's 1/64 and thus 
 3d_lowres is created). You can enforce the creation of 3d_lowres models for smaller datasets by changing the value of
 `HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0` (located in experiment_planning.configuration).

@@ -291,8 +291,8 @@ class FabiansUNet(SegmentationNetwork):
     """
     Residual Encoder, Plain conv decoder
     """
-    use_this_for_batch_size_computation_2D = 1244233721.0  # 1167982592.0
-    use_this_for_batch_size_computation_3D = 1230348801.0
+    use_this_for_2D_configuration = 1244233721.0  # 1167982592.0
+    use_this_for_3D_configuration = 1230348801.0
     default_blocks_per_stage_encoder = (1, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4)
     default_blocks_per_stage_decoder = (1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
     default_min_batch_size = 2 # this is what works with the numbers above

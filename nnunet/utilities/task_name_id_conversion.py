@@ -5,9 +5,21 @@ import numpy as np
 
 def convert_id_to_task_name(task_id: int):
     startswith = "Task%02.0d" % task_id
-    candidates_preprocessed = subdirs(preprocessing_output_dir, prefix=startswith, join=False)
-    candidates_raw = subdirs(nnUNet_raw_data, prefix=startswith, join=False)
-    candidates_cropped = subdirs(nnUNet_cropped_data, prefix=startswith, join=False)
+    if preprocessing_output_dir is not None:
+        candidates_preprocessed = subdirs(preprocessing_output_dir, prefix=startswith, join=False)
+    else:
+        candidates_preprocessed = []
+
+    if nnUNet_raw_data is not None:
+        candidates_raw = subdirs(nnUNet_raw_data, prefix=startswith, join=False)
+    else:
+        candidates_raw = []
+
+    if nnUNet_cropped_data is not None:
+        candidates_cropped = subdirs(nnUNet_cropped_data, prefix=startswith, join=False)
+    else:
+        candidates_cropped = []
+
     all_candidates = candidates_cropped + candidates_preprocessed + candidates_raw
     unique_candidates = np.unique(all_candidates)
     if len(unique_candidates) > 1:

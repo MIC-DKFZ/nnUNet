@@ -61,7 +61,7 @@ class ExperimentPlanner3DFabiansResUNet_v21(ExperimentPlanner3D_v21):
         blocks_per_stage_encoder = FabiansUNet.default_blocks_per_stage_encoder[:len(pool_op_kernel_sizes)]
         blocks_per_stage_decoder = FabiansUNet.default_blocks_per_stage_decoder[:len(pool_op_kernel_sizes) - 1]
 
-        ref = FabiansUNet.use_this_for_batch_size_computation_3D
+        ref = FabiansUNet.use_this_for_3D_configuration
         here = FabiansUNet.compute_approx_vram_consumption(input_patch_size, self.unet_base_num_features,
                                                            self.unet_max_num_filters, num_modalities, num_classes,
                                                            pool_op_kernel_sizes, blocks_per_stage_encoder,
