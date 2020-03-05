@@ -31,5 +31,5 @@ def convert_id_to_task_name(task_id: int):
 
 def convert_task_name_to_id(task_name: str):
     assert task_name.startswith("Task")
-    task_id = int(task_name[4:6])
+    task_id = int(task_name[4:7])
     return task_id
