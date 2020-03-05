@@ -28,7 +28,7 @@ from nnunet.paths import nnUNet_raw_data, nnUNet_cropped_data, preprocessing_out
 from nnunet.preprocessing.cropping import ImageCropper
 
 
-def split_4d(input_folder, num_processes=default_num_threads):
+def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_output_id=None):
     assert isdir(join(input_folder, "imagesTr")) and isdir(join(input_folder, "labelsTr")) and \
            isfile(join(input_folder, "dataset.json")), \
         "The input folder must be a valid Task folder from the Medical Segmentation Decathlon with at least the " \
@@ -37,11 +37,20 @@ def split_4d(input_folder, num_processes=default_num_threads):
     while input_folder.endswith("/"):
         input_folder = input_folder[:-1]
 
-    task_name = input_folder.split("/")[-1]
+    full_task_name = input_folder.split("/")[-1]
 
-    assert task_name.startswith("Task"), "The input folder must point to a folder that starts with TaskXX_"
+    assert full_task_name.startswith("Task"), "The input folder must point to a folder that starts with TaskXX_"
 
-    output_folder = join(nnUNet_raw_data, task_name)
+    first_underscore = full_task_name.find("_")
+    assert first_underscore == 6, "Input folder start with TaskXX with XX being a 2-digit id: 00, 01, 02 etc"
+
+    input_task_id = int(full_task_name[4:6])
+    if overwrite_task_output_id is None:
+        overwrite_task_output_id = input_task_id
+
+    task_name = full_task_name[7:]
+
+    output_folder = join(nnUNet_raw_data, "Task%03.0d_" % overwrite_task_output_id + task_name)
 
     if isdir(output_folder):
         shutil.rmtree(output_folder)

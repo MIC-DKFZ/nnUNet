@@ -50,7 +50,7 @@ nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For tra
 least 11 GB (such as the RTX 2080ti). Due to the use of mixed precision, fastest training times are achieved with the 
 Volta architecture (Titan V, V100 GPUs) (tensorcore acceleration for 3D convolutions does not yet work on Turing-based GPUs).
 
-We recommend you run the following steps in a virtual environment. [Here is a quick how-to for Ubuntu.](documentation/virtualenv.md)
+We recommend you run the following steps in a virtual environment. [Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/)
 
 1) Install [PyTorch](https://pytorch.org/get-started/locally/)
 2) Install [Nvidia Apex](https://github.com/NVIDIA/apex). Follow the instructions [here](https://github.com/NVIDIA/apex#quick-start).

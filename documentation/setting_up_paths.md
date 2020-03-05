@@ -9,7 +9,7 @@ the rest ;-) For more information on the required raw data format, see [here](da
 
     Example tree structure:
     ```
-    nnUNet_raw_data_base/nnUNet_raw_data/Task02_Heart
+    nnUNet_raw_data_base/nnUNet_raw_data/Task002_Heart
     ├── dataset.json
     ├── imagesTr
     │   ├── la_003_0000.nii.gz
@@ -23,7 +23,7 @@ the rest ;-) For more information on the required raw data format, see [here](da
         ├── la_003.nii.gz
         ├── la_004.nii.gz
         ├── ...
-    nnUNet_raw_data_base/nnUNet_raw_data/Task05_Prostate/
+    nnUNet_raw_data_base/nnUNet_raw_data/Task005_Prostate/
     ├── dataset.json
     ├── imagesTr
     │   ├── prostate_00_0000.nii.gz

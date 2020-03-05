@@ -14,6 +14,9 @@ def main():
     parser.add_argument("-p", required=False, default=default_num_threads, type=int,
                         help="Use this to specify how many processes are used to run the script. "
                              "Default is %d" % default_num_threads)
+    parser.add_argument("-output_task_id", required=False, default=None, type=int,
+                        help="If specified, this will overwrite the task id in the output folder. If unspecified, the "
+                             "task id of the input folder will be used.")
     args = parser.parse_args()
 
     split_4d(args.i, args.p)
