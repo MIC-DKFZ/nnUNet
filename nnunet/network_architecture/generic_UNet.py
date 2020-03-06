@@ -408,7 +408,8 @@ class Generic_UNet(SegmentationNetwork):
 
     @staticmethod
     def compute_approx_vram_consumption(patch_size, num_pool_per_axis, base_num_features, max_num_features,
-                                        num_modalities, num_classes, pool_op_kernel_sizes, deep_supervision=False):
+                                        num_modalities, num_classes, pool_op_kernel_sizes, deep_supervision=False,
+                                        conv_per_stage=2):
         """
         This only applies for num_conv_per_stage and convolutional_upsampling=True
         not real vram consumption. just a constant term to which the vram consumption will be approx proportional
@@ -423,14 +424,13 @@ class Generic_UNet(SegmentationNetwork):
         :param pool_op_kernel_sizes:
         :return:
         """
-
         if not isinstance(num_pool_per_axis, np.ndarray):
             num_pool_per_axis = np.array(num_pool_per_axis)
 
         npool = len(pool_op_kernel_sizes)
 
         map_size = np.array(patch_size)
-        tmp = np.int64(5 * np.prod(map_size, dtype=np.int64) * base_num_features +
+        tmp = np.int64((conv_per_stage * 2 + 1) * np.prod(map_size, dtype=np.int64) * base_num_features +
                        num_modalities * np.prod(map_size, dtype=np.int64) +
                        num_classes * np.prod(map_size, dtype=np.int64))
 
@@ -440,7 +440,7 @@ class Generic_UNet(SegmentationNetwork):
             for pi in range(len(num_pool_per_axis)):
                 map_size[pi] /= pool_op_kernel_sizes[p][pi]
             num_feat = min(num_feat * 2, max_num_features)
-            num_blocks = 5 if p < (npool - 1) else 2  # 2 + 2 for the convs of encode/decode and 1 for transposed conv
+            num_blocks = (conv_per_stage * 2 + 1) if p < (npool - 1) else conv_per_stage  # conv_per_stage + conv_per_stage for the convs of encode/decode and 1 for transposed conv
             tmp += num_blocks * np.prod(map_size, dtype=np.int64) * num_feat
             if deep_supervision and p < (npool - 2):
                 tmp += np.prod(map_size, dtype=np.int64) * num_classes

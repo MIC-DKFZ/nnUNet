@@ -122,7 +122,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
                                                             self.unet_base_num_features,
                                                             self.unet_max_num_filters, num_modalities,
                                                             num_classes,
-                                                            pool_op_kernel_sizes)
+                                                            pool_op_kernel_sizes, conv_per_stage=self.conv_per_stage)
         while here > ref:
             axis_to_be_reduced = np.argsort(new_shp / new_median_shape)[-1]
 
@@ -145,7 +145,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
             here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
                                                                 self.unet_base_num_features,
                                                                 self.unet_max_num_filters, num_modalities,
-                                                                num_classes, pool_op_kernel_sizes)
+                                                                num_classes, pool_op_kernel_sizes,
+                                                                conv_per_stage=self.conv_per_stage)
             #print(new_shp)
         #print(here, ref)
 

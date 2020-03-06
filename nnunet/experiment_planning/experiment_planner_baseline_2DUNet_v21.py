@@ -47,7 +47,8 @@ class ExperimentPlanner2D_v21(ExperimentPlanner2D):
                                                                                      30,
                                                                                      self.unet_max_num_filters,
                                                                                      num_modalities, num_classes,
-                                                                                     net_pool_kernel_sizes)
+                                                                                     net_pool_kernel_sizes,
+                                                                                     conv_per_stage=self.conv_per_stage)
 
         batch_size = int(np.floor(Generic_UNet.use_this_for_batch_size_computation_2D /
                                   estimated_gpu_ram_consumption * Generic_UNet.DEFAULT_BATCH_SIZE_2D))

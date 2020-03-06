@@ -116,6 +116,8 @@ class nnUNetTrainer(NetworkTrainer):
 
         self.oversample_foreground_percent = 0.33
 
+        self.conv_per_stage = None
+
     def update_fold(self, fold):
         """
         used to swap between folds for inference (ensemble of models from cross-validation)
@@ -239,7 +241,7 @@ class nnUNetTrainer(NetworkTrainer):
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes, net_numpool,
-                                    2, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
+                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, False, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.inference_apply_nonlin = softmax_helper
@@ -342,6 +344,12 @@ class nnUNetTrainer(NetworkTrainer):
             self.threeD = True
         else:
             raise RuntimeError("invalid patch size in plans file: %s" % str(self.patch_size))
+
+        if "conv_per_stage" in plans.keys():  # this ha sbeen added to the plans only recently
+            self.conv_per_stage = plans['conv_per_stage']
+        else:
+            import IPython;IPython.embed()
+            self.conv_per_stage = 2
 
     def load_dataset(self):
         self.dataset = load_dataset(self.folder_with_preprocessed_data)

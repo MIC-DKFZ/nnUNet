@@ -61,6 +61,8 @@ class ExperimentPlanner(object):
         self.batch_size_covers_max_percent_of_dataset = 0.05  # all samples in the batch together cannot cover more
         # than 5% of the entire dataset
 
+        self.conv_per_stage = 2
+
     def get_target_spacing(self):
         spacings = self.dataset_properties['all_spacings']
 
@@ -188,7 +190,7 @@ class ExperimentPlanner(object):
                                                             self.unet_base_num_features,
                                                             self.unet_max_num_filters, num_modalities,
                                                             num_classes,
-                                                            pool_op_kernel_sizes)
+                                                            pool_op_kernel_sizes, conv_per_stage=self.conv_per_stage)
         while here > ref:
             axis_to_be_reduced = np.argsort(new_shp / new_median_shape)[-1]
 
@@ -211,7 +213,8 @@ class ExperimentPlanner(object):
             here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
                                                                 self.unet_base_num_features,
                                                                 self.unet_max_num_filters, num_modalities,
-                                                                num_classes, pool_op_kernel_sizes)
+                                                                num_classes, pool_op_kernel_sizes,
+                                                                conv_per_stage=self.conv_per_stage)
             # print(new_shp)
 
         input_patch_size = new_shp
@@ -346,7 +349,9 @@ class ExperimentPlanner(object):
                  'min_region_size_per_class': min_region_size_per_class, 'min_size_per_class': min_size_per_class,
                  'transpose_forward': self.transpose_forward, 'transpose_backward': self.transpose_backward,
                  'data_identifier': self.data_identifier, 'plans_per_stage': self.plans_per_stage,
-                 'preprocessor_name': self.preprocessor_name}
+                 'preprocessor_name': self.preprocessor_name,
+                 'conv_per_stage': self.conv_per_stage,
+                 }
 
         self.plans = plans
         self.save_my_plans()

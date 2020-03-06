@@ -65,7 +65,7 @@ class ExperimentPlanner3DFabiansResUNet_v21(ExperimentPlanner3D_v21):
         here = FabiansUNet.compute_approx_vram_consumption(input_patch_size, self.unet_base_num_features,
                                                            self.unet_max_num_filters, num_modalities, num_classes,
                                                            pool_op_kernel_sizes, blocks_per_stage_encoder,
-                                                           blocks_per_stage_decoder, 2, self.unet_min_batch_size)
+                                                           blocks_per_stage_decoder, 2, self.unet_min_batch_size,)
         while here > ref:
             axis_to_be_reduced = np.argsort(new_shp / new_median_shape)[-1]
 
