@@ -149,3 +149,9 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
                                                                use_gaussian, all_in_gpu)
         self.network.do_ds = ds
         return ret
+
+
+nnUNetTrainerV2_noDataAugmentation_copy1 = nnUNetTrainerV2_noDataAugmentation
+nnUNetTrainerV2_noDataAugmentation_copy2 = nnUNetTrainerV2_noDataAugmentation
+nnUNetTrainerV2_noDataAugmentation_copy3 = nnUNetTrainerV2_noDataAugmentation
+nnUNetTrainerV2_noDataAugmentation_copy4 = nnUNetTrainerV2_noDataAugmentation

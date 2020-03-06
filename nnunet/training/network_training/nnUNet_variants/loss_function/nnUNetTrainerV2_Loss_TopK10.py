@@ -8,3 +8,10 @@ class nnUNetTrainerV2_Loss_TopK10(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.loss = TopKLoss(k=10)
+
+
+nnUNetTrainerV2_Loss_TopK10_copy1 = nnUNetTrainerV2_Loss_TopK10
+nnUNetTrainerV2_Loss_TopK10_copy2 = nnUNetTrainerV2_Loss_TopK10
+nnUNetTrainerV2_Loss_TopK10_copy3 = nnUNetTrainerV2_Loss_TopK10
+nnUNetTrainerV2_Loss_TopK10_copy4 = nnUNetTrainerV2_Loss_TopK10
+

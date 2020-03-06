@@ -81,3 +81,9 @@ class nnUNetTrainerV2_ResencUNet(nnUNetTrainerV2):
         ret = nnUNetTrainer.run_training(self)
         self.network.decoder.deep_supervision = ds
         return ret
+
+
+nnUNetTrainerV2_ResencUNet_copy1 = nnUNetTrainerV2_ResencUNet
+nnUNetTrainerV2_ResencUNet_copy2 = nnUNetTrainerV2_ResencUNet
+nnUNetTrainerV2_ResencUNet_copy3 = nnUNetTrainerV2_ResencUNet
+nnUNetTrainerV2_ResencUNet_copy4 = nnUNetTrainerV2_ResencUNet
