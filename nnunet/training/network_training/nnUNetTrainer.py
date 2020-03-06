@@ -348,7 +348,6 @@ class nnUNetTrainer(NetworkTrainer):
         if "conv_per_stage" in plans.keys():  # this ha sbeen added to the plans only recently
             self.conv_per_stage = plans['conv_per_stage']
         else:
-            import IPython;IPython.embed()
             self.conv_per_stage = 2
 
     def load_dataset(self):
