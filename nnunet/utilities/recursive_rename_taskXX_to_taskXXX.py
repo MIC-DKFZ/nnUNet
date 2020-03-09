@@ -21,3 +21,6 @@ if __name__ == "__main__":
     recursive_rename("/home/fabian/drives/datasets/nnUNet_preprocessed")
     recursive_rename("/home/fabian/drives/datasets/nnUNet_testSets")
     recursive_rename("/home/fabian/drives/datasets/results/nnUNet")
+    recursive_rename("/home/fabian/drives/e230-dgx2-1-data_fabian/Decathlon_raw")
+    recursive_rename("/home/fabian/drives/e230-dgx2-1-data_fabian/nnUNet_preprocessed")
+

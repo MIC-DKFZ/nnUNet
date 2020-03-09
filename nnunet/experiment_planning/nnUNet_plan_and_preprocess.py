@@ -4,7 +4,7 @@ from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.utils import crop
 from nnunet.paths import *
 import shutil
-
+from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 from nnunet.preprocessing.sanity_checks import verify_dataset_integrity
 from nnunet.training.model_restore import recursive_find_python_class
 
@@ -56,21 +56,14 @@ def main():
     for i in task_ids:
         i = int(i)
 
-        taskString_candidates = subdirs(nnUNet_raw_data, prefix="Task%03.0d" % i, join=False)
-        cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%03.0d" % i, join=False)
+        task_name = convert_id_to_task_name(i)
 
-        # we always call crop because it will only crop files that are not yet present
-        if len(cropped_taskString_candidates) > 1:
-            print(cropped_taskString_candidates)
-            raise RuntimeError("ambiguous task string (raw Task %d)" % i)
-        else:
-            if args.verify_dataset_integrity:
-                verify_dataset_integrity(join(nnUNet_raw_data, taskString_candidates[0]))
+        if args.verify_dataset_integrity:
+            verify_dataset_integrity(join(nnUNet_raw_data, task_name))
 
-            crop(taskString_candidates[0], False, tf)
-            cropped_taskString_candidates = subdirs(nnUNet_cropped_data, prefix="Task%03.0d" % i, join=False)
+        crop(task_name, False, tf)
 
-        tasks.append(cropped_taskString_candidates[0])
+        tasks.append(task_name)
 
     search_in = join(nnunet.__path__[0], "experiment_planning")
 

@@ -101,6 +101,15 @@ When installing apex, you have two choices (both are described on the apex websi
           ```
 4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to 
 set a few of environment variables. Please follow the instructions [here](documentation/setting_up_paths.md).
+5) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate 
+plots of the network topologies it generates (see [Model training](#model-training)). To install hiddenlayer, 
+run the following commands:
+    ```bash
+    git clone https://github.com/nanohanno/hiddenlayer.git
+    cd hiddenlayer
+    git checkout bugfix/get_trace_graph
+    pip install -e .
+    ```
 
 Installing nnU-Net will add several new commands to your terminal. These commands are used to run the entire nnU-Net 
 pipeline. You can execute them from any location on your system. All nnU-Net commands have the prefix `nnUNet_` for 
