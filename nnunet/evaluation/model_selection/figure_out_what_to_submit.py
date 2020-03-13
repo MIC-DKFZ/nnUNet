@@ -53,14 +53,9 @@ def main():
                            help="nnUNetTrainer class for cascade model. Default: %s" % default_cascade_trainer)
     parser.add_argument("-pl", type=str, required=False, default=default_plans_identifier,
                            help="plans name, Default: %s" % default_plans_identifier)
-    parser.add_argument("-summary_folder", type=str, required=False, default=None,
-                           help="summarizes all results in this folder")
 
     parser.add_argument("--strict", required=False, default=False, action="store_true",
                         help="set this flag if you want this script to crash of one of the models is missing")
-
-    parser.add_argument("--allow_missing_pp", required=False, default=False, action="store_true",
-                        help="if set then missing postprocessing will be run automatically")
 
     args = parser.parse_args()
     tasks = [int(i) for i in args.task_ids]
@@ -69,14 +64,9 @@ def main():
     tr = args.tr
     trc = args.ctr
     strict = args.strict
-    allow_missing_pp = args.allow_missing_pp
-    summary_folder = args.summary_folder
     pl = args.pl
 
     validation_folder = "validation_raw"
-
-    if summary_folder is not None:
-        maybe_mkdir_p(summary_folder)
 
     # this script now acts independently from the summary jsons. That was unnecessary
     id_task_mapping = {}
@@ -105,9 +95,8 @@ def main():
                 # we need cv_niftis_postprocessed to know the single model performance
                 cv_niftis_postprocessed_folder = join(output_folder, "cv_niftis_postprocessed")
                 if not isfile(postprocessing_json) or not isdir(cv_niftis_postprocessed_folder):
-                    if allow_missing_pp:
-                        print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
-                        consolidate_folds(output_folder)
+                    print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
+                    consolidate_folds(output_folder)
                 assert isfile(postprocessing_json), "Postprocessing json missing, expected: %s" % postprocessing_json
                 assert isdir(cv_niftis_postprocessed_folder), "Folder with niftis from CV missing, expected: %s" % cv_niftis_postprocessed_folder
 
@@ -141,7 +130,8 @@ def main():
                 print("ensembling", network1_folder, network2_folder)
                 p = call(["python", join(nnunet.__path__[0], "evaluation/model_selection/ensemble.py"),
                           network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder])
-
+                if p != 0:
+                    raise RuntimeError("ensembling failed, see error message above (most likely you did not run model validation with --npz)")
                 # ensembling will automatically do postprocessing
 
                 # now get result of ensemble
@@ -177,23 +167,23 @@ def main():
                                    id_task_mapping[t] + "\n"
                 print(predict_str)
 
-        if summary_folder is not None:
-            with open(join(summary_folder, "prediction_commands.txt"), 'w') as f:
-                f.write(predict_str)
+        summary_folder = join(network_training_output_dir, "ensembles", id_task_mapping[t])
+        with open(join(summary_folder, "prediction_commands.txt"), 'w') as f:
+            f.write(predict_str)
 
-            num_classes = len(all_results[best_model].keys())
-            with open(join(summary_folder, "summary.csv"), 'w') as f:
-                f.write("model")
+        num_classes = len(all_results[best_model].keys())
+        with open(join(summary_folder, "summary.csv"), 'w') as f:
+            f.write("model")
+            for c in range(1, num_classes + 1):
+                f.write(",class%d" % c)
+            f.write(",average")
+            f.write("\n")
+            for m in all_results.keys():
+                f.write(m)
                 for c in range(1, num_classes + 1):
-                    f.write(",class%d" % c)
-                f.write(",average")
+                    f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
+                f.write(",%01.4f" % results[m])
                 f.write("\n")
-                for m in all_results.keys():
-                    f.write(m)
-                    for c in range(1, num_classes + 1):
-                        f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
-                    f.write(",%01.4f" % results[m])
-                    f.write("\n")
 
 
 if __name__ == "__main__":
