@@ -34,6 +34,10 @@ class ExperimentPlanner2D_v21(ExperimentPlanner2D):
         dataset_num_voxels = np.prod(new_median_shape, dtype=np.int64) * num_cases
         input_patch_size = new_median_shape[1:]
 
+        # TODO there is a bug here. The pooling operations are determined by the input_patch_size we put into this
+        #  PRIOR to padding, so there may be a pooling being left out. This is not detrimental, but not pretty also.
+        #  Will be fixed after publication. The bug can be fixed by taking ceil() of current_size in each iteration
+        #  of the while loop in get_pool_and_conv_props
         network_numpool, net_pool_kernel_sizes, net_conv_kernel_sizes, input_patch_size, \
         shape_must_be_divisible_by = get_pool_and_conv_props(current_spacing[1:], input_patch_size,
                                                              self.unet_featuremap_min_edge_length,
