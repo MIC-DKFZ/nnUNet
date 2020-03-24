@@ -93,15 +93,15 @@ def main():
                 # we need a postprocessing_json for inference, so that must be present
                 postprocessing_json = join(output_folder, "postprocessing.json")
                 # we need cv_niftis_postprocessed to know the single model performance
-                cv_niftis_postprocessed_folder = join(output_folder, "cv_niftis_postprocessed")
-                if not isfile(postprocessing_json) or not isdir(cv_niftis_postprocessed_folder):
+                cv_niftis_folder = join(output_folder, "cv_niftis_raw")
+                if not isfile(postprocessing_json) or not isdir(cv_niftis_folder):
                     print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
                     consolidate_folds(output_folder)
                 assert isfile(postprocessing_json), "Postprocessing json missing, expected: %s" % postprocessing_json
-                assert isdir(cv_niftis_postprocessed_folder), "Folder with niftis from CV missing, expected: %s" % cv_niftis_postprocessed_folder
+                assert isdir(cv_niftis_folder), "Folder with niftis from CV missing, expected: %s" % cv_niftis_folder
 
                 # obtain mean foreground dice
-                summary_file = join(cv_niftis_postprocessed_folder, "summary.json")
+                summary_file = join(cv_niftis_folder, "summary.json")
                 results[m] = get_mean_foreground_dice(summary_file)
                 all_results[m] = load_json(summary_file)['results']['mean']
                 valid_models.append(m)
@@ -135,8 +135,8 @@ def main():
                 # ensembling will automatically do postprocessing
 
                 # now get result of ensemble
-                results[ensemble_name] = get_mean_foreground_dice(join(output_folder_base, "ensembled_postprocessed", "summary.json"))
-                all_results[ensemble_name] = load_json(join(output_folder_base, "ensembled_postprocessed", "summary.json"))['results']['mean']
+                results[ensemble_name] = get_mean_foreground_dice(join(output_folder_base, "ensembled_raw", "summary.json"))
+                all_results[ensemble_name] = load_json(join(output_folder_base, "ensembled_raw", "summary.json"))['results']['mean']
 
         # now print all mean foreground dice and highlight the best
         foreground_dices = list(results.values())
