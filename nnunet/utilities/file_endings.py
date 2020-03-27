@@ -11,4 +11,5 @@ def maybe_add_0000_to_all_niigz(folder):
     nii_gz = subfiles(folder, suffix='.nii.gz')
     for n in nii_gz:
         n = remove_trailing_slash(n)
-        os.rename(n, n[:-7] + '_0000.nii.gz')
+        if not n.endswith('_0000.nii.gz'):
+            os.rename(n, n[:-7] + '_0000.nii.gz')
