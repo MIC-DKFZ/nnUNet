@@ -16,6 +16,8 @@ if __name__ == "__main__":
     argparser.add_argument("-val", type=str, required=False, default="validation_raw",
                            help="Validation folder name. Default: validation_raw")
 
+    # TODO make this available for task id also
+
     args = argparser.parse_args()
     model = args.m
     task = args.t
