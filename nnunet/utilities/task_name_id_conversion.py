@@ -26,6 +26,10 @@ def convert_id_to_task_name(task_id: int):
         raise RuntimeError("More than one task name found for task id %d. Please correct that. (I looked in the "
                            "following folders:\n%s\n%s\n%s" % (task_id, nnUNet_raw_data, preprocessing_output_dir,
                                                                nnUNet_cropped_data))
+    if len(unique_candidates) == 0:
+        raise RuntimeError("Could not find a task with the ID %d. Make sure the requested task ID exists and that "
+                           "nnU-Net knows where raw and preprocessed data are located (see Documentation - "
+                           "Installation)." % task_id)
     return unique_candidates[0]
 
 
