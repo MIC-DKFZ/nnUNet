@@ -56,9 +56,32 @@ def copy_pretrained_models_for_task(task_name: str, output_directory: str, model
         copy_model(expected_output_folder, output_here)
 
 
+def copy_ensembles(taskname, output_folder, must_have=('nnUNetPlansv2.1', 'nnUNetTrainerV2')):
+    ensemble_dir = join(network_training_output_dir, 'ensembles', taskname)
+    if not isdir(ensemble_dir):
+        print("No ensemble directory found for task", taskname)
+        return
+    subd = subdirs(ensemble_dir, join=False)
+    valid = []
+    for s in subd:
+        v = True
+        for m in must_have:
+            if s.find(m) == -1:
+                v = False
+                break
+        if v:
+            valid.append(s)
+    output_ensemble = join(output_folder, 'ensembles', taskname)
+    maybe_mkdir_p(output_ensemble)
+    for v in valid:
+        this_output = join(output_ensemble, v)
+        maybe_mkdir_p(this_output)
+        shutil.copy(join(ensemble_dir, v, 'postprocessing.json'), this_output)
+
+
 if __name__ == "__main__":
     output_base = "/media/fabian/DeepLearningData/nnunet_trained_models"
-    task_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 24, 27, 29, 35, 48, 55, 61, 38][-2:]
+    task_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 24, 27, 29, 35, 48, 55, 61, 38]
     for t in task_ids:
         if t == 61:
             models = ("3d_fullres", )
@@ -66,6 +89,7 @@ if __name__ == "__main__":
             models = ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres")
         taskname = convert_id_to_task_name(t)
         print(taskname)
-        output_task = join(output_base, taskname)
-        maybe_mkdir_p(output_task)
-        copy_pretrained_models_for_task(taskname, output_task, models)
+        output_folder = join(output_base, taskname)
+        maybe_mkdir_p(output_folder)
+        copy_pretrained_models_for_task(taskname, output_folder, models)
+        copy_ensembles(taskname, output_folder, models)
