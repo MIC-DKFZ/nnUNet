@@ -68,7 +68,6 @@ def copy_ensembles(taskname, output_folder, must_have=('nnUNetPlansv2.1', 'nnUNe
         for m in must_have:
             if s.find(m) == -1:
                 v = False
-                break
         if v:
             valid.append(s)
     output_ensemble = join(output_folder, 'ensembles', taskname)
@@ -92,4 +91,4 @@ if __name__ == "__main__":
         output_folder = join(output_base, taskname)
         maybe_mkdir_p(output_folder)
         copy_pretrained_models_for_task(taskname, output_folder, models)
-        copy_ensembles(taskname, output_folder, models)
+        copy_ensembles(taskname, output_folder)
