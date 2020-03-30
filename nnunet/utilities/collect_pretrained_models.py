@@ -1,7 +1,10 @@
+from multiprocessing.pool import Pool
+
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 from nnunet.paths import default_cascade_trainer, default_plans_identifier, default_trainer, network_training_output_dir
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
+from subprocess import call
 
 
 def copy_fold(in_folder: str, out_folder: str):
@@ -78,6 +81,19 @@ def copy_ensembles(taskname, output_folder, must_have=('nnUNetPlansv2.1', 'nnUNe
         shutil.copy(join(ensemble_dir, v, 'postprocessing.json'), this_output)
 
 
+def compress_everything(output_base, num_processes=4):
+    p = Pool(num_processes)
+    tasks = subfolders(output_base, join=False)
+    tasknames = [i.split('/')[-1] for i in tasks]
+    commands = []
+    for t, tn in zip(tasks, tasknames):
+        curr = ['zip', '-r', join(output_base, tn + ".zip"), join(output_base, t)]
+        commands.append(curr)
+    p.map(call, commands)
+    p.close()
+    p.join()
+
+
 if __name__ == "__main__":
     output_base = "/media/fabian/DeepLearningData/nnunet_trained_models"
     task_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 24, 27, 29, 35, 48, 55, 61, 38]
@@ -92,3 +108,4 @@ if __name__ == "__main__":
         maybe_mkdir_p(output_folder)
         copy_pretrained_models_for_task(taskname, output_folder, models)
         copy_ensembles(taskname, output_folder)
+    compress_everything(output_base, 4)
