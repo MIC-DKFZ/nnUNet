@@ -35,7 +35,9 @@ standardized environment.
 
 For more information about nnU-Net, please read the following paper:
 
-`Isensee, Fabian, et al. "nnU-Net: Breaking the Spell on Successful Medical Image Segmentation." arXiv preprint arXiv:1904.08128 (2019).` [NEEDS UPDATE]
+`Isensee, Fabian, et al. "nnU-Net: Breaking the Spell on Successful Medical Image Segmentation." arXiv preprint arXiv:1904.08128 (2019).`
+
+(this reference will be updated soon!)
 
 Please also cite this paper if you are using nnU-Net for your research!
 
