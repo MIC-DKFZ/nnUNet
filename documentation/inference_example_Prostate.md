@@ -3,7 +3,7 @@
 This is a step-by-step example on how to run inference with pretrained nnU-Net models on the Prostate dataset of the 
 Medical Segemtnation Decathlon.
 
-1) Install nnU-Net by following the instructions [here](readme.md#installation). Make sure to set all relevant paths, 
+1) Install nnU-Net by following the instructions [here](../readme.md#installation). Make sure to set all relevant paths, 
 also see [here](setting_up_paths.md). This step is necessary so that nnU-Net knows where to store trained models.
 2) Download the Prostate dataset of the Medical Segmentation Decathlon from 
 [here](https://drive.google.com/drive/folders/1HqEgzS8BV2c7xYNrZdEAnrHk7osJJ--2). Then extract the archive to a 

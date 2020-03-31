@@ -3,7 +3,7 @@
 This is a step-by-step example on how to run a 3D full resolution Training with the Hippocampus dataset from the 
 Medical Segmentation Decathlon.
 
-1) Install nnU-Net by following the instructions [here](readme.md#installation). Make sure to set all relevant paths, 
+1) Install nnU-Net by following the instructions [here](../readme.md#installation). Make sure to set all relevant paths, 
 also see [here](setting_up_paths.md). This step is necessary so that nnU-Net knows where to store raw data, 
 preprocessed data and trained models.
 2) Download the Hippocampus dataset of the Medical Segmentation Decathlon from 
@@ -33,7 +33,7 @@ destination of your choice.
    hours on a modern GPU.
    
 This tutorial is only intended to demonstrate how easy it is to get nnU-Net running. You do not need to finish the 
-network training - pretrained models for the hippocampus task are available (see [here](readme.md)).
+network training - pretrained models for the hippocampus task are available (see [here](../readme.md#run-inference)).
 
 The only prerequisite for running nnU-Net on your custom dataset is to bring it into a structured, nnU-Net compatible 
 format. nnU-Net will take care of the rest. See [here](dataset_conversion.md) for instructions on how to convert 

@@ -55,7 +55,7 @@ Please also cite this paper if you are using nnU-Net for your research!
         * [3D low resolution U-Net](#3d-low-resolution-u-net)
         * [3D full resolution U-Net](#3d-full-resolution-u-net-1)
       - [Multi GPU training](#multi-gpu-training)
-    + [Identifying the best U-Net configuration(s)](#identifying-the-best-u-net-configuration-s-)
+    + [Identifying the best U-Net configuration(s)](#identifying-the-best-u-net-configuration)
     + [Run inference](#run-inference)
   * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
 - [Extending/Changing nnU-Net](#extending-changing-nnu-net)
@@ -325,7 +325,7 @@ If you run more than one DDP training on the same system (say you have 4 GPUs an
 you need to specify a different --master_port for each training!
 
 
-### Identifying the best U-Net configuration(s)
+### Identifying the best U-Net configuration
 Once all models are trained, use the following 
 command to automatically determine what U-Net configuration(s) to use for test set prediction:
 
