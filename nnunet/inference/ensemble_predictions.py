@@ -14,6 +14,7 @@
 
 
 import shutil
+from copy import deepcopy
 
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -37,6 +38,13 @@ def merge_files(args):
 
 def merge(folders, output_folder, threads, override=True, postprocessing_file=None, store_npz=False):
     maybe_mkdir_p(output_folder)
+
+    if postprocessing_file is not None:
+        output_folder_orig = deepcopy(output_folder)
+        output_folder = join(output_folder, 'not_postprocessed')
+        maybe_mkdir_p(output_folder)
+    else:
+        output_folder_orig = None
 
     patient_ids = [subfiles(i, suffix=".npz", join=False) for i in folders]
     patient_ids = [i for j in patient_ids for i in j]
@@ -70,9 +78,9 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
     if postprocessing_file is not None:
         for_which_classes, min_valid_obj_size = load_postprocessing(postprocessing_file)
         print('Postprocessing...')
-        apply_postprocessing_to_folder(output_folder, output_folder + "_postprocessed",
+        apply_postprocessing_to_folder(output_folder, output_folder_orig,
                                        for_which_classes, min_valid_obj_size, threads)
-        shutil.copy(postprocessing_file, output_folder + "_postprocessed")
+        shutil.copy(postprocessing_file, output_folder_orig)
 
 
 def main():
