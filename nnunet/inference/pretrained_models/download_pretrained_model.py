@@ -33,7 +33,7 @@ def get_available_models():
                            "Segmentation targets posterior and anterior parts of the hippocampus, \n"
                            "input modalities are 0: MRI. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://www.dropbox.com/s/ft54q1gi060vm2x/Task004_Hippocampus.zip?dl=1"
         },
         "Task005_Prostate": {
             'description': "Prostate Segmentation. \n"
@@ -149,6 +149,8 @@ def print_available_pretrained_models():
     print('The following pretrained models are available:\n')
     av_models = get_available_models()
     for m in av_models.keys():
+        print('')
+        print(m)
         print(av_models[m]['description'])
 
 
@@ -174,6 +176,34 @@ def download_and_install_from_url(url):
         print("Download finished. Extracting...")
         call(['unzip', '-o', '-d', network_training_output_dir, fname])
         print("Done")
+
+
+def download_by_name():
+    import argparse
+    parser = argparse.ArgumentParser(description="Use this to download pretrained models. CAREFUL: This script will "
+                                                 "overwrite "
+                                                 "existing models (if they share the same trainer class and plans as "
+                                                 "the pretrained model")
+    parser.add_argument("task_name", type=str, help='Task name of the pretrained model. To see '
+                                                                   'available task names, run nnUNet_print_available_'
+                                                                   'pretrained_models')
+    args = parser.parse_args()
+    taskname = args.task_name
+    download_and_install_pretrained_model_by_name(taskname)
+
+
+def download_by_url():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Use this to download pretrained models. This script is intended to download models via url only. "
+                    "If you want to download one of our pretrained models, please use nnUNet_download_pretrained_model. "
+                    "CAREFUL: This script will overwrite "
+                    "existing models (if they share the same trainer class and plans as "
+                    "the pretrained model.")
+    parser.add_argument("url", type=str, help='URL of the pretrained model')
+    args = parser.parse_args()
+    url = args.url
+    download_and_install_from_url(url)
 
 
 if __name__  == '__main__':
