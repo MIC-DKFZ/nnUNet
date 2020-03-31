@@ -36,10 +36,6 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
             folder_with_segs_prev_stage = join(network_training_output_dir, "3d_lowres",
                                                task, previous_trainer + "__" + plans_identifier, "pred_next_stage")
-            if not isdir(folder_with_segs_prev_stage):
-                raise RuntimeError(
-                    "Cannot run final stage of cascade. Run corresponding 3d_lowres first and predict the "
-                    "segmentations for the next stage")
             self.folder_with_segs_from_prev_stage = folder_with_segs_prev_stage
             # Do not put segs_prev_stage into self.output_folder as we need to unpack them for performance and we
             # don't want to do that in self.output_folder because that one is located on some network drive.
@@ -137,6 +133,11 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                                                       "_stage%d" % self.stage)
 
             if training:
+                if not isdir(self.folder_with_segs_from_prev_stage):
+                    raise RuntimeError(
+                        "Cannot run final stage of cascade. Run corresponding 3d_lowres first and predict the "
+                        "segmentations for the next stage")
+
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
                     print("unpacking dataset")

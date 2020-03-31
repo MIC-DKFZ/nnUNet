@@ -422,10 +422,10 @@ we provide an example that attempts to maximise the usage of GPU memory on 11GB 
 much more headroom). This is simply achieved by this line:
 
 ```python
-ref = Generic_UNet.use_this_for_batch_size_computation_3D * 11 / 7.5
+ref = Generic_UNet.use_this_for_batch_size_computation_3D * 11 / 8
 ```
 
-with 77.5 being what is currently used (approximately) and 11 being the target. Should you get CUDA out of memory 
+with 8 being what is currently used (approximately) and 11 being the target. Should you get CUDA out of memory 
 issues, simply reduce the reference value. You should do this adaptation as part of a separate ExperimentPlanner class. 
 Please read the instructions [here](documentation/extending_nnunet.md).
 
