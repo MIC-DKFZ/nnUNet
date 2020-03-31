@@ -26,133 +26,133 @@ def get_available_models():
                            "Segmentation targets are edema, enhancing tumor and necrosis, \n"
                            "input modalities are 0: FLAIR, 1: T1, 2: T1 with contrast agent, 3: T2. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task001_BrainTumour.zip?download=1"
         },
         "Task002_Heart": {
             'description': "Left Atrium Segmentation. \n"
                            "Segmentation target is the left atrium, \n"
                            "input modalities are 0: MRI. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task002_Heart.zip?download=1"
         },
         "Task003_Liver": {
             'description': "Liver and Liver Tumor Segmentation. \n"
                            "Segmentation targets are liver and tumors, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task003_Liver.zip?download=1"
         },
         "Task004_Hippocampus": {
             'description': "Hippocampus Segmentation. \n"
                            "Segmentation targets posterior and anterior parts of the hippocampus, \n"
                            "input modalities are 0: MRI. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': "https://www.dropbox.com/s/ft54q1gi060vm2x/Task004_Hippocampus.zip?dl=1"
+            'url': "https://zenodo.org/record/3734294/files/Task004_Hippocampus.zip?download=1"
         },
         "Task005_Prostate": {
             'description': "Prostate Segmentation. \n"
                            "Segmentation targets are peripheral and central zone, \n"
                            "input modalities are 0: T2, 1: ADC. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task005_Prostate.zip?download=1"
         },
         "Task006_Lung": {
             'description': "Lung Nodule Segmentation. \n"
                            "Segmentation target are lung nodules, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task006_Lung.zip?download=1"
         },
         "Task007_Pancreas": {
             'description': "Pancreas Segmentation. \n"
                            "Segmentation targets are pancras and pancreas tumor, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task007_Pancreas.zip?download=1"
         },
         "Task008_HepaticVessel": {
             'description': "Hepatic Vessel Segmentation. \n"
                            "Segmentation targets are hepatic vesels and liver tumors, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task008_HepaticVessel.zip?download=1"
         },
         "Task009_Spleen": {
             'description': "Spleen Segmentation. \n"
                            "Segmentation target is the spleen, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task009_Spleen.zip?download=1"
         },
         "Task010_Colon": {
             'description': "Colon Cancer Segmentation. \n"
                            "Segmentation target are colon caner primaries, \n"
                            "input modalities are 0: CT scan. \n"
                            "Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task010_Colon.zip?download=1"
         },
         "Task017_AbdominalOrganSegmentation": {
             'description': "Multi-Atlas Labeling Beyond the Cranial Vault - Abdomen. \n"
                            "Segmentation targets are thirteen different abdominal organs, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see https://www.synapse.org/#!Synapse:syn3193805/wiki/217754",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task017_AbdominalOrganSegmentation.zip?download=1"
         },
         "Task024_Promise": {
             'description': "Prostate MR Image Segmentation 2012. \n"
                            "Segmentation target is the prostate, \n"
                            "input modalities are 0: T2. \n"
                            "Also see https://promise12.grand-challenge.org/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task024_Promise.zip?download=1"
         },
         "Task027_ACDC": {
             'description': "Automatic Cardiac Diagnosis Challenge. \n"
                            "Segmentation targets are right ventricle, left ventricular cavity and left myocardium, \n"
                            "input modalities are 0: cine MRI. \n"
                            "Also see https://acdc.creatis.insa-lyon.fr/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task027_ACDC.zip?download=1"
         },
         "Task029_LiTS": {
             'description': "Liver and Liver Tumor Segmentation Challenge. \n"
                            "Segmentation targets are liver and liver tumors, \n"
                            "input modalities are 0: abdominal CT scan. \n"
                            "Also see https://competitions.codalab.org/competitions/17094",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task029_LITS.zip?download=1"
         },
         "Task035_ISBILesionSegmentation": {
             'description': "Longitudinal multiple sclerosis lesion segmentation Challenge. \n"
                            "Segmentation target is MS lesions, \n"
                            "input modalities are 0: FLAIR, 1: MPRAGE, 2: proton density, 3: T2. \n"
                            "Also see https://smart-stats-tools.org/lesion-challenge",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task035_ISBILesionSegmentation.zip?download=1"
         },
         "Task038_CHAOS_Task_3_5_Variant2": {
             'description': "CHAOS - Combined (CT-MR) Healthy Abdominal Organ Segmentation Challenge (Task 3 & 5). \n"
                            "Segmentation targets are left and right kidney, liver, spleen, \n"
                            "input modalities are 0: T1 in-phase, T1 out-phase, T2 (can be any of those)\n"
                            "Also see https://chaos.grand-challenge.org/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task038_CHAOS_Task_3_5_Variant2.zip?download=1"
         },
         "Task048_KiTS_clean": {
             'description': "Kidney and Kidney Tumor Segmentation Challenge. "
                            "Segmentation targets kidney and kidney tumors, "
                            "input modalities are 0: abdominal CT scan. "
                            "Also see https://kits19.grand-challenge.org/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task048_KiTS_clean.zip?download=1"
         },
         "Task055_SegTHOR": {
             'description': "SegTHOR: Segmentation of THoracic Organs at Risk in CT images. \n"
                            "Segmentation targets are aorta, esophagus, heart and trachea, \n"
                            "input modalities are 0: CT scan. \n"
                            "Also see https://competitions.codalab.org/competitions/21145",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task055_SegTHOR.zip?download=1"
         },
         "Task061_CREMI": {
             'description': "MICCAI Challenge on Circuit Reconstruction from Electron Microscopy Images (Synaptic Cleft segmentation task). \n"
                            "Segmentation target is synaptic clefts, \n"
                            "input modalities are 0: serial section transmission electron microscopy of neural tissue. \n"
                            "Also see https://cremi.org/",
-            'url': ""
+            'url': "https://zenodo.org/record/3734294/files/Task061_CREMI.zip?download=1"
         },
 
     }
