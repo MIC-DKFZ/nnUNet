@@ -11,13 +11,12 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
+import shutil
 import tempfile
 from urllib.request import urlopen
 from nnunet.paths import network_training_output_dir
 from subprocess import call
-
+import requests
 
 def get_available_models():
     available_models = {
@@ -181,12 +180,35 @@ def download_and_install_from_url(url):
     assert network_training_output_dir is not None, "Cannot install model because network_training_output_dir is not " \
                                                     "set (RESULTS_FOLDER missing as environment variable, see " \
                                                     "Installation instructions)"
+    import http.client
+    http.client.HTTPConnection._http_vsn = 10
+    http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
+
     with tempfile.NamedTemporaryFile() as f:
         fname = f.name
         print("Downloading pretrained model", url)
         data = urlopen(url).read()
         f.write(data)
         # unzip -o zip_file -d output_dir
+        print("Download finished. Extracting...")
+        call(['unzip', '-o', '-d', network_training_output_dir, fname])
+        print("Done")
+
+
+def download_and_install_from_url2(url):
+    assert network_training_output_dir is not None, "Cannot install model because network_training_output_dir is not " \
+                                                    "set (RESULTS_FOLDER missing as environment variable, see " \
+                                                    "Installation instructions)"
+    import http.client
+    http.client.HTTPConnection._http_vsn = 10
+    http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
+
+    with tempfile.NamedTemporaryFile() as f:
+        fname = f.name
+        print("Downloading pretrained model", url)
+        r = requests.get(url)
+        f.write(r.content)
+
         print("Download finished. Extracting...")
         call(['unzip', '-o', '-d', network_training_output_dir, fname])
         print("Done")

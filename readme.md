@@ -72,6 +72,8 @@ Volta architecture (Titan V, V100 GPUs) (tensorcore acceleration for 3D convolut
 
 We recommend you run the following steps in a virtual environment. [Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/)
 
+Python 2 is deprecated and not supported. Please make sure you are using Python 3 :-)
+
 1) Install [PyTorch](https://pytorch.org/get-started/locally/)
 2) Install [Nvidia Apex](https://github.com/NVIDIA/apex). Follow the instructions [here](https://github.com/NVIDIA/apex#quick-start).
 You can skip this step if all you want to do is run inference with our pretrained models. Apex is required for 

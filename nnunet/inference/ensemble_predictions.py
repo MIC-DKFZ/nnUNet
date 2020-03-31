@@ -69,7 +69,7 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
 
     if postprocessing_file is not None:
         for_which_classes, min_valid_obj_size = load_postprocessing(postprocessing_file)
-
+        print('Postprocessing...')
         apply_postprocessing_to_folder(output_folder, output_folder + "_postprocessed",
                                        for_which_classes, min_valid_obj_size, threads)
         shutil.copy(postprocessing_file, output_folder + "_postprocessed")

@@ -11,10 +11,29 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
+from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.utils import split_4d
+
+
+def crawl_and_remove_hidden_from_decathlon(folder):
+    assert folder.split('/')[-1].startswith("Task"), "This does not seem to be a decathlon folder. Please give me a " \
+                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
+                                                     "labelsTr and imagesTs"
+    subf = subfolders(folder, join=False)
+    assert 'imagesTr' in subf, "This does not seem to be a decathlon folder. Please give me a " \
+                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
+                                                     "labelsTr and imagesTs"
+    assert 'imagesTs' in subf, "This does not seem to be a decathlon folder. Please give me a " \
+                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
+                                                     "labelsTr and imagesTs"
+    assert 'labelsTr' in subf, "This does not seem to be a decathlon folder. Please give me a " \
+                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
+                                                     "labelsTr and imagesTs"
+    _ = [os.remove(i) for i in subfiles(folder, prefix=".")]
+    _ = [os.remove(i) for i in subfiles(join(folder, 'imagesTr'), prefix=".")]
+    _ = [os.remove(i) for i in subfiles(join(folder, 'labelsTr'), prefix=".")]
+    _ = [os.remove(i) for i in subfiles(join(folder, 'imagesTs'), prefix=".")]
 
 
 def main():
@@ -34,7 +53,9 @@ def main():
                              "task id of the input folder will be used.")
     args = parser.parse_args()
 
-    split_4d(args.i, args.p)
+    crawl_and_remove_hidden_from_decathlon(args.i)
+
+    split_4d(args.i, args.p, args.output_task_id)
 
 
 if __name__ == "__main__":
