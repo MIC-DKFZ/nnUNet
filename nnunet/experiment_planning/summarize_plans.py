@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ def summarize_plans(file):
 
 
 def write_plans_to_file(f, plans_file):
+    print(plans_file)
     a = load_pickle(plans_file)
     stages = list(a['plans_per_stage'].keys())
     stages.sort()
@@ -81,5 +82,6 @@ if __name__ == "__main__":
             plans_files = [i for i in subfiles(tmp, suffix=".pkl", join=False) if i.find("_plans_") != -1 and i.find("Dgx2") == -1]
             for p in plans_files:
                 write_plans_to_file(f, join(tmp, p))
+            f.write("\n")
 
 

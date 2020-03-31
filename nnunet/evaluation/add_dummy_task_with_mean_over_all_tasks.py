@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ task_descriptors = ['2D final 2',
                     '2D final, less pool, dc and ce, fold0',
                     '3D stage0 final 2, fold0',
                     '3D fullres final 2, fold0']
-task_ids_with_no_stage0 = ["Task01_BrainTumour", "Task04_Hippocampus", "Task05_Prostate"]
+task_ids_with_no_stage0 = ["Task001_BrainTumour", "Task004_Hippocampus", "Task005_Prostate"]
 
 mean_scores = OrderedDict()
 for t in task_descriptors:
@@ -37,7 +37,7 @@ for j in json_files:
     with open(j, 'r') as f:
         res = json.load(f)
     task = res['task']
-    if task != "Task99_ALL":
+    if task != "Task999_ALL":
         name = res['name']
         if name in task_descriptors:
             if task not in list(mean_scores[name].keys()):
@@ -59,7 +59,7 @@ for i in mean_scores.keys():
         new_res = OrderedDict()
         new_res['name'] = i
         new_res['author'] = "Fabian"
-        new_res['task'] = "Task99_ALL"
+        new_res['task'] = "Task999_ALL"
         new_res['results'] = OrderedDict()
         new_res['results']['mean'] = OrderedDict()
         new_res['results']['mean']['mean'] = OrderedDict()

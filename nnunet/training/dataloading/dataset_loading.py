@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ from batchgenerators.augmentations.utils import random_crop_2D_image_batched, pa
 import numpy as np
 from batchgenerators.dataloading import SlimDataLoaderBase
 from multiprocessing import Pool
+
+from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 
@@ -52,7 +54,7 @@ def save_as_npz(args):
     np.savez_compressed(npy_file[:-3] + "npz", **{key: d})
 
 
-def unpack_dataset(folder, threads=8, key="data"):
+def unpack_dataset(folder, threads=default_num_threads, key="data"):
     """
     unpacks all npz files in a folder to npy (whatever you want to have unpacked must be saved unter key)
     :param folder:
@@ -67,7 +69,7 @@ def unpack_dataset(folder, threads=8, key="data"):
     p.join()
 
 
-def pack_dataset(folder, threads=8, key="data"):
+def pack_dataset(folder, threads=default_num_threads, key="data"):
     p = Pool(threads)
     npy_files = subfiles(folder, True, None, ".npy", True)
     p.map(save_as_npz, zip(npy_files, [key]*len(npy_files)))
@@ -538,7 +540,7 @@ class DataLoader2D(SlimDataLoaderBase):
 
 
 if __name__ == "__main__":
-    t = "Task02_Heart"
+    t = "Task002_Heart"
     p = join(preprocessing_output_dir, t, "stage1")
     dataset = load_dataset(p)
     with open(join(join(preprocessing_output_dir, t), "plans_stage1.pkl"), 'rb') as f:

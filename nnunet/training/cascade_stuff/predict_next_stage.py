@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,6 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+
+from copy import deepcopy
+
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 import argparse
@@ -21,21 +24,31 @@ import nnunet
 from nnunet.run.default_configuration import get_default_configuration
 from multiprocessing import Pool
 
-from nnunet.training.model_restore import recursive_find_trainer
+from nnunet.training.model_restore import recursive_find_python_class
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
-def resample_and_save(predicted, target_shape, output_file):
-    predicted_new_shape = resample_data_or_seg(predicted, target_shape, False, order=1, do_separate_z=False, cval=0)
+def resample_and_save(predicted, target_shape, output_file, force_separate_z=False,
+                         interpolation_order=1, interpolation_order_z=0):
+    if isinstance(predicted, str):
+        assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
+                                             "isfile(segmentation_softmax) must be True"
+        del_file = deepcopy(predicted)
+        predicted = np.load(predicted)
+        os.remove(del_file)
+
+    predicted_new_shape = resample_data_or_seg(predicted, target_shape, False, order=interpolation_order,
+                                               do_separate_z=force_separate_z, cval=0, order_z=interpolation_order_z)
     seg_new_shape = predicted_new_shape.argmax(0)
     np.savez_compressed(output_file, data=seg_new_shape.astype(np.uint8))
 
 
-def predict_next_stage(trainer, stage_to_be_predicted_folder):
+def predict_next_stage(trainer, stage_to_be_predicted_folder, force_separate_z=False, interpolation_order=1,
+                       interpolation_order_z=0):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
     maybe_mkdir_p(output_folder)
 
-    process_manager = Pool(2)
+    export_pool = Pool(2)
     results = []
 
     for pat in trainer.dataset_val.keys():
@@ -50,9 +63,18 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
         data_nextstage = np.load(data_file_nextstage)['data']
         target_shp = data_nextstage.shape[1:]
         output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
-        results.append(process_manager.starmap_async(resample_and_save, [(predicted, target_shp, output_file)]))
+
+        if np.prod(predicted.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            np.save(output_file[:-4] + ".npy", predicted)
+            predicted = output_file[:-4] + ".npy"
+
+        results.append(export_pool.starmap_async(resample_and_save, [(predicted, target_shp, output_file,
+                                                                      force_separate_z, interpolation_order,
+                                                                      interpolation_order_z)]))
 
     _ = [i.get() for i in results]
+    export_pool.close()
+    export_pool.join()
 
 
 if __name__ == "__main__":
@@ -78,7 +100,7 @@ if __name__ == "__main__":
     plans_file, folder_with_preprocessed_data, output_folder_name, dataset_directory, batch_dice, stage = \
         get_default_configuration("3d_lowres", task)
     
-    trainer_class = recursive_find_trainer([join(nnunet.__path__[0], "training", "network_training")], trainerclass,
+    trainer_class = recursive_find_python_class([join(nnunet.__path__[0], "training", "network_training")], trainerclass,
                                            "nnunet.training.network_training")
     
     if trainer_class is None:

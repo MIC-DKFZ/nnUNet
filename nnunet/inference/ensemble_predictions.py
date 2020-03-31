@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,23 +12,30 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+
+import shutil
+
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 from multiprocessing import Pool
+from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_postprocessing
 
 
 def merge_files(args):
-    files, properties_file, out_file, only_keep_largest_connected_component, min_region_size_per_class, override = args
+    files, properties_file, out_file, only_keep_largest_connected_component, min_region_size_per_class, override, store_npz = args
     if override or not isfile(out_file):
         softmax = [np.load(f)['softmax'][None] for f in files]
         softmax = np.vstack(softmax)
         softmax = np.mean(softmax, 0)
         props = load_pickle(properties_file)
-        save_segmentation_nifti_from_softmax(softmax, out_file, props, 1, None, None, None)
+        save_segmentation_nifti_from_softmax(softmax, out_file, props, 3, None, None, None, force_separate_z=None)
+        if store_npz:
+            np.savez_compressed(out_file[:-7] + ".npz", softmax=softmax)
+            save_pickle(props, out_file[:-7] + ".pkl")
 
 
-def merge(folders, output_folder, threads, override=True):
+def merge(folders, output_folder, threads, override=True, postprocessing_file=None, store_npz=False):
     maybe_mkdir_p(output_folder)
 
     patient_ids = [subfiles(i, suffix=".npz", join=False) for i in folders]
@@ -56,36 +63,46 @@ def merge(folders, output_folder, threads, override=True):
                                                                        plans['min_region_size_per_class']
     p = Pool(threads)
     p.map(merge_files, zip(files, property_files, out_files, [only_keep_largest_connected_component] * len(out_files),
-                           [min_region_size_per_class] * len(out_files), [override] * len(out_files)))
+                           [min_region_size_per_class] * len(out_files), [override] * len(out_files), [store_npz] * len(out_files)))
     p.close()
     p.join()
 
+    if postprocessing_file is not None:
+        for_which_classes, min_valid_obj_size = load_postprocessing(postprocessing_file)
 
-if __name__ == "__main__":
+        apply_postprocessing_to_folder(output_folder, output_folder + "_postprocessed",
+                                       for_which_classes, min_valid_obj_size, threads)
+        shutil.copy(postprocessing_file, output_folder + "_postprocessed")
+
+
+def main():
     import argparse
-    parser = argparse.ArgumentParser(description="This requires that all folders to be merged use the same "
-                                                 "postprocessing function "
-                                                 "(nnunet.utilities.postprocessing.postprocess_segmentation). "
-                                                 "This will be the case if the corresponding "
-                                                 "models were trained with nnUNetTrainer or nnUNetTrainerCascadeFullRes"
-                                                 "but may not be the case if you added models of your own that use a "
-                                                 "different postprocessing. This script also requires a plans file to"
-                                                 "be present in all of the folders (if they are not present you can "
-                                                 "take them from the respective model training output folders. "
-                                                 "Parameters for the postprocessing "
-                                                 "will be taken from the plans file. If the folders were created by "
-                                                 "predict_folder.py then the plans file will have been copied "
-                                                 "automatically (if --save_npz is specified)")
+    parser = argparse.ArgumentParser(description="This script will merge predictions (that were prdicted with the "
+                                                 "-npz option!). You need to specify a postprocessing file so that "
+                                                 "we know here what postprocessing must be applied. Failing to do so "
+                                                 "will disable postprocessing")
     parser.add_argument('-f', '--folders', nargs='+', help="list of folders to merge. All folders must contain npz "
                                                            "files", required=True)
     parser.add_argument('-o', '--output_folder', help="where to save the results", required=True, type=str)
     parser.add_argument('-t', '--threads', help="number of threads used to saving niftis", required=False, default=2,
                         type=int)
+    parser.add_argument('-pp', '--postprocessing_file', help="path to the file where the postprocessing configuration "
+                                                             "is stored. If this is not provided then no postprocessing "
+                                                             "will be made. It is strongly recommended to provide the "
+                                                             "postprocessing file!",
+                        required=False, type=str, default=None)
+    parser.add_argument('--npz', action="store_true", required=False, help="stores npz and pkl")
 
     args = parser.parse_args()
 
     folders = args.folders
     threads = args.threads
     output_folder = args.output_folder
+    pp_file = args.postprocessing_file
+    npz = args.npz
 
-    merge(folders, output_folder, threads, override=True)
+    merge(folders, output_folder, threads, override=True, postprocessing_file=pp_file, store_npz=npz)
+
+
+if __name__ == "__main__":
+    main()

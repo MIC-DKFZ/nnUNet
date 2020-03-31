@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import pkgutil
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
-def recursive_find_trainer(folder, trainer_name, current_module):
+def recursive_find_python_class(folder, trainer_name, current_module):
     tr = None
     for importer, modname, ispkg in pkgutil.iter_modules(folder):
         # print(modname, ispkg)
@@ -34,14 +34,14 @@ def recursive_find_trainer(folder, trainer_name, current_module):
         for importer, modname, ispkg in pkgutil.iter_modules(folder):
             if ispkg:
                 next_current_module = current_module + "." + modname
-                tr = recursive_find_trainer([join(folder[0], modname)], trainer_name, current_module=next_current_module)
+                tr = recursive_find_python_class([join(folder[0], modname)], trainer_name, current_module=next_current_module)
             if tr is not None:
                 break
 
     return tr
 
 
-def restore_model(pkl_file, checkpoint=None, train=False):
+def restore_model(pkl_file, checkpoint=None, train=False, fp16=None):
     """
     This is a utility function to load any nnUNet trainer from a pkl. It will recursively search
     nnunet.trainig.network_training for the file that contains the trainer and instantiate it with the arguments saved in the pkl file. If checkpoint
@@ -50,13 +50,14 @@ def restore_model(pkl_file, checkpoint=None, train=False):
     :param pkl_file:
     :param checkpoint:
     :param train:
+    :param fp16: if None then we take no action. If True/False we overwrite what the model has in its init
     :return:
     """
     info = load_pickle(pkl_file)
     init = info['init']
     name = info['name']
     search_in = join(nnunet.__path__[0], "training", "network_training")
-    tr = recursive_find_trainer([search_in], name, current_module="nnunet.training.network_training")
+    tr = recursive_find_python_class([search_in], name, current_module="nnunet.training.network_training")
 
     if tr is None:
         """
@@ -65,7 +66,7 @@ def restore_model(pkl_file, checkpoint=None, train=False):
         try:
             import meddec
             search_in = join(meddec.__path__[0], "model_training")
-            tr = recursive_find_trainer([search_in], name, current_module="meddec.model_training")
+            tr = recursive_find_python_class([search_in], name, current_module="meddec.model_training")
         except ImportError:
             pass
 
@@ -77,15 +78,22 @@ def restore_model(pkl_file, checkpoint=None, train=False):
     assert issubclass(tr, nnUNetTrainer), "The network trainer was found but is not a subclass of nnUNetTrainer. " \
                                           "Please make it so!"
 
-    if len(init) == 7:
+    # this is now deprecated
+    """if len(init) == 7:
         print("warning: this model seems to have been saved with a previous version of nnUNet. Attempting to load it "
               "anyways. Expect the unexpected.")
         print("manually editing init args...")
-        init = [init[i] for i in range(len(init)) if i != 2]
+        init = [init[i] for i in range(len(init)) if i != 2]"""
 
-    # init[0] is the plans file. This argument needs to be replaced because the original plans file may not exist
-    # anymore.
+    # ToDo Fabian make saves use kwargs, please...
+
     trainer = tr(*init)
+
+    # We can hack fp16 overwriting into the trainer without changing the init arguments because nothing happens with
+    # fp16 in the init, it just saves it to a member variable
+    if fp16 is not None:
+        trainer.fp16 = fp16
+
     trainer.process_plans(info['plans'])
     if checkpoint is not None:
         trainer.load_checkpoint(checkpoint, train)
@@ -98,7 +106,7 @@ def load_best_model_for_inference(folder):
     return restore_model(pkl_file, checkpoint, False)
 
 
-def load_model_and_checkpoint_files(folder, folds=None):
+def load_model_and_checkpoint_files(folder, folds=None, fp16=None, checkpoint_name="model_best"):
     """
     used for if you need to ensemble the five models of a cross-validation. This will restore the model from the
     checkpoint in fold 0, load all parameters of the five folds in ram and return both. This will allow for fast
@@ -106,6 +114,8 @@ def load_model_and_checkpoint_files(folder, folds=None):
 
     This is best used for inference and test prediction
     :param folder:
+    :param folds:
+    :param fp16: if None then we take no action. If True/False we overwrite what the model has in its init
     :return:
     """
     if isinstance(folds, str):
@@ -127,27 +137,19 @@ def load_model_and_checkpoint_files(folder, folds=None):
     else:
         raise ValueError("Unknown value for folds. Type: %s. Expected: list of int, int, str or None", str(type(folds)))
 
-    # try to use best model
-    if all([isfile(join(i, "model_best.model")) for i in folds]):
-        use = "best"
-    elif all([isfile(join(i, "model_final_checkpoint.model")) for i in folds]):
-        use = "final_checkpoint"
-    else:
-        raise RuntimeError("The model does not have a saved checkpoint file for all of the requested folds. "
-                           "Please train the model first.")
-    trainer = restore_model(join(folds[0], "model_%s.model.pkl" % use))
+    trainer = restore_model(join(folds[0], "%s.model.pkl" % checkpoint_name), fp16=fp16)
     trainer.output_folder = folder
     trainer.output_folder_base = folder
     trainer.update_fold(0)
     trainer.initialize(False)
-    all_best_model_files = [join(i, "model_%s.model" % use) for i in folds]
+    all_best_model_files = [join(i, "%s.model" % checkpoint_name) for i in folds]
     print("using the following model files: ", all_best_model_files)
-    all_params = [torch.load(i, map_location=torch.device('cuda', torch.cuda.current_device())) for i in all_best_model_files]
+    all_params = [torch.load(i, map_location=torch.device('cpu')) for i in all_best_model_files]
     return trainer, all_params
 
 
 if __name__ == "__main__":
-    pkl = "/home/fabian/PhD/results/nnUNetV2/nnUNetV2_3D_fullres/Task04_Hippocampus/fold0/model_best.model.pkl"
+    pkl = "/home/fabian/PhD/results/nnUNetV2/nnUNetV2_3D_fullres/Task004_Hippocampus/fold0/model_best.model.pkl"
     checkpoint = pkl[:-4]
     train = False
     trainer = restore_model(pkl, checkpoint, train)

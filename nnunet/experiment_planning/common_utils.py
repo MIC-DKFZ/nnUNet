@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 import numpy as np
 from copy import deepcopy
 from nnunet.network_architecture.generic_UNet import Generic_UNet
-from nnunet.experiment_planning.configuration import FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK
 import SimpleITK as sitk
 import shutil
 from batchgenerators.utilities.file_and_folder_operations import join
@@ -107,6 +106,9 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
 
     while True:
         # find axes that are within factor 2 of min axis spacing
+        # TODO this is a problem because sometimes we have spacing 20, 50, 50 and we want to still keep pooling.
+        #  Here we would stop however. This is not what we want! We need to restrict min_spacing = min(current_spacing)
+        #  to only the spacings that belong to axes that can still be pooled :-/
         min_spacing = min(current_spacing)
         valid_axes_for_pool = [i for i in range(dim) if current_spacing[i] / min_spacing < 2]
         axes = []
@@ -179,8 +181,7 @@ def pad_shape(shape, must_be_divisible_by):
     return new_shp
 
 
-def get_network_numpool(patch_size, maxpool_cap=Generic_UNet.MAX_NUMPOOL_3D,
-                        min_feature_map_size=FEATUREMAP_MIN_EDGE_LENGTH_BOTTLENECK):
+def get_network_numpool(patch_size, maxpool_cap=999, min_feature_map_size=4):
     network_numpool_per_axis = np.floor([np.log(i / min_feature_map_size) / np.log(2) for i in patch_size]).astype(int)
     network_numpool_per_axis = [min(i, maxpool_cap) for i in network_numpool_per_axis]
     return network_numpool_per_axis

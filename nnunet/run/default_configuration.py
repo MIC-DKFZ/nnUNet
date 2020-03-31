@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,11 +12,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+
 import nnunet
 from nnunet.paths import network_training_output_dir, preprocessing_output_dir, default_plans_identifier
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.summarize_plans import summarize_plans
-from nnunet.training.model_restore import recursive_find_trainer
+from nnunet.training.model_restore import recursive_find_python_class
 
 
 def get_configuration_from_output_folder(folder):
@@ -28,10 +29,6 @@ def get_configuration_from_output_folder(folder):
     configuration, task, trainer_and_plans_identifier = folder.split("/")
     trainer, plans_identifier = trainer_and_plans_identifier.split("__")
     return configuration, task, trainer, plans_identifier
-
-
-def get_output_folder(configuration, task, trainer, plans_identifier):
-    return join(network_training_output_dir, configuration, task, trainer + "__" + plans_identifier)
 
 
 def get_default_configuration(network, task, network_trainer, plans_identifier=default_plans_identifier,
@@ -59,8 +56,8 @@ def get_default_configuration(network, task, network_trainer, plans_identifier=d
     else:
         stage = possible_stages[-1]
 
-    trainer_class = recursive_find_trainer([join(*search_in)], network_trainer,
-                                           current_module=base_module)
+    trainer_class = recursive_find_python_class([join(*search_in)], network_trainer,
+                                                current_module=base_module)
 
     output_folder_name = join(network_training_output_dir, network, task, network_trainer + "__" + plans_identifier)
 

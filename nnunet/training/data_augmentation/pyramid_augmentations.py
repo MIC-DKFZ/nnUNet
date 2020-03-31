@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@ from batchgenerators.transforms import AbstractTransform
 
 class RemoveRandomConnectedComponentFromOneHotEncodingTransform(AbstractTransform):
     def __init__(self, channel_idx, key="data", p_per_sample=0.2, fill_with_other_class_p=0.25,
-                 dont_do_if_covers_more_than_X_percent=0.25):
+                 dont_do_if_covers_more_than_X_percent=0.25, p_per_label=1):
         """
         :param dont_do_if_covers_more_than_X_percent: dont_do_if_covers_more_than_X_percent=0.25 is 25\%!
         :param channel_idx: can be list or int
         :param key:
         """
+        self.p_per_label = p_per_label
         self.dont_do_if_covers_more_than_X_percent = dont_do_if_covers_more_than_X_percent
         self.fill_with_other_class_p = fill_with_other_class_p
         self.p_per_sample = p_per_sample
@@ -40,27 +41,28 @@ class RemoveRandomConnectedComponentFromOneHotEncodingTransform(AbstractTransfor
         for b in range(data.shape[0]):
             if np.random.uniform() < self.p_per_sample:
                 for c in self.channel_idx:
-                    workon = np.copy(data[b, c])
-                    num_voxels = np.prod(workon.shape)
-                    lab, num_comp = label(workon, return_num=True)
-                    if num_comp > 0:
-                        component_ids = []
-                        component_sizes = []
-                        for i in range(1, num_comp + 1):
-                            component_ids.append(i)
-                            component_sizes.append(np.sum(lab == i))
-                        component_ids = [i for i, j in zip(component_ids, component_sizes) if j < num_voxels*self.dont_do_if_covers_more_than_X_percent]
-                        #_ = component_ids.pop(np.argmax(component_sizes))
-                        #else:
-                        #    component_ids = list(range(1, num_comp + 1))
-                        if len(component_ids) > 0:
-                            random_component = np.random.choice(component_ids)
-                            data[b, c][lab == random_component] = 0
-                            if np.random.uniform() < self.fill_with_other_class_p:
-                                other_ch = [i for i in self.channel_idx if i != c]
-                                if len(other_ch) > 0:
-                                    other_class = np.random.choice(other_ch)
-                                    data[b, other_class][lab == random_component] = 1
+                    if np.random.uniform() < self.p_per_label:
+                        workon = np.copy(data[b, c])
+                        num_voxels = np.prod(workon.shape, dtype=np.uint64)
+                        lab, num_comp = label(workon, return_num=True)
+                        if num_comp > 0:
+                            component_ids = []
+                            component_sizes = []
+                            for i in range(1, num_comp + 1):
+                                component_ids.append(i)
+                                component_sizes.append(np.sum(lab == i))
+                            component_ids = [i for i, j in zip(component_ids, component_sizes) if j < num_voxels*self.dont_do_if_covers_more_than_X_percent]
+                            #_ = component_ids.pop(np.argmax(component_sizes))
+                            #else:
+                            #    component_ids = list(range(1, num_comp + 1))
+                            if len(component_ids) > 0:
+                                random_component = np.random.choice(component_ids)
+                                data[b, c][lab == random_component] = 0
+                                if np.random.uniform() < self.fill_with_other_class_p:
+                                    other_ch = [i for i in self.channel_idx if i != c]
+                                    if len(other_ch) > 0:
+                                        other_class = np.random.choice(other_ch)
+                                        data[b, other_class][lab == random_component] = 1
         data_dict[self.key] = data
         return data_dict
 
@@ -91,17 +93,10 @@ class MoveSegAsOneHotToData(AbstractTransform):
 
 
 class ApplyRandomBinaryOperatorTransform(AbstractTransform):
-    def __init__(self, channel_idx, p_per_sample=0.3, any_of_these=(binary_dilation, binary_erosion, binary_closing, binary_opening),
-                 key="data", strel_size=(1, 10)):
-        """
-
-        :param channel_idx: can be list or int
-        :param p_per_sample:
-        :param any_of_these:
-        :param fill_diff_with_other_class:
-        :param key:
-        :param strel_size:
-        """
+    def __init__(self, channel_idx, p_per_sample=0.3, any_of_these=(binary_dilation, binary_erosion, binary_closing,
+                                                                    binary_opening),
+                 key="data", strel_size=(1, 10), p_per_label=1):
+        self.p_per_label = p_per_label
         self.strel_size = strel_size
         self.key = key
         self.any_of_these = any_of_these
@@ -120,20 +115,74 @@ class ApplyRandomBinaryOperatorTransform(AbstractTransform):
                 ch = deepcopy(self.channel_idx)
                 np.random.shuffle(ch)
                 for c in ch:
-                    operation = np.random.choice(self.any_of_these)
-                    selem = ball(np.random.uniform(*self.strel_size))
-                    workon = np.copy(data[b, c]).astype(int)
-                    res = operation(workon, selem).astype(workon.dtype)
-                    data[b, c] = res
+                    if np.random.uniform() < self.p_per_label:
+                        operation = np.random.choice(self.any_of_these)
+                        selem = ball(np.random.uniform(*self.strel_size))
+                        workon = np.copy(data[b, c]).astype(int)
+                        res = operation(workon, selem).astype(workon.dtype)
+                        data[b, c] = res
 
-                    # if class was added, we need to remove it in ALL other channels to keep one hot encoding
-                    # properties
-                    # we modify data
-                    other_ch = [i for i in ch if i != c]
-                    if len(other_ch) > 0:
-                        was_added_mask = (res - workon) > 0
-                        for oc in other_ch:
-                            data[b, oc][was_added_mask] = 0
-                        # if class was removed, leave it at backgound
+                        # if class was added, we need to remove it in ALL other channels to keep one hot encoding
+                        # properties
+                        # we modify data
+                        other_ch = [i for i in ch if i != c]
+                        if len(other_ch) > 0:
+                            was_added_mask = (res - workon) > 0
+                            for oc in other_ch:
+                                data[b, oc][was_added_mask] = 0
+                            # if class was removed, leave it at background
+        data_dict[self.key] = data
+        return data_dict
+
+
+class ApplyRandomBinaryOperatorTransform2(AbstractTransform):
+    def __init__(self, channel_idx, p_per_sample=0.3, p_per_label=0.3, any_of_these=(binary_dilation, binary_closing),
+                 key="data", strel_size=(1, 10)):
+        """
+        2019_11_22: I have no idea what the purpose of this was...
+
+        the same as above but here we should use only expanding operations. Expansions will replace other labels
+        :param channel_idx: can be list or int
+        :param p_per_sample:
+        :param any_of_these:
+        :param fill_diff_with_other_class:
+        :param key:
+        :param strel_size:
+        """
+        self.strel_size = strel_size
+        self.key = key
+        self.any_of_these = any_of_these
+        self.p_per_sample = p_per_sample
+        self.p_per_label = p_per_label
+
+        assert not isinstance(channel_idx, tuple), "bäh"
+
+        if not isinstance(channel_idx, list):
+            channel_idx = [channel_idx]
+        self.channel_idx = channel_idx
+
+    def __call__(self, **data_dict):
+        data = data_dict.get(self.key)
+        for b in range(data.shape[0]):
+            if np.random.uniform() < self.p_per_sample:
+                ch = deepcopy(self.channel_idx)
+                np.random.shuffle(ch)
+                for c in ch:
+                    if np.random.uniform() < self.p_per_label:
+                        operation = np.random.choice(self.any_of_these)
+                        selem = ball(np.random.uniform(*self.strel_size))
+                        workon = np.copy(data[b, c]).astype(int)
+                        res = operation(workon, selem).astype(workon.dtype)
+                        data[b, c] = res
+
+                        # if class was added, we need to remove it in ALL other channels to keep one hot encoding
+                        # properties
+                        # we modify data
+                        other_ch = [i for i in ch if i != c]
+                        if len(other_ch) > 0:
+                            was_added_mask = (res - workon) > 0
+                            for oc in other_ch:
+                                data[b, oc][was_added_mask] = 0
+                            # if class was removed, leave it at backgound
         data_dict[self.key] = data
         return data_dict

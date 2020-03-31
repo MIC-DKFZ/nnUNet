@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -38,11 +38,13 @@ def foreground_mean(filename):
     with open(filename, 'w') as f:
         json.dump(res, f, indent=4, sort_keys=True)
 
+
 def run_in_folder(folder):
     json_files = subfiles(folder, True, None, ".json", True)
     json_files = [i for i in json_files if not i.split("/")[-1].startswith(".") and not i.endswith("_globalMean.json")] # stupid mac
     for j in json_files:
         foreground_mean(j)
+
 
 if __name__ == "__main__":
     folder = "/media/fabian/Results/nnUNetOutput_final/summary_jsons"

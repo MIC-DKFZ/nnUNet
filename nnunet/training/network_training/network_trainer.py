@@ -1,7 +1,24 @@
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+
 from _warnings import warn
 import matplotlib
 from batchgenerators.utilities.file_and_folder_operations import *
 from sklearn.model_selection import KFold
+from torch.optim.lr_scheduler import _LRScheduler
+
 matplotlib.use("agg")
 from time import time, sleep
 import torch
@@ -10,11 +27,9 @@ from torch.optim import lr_scheduler
 import matplotlib.pyplot as plt
 import sys
 from collections import OrderedDict
-from datetime import datetime
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
-
 
 try:
     from apex import amp
@@ -39,12 +54,13 @@ class NetworkTrainer(object):
         - validate
         - predict_test_case
         """
-        np.random.seed(12345)
-        torch.manual_seed(12345)
-        torch.cuda.manual_seed_all(12345)
         self.fp16 = fp16
+        self.amp_initialized = False
 
         if deterministic:
+            np.random.seed(12345)
+            torch.manual_seed(12345)
+            torch.cuda.manual_seed_all(12345)
             cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
         else:
@@ -66,7 +82,7 @@ class NetworkTrainer(object):
 
         ################# SET THESE IN LOAD_DATASET OR DO_SPLIT ############################
         self.dataset = None  # these can be None for inference mode
-        self.dataset_tr = self.dataset_val = None # do not need to be used, they just appear if you are using the suggested load_dataset_and_do_split
+        self.dataset_tr = self.dataset_val = None  # do not need to be used, they just appear if you are using the suggested load_dataset_and_do_split
 
         ################# THESE DO NOT NECESSARILY NEED TO BE MODIFIED #####################
         self.patience = 50
@@ -92,11 +108,10 @@ class NetworkTrainer(object):
         self.all_tr_losses = []
         self.all_val_losses = []
         self.all_val_losses_tr_mode = []
-        self.all_val_eval_metrics = [] # does not have to be used
+        self.all_val_eval_metrics = []  # does not have to be used
         self.epoch = 0
         self.log_file = None
         self.deterministic = deterministic
-
 
     @abstractmethod
     def initialize(self, training=True):
@@ -107,7 +122,7 @@ class NetworkTrainer(object):
 
         set self.tr_gen and self.val_gen
         
-        set self.network, self.optimizer and self.lr_scheduler
+        call self.initialize_network and self.initialize_optimizer_and_scheduler (important!)
         
         finally set self.was_initialized to True
         :param training:
@@ -205,7 +220,8 @@ class NetworkTrainer(object):
             maybe_mkdir_p(self.output_folder)
             timestamp = datetime.now()
             self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
-                                         (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute, timestamp.second))
+                                 (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
+                                  timestamp.second))
             with open(self.log_file, 'w') as f:
                 f.write("Starting... \n")
         successful = False
@@ -232,10 +248,12 @@ class NetworkTrainer(object):
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].cpu()
         lr_sched_state_dct = None
-        if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
+        if self.lr_scheduler is not None and hasattr(self.lr_scheduler,
+                                                     'state_dict'):  # not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
             lr_sched_state_dct = self.lr_scheduler.state_dict()
-            for key in lr_sched_state_dct.keys():
-                lr_sched_state_dct[key] = lr_sched_state_dct[key]
+            # WTF is this!?
+            # for key in lr_sched_state_dct.keys():
+            #    lr_sched_state_dct[key] = lr_sched_state_dct[key]
         if save_optimizer:
             optimizer_state_dict = self.optimizer.state_dict()
         else:
@@ -255,26 +273,45 @@ class NetworkTrainer(object):
     def load_best_checkpoint(self, train=True):
         if self.fold is None:
             raise RuntimeError("Cannot load best checkpoint if self.fold is None")
-        self.load_checkpoint(join(self.output_folder, "model_best.model"), train=train)
+        if isfile(join(self.output_folder, "model_best.model")):
+            self.load_checkpoint(join(self.output_folder, "model_best.model"), train=train)
+        else:
+            self.print_to_log_file("WARNING! model_best.model does not exist! Cannot load best checkpoint. Falling "
+                                   "back to load_latest_checkpoint")
+            self.load_latest_checkpoint(train)
 
     def load_latest_checkpoint(self, train=True):
         if isfile(join(self.output_folder, "model_final_checkpoint.model")):
             return self.load_checkpoint(join(self.output_folder, "model_final_checkpoint.model"), train=train)
         if isfile(join(self.output_folder, "model_latest.model")):
             return self.load_checkpoint(join(self.output_folder, "model_latest.model"), train=train)
-        all_checkpoints = [i for i in os.listdir(self.output_folder) if i.endswith(".model") and i.find("_ep_") != -1]
-        if len(all_checkpoints) == 0:
-            return self.load_best_checkpoint(train=train)
-        corresponding_epochs = [int(i.split("_")[-1].split(".")[0]) for i in all_checkpoints]
-        checkpoint = all_checkpoints[np.argmax(corresponding_epochs)]
-        self.load_checkpoint(join(self.output_folder, checkpoint), train=train)
+        if isfile(join(self.output_folder, "model_best.model")):
+            return self.load_best_checkpoint(train)
+        raise RuntimeError("No checkpoint found")
 
     def load_checkpoint(self, fname, train=True):
         self.print_to_log_file("loading checkpoint", fname, "train=", train)
         if not self.was_initialized:
             self.initialize(train)
-        saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
+        # saved_model = torch.load(fname, map_location=torch.device('cuda', torch.cuda.current_device()))
+        saved_model = torch.load(fname, map_location=torch.device('cpu'))
         self.load_checkpoint_ram(saved_model, train)
+
+    @abstractmethod
+    def initialize_network(self):
+        """
+        initialize self.network here
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def initialize_optimizer_and_scheduler(self):
+        """
+        initialize self.optimizer and self.lr_scheduler (if applicable) here
+        :return:
+        """
+        pass
 
     def load_checkpoint_ram(self, saved_model, train=True):
         """
@@ -293,26 +330,58 @@ class NetworkTrainer(object):
         for k, value in saved_model['state_dict'].items():
             key = k
             if key not in curr_state_dict_keys:
+                print("duh")
                 key = key[7:]
             new_state_dict[key] = value
+
+        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
+        if self.fp16:
+            self.network, self.optimizer, self.lr_scheduler = None, None, None
+            self.initialize_network()
+            self.initialize_optimizer_and_scheduler()
+
         self.network.load_state_dict(new_state_dict)
         self.epoch = saved_model['epoch']
         if train:
             optimizer_state_dict = saved_model['optimizer_state_dict']
             if optimizer_state_dict is not None:
                 self.optimizer.load_state_dict(optimizer_state_dict)
-            if self.lr_scheduler is not None and not isinstance(self.lr_scheduler, lr_scheduler.ReduceLROnPlateau):
+
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
+                'lr_scheduler_state_dict'] is not None:
                 self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
 
-        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model['plot_stuff']
+            if issubclass(self.lr_scheduler.__class__, _LRScheduler):
+                self.lr_scheduler.step(self.epoch)
+
+        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
+            'plot_stuff']
+
+        # after the training is done, the epoch is incremented one more time in my old code. This results in
+        # self.epoch = 1001 for old trained models when the epoch is actually 1000. This causes issues because
+        # len(self.all_tr_losses) = 1000 and the plot function will fail. We can easily detect and correct that here
+        if self.epoch != len(self.all_tr_losses):
+            self.print_to_log_file("WARNING in loading checkpoint: self.epoch != len(self.all_tr_losses). This is "
+                                   "due to an old bug and should only appear when you are loading old models. New "
+                                   "models should have this fixed! self.epoch is now set to len(self.all_tr_losses)")
+            self.epoch = len(self.all_tr_losses)
+            self.all_tr_losses = self.all_tr_losses[:self.epoch]
+            self.all_val_losses = self.all_val_losses[:self.epoch]
+            self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
+            self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
+
+        self.amp_initialized = False
+        self._maybe_init_amp()
 
     def _maybe_init_amp(self):
         # we use fp16 for training only, not inference
         if self.fp16:
-            if amp is not None:
-                self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
-            else:
-                self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
+            if not self.amp_initialized:
+                if amp is not None:
+                    self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
+                    self.amp_initialized = True
+                else:
+                    raise RuntimeError("WARNING: FP16 training was requested but nvidia apex is not installed. "
                                        "Install it from https://github.com/NVIDIA/apex")
 
     def plot_network_architecture(self):
@@ -324,6 +393,9 @@ class NetworkTrainer(object):
         pass
 
     def run_training(self):
+        _ = self.tr_gen.next()
+        _ = self.val_gen.next()
+
         torch.cuda.empty_cache()
 
         self._maybe_init_amp()
@@ -362,7 +434,7 @@ class NetworkTrainer(object):
                     l = self.run_iteration(self.val_gen, False, True)
                     val_losses.append(l)
                 self.all_val_losses.append(np.mean(val_losses))
-                self.print_to_log_file("val loss (train=False): %.4f" % self.all_val_losses[-1])
+                self.print_to_log_file("validation loss: %.4f" % self.all_val_losses[-1])
 
                 if self.also_val_in_tr_mode:
                     self.network.train()
@@ -372,7 +444,7 @@ class NetworkTrainer(object):
                         l = self.run_iteration(self.val_gen, False)
                         val_losses.append(l)
                     self.all_val_losses_tr_mode.append(np.mean(val_losses))
-                    self.print_to_log_file("val loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
+                    self.print_to_log_file("validation loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
 
             epoch_end_time = time()
 
@@ -384,7 +456,9 @@ class NetworkTrainer(object):
                 break
 
             self.epoch += 1
-            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time-epoch_start_time))
+            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time - epoch_start_time))
+
+        self.epoch -= 1  # if we don't do this we can get a problem with loading model_final_checkpoint.
 
         self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
         # now we can delete latest as it will be identical with final
@@ -435,11 +509,11 @@ class NetworkTrainer(object):
                 is better, so we need to negate it. 
                 """
                 self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA - (
-                            1 - self.val_eval_criterion_alpha) * \
+                        1 - self.val_eval_criterion_alpha) * \
                                              self.all_val_losses[-1]
             else:
                 self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA + (
-                            1 - self.val_eval_criterion_alpha) * \
+                        1 - self.val_eval_criterion_alpha) * \
                                              self.all_val_eval_metrics[-1]
 
     def manage_patience(self):
@@ -460,12 +534,12 @@ class NetworkTrainer(object):
             # check if the current epoch is the best one according to moving average of validation criterion. If so
             # then save 'best' model
             # Do not use this for validation. This is intended for test set prediction only.
-            self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % self.best_val_eval_criterion_MA)
-            self.print_to_log_file("current val_eval_criterion_MA is %.4f" % self.val_eval_criterion_MA)
+            #self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % self.best_val_eval_criterion_MA)
+            #self.print_to_log_file("current val_eval_criterion_MA is %.4f" % self.val_eval_criterion_MA)
 
             if self.val_eval_criterion_MA > self.best_val_eval_criterion_MA:
                 self.best_val_eval_criterion_MA = self.val_eval_criterion_MA
-                self.print_to_log_file("saving best epoch checkpoint...")
+                #self.print_to_log_file("saving best epoch checkpoint...")
                 self.save_checkpoint(join(self.output_folder, "model_best.model"))
 
             # Now see if the moving average of the train loss has improved. If yes then reset patience, else
@@ -473,27 +547,29 @@ class NetworkTrainer(object):
             if self.train_loss_MA + self.train_loss_MA_eps < self.best_MA_tr_loss_for_patience:
                 self.best_MA_tr_loss_for_patience = self.train_loss_MA
                 self.best_epoch_based_on_MA_tr_loss = self.epoch
-                self.print_to_log_file("New best epoch (train loss MA): %03.4f" % self.best_MA_tr_loss_for_patience)
+                #self.print_to_log_file("New best epoch (train loss MA): %03.4f" % self.best_MA_tr_loss_for_patience)
             else:
-                self.print_to_log_file("No improvement: current train MA %03.4f, best: %03.4f, eps is %03.4f" %
-                                       (self.train_loss_MA, self.best_MA_tr_loss_for_patience, self.train_loss_MA_eps))
+                pass
+                #self.print_to_log_file("No improvement: current train MA %03.4f, best: %03.4f, eps is %03.4f" %
+                #                       (self.train_loss_MA, self.best_MA_tr_loss_for_patience, self.train_loss_MA_eps))
 
             # if patience has reached its maximum then finish training (provided lr is low enough)
             if self.epoch - self.best_epoch_based_on_MA_tr_loss > self.patience:
                 if self.optimizer.param_groups[0]['lr'] > self.lr_threshold:
-                    self.print_to_log_file("My patience ended, but I believe I need more time (lr > 1e-6)")
+                    #self.print_to_log_file("My patience ended, but I believe I need more time (lr > 1e-6)")
                     self.best_epoch_based_on_MA_tr_loss = self.epoch - self.patience // 2
                 else:
-                    self.print_to_log_file("My patience ended")
+                    #self.print_to_log_file("My patience ended")
                     continue_training = False
             else:
-                self.print_to_log_file(
-                    "Patience: %d/%d" % (self.epoch - self.best_epoch_based_on_MA_tr_loss, self.patience))
+                pass
+                #self.print_to_log_file(
+                #    "Patience: %d/%d" % (self.epoch - self.best_epoch_based_on_MA_tr_loss, self.patience))
 
         return continue_training
 
     def on_epoch_end(self):
-        self.finish_online_evaluation() # does not have to do anything, but can be used to update self.all_val_eval_
+        self.finish_online_evaluation()  # does not have to do anything, but can be used to update self.all_val_eval_
         # metrics
 
         self.plot_progress()
@@ -528,7 +604,6 @@ class NetworkTrainer(object):
         target = target.cuda(non_blocking=True)
 
         self.optimizer.zero_grad()
-
         output = self.network(data)
         del data
         l = self.loss(output, target)
@@ -579,7 +654,7 @@ class NetworkTrainer(object):
         """
         import math
         self._maybe_init_amp()
-        mult = (final_value / init_value) ** (1/num_iters)
+        mult = (final_value / init_value) ** (1 / num_iters)
         lr = init_value
         self.optimizer.param_groups[0]['lr'] = lr
         avg_loss = 0.
@@ -592,15 +667,15 @@ class NetworkTrainer(object):
             loss = self.run_iteration(self.tr_gen, do_backprop=True, run_online_evaluation=False).data.item() + 1
 
             # Compute the smoothed loss
-            avg_loss = beta * avg_loss + (1-beta) * loss
-            smoothed_loss = avg_loss / (1 - beta**batch_num)
+            avg_loss = beta * avg_loss + (1 - beta) * loss
+            smoothed_loss = avg_loss / (1 - beta ** batch_num)
 
             # Stop if the loss is exploding
             if batch_num > 1 and smoothed_loss > 4 * best_loss:
                 break
 
             # Record the best loss
-            if smoothed_loss < best_loss or batch_num==1:
+            if smoothed_loss < best_loss or batch_num == 1:
                 best_loss = smoothed_loss
 
             # Store the values
