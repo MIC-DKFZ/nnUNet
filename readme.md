@@ -372,7 +372,27 @@ Thus, all 5 folds must have been trained prior to running inference. The list of
 printed at the start of the inference.
 
 ## How to run inference with pretrained models
-TODO, depends on how I upload the models
+(work in progress! Model weights have not been uploaded yet!)
+
+Trained models for all challenges we participated in are publicly available. They can be downloaded and installed 
+directly with nnU-Net. Note that downloading a pretrained model will overwrite other models that were trained with 
+exactly the same configuration (2d, 3d_fullres, ...), trainer (nnUNetTrainerV2) and plans.
+
+To obtain a list of available models, as well as a short description, run
+
+```bash
+nnUNet_print_available_pretrained_models
+```
+
+You can then download models by specifying their task name. For the Liver and Liver Tumor Segmentation Challenge, 
+for example, this would be:
+
+```bash
+nnUNet_download_pretrained_model Task029_LiTS
+```
+After downloading is complete, you can use this model to run [inference](#run-inference). Keep in mind that each of 
+these models has specific data requirements (Task029_LiTS runs on abdominal CT scans, others require several image 
+modalities as input in a specific order).
 
 # Extending/Changing nnU-Net
 Please refer to [this](documentation/extending_nnunet.md) guide.

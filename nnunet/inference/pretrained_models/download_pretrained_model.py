@@ -1,5 +1,19 @@
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+
 import tempfile
-import urllib
 from urllib.request import urlopen
 from nnunet.paths import network_training_output_dir
 from subprocess import call
@@ -204,6 +218,22 @@ def download_by_url():
     args = parser.parse_args()
     url = args.url
     download_and_install_from_url(url)
+
+
+def print_pretrained_model_requirements():
+    import argparse
+    parser = argparse.ArgumentParser(description="Use this to see the properties of a pretrained model, especially "
+                                                 "what input modalities it requires")
+    parser.add_argument("task_name", type=str, help='Task name of the pretrained model. To see '
+                                                                   'available task names, run nnUNet_print_available_'
+                                                                   'pretrained_models')
+    args = parser.parse_args()
+    taskname = args.task_name
+    av = get_available_models()
+    if taskname not in av.keys():
+        raise RuntimeError("Invalid task name. This pretrained model does not exist. To see available task names, "
+                           "run nnUNet_print_available_pretrained_models")
+    print(av[taskname]['description'])
 
 
 if __name__  == '__main__':

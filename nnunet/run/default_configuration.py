@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,11 +12,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+
 import nnunet
 from nnunet.paths import network_training_output_dir, preprocessing_output_dir, default_plans_identifier
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.experiment_planning.summarize_plans import summarize_plans
 from nnunet.training.model_restore import recursive_find_python_class
+
 
 def get_configuration_from_output_folder(folder):
     # split off network_training_output_dir

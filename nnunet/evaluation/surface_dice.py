@@ -1,4 +1,4 @@
-#    Copyright 2019 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ def normalized_surface_dice(a: np.ndarray, b: np.ndarray, threshold: float, spac
     """
     This implementation differs from the official surface dice implementation! These two are not comparable!!!!!
 
-    The normalized surface dice is symmetric, so it should not matter wheter a or b is the reference image
+    The normalized surface dice is symmetric, so it should not matter whether a or b is the reference image
 
-    This implementation natively supports 2D and 3D images. Whether other dimensions are supported depends in the
+    This implementation natively supports 2D and 3D images. Whether other dimensions are supported depends on the
     __surface_distances implementation in medpy
 
     :param a: image 1, must have the same shape as b

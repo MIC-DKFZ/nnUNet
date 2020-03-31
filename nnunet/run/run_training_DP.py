@@ -1,3 +1,18 @@
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+
 import argparse
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.run.default_configuration import get_default_configuration
@@ -21,7 +36,7 @@ def main():
     parser.add_argument("-p", help="plans identifier. Only change this if you created a custom experiment planner",
                         default=default_plans_identifier, required=False)
     parser.add_argument("--use_compressed_data", default=False, action="store_true",
-                        help="If you set -u 0, the training cases will not be decompressed. Reading compressed data "
+                        help="If you set use_compressed_data, the training cases will not be decompressed. Reading compressed data "
                              "is much more CPU and RAM intensive and should only be used if you know what you are "
                              "doing", required=False)
     parser.add_argument("--deterministic",
