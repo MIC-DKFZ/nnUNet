@@ -58,6 +58,7 @@ Please also cite this paper if you are using nnU-Net for your research!
     + [Identifying the best U-Net configuration(s)](#identifying-the-best-u-net-configuration)
     + [Run inference](#run-inference)
   * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
+  * [Examples](#Examples)
 - [Extending/Changing nnU-Net](#extending-changing-nnu-net)
 - [FAQ](#faq)
 
@@ -397,6 +398,14 @@ nnUNet_download_pretrained_model Task029_LiTS
 After downloading is complete, you can use this model to run [inference](#run-inference). Keep in mind that each of 
 these models has specific data requirements (Task029_LiTS runs on abdominal CT scans, others require several image 
 modalities as input in a specific order).
+
+## Examples
+
+To get you started we compiles two simple to follow examples:
+- run a training with the 3d full resolution U-Net on the Hippocampus dataset. See [here](documentation/training_example_Hippocampus.md).
+- run inference with nnU-Net's pretrained models on the Prostate dataset. See [here](documentation/inference_example_Prostate.md).
+
+Usability not good enough? Let us know!
 
 # Extending/Changing nnU-Net
 Please refer to [this](documentation/extending_nnunet.md) guide.
