@@ -214,6 +214,18 @@ def download_and_install_from_url2(url):
         print("Done")
 
 
+def print_license_warning():
+    print('')
+    print('######################################################')
+    print('!!!!!!!!!!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!!!!!!!!!')
+    print('######################################################')
+    print("Using the pretrained model weights is subject to the license of the dataset they were trained on. Some "
+          "allow commercial use, others don't. It is your responsibility to make sure you use them appropriately! Use "
+          "print_pretrained_model_requirements(task_name) to see a summary of the dataset and where to find its license!")
+    print('######################################################')
+    print('')
+
+
 def download_by_name():
     import argparse
     parser = argparse.ArgumentParser(description="Use this to download pretrained models. CAREFUL: This script will "
@@ -225,6 +237,7 @@ def download_by_name():
                                                                    'pretrained_models')
     args = parser.parse_args()
     taskname = args.task_name
+    print_license_warning()
     download_and_install_pretrained_model_by_name(taskname)
 
 
