@@ -399,6 +399,10 @@ After downloading is complete, you can use this model to run [inference](#run-in
 these models has specific data requirements (Task029_LiTS runs on abdominal CT scans, others require several image 
 modalities as input in a specific order).
 
+Note that the license for the trained weights is 'Creative Commons Attribution 4.0 International'. However, some 
+datasets are more restrictive in their use. For each dataset, only use the weights if your intended use case is in 
+accordance with the license of the dataset! 
+
 ## Examples
 
 To get you started we compiles two simple to follow examples:
