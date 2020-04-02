@@ -1,6 +1,6 @@
 # nnU-Net
 
-In 3D biomedial image segmentation, dataset properties like imaging modality, image sizes, voxel spacings, class 
+In 3D biomedical image segmentation, dataset properties like imaging modality, image sizes, voxel spacings, class 
 ratios etc vary drastically.
 For example, images in the [Liver and Liver Tumor Segmentation Challenge dataset](https://competitions.codalab.org/competitions/17094) 
 are computed tomography (CT) scans, about 512x512x512 voxels large, have isotropic voxel spacings and their 
@@ -8,13 +8,13 @@ intensity values are quantitative (Hounsfield Units).
 The [Automated Cardiac Diagnosis Challenge dataset](https://acdc.creatis.insa-lyon.fr/) on the other hand shows cardiac 
 structures in cine MRI with a typical image shape of 10x320x320 voxels, highly anisotropic voxel spacings and 
 qualitative intensity values. In addition, the ACDC dataset suffers from slice misalignments and a heterogeneity of 
-out-of-plane spacings which can cause severe interpolation artifacts of not handled properly. 
+out-of-plane spacings which can cause severe interpolation artifacts if not handled properly. 
 
 In current research practice, segmentation pipelines are designed manually and with one specific dataset in mind. 
 Hereby, many pipeline settings depend directly or indirectly on the properties of the dataset 
 and display a complex co-dependence: image size, for example, affects the patch size, which in 
 turn affects the required receptive field of the network, a factor that itself influences several other 
-hyperparameters in the pipeline. As a result, pipelines that were developed on on (type of) dataset are inherently 
+hyperparameters in the pipeline. As a result, pipelines that were developed on one (type of) dataset are inherently 
 incomaptible with other datasets in the domain.
 
 **nnU-Net is the first segmentation method that is designed to deal with the dataset diversity found in the somain. It 
@@ -399,13 +399,12 @@ After downloading is complete, you can use this model to run [inference](#run-in
 these models has specific data requirements (Task029_LiTS runs on abdominal CT scans, others require several image 
 modalities as input in a specific order).
 
-Note that the license for the trained weights is 'Creative Commons Attribution 4.0 International'. However, some 
-datasets are more restrictive in their use. For each dataset, only use the weights if your intended use case is in 
-accordance with the license of the dataset! 
+When using the pretrained models you must adhere to the license of the dataset they are trained on! If you run 
+`nnUNet_download_pretrained_model` you will find a link where you can find the license for each dataset.
 
 ## Examples
 
-To get you started we compiles two simple to follow examples:
+To get you started we compiled two simple to follow examples:
 - run a training with the 3d full resolution U-Net on the Hippocampus dataset. See [here](documentation/training_example_Hippocampus.md).
 - run inference with nnU-Net's pretrained models on the Prostate dataset. See [here](documentation/inference_example_Prostate.md).
 

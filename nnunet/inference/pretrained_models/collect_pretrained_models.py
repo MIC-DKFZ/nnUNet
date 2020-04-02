@@ -152,6 +152,6 @@ if __name__ == "__main__":
         print(taskname)
         output_folder = join(output_base, taskname)
         maybe_mkdir_p(output_folder)
-        copy_pretrained_models_for_task(taskname, output_folder, models)
+        copy_pretrained_models_for_task(taskname, output_folder, models, 'nnUNetTrainer', 'nnUNetTrainer', 'nnUNetPlans')
         copy_ensembles(taskname, output_folder)
     compress_everything(output_base, 8)

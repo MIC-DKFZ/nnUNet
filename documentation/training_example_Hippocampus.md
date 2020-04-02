@@ -17,7 +17,7 @@ destination of your choice.
     ```
     
     Note that `Task04_Hippocampus` must be the folder that has the three 'imagesTr', 'labelsTr', 'imagesTs' subfolders!
-    The converted dataset can be found in nnUNet_raw_data_base/nnUNet_raw_data (nnUNet_raw_data_base is the folder for 
+    The converted dataset can be found in $nnUNet_raw_data_base/nnUNet_raw_data ($nnUNet_raw_data_base is the folder for 
     raw data that you specified during installation)
 4) You can now run nnU-Nets pipeline configuration (and the preprocessing) with the following line:
     ```bash
