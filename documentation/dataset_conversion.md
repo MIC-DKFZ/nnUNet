@@ -132,7 +132,7 @@ Here is the content of the dataset.json from the Prostate task:
      "description": "Prostate transitional zone and peripheral zone segmentation",
      "reference": "Radboud University, Nijmegen Medical Centre",
      "licence":"CC-BY-SA 4.0",
-     "relase":"1.0 04/05/2018",
+     "release":"1.0 04/05/2018",
      "tensorImageSize": "4D",
      "modality": { 
        "0": "T2", 
@@ -150,7 +150,7 @@ Here is the content of the dataset.json from the Prostate task:
      }
 
 Note that we truncated the "training" and "test" lists for clarity. You need to specify all the cases in there. If you 
-don't have test images (imagesTs does not exist) you can leave "test" blank: `"test": []`.
+don't have test images (imagesTs does not exist) you can leave "test" blank: `"test": []`. See the [json schema file](../nnunet/preprocessing/schema.json) for more information regarding dataset.json.
 
 Please also have a look at the python files located [here](../nnunet/dataset_conversion). They show how we created our 
 custom dataset.jsons for a range of public datasets.
