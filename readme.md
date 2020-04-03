@@ -71,7 +71,9 @@ nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For tra
 least 11 GB (such as the RTX 2080ti). Due to the use of mixed precision, fastest training times are achieved with the 
 Volta architecture (Titan V, V100 GPUs) (tensorcore acceleration for 3D convolutions does not yet work on Turing-based GPUs).
 
-We recommend you run the following steps in a virtual environment. [Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/)
+We very strongly recommend you install nnU-Net in a virtual environment. 
+[Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/).
+Please do not use conda environments. This has caused multiple issues in the past.
 
 Python 2 is deprecated and not supported. Please make sure you are using Python 3 :-)
 

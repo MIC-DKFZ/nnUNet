@@ -529,7 +529,8 @@ def check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities)
 def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=False,
                         overwrite_existing=True, mode='normal', overwrite_all_in_gpu=None, step=2,
-                        force_separate_z=None, interp_order=3, interp_order_z=0):
+                        force_separate_z=None, interp_order=3, interp_order_z=0, 
+                        checkpoint_name="model_final_checkpoint"):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -581,7 +582,8 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
                              save_npz,
                              num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                              tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu, step=step,
-                             force_separate_z=force_separate_z, interp_order=interp_order, interp_order_z=interp_order_z)
+                             force_separate_z=force_separate_z, interp_order=interp_order, interp_order_z=interp_order_z,
+                             checkpoint_name=checkpoint_name)
     elif mode == "fast":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
@@ -592,7 +594,8 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
         return predict_cases_fast(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
                                   num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                                   tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu, step=step,
-                                  force_separate_z=force_separate_z, interp_order=interp_order)
+                                  force_separate_z=force_separate_z, interp_order=interp_order, 
+                                  checkpoint_name=checkpoint_name)
     elif mode == "fastest":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
@@ -602,7 +605,8 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
         assert save_npz is False
         return predict_cases_fastest(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
                                      num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
-                                     tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu, step=step)
+                                     tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu, 
+                                     step=step, checkpoint_name=checkpoint_name)
     else:
         raise ValueError("unrecognized mode. Must be normal, fast or fastest")
 
