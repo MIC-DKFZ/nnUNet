@@ -21,6 +21,7 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
 
+import jsonschema
 
 def verify_all_same_orientation(folder):
     """
@@ -72,6 +73,22 @@ def verify_contains_only_expected_labels(itk_img: str, valid_labels: (tuple, lis
     return r, invalid_uniques
 
 
+def validate_against_json_schema(json_data):
+    """
+    Validates the user-generated dataset.json against the schema file.
+    Args:
+        json_data (obj): Loaded from the json.
+    Returns:
+        True if validation passes, or otherwise a hopefully non-cryptic json validation error.
+    """
+    json_schema = load_json("schema.json")
+    try:
+        jsonschema.validate(instance=json_data, schema=json_schema)
+    except jsonschema.exceptions.ValidationError as err:
+        return "dataset.json has not been configured properly. Error: %s" % err
+    return True
+
+
 def verify_dataset_integrity(folder):
     """
     folder needs the imagesTr, imagesTs and labelsTr subfolders. There also needs to be a dataset.json
@@ -87,6 +104,7 @@ def verify_dataset_integrity(folder):
     assert isdir(join(folder, "imagesTr")), "There needs to be a imagesTr subfolder in folder, folder=%s" % folder
     assert isdir(join(folder, "labelsTr")), "There needs to be a labelsTr subfolder in folder, folder=%s" % folder
     dataset = load_json(join(folder, "dataset.json"))
+    assert validate_against_json_schema(dataset) == 1
     training_cases = dataset['training']
     num_modalities = len(dataset['modality'].keys())
     test_cases = dataset['test']
