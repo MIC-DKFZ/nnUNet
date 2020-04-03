@@ -74,15 +74,15 @@ def write_pngs_from_nifti(nifti, output_folder, converter=convert_seg_to_intensi
 
 
 def convert_variant2_predicted_test_to_submission_format(folder_with_predictions,
-                                                         output_folder="/home/fabian/drives/datasets/results/nnUNet/test_sets/Task38_CHAOS_Task_3_5_Variant2/ready_to_submit",
-                                                         postprocessing_file="/home/fabian/drives/datasets/results/nnUNet/ensembles/Task38_CHAOS_Task_3_5_Variant2/ensemble_2d__nnUNetTrainerV2__nnUNetPlansv2.1--3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json"):
+                                                         output_folder="/home/fabian/drives/datasets/results/nnUNet/test_sets/Task038_CHAOS_Task_3_5_Variant2/ready_to_submit",
+                                                         postprocessing_file="/home/fabian/drives/datasets/results/nnUNet/ensembles/Task038_CHAOS_Task_3_5_Variant2/ensemble_2d__nnUNetTrainerV2__nnUNetPlansv2.1--3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json"):
     """
     output_folder is where the extracted template is
     :param folder_with_predictions:
     :param output_folder:
     :return:
     """
-    postprocessing_file = "/media/fabian/Results/nnUNet/3d_fullres/Task39_CHAOS_Task_3_5_Variant2_highres/" \
+    postprocessing_file = "/media/fabian/Results/nnUNet/3d_fullres/Task039_CHAOS_Task_3_5_Variant2_highres/" \
                           "nnUNetTrainerV2__nnUNetPlansfixed/postprocessing.json"
 
     # variant 2 treats in and out phase as two training examples, so we need to ensemble these two again
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     patient_ids = []
     patient_ids_test = []
 
-    output_folder = join(out_base, "Task37_CHAOS_Task_3_5_Variant1")
+    output_folder = join(out_base, "Task037_CHAOS_Task_3_5_Variant1")
     output_images = join(output_folder, "imagesTr")
     output_labels = join(output_folder, "labelsTr")
     output_imagesTs = join(output_folder, "imagesTs")
@@ -307,7 +307,7 @@ if __name__ == "__main__":
     patient_ids = []
     patient_ids_test = []
 
-    output_folder = join(out_base, "Task38_CHAOS_Task_3_5_Variant2")
+    output_folder = join(out_base, "Task038_CHAOS_Task_3_5_Variant2")
     output_images = join(output_folder, "imagesTr")
     output_imagesTs = join(output_folder, "imagesTs")
     output_labels = join(output_folder, "labelsTr")
@@ -427,8 +427,8 @@ if __name__ == "__main__":
     # custom split
     #################################################
     patients = subdirs(d, join=False)
-    task_name_variant1 = "Task37_CHAOS_Task_3_5_Variant1"
-    task_name_variant2 = "Task38_CHAOS_Task_3_5_Variant2"
+    task_name_variant1 = "Task037_CHAOS_Task_3_5_Variant1"
+    task_name_variant2 = "Task038_CHAOS_Task_3_5_Variant2"
 
     output_preprocessed_v1 = join(preprocessing_output_dir, task_name_variant1)
     maybe_mkdir_p(output_preprocessed_v1)

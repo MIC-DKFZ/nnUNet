@@ -109,7 +109,7 @@ def copy_npz_fom_valsets():
     this is preparation for ensembling
     :return:
     '''
-    base = join(network_training_output_dir, "3d_lowres/Task48_KiTS_clean")
+    base = join(network_training_output_dir, "3d_lowres/Task048_KiTS_clean")
     folders = ['nnUNetTrainerNewCandidate23_FabiansPreActResNet__nnUNetPlans',
                'nnUNetTrainerNewCandidate23_FabiansResNet__nnUNetPlans',
                'nnUNetTrainerNewCandidate23__nnUNetPlans']
@@ -129,14 +129,14 @@ def copy_npz_fom_valsets():
 
 
 def ensemble(experiments=('nnUNetTrainerNewCandidate23_FabiansPreActResNet__nnUNetPlans',
-               'nnUNetTrainerNewCandidate23_FabiansResNet__nnUNetPlans'), out_dir="/media/fabian/Results/nnUNet/3d_lowres/Task48_KiTS_clean/ensemble_preactres_and_res"):
+               'nnUNetTrainerNewCandidate23_FabiansResNet__nnUNetPlans'), out_dir="/media/fabian/Results/nnUNet/3d_lowres/Task048_KiTS_clean/ensemble_preactres_and_res"):
     from nnunet.inference.ensemble_predictions import merge
-    folders = [join(network_training_output_dir, "3d_lowres/Task48_KiTS_clean", i, 'crossval_npz') for i in experiments]
+    folders = [join(network_training_output_dir, "3d_lowres/Task048_KiTS_clean", i, 'crossval_npz') for i in experiments]
     merge(folders, out_dir, 8)
 
 
-def prepare_submission(fld= "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task48_KiTS_clean/predicted_ens_3d_fullres_3d_cascade_fullres_postprocessed", # '/home/fabian/datasets_fabian/predicted_KiTS_nnUNetTrainerNewCandidate23_FabiansResNet',
-                       out='/home/fabian/drives/datasets/results/nnUNet/test_sets/Task48_KiTS_clean/submission'):
+def prepare_submission(fld= "/home/fabian/drives/datasets/results/nnUNet/test_sets/Task048_KiTS_clean/predicted_ens_3d_fullres_3d_cascade_fullres_postprocessed", # '/home/fabian/datasets_fabian/predicted_KiTS_nnUNetTrainerNewCandidate23_FabiansResNet',
+                       out='/home/fabian/drives/datasets/results/nnUNet/test_sets/Task048_KiTS_clean/submission'):
     nii = subfiles(fld, join=False, suffix='.nii.gz')
     maybe_mkdir_p(out)
     for n in nii:
@@ -177,7 +177,7 @@ def nnUNetTrainer_these(experiments=('nnUNetTrainerNewCandidate23_FabiansPreActR
     :param experiments:
     :return:
     """
-    base = join(network_training_output_dir, "3d_lowres/Task48_KiTS_clean")
+    base = join(network_training_output_dir, "3d_lowres/Task048_KiTS_clean")
     for exp in experiments:
         cur = join(base, exp)
         pretent_to_be_nnUNetTrainer(cur)
@@ -191,7 +191,7 @@ def reset_trainerName_these(experiments=('nnUNetTrainerNewCandidate23_FabiansPre
     :param experiments:
     :return:
     """
-    base = join(network_training_output_dir, "3d_lowres/Task48_KiTS_clean")
+    base = join(network_training_output_dir, "3d_lowres/Task048_KiTS_clean")
     for exp in experiments:
         cur = join(base, exp)
         reset_trainerName(cur)
@@ -199,7 +199,7 @@ def reset_trainerName_these(experiments=('nnUNetTrainerNewCandidate23_FabiansPre
 
 if __name__ == "__main__":
     base = "/media/fabian/My Book/datasets/KiTS2019_Challenge/kits19/data"
-    out = "/media/fabian/My Book/MedicalDecathlon/nnUNet_raw_splitted/Task40_KiTS"
+    out = "/media/fabian/My Book/MedicalDecathlon/nnUNet_raw_splitted/Task040_KiTS"
     cases = subdirs(base, join=False)
 
     maybe_mkdir_p(out)

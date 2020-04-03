@@ -42,8 +42,8 @@ if __name__ == "__main__":
     REMEMBER TO CONVERT LABELS BACK TO BRATS CONVENTION AFTER PREDICTION!
     """
 
-    task_name = "Task43_BraTS2019"
-    downloaded_data_dir = "/home/fabian/drives/E132-Projekte/Move_to_E132-Rohdaten/BraTS_2019/MICCAI_BraTS_2019_Data_Training"
+    task_name = "Task043_BraTS2019"
+    downloaded_data_dir = "/home/fabian/data/BraTS2019/MICCAI_BraTS_2019_Data_Training"
 
     target_base = join(nnUNet_raw_data, task_name)
     target_imagesTr = join(target_base, "imagesTr")
