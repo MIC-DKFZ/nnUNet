@@ -18,6 +18,7 @@ from nnunet.paths import network_training_output_dir
 from subprocess import call
 import requests
 
+
 def get_available_models():
     available_models = {
         "Task001_BrainTumour": {
