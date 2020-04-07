@@ -136,11 +136,114 @@ def export_one_task(taskname, models, output_folder, nnunet_trainer=default_trai
                     plans_identifier=default_plans_identifier):
     copy_pretrained_models_for_task(taskname, output_folder, models, nnunet_trainer, nnunet_trainer_cascade,
                                     plans_identifier)
-    copy_ensembles(taskname, output_folder, models, (nnunet_trainer, nnunet_trainer_cascade), (plans_identifier, ))
+    copy_ensembles(taskname, output_folder, models, (nnunet_trainer, nnunet_trainer_cascade), (plans_identifier,))
     compress_folder(join(output_folder, taskname + '.zip'), join(output_folder, taskname))
 
 
-if __name__ == "__main__":
+def export_pretrained_model(task_name: str, output_file: str,
+                            models: tuple = ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+                            nnunet_trainer=default_trainer,
+                            nnunet_trainer_cascade=default_cascade_trainer,
+                            plans_identifier=default_plans_identifier,
+                            folds=(0, 1, 2, 3, 4), strict=True):
+    zipf = zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED)
+    trainer_output_dir = nnunet_trainer + "__" + plans_identifier
+    trainer_output_dir_cascade = nnunet_trainer_cascade + "__" + plans_identifier
+
+    for m in models:
+        to = trainer_output_dir_cascade if m == "3d_cascade_fullres" else trainer_output_dir
+        expected_output_folder = join(network_training_output_dir, m, task_name, to)
+        if not isdir(expected_output_folder):
+            if strict:
+                raise RuntimeError("Task %s is missing the model %s" % (task_name, m))
+            else:
+                continue
+
+        expected_folders = ["fold_%d" % i for i in folds]
+        assert all([isdir(join(expected_output_folder, i)) for i in expected_folders]), "not all requested folds " \
+                                                                                        "present, " \
+                                                                                        "Task %s model %s" % \
+                                                                                        (task_name, m)
+
+        assert isfile(join(expected_output_folder, "plans.pkl")), "plans.pkl missing, Task %s model %s" % (task_name, m)
+        assert isfile(join(expected_output_folder, "postprocessing.json")), "postprocessing.json missing, " \
+                                                                            "Task %s model %s" % (task_name, m)
+
+        for e in expected_folders:
+            zipf.write(join(expected_output_folder, e, "debug.json"),
+                       os.path.relpath(join(expected_output_folder, e, "debug.json"),
+                                       network_training_output_dir))
+            zipf.write(join(expected_output_folder, e, "model_final_checkpoint.model"),
+                       os.path.relpath(join(expected_output_folder, e, "model_final_checkpoint.model"),
+                                       network_training_output_dir))
+            zipf.write(join(expected_output_folder, e, "model_final_checkpoint.model.pkl"),
+                       os.path.relpath(join(expected_output_folder, e, "model_final_checkpoint.model.pkl"),
+                                       network_training_output_dir))
+            zipf.write(join(expected_output_folder, e, "progress.png"),
+                       os.path.relpath(join(expected_output_folder, e, "progress.png"), network_training_output_dir))
+            if isfile(join(expected_output_folder, e, "network_architecture.pdf")):
+                zipf.write(join(expected_output_folder, e, "network_architecture.pdf"),
+                           os.path.relpath(join(expected_output_folder, e, "network_architecture.pdf"),
+                                           network_training_output_dir))
+
+        zipf.write(join(expected_output_folder, "plans.pkl"),
+                   os.path.relpath(join(expected_output_folder, "plans.pkl"), network_training_output_dir))
+        zipf.write(join(expected_output_folder, "postprocessing.json"),
+                   os.path.relpath(join(expected_output_folder, "postprocessing.json"), network_training_output_dir))
+
+    ensemble_dir = join(network_training_output_dir, 'ensembles', task_name)
+    if not isdir(ensemble_dir):
+        print("No ensemble directory found for task", task_name)
+        return
+    subd = subdirs(ensemble_dir, join=False)
+    valid = []
+    for s in subd:
+        v = check_if_valid(s, models, (nnunet_trainer, nnunet_trainer_cascade), (plans_identifier))
+        if v:
+            valid.append(s)
+    for v in valid:
+        zipf.write(join(ensemble_dir, v, 'postprocessing.json'),
+                   os.path.relpath(join(ensemble_dir, v, 'postprocessing.json'),
+                                   network_training_output_dir))
+    zipf.close()
+
+
+def export_entry_point():
+    import argparse
+    parser = argparse.ArgumentParser(description="Use this script to export models to a zip file for sharing with "
+                                                 "others. You can upload the zip file and then either share the url "
+                                                 "for usage with nnUNet_download_pretrained_model_by_url, or share the "
+                                                 "zip for usage with nnUNet_install_pretrained_model_from_zip")
+    parser.add_argument('-t', type=str, help='task name or task id')
+    parser.add_argument('-o', type=str, help='output file name. Should end with .zip')
+    parser.add_argument('-m', nargs='+',
+                        help='list of model configurations. Default: 2d 3d_lowres 3d_fullres 3d_cascade_fullres. Must '
+                             'be adapted to fit the available models of a task',
+                        default=("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"), required=False)
+    parser.add_argument('-tr', type=str, help='trainer class used for 2d 3d_lowres and 3d_fullres. '
+                                              'Default: %s' % default_trainer, required=False, default=default_trainer)
+    parser.add_argument('-trc', type=str, help='trainer class used for 3d_cascade_fullres. '
+                                              'Default: %s' % default_cascade_trainer, required=False,
+                        default=default_cascade_trainer)
+    parser.add_argument('-pl', type=str, help='nnunet plans identifier. Default: %s' % default_plans_identifier,
+                        required=False, default=default_plans_identifier)
+    args = parser.parse_args()
+
+    taskname = args.t
+    if taskname.startswith("Task"):
+        pass
+    else:
+        try:
+            taskid = int(taskname)
+        except Exception as e:
+            print('-t must be either a Task name (TaskXXX_YYY) or a task id (integer)')
+            raise e
+        taskname = convert_id_to_task_name(taskid)
+
+    export_pretrained_model(taskname, args.o, args.m, args.tr, args.trc, args.pl)
+
+
+def export_for_paper():
     output_base = "/media/fabian/DeepLearningData/nnunet_trained_models"
     task_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 24, 27, 29, 35, 48, 55, 61, 38]
     for t in task_ids:
@@ -152,6 +255,6 @@ if __name__ == "__main__":
         print(taskname)
         output_folder = join(output_base, taskname)
         maybe_mkdir_p(output_folder)
-        copy_pretrained_models_for_task(taskname, output_folder, models, 'nnUNetTrainer', 'nnUNetTrainer', 'nnUNetPlans')
+        copy_pretrained_models_for_task(taskname, output_folder, models)
         copy_ensembles(taskname, output_folder)
     compress_everything(output_base, 8)

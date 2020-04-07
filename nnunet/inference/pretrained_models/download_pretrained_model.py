@@ -192,7 +192,7 @@ def download_and_install_from_url(url):
         f.write(data)
         # unzip -o zip_file -d output_dir
         print("Download finished. Extracting...")
-        call(['unzip', '-o', '-d', network_training_output_dir, fname])
+        install_model_from_zip_file(fname)
         print("Done")
 
 
@@ -211,8 +211,12 @@ def download_and_install_from_url2(url):
         f.write(r.content)
 
         print("Download finished. Extracting...")
-        call(['unzip', '-o', '-d', network_training_output_dir, fname])
+        install_model_from_zip_file(fname)
         print("Done")
+
+
+def install_model_from_zip_file(zip_file: str):
+    call(['unzip', '-o', '-d', network_training_output_dir, zip_file])
 
 
 def print_license_warning():
@@ -254,6 +258,16 @@ def download_by_url():
     args = parser.parse_args()
     url = args.url
     download_and_install_from_url(url)
+
+
+def install_from_zip_entry_point():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Use this to install a zip file containing a pretrained model.")
+    parser.add_argument("zip", type=str, help='zip file')
+    args = parser.parse_args()
+    zip = args.zip
+    install_model_from_zip_file(zip)
 
 
 def print_pretrained_model_requirements():
