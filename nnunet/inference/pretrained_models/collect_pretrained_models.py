@@ -167,7 +167,9 @@ def export_pretrained_model(task_name: str, output_file: str,
 
         assert isfile(join(expected_output_folder, "plans.pkl")), "plans.pkl missing, Task %s model %s" % (task_name, m)
         assert isfile(join(expected_output_folder, "postprocessing.json")), "postprocessing.json missing, " \
-                                                                            "Task %s model %s" % (task_name, m)
+                                                                            "Task %s model %s. Run nnUNet_" \
+                                                                            "determine_postprocessing first." % \
+                                                                            (task_name, m)
 
         for e in expected_folders:
             zipf.write(join(expected_output_folder, e, "debug.json"),
