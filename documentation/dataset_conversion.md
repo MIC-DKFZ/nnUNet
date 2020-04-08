@@ -156,7 +156,7 @@ Please also have a look at the python files located [here](../nnunet/dataset_con
 custom dataset.jsons for a range of public datasets.
 
 ## How to use decathlon datasets
-The previous release of nnU-Net allowed userd to either start with 4D or 3D niftis. This resulted in some confusion, 
+The previous release of nnU-Net allowed users to either start with 4D or 3D niftis. This resulted in some confusion, 
 however, because some users would not know where they should save their data. We therefore dropped support for the 4D 
 niftis used by the MSD. Instead, we provide a utility that converts the MSD datasets into the format specified above:
 
