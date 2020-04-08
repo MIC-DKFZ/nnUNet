@@ -23,6 +23,33 @@ import SimpleITK as sitk
 import shutil
 
 
+def convert_labels_back_to_BraTS(seg: np.ndarray):
+    new_seg = np.zeros_like(seg)
+    new_seg[seg == 1] = 2
+    new_seg[seg == 3] = 4
+    new_seg[seg == 2] = 1
+    return new_seg
+
+
+def convert_labels_back_to_BraTS_2018_2019_convention(input_folder: str, output_folder: str):
+    """
+    reads all prediction files (nifti) in the input folder, converts the labels back to BraTS convention and saves the
+    result in output_folder
+    :param input_folder:
+    :param output_folder:
+    :return:
+    """
+    maybe_mkdir_p(output_folder)
+    nii = subfiles(input_folder, suffix='.nii.gz', join=False)
+    for n in nii:
+        a = sitk.ReadImage(join(input_folder, n))
+        b = sitk.GetArrayFromImage(a)
+        c = convert_labels_back_to_BraTS(b)
+        d = sitk.GetImageFromArray(c)
+        d.CopyInformation(a)
+        sitk.WriteImage(d, join(output_folder, n))
+
+
 if __name__ == "__main__":
     """
     REMEMBER TO CONVERT LABELS BACK TO BRATS CONVENTION AFTER PREDICTION!
