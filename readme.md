@@ -191,6 +191,10 @@ CONFIGURATION is a string that identifies the requested U-Net configuration. TRA
 model trainer. If you implement custom trainers (nnU-Net as a framework) you can specify your custom trainer here.
 TASK_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of the 5-fold-crossvalidaton is trained.
 
+nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `-c` to the 
+training command.
+
+ 
 #### 2D U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
