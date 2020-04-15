@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from typing import Tuple
 
 import numpy as np
 from nnunet.network_architecture.generic_modular_residual_UNet import FabiansUNet, get_default_network_config
@@ -50,41 +50,32 @@ class nnUNetTrainerV2_ResencUNet(nnUNetTrainerV2):
         self.deep_supervision_scales = [[1, 1, 1]] + list(list(i) for i in 1 / np.cumprod(
             np.vstack(self.net_num_pool_op_kernel_sizes[1:]), axis=0))[:-1]
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         ds = self.network.decoder.deep_supervision
         self.network.deep_supervision = False
-        ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu,
-                               force_separate_z=force_separate_z, interpolation_order=interpolation_order,
-                               interpolation_order_z=interpolation_order_z)
+        ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
+                                     overwrite, validation_folder_name, debug, all_in_gpu,
+                                     force_separate_z=force_separate_z, interpolation_order=interpolation_order,
+                                     interpolation_order_z=interpolation_order_z)
         self.network.decoder.deep_supervision = ds
         return ret
 
-    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                 all_in_gpu=False):
-        ds = self.network.decoder.deep_supervision
-        self.network.decoder.deep_supervision = False
-        ret = nnUNetTrainer.predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode,
-                                                               batch_size,
-                                                               mirror_axes, tiled, tile_in_z, step, min_size,
-                                                               use_gaussian, all_in_gpu)
-        self.network.decoder.deep_supervision = ds
-        return ret
-
-    def predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode,
-                                                         batch_size,
-                                                         mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                         all_in_gpu=False):
+    def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
+                                                         mirror_axes: Tuple[int] = None,
+                                                         use_sliding_window: bool = True,
+                                                         step_size: float = 0.5, use_gaussian: bool = True,
+                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
+                                                         all_in_gpu: bool = True,
+                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         ds = self.network.decoder.deep_supervision
         self.network.deep_supervision = False
-        ret = nnUNetTrainer.predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode,
-                                                                       batch_size,
-                                                                       mirror_axes, tiled, tile_in_z, step, min_size,
-                                                                       use_gaussian, all_in_gpu)
+        ret = nnUNetTrainer.predict_preprocessed_data_return_seg_and_softmax(self, data, do_mirroring, mirror_axes,
+                                                                             use_sliding_window, step_size,
+                                                                             use_gaussian, pad_border_mode, pad_kwargs,
+                                                                             all_in_gpu, verbose)
         self.network.decoder.deep_supervision = ds
         return ret
 

@@ -108,7 +108,7 @@ def main():
     parser.add_argument("--mode", type=str, default="normal", required=False, help="Hands off!")
     parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True. "
                                                                                        "Do not touch.")
-    parser.add_argument("--step", type=float, default=2, required=False, help="don't touch")
+    parser.add_argument("--step_size", type=float, default=0.5, required=False, help="don't touch")
     parser.add_argument("--interp_order", required=False, default=3, type=int,
                         help="order of interpolation for segmentations, has no effect if mode=fastest. Do not touch this.")
     parser.add_argument("--interp_order_z", required=False, default=0, type=int,
@@ -129,7 +129,7 @@ def main():
     num_threads_nifti_save = args.num_threads_nifti_save
     disable_tta = args.disable_tta
     fp16 = args.fp16
-    step = args.step
+    step_size = args.step_size
     interp_order = args.interp_order
     interp_order_z = args.interp_order_z
     force_separate_z = args.force_separate_z
@@ -198,7 +198,7 @@ def main():
                             num_threads_preprocessing, num_threads_nifti_save, None, part_id, num_parts, not disable_tta,
                             overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu,
                             fp16=fp16,
-                            step=step, force_separate_z=force_separate_z, interp_order=interp_order,
+                            step_size=step_size, force_separate_z=force_separate_z, interp_order=interp_order,
                             interp_order_z=interp_order_z)
         lowres_segmentations = lowres_output_folder
         torch.cuda.empty_cache()
@@ -217,7 +217,7 @@ def main():
     predict_from_folder(model_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, not disable_tta,
                         overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16,
-                        step=step, force_separate_z=force_separate_z, interp_order=interp_order,
+                        step_size=step_size, force_separate_z=force_separate_z, interp_order=interp_order,
                         interp_order_z=interp_order_z)
 
 

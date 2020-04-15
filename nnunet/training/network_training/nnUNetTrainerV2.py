@@ -14,6 +14,8 @@
 
 
 from collections import OrderedDict
+from typing import Tuple
+
 import numpy as np
 import torch
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
@@ -149,7 +151,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
                                     len(self.net_num_pool_op_kernel_sizes),
-                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
+                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
+                                    dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.cuda()
@@ -173,8 +176,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
         output = output[0]
         return super().run_online_evaluation(output, target)
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
-                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True,
+                 step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         """
@@ -182,50 +185,28 @@ class nnUNetTrainerV2(nnUNetTrainer):
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        ret = super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
+        ret = super().validate(do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
                                overwrite, validation_folder_name, debug, all_in_gpu,
                                force_separate_z=force_separate_z, interpolation_order=interpolation_order,
                                interpolation_order_z=interpolation_order_z)
         self.network.do_ds = ds
         return ret
 
-    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                 all_in_gpu=False):
+    def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
+                                                         mirror_axes: Tuple[int] = None,
+                                                         use_sliding_window: bool = True,
+                                                         step_size: float = 0.5, use_gaussian: bool = True,
+                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
+                                                         all_in_gpu: bool = True,
+                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
-        :param data:
-        :param do_mirroring:
-        :param num_repeats:
-        :param use_train_mode:
-        :param batch_size:
-        :param mirror_axes:
-        :param tiled:
-        :param tile_in_z:
-        :param step:
-        :param min_size:
-        :param use_gaussian:
-        :return:
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        ret = super().predict_preprocessed_data_return_softmax(data, do_mirroring, num_repeats, use_train_mode,
-                                                               batch_size,
-                                                               mirror_axes, tiled, tile_in_z, step, min_size,
-                                                               use_gaussian, all_in_gpu)
-        self.network.do_ds = ds
-        return ret
-
-    def predict_preprocessed_data_return_softmax_and_seg(self, data, do_mirroring, num_repeats, use_train_mode,
-                                                         batch_size,
-                                                         mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                         all_in_gpu=False):
-        ds = self.network.do_ds
-        self.network.do_ds = False
-        ret = super().predict_preprocessed_data_return_softmax_and_seg(data, do_mirroring, num_repeats, use_train_mode,
-                                                                       batch_size,
-                                                                       mirror_axes, tiled, tile_in_z, step, min_size,
-                                                                       use_gaussian, all_in_gpu)
+        ret = super().predict_preprocessed_data_return_seg_and_softmax(data, do_mirroring, mirror_axes,
+                                                                       use_sliding_window, step_size, use_gaussian,
+                                                                       pad_border_mode, pad_kwargs, all_in_gpu, verbose)
         self.network.do_ds = ds
         return ret
 

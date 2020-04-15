@@ -18,11 +18,11 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 
 class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
-        return super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
+        return super().validate(do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
                                 overwrite, validation_folder_name, debug, all_in_gpu,
                                 force_separate_z=False, interpolation_order=3,
                                 interpolation_order_z=3)
@@ -38,9 +38,10 @@ class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
         print("preprocessing...")
         d, s, properties = self.preprocess_patient(input_files)
         print("predicting...")
-        pred = self.predict_preprocessed_data_return_softmax(d, self.data_aug_params["do_mirror"], 1, False, 1,
-                                                             self.data_aug_params['mirror_axes'], True, True, 2,
-                                                             self.patch_size, True)
+        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, self.data_aug_params["do_mirror"],
+                                                                     self.data_aug_params['mirror_axes'], True, 0.5,
+                                                                     True, 'constant', {'constant_values': 0},
+                                                                     self.patch_size, True)[1]
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
         print("resampling to original spacing and nifti export...")

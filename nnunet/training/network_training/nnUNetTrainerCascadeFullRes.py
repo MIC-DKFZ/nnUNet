@@ -147,23 +147,12 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         assert isinstance(self.network, SegmentationNetwork)
         self.was_initialized = True
 
-    def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
-                 use_gaussian=True, overwrite=True, validation_folder_name="validation_raw",
-                 debug=False):
-        """
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True,
+                 step_size: float = 0.5,
+                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+                 validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
+                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
 
-        :param do_mirroring:
-        :param use_train_mode:
-        :param mirror_axes:
-        :param tiled:
-        :param tile_in_z:
-        :param step:
-        :param use_nifti:
-        :param save_softmax:
-        :param use_gaussian:
-        :param use_temporal_models:
-        :return:
-        """
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
         if self.dataset_val is None:
             self.load_dataset()
@@ -179,7 +168,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
 
         pred_gt_tuples = []
 
-        process_manager = Pool(2)
+        export_pool = Pool(2)
         results = []
 
         transpose_backward = self.plans.get('transpose_backward')
@@ -195,10 +184,10 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             print(data.shape)
             data[-1][data[-1] == -1] = 0
             data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
-            softmax_pred = self.predict_preprocessed_data_return_softmax(data_for_net, do_mirroring, 1,
-                                                                         use_train_mode, 1, mirror_axes, tiled,
-                                                                         True, step, self.patch_size,
-                                                                         use_gaussian=use_gaussian)
+
+            softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
+                data_for_net, do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
+                all_in_gpu=all_in_gpu)[1]
 
             if transpose_backward is not None:
                 transpose_backward = self.plans.get('transpose_backward')
@@ -221,9 +210,11 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                 np.save(fname + ".npy", softmax_pred)
                 softmax_pred = fname + ".npy"
-            results.append(process_manager.starmap_async(save_segmentation_nifti_from_softmax,
+            results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, 3, None, None, None, softmax_fname, None),
+                                                           properties, interpolation_order, None, None, None,
+                                                           softmax_fname, None, force_separate_z,
+                                                           interpolation_order_z),
                                                           )
                                                          )
                            )

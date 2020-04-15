@@ -11,8 +11,8 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
+from typing import Tuple
+import numpy as np
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 
@@ -23,13 +23,16 @@ class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
                          deterministic, fp16)
         self.max_num_epochs = 2
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         pass
 
-    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                 all_in_gpu=False):
+    def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
+                                                         mirror_axes: Tuple[int] = None, use_sliding_window: bool = True,
+                                                         step_size: float = 0.5, use_gaussian: bool = True,
+                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
+                                                         all_in_gpu: bool = True,
+                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         pass
