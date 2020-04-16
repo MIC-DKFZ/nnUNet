@@ -41,7 +41,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, previous_trainer="nnUNetTrainerV2", fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory,
-                                                          batch_dice, stage, unpack_data, deterministic, fp16)
+                         batch_dice, stage, unpack_data, deterministic, fp16)
         self.init_args = (plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                           deterministic, previous_trainer, fp16)
 
@@ -173,7 +173,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
                                        also_print_to_console=False)
             else:
-                    pass
+                pass
 
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
@@ -267,10 +267,12 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                 if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                     np.save(join(output_folder, fname + ".npy"), softmax_pred)
                     softmax_pred = join(output_folder, fname + ".npy")
+
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
                                                            properties, interpolation_order, None, None, None,
-                                                           softmax_fname, force_separate_z, interpolation_order_z),
+                                                           softmax_fname, None, force_separate_z,
+                                                           interpolation_order_z),
                                                           )
                                                          )
                                )
