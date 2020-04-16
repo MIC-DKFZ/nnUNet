@@ -245,11 +245,10 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
                 data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
-                softmax_pred = self.predict_preprocessed_data_return_softmax(data_for_net, do_mirroring, 1,
-                                                                             use_train_mode, 1, mirror_axes, use_sliding_window,
-                                                                             True, step_size, self.patch_size,
-                                                                             use_gaussian=use_gaussian,
-                                                                             all_in_gpu=all_in_gpu)
+
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
+                    data_for_net, do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
+                    all_in_gpu=all_in_gpu)[1]
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
