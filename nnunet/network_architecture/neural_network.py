@@ -13,8 +13,6 @@
 #    limitations under the License.
 
 
-from copy import deepcopy
-
 import numpy as np
 from batchgenerators.augmentations.utils import pad_nd_image
 from nnunet.utilities.tensor_utilities import flip
@@ -76,22 +74,37 @@ class SegmentationNetwork(NeuralNetwork):
                    pad_kwargs: dict = None, all_in_gpu: bool = False,
                    verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
-        It is the responsibility of the user to make sure the network is in the proper mode (eval for inference!)
-        :param x:
-        :param do_mirroring:
-        :param mirror_axes:
-        :param use_sliding_window:
-        :param step_size:
-        :param patch_size:
-        :param regions_class_order:
-        :param use_gaussian:
-        :param pad_border_mode:
-        :param pad_kwargs:
-        :param all_in_gpu:
-        :param verbose:
+        Use this function to predict a 3D image. It does not matter whether the network is a 2D or 3D U-Net, it will
+        detect that automatically and run the appropriate code.
+
+        When running predictions, you need to specify whether you want to run fully convolutional of sliding window
+        based inference. We very strongly recommend you use sliding window with the default settings.
+
+        It is the responsibility of the user to make sure the network is in the proper mode (eval for inference!). If
+        the network is not in eval mode it will print a warning.
+
+        :param x: Your input data. Must be a nd.ndarray of shape (c, x, y, z).
+        :param do_mirroring: If True, use test time data augmentation in the form of mirroring
+        :param mirror_axes: Determines which axes to use for mirroing. Per default, mirroring is done along all three
+        axes
+        :param use_sliding_window: if True, run sliding window prediction. Heavily recommended! This is also the default
+        :param step_size: When running sliding window prediction, the step size determines the distance between adjacent
+        predictions. The smaller the step size, the denser the predictions (and the longer it takes!). Step size is given
+        as a fraction of the patch_size. 0.5 is the default and means that wen advance by patch_size * 0.5 between
+        predictions. step_size cannot be larger than 1!
+        :param patch_size: The patch size that was used for training the network. Do not use different patch sizes here,
+        this will either crash or give potentially less accurate segmentations
+        :param regions_class_order: Fabian only
+        :param use_gaussian: (Only applies to sliding window prediction) If True, uses a Gaussian importance weighting
+         to weigh predictions closer to the center of the current patch higher than those at the borders. The reason
+         behind this is that the segmentation accuracy decreases towards the borders. Default (and recommended): True
+        :param pad_border_mode: leave this alone
+        :param pad_kwargs: leave this alone
+        :param all_in_gpu: experimental. You probably want to leave this as is it
+        :param verbose: Do you want a wall of text? If yes then set this to True
         :return:
         """
-        assert step_size <= 1, 'step_size must be smaler than 1. Otherwise there will be a gap between consecutive ' \
+        assert step_size <= 1, 'step_size must be smaller than 1. Otherwise there will be a gap between consecutive ' \
                                'predictions'
 
         if verbose: print("debug: mirroring", do_mirroring, "mirror_axes", mirror_axes)
@@ -141,24 +154,37 @@ class SegmentationNetwork(NeuralNetwork):
     def predict_2D(self, x, do_mirroring: bool, mirror_axes: tuple = (0, 1, 2), use_sliding_window: bool = False,
                    step_size: float = 0.5, patch_size: tuple = None, regions_class_order: tuple = None,
                    use_gaussian: bool = False, pad_border_mode: str = "constant",
-                   pad_kwargs: dict = None, all_in_gpu: bool = False, return_softmax: bool = True,
+                   pad_kwargs: dict = None, all_in_gpu: bool = False,
                    verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
-        It is the responsibility of the user to make sure the network is in the proper mode (eval for inference!)
+        Use this function to predict a 2D image. If this is a 3D U-Net it will crash because you cannot predict a 2D
+        image with that (you dummy).
 
-        :param x:
-        :param do_mirroring:
-        :param mirror_axes:
-        :param use_sliding_window:
-        :param step_size:
-        :param patch_size:
-        :param regions_class_order:
-        :param use_gaussian:
-        :param pad_border_mode:
-        :param pad_kwargs:
-        :param all_in_gpu:
-        :param return_softmax:
-        :param verbose:
+        When running predictions, you need to specify whether you want to run fully convolutional of sliding window
+        based inference. We very strongly recommend you use sliding window with the default settings.
+
+        It is the responsibility of the user to make sure the network is in the proper mode (eval for inference!). If
+        the network is not in eval mode it will print a warning.
+
+        :param x: Your input data. Must be a nd.ndarray of shape (c, x, y).
+        :param do_mirroring: If True, use test time data augmentation in the form of mirroring
+        :param mirror_axes: Determines which axes to use for mirroing. Per default, mirroring is done along all three
+        axes
+        :param use_sliding_window: if True, run sliding window prediction. Heavily recommended! This is also the default
+        :param step_size: When running sliding window prediction, the step size determines the distance between adjacent
+        predictions. The smaller the step size, the denser the predictions (and the longer it takes!). Step size is given
+        as a fraction of the patch_size. 0.5 is the default and means that wen advance by patch_size * 0.5 between
+        predictions. step_size cannot be larger than 1!
+        :param patch_size: The patch size that was used for training the network. Do not use different patch sizes here,
+        this will either crash or give potentially less accurate segmentations
+        :param regions_class_order: Fabian only
+        :param use_gaussian: (Only applies to sliding window prediction) If True, uses a Gaussian importance weighting
+         to weigh predictions closer to the center of the current patch higher than those at the borders. The reason
+         behind this is that the segmentation accuracy decreases towards the borders. Default (and recommended): True
+        :param pad_border_mode: leave this alone
+        :param pad_kwargs: leave this alone
+        :param all_in_gpu: experimental. You probably want to leave this as is it
+        :param verbose: Do you want a wall of text? If yes then set this to True
         :return:
         """
         assert step_size <= 1, 'step_size must be smaler than 1. Otherwise there will be a gap between consecutive ' \
