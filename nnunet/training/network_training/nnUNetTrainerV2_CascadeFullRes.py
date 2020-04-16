@@ -41,7 +41,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, previous_trainer="nnUNetTrainerV2", fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory,
-                                                          batch_dice, stage, unpack_data, deterministic, fp16)
+                         batch_dice, stage, unpack_data, deterministic, fp16)
         self.init_args = (plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                           deterministic, previous_trainer, fp16)
 
@@ -173,7 +173,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
                                        also_print_to_console=False)
             else:
-                    pass
+                pass
 
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
@@ -244,7 +244,8 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
-                data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
+                data_for_net = np.concatenate(
+                    (data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
                 softmax_pred = self.predict_preprocessed_data_return_softmax(data_for_net, do_mirroring, 1,
                                                                              use_train_mode, 1, mirror_axes, tiled,
                                                                              True, step, self.patch_size,
