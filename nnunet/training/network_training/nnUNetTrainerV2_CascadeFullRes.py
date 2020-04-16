@@ -268,10 +268,12 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                 if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                     np.save(join(output_folder, fname + ".npy"), softmax_pred)
                     softmax_pred = join(output_folder, fname + ".npy")
+
                 results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
                                                          ((softmax_pred, join(output_folder, fname + ".nii.gz"),
                                                            properties, interpolation_order, None, None, None,
-                                                           softmax_fname, force_separate_z, interpolation_order_z),
+                                                           softmax_fname, None, force_separate_z,
+                                                           interpolation_order_z),
                                                           )
                                                          )
                                )
