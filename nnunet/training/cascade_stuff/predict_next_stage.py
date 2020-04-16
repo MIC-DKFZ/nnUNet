@@ -43,7 +43,7 @@ def resample_and_save(predicted, target_shape, output_file, force_separate_z=Fal
     np.savez_compressed(output_file, data=seg_new_shape.astype(np.uint8))
 
 
-def predict_next_stage(trainer: nnUNetTrainer, stage_to_be_predicted_folder, force_separate_z=False, interpolation_order=1,
+def predict_next_stage(trainer, stage_to_be_predicted_folder, force_separate_z=False, interpolation_order=1,
                        interpolation_order_z=0):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
     maybe_mkdir_p(output_folder)
