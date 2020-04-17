@@ -242,7 +242,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
     pp_file = join(model, "postprocessing.json")
     if isfile(pp_file):
         print("postprocessing...")
-        shutil.copy(pp_file, os.path.dirname(output_filenames[0]))
+        shutil.copy(pp_file, os.path.abspath(os.path.dirname(output_filenames[0])))
         # for_which_classes stores for which of the classes everything but the largest connected component needs to be
         # removed
         for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
