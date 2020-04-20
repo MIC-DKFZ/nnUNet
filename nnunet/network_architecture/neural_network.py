@@ -67,9 +67,9 @@ class SegmentationNetwork(NeuralNetwork):
         self._gaussian_3d = self._patch_size_for_gaussian_3d = None
         self._gaussian_2d = self._patch_size_for_gaussian_2d = None
 
-    def predict_3D(self, x: np.ndarray, do_mirroring: bool, mirror_axes: Tuple[int] = (0, 1, 2),
+    def predict_3D(self, x: np.ndarray, do_mirroring: bool, mirror_axes: Tuple[int, ...] = (0, 1, 2),
                    use_sliding_window: bool = False,
-                   step_size: float = 0.5, patch_size: Tuple[int] = None, regions_class_order: Tuple[int] = None,
+                   step_size: float = 0.5, patch_size: Tuple[int, int, int] = None, regions_class_order: Tuple[int, ...] = None,
                    use_gaussian: bool = False, pad_border_mode: str = "constant",
                    pad_kwargs: dict = None, all_in_gpu: bool = False,
                    verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -241,12 +241,16 @@ class SegmentationNetwork(NeuralNetwork):
         return gaussian_importance_map
 
     @staticmethod
-    def _compute_steps_for_sliding_window(patch_size, image_size, step_size) -> List[List[int]]:
+    def _compute_steps_for_sliding_window(patch_size: Tuple[int, ...], image_size: Tuple[int, ...], step_size: float) -> List[List[int]]:
         assert [i >= j for i, j in zip(image_size, patch_size)], "image size must be as large or larger than patch_size"
+        assert 0 < step_size <= 1, 'step_size must be larger than 0 and smaller or equal to 1'
+
         # our step width is patch_size*step_size at most, but can be narrower. For example if we have image size of
         # 110, patch size of 32 and step_size of 0.5, then we want to make 4 steps starting at coordinate 0, 27, 55, 78
         target_step_sizes_in_voxels = [i * step_size for i in patch_size]
-        num_steps = [int(np.ceil(i / j)) - 1 for i, j in zip(image_size, target_step_sizes_in_voxels)]
+
+        num_steps = [int(np.ceil((i - k) / j)) + 1 for i, j, k in zip(image_size, target_step_sizes_in_voxels, patch_size)]
+
         steps = []
         for dim in range(len(patch_size)):
             # the highest step value for this dimension is
@@ -256,9 +260,10 @@ class SegmentationNetwork(NeuralNetwork):
             else:
                 actual_step_size = 99999999999  # does not matter because there is only one step at 0
 
-            steps_here = [int(np.floor(actual_step_size * i)) for i in range(num_steps[dim])]
-            assert steps_here[-1] + patch_size[dim] == image_size[dim]
+            steps_here = [int(np.round(actual_step_size * i)) for i in range(num_steps[dim])]
+
             steps.append(steps_here)
+
         return steps
 
     def _internal_predict_3D_3Dconv_tiled(self, x: np.ndarray, step_size: float, do_mirroring: bool, mirror_axes: tuple,
@@ -400,7 +405,7 @@ class SegmentationNetwork(NeuralNetwork):
         print("prediction done")
         return predicted_segmentation, class_probabilities
 
-    def _internal_predict_2D_2Dconv(self, x: np.ndarray, min_size: Tuple[int], do_mirroring: bool,
+    def _internal_predict_2D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1, 2), regions_class_order: tuple = None,
                                     pad_border_mode: str = "constant", pad_kwargs: dict = None,
                                     verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -439,7 +444,7 @@ class SegmentationNetwork(NeuralNetwork):
 
         return predicted_segmentation, predicted_probabilities
 
-    def _internal_predict_3D_3Dconv(self, x: np.ndarray, min_size: Tuple[int], do_mirroring: bool,
+    def _internal_predict_3D_3Dconv(self, x: np.ndarray, min_size: Tuple[int, ...], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1, 2), regions_class_order: tuple = None,
                                     pad_border_mode: str = "constant", pad_kwargs: dict = None,
                                     verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -713,7 +718,7 @@ class SegmentationNetwork(NeuralNetwork):
         print("prediction done")
         return predicted_segmentation, class_probabilities
 
-    def _internal_predict_3D_2Dconv(self, x: np.ndarray, min_size: Tuple[int], do_mirroring: bool,
+    def _internal_predict_3D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1), regions_class_order: tuple = None,
                                     pad_border_mode: str = "constant", pad_kwargs: dict = None,
                                     all_in_gpu: bool = False, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -731,7 +736,7 @@ class SegmentationNetwork(NeuralNetwork):
         softmax_pred = np.vstack(softmax_pred).transpose((1, 0, 2, 3))
         return predicted_segmentation, softmax_pred
 
-    def predict_3D_pseudo3D_2Dconv(self, x: np.ndarray, min_size: Tuple[int], do_mirroring: bool,
+    def predict_3D_pseudo3D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
                                    mirror_axes: tuple = (0, 1), regions_class_order: tuple = None,
                                    pseudo3D_slices: int = 5, all_in_gpu: bool = False,
                                    pad_border_mode: str = "constant", pad_kwargs: dict = None,
@@ -763,7 +768,7 @@ class SegmentationNetwork(NeuralNetwork):
 
         return predicted_segmentation, softmax_pred
 
-    def _internal_predict_3D_2Dconv_tiled(self, x: np.ndarray, patch_size: Tuple[int], do_mirroring: bool,
+    def _internal_predict_3D_2Dconv_tiled(self, x: np.ndarray, patch_size: Tuple[int, int], do_mirroring: bool,
                                           mirror_axes: tuple = (0, 1), step_size: float = 0.5,
                                           regions_class_order: tuple = None, use_gaussian: bool = False,
                                           pad_border_mode: str = "edge", pad_kwargs: dict =None,
@@ -789,3 +794,21 @@ class SegmentationNetwork(NeuralNetwork):
         softmax_pred = np.vstack(softmax_pred).transpose((1, 0, 2, 3))
 
         return predicted_segmentation, softmax_pred
+
+
+if __name__ == '__main__':
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (162, 529, 529), 0.5))
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (162, 529, 529), 1))
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (162, 529, 529), 0.1))
+
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (60, 448, 224), 1))
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (60, 448, 224), 0.5))
+
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (30, 224, 224), 1))
+    print(SegmentationNetwork._compute_steps_for_sliding_window((30, 224, 224), (30, 224, 224), 0.125))
+
+
+    print(SegmentationNetwork._compute_steps_for_sliding_window((123, 54, 123), (246, 162, 369), 0.25))
+
+
+
