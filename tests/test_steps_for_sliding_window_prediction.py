@@ -23,7 +23,7 @@ class TestSlidingWindow(unittest2.TestCase):
         pass
 
     def _verify_steps(self, steps, patch_size, image_size, step_size):
-        debug_information = 'steps: %s, image_size: %s, patch_size: %s, step_size: %0.4f' % (str(steps),
+        debug_information = 'steps= %s\nimage_size= %s\npatch_size= %s\nstep_size= %0.4f' % (str(steps),
                                                                                              str(image_size),
                                                                                              str(patch_size), step_size)
         target_step_sizes_in_voxels = [i * step_size for i in patch_size]
@@ -34,7 +34,7 @@ class TestSlidingWindow(unittest2.TestCase):
                                                                       patch_size)]
 
         self.assertTrue(all([len(i) == num_steps[j] for j, i in enumerate(steps)]),
-                        'steps do not match expected num_steps %s. Debug: %s' % (str(num_steps), debug_information))
+                        'steps do not match expected num_steps %s. \nDebug: %s' % (str(num_steps), debug_information))
 
         for dim in range(len(steps)):
             # first step must start at 0
@@ -42,7 +42,7 @@ class TestSlidingWindow(unittest2.TestCase):
 
             # last step + patch size must equal to image size
             self.assertTrue(steps[dim][-1] + patch_size[dim] == image_size[dim], 'not the whole image is covered. '
-                                                                                 'Debug: %s' % debug_information)
+                                                                                 '\nDebug: %s' % debug_information)
 
             # there cannot be gaps between adjacent predictions
             self.assertTrue(all([steps[dim][i + 1] <= steps[dim][i] + patch_size[dim] for i in
@@ -50,6 +50,12 @@ class TestSlidingWindow(unittest2.TestCase):
                                                               ' %s, image_size: %s, patch_size: %s, step_size: '
                                                               '%0.4f' % (
                                 dim, str(steps[dim]), str(image_size[dim]), str(patch_size[dim]), step_size))
+
+            # two successive steps cannot be further apart than target_step_sizes_in_voxels
+            self.assertTrue(all([steps[dim][i] + np.ceil(target_step_sizes_in_voxels[dim]) >= steps[dim][i + 1] for i
+                                 in range(num_steps[dim] -1)]),
+                            'consecutive steps are too far apart. Steps: %s, dim: %d. \nDebug: %s' %
+                            (str(steps[dim]), dim, debug_information))
 
     def test_same_image_and_patch_size_3d(self):
         image_size = (24, 845, 321)
