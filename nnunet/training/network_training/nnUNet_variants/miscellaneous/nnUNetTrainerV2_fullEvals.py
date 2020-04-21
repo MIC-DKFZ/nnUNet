@@ -11,6 +11,7 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
     """
     this trainer only works for brats and nothing else
     """
+
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
@@ -20,12 +21,19 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
         self.num_val_batches_per_epoch = 0
         self.num_batches_per_epoch = 10
 
+    def finish_online_evaluation(self):
+        pass
+
     def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
         """
         disable nnunet postprocessing. this would just waste computation time and does not benefit brats
+
+        per default this does not use test time data augmentation (mirroring). The reference implementation, however,
+        does.
+        I disabled it here because this eats up a lot of computation time
         """
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
         if self.dataset_val is None:
@@ -103,7 +111,8 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
         evaluate_regions(output_folder, self.gt_niftis_folder, self.evaluation_regions)
 
         # this writes a csv file into output_folder
-        import IPython;IPython.embed()
+        import IPython;
+        IPython.embed()
         csv_file = np.loadtxt(join(output_folder, 'summary.csv'), skiprows=1, dtype=str)[:, 1:]
         # these are the values that are compute with np.nanmean aggregation
         whole, core, enhancing = csv_file[-3, :].astype(float)
@@ -114,9 +123,24 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
         # on epoch end is called before the epoch counter is incremented, so we need to do that here to get the correct epoch number
         if (self.epoch + 1) % 5 == self.validate_every:
-            self.validate(do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=False,
-                          use_gaussian=True, overwrite=True,
-                          validation_folder_name='validation_after_ep_%04.0d' % (self.epoch),
-                          debug=False, all_in_gpu=False)
-            # now we need to evaluate as BraTS does
+            whole, core, enhancing = self.validate(do_mirroring=True, use_train_mode=False, tiled=False, step=2,
+                                                   save_softmax=False,
+                                                   use_gaussian=True, overwrite=True,
+                                                   validation_folder_name='validation_after_ep_%04.0d' % (self.epoch),
+                                                   debug=False, all_in_gpu=False)
+
+            here = np.mean((whole, core, enhancing))
+
+            self.print_to_log_file("After epoch %d: whole %0.4f core %0.4f enhancing: %0.4f" %
+                                   (self.epoch, whole, core, enhancing))
+            self.print_to_log_file("Mean: %0.4f" % here)
+
+            # now we need to figure out if we are done
+            fully_trained_nnunet = (0.911, 0.8739, 0.7848)
+            mean_dice = np.mean(fully_trained_nnunet)
+            target = 0.97 * mean_dice
+
+            if here >= target:
+                self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
+                self.epoch = self.max_num_epochs # this will then cause the training to abort
         return ret

@@ -21,6 +21,23 @@ from nnunet.postprocessing.connected_components import determine_postprocessing
 import argparse
 
 
+def collect_cv_niftis(cv_folder: str, output_folder: str, validation_folder_name: str = 'validation_raw',
+                      folds: tuple = (0, 1, 2, 3, 4)):
+    folders_folds = [join(cv_folder, "fold_%d" % i) for i in folds]
+
+    assert all([isdir(i) for i in folders_folds]), "some folds are missing"
+
+    # now for each fold, read the postprocessing json. this will tell us what the name of the validation folder is
+    validation_raw_folders = [join(cv_folder, "fold_%d" % i, validation_folder_name) for i in folds]
+
+    # now copy all raw niftis into cv_niftis_raw
+    maybe_mkdir_p(output_folder)
+    for f in folds:
+        niftis = subfiles(validation_raw_folders[f], suffix=".nii.gz")
+        for n in niftis:
+            shutil.copy(n, join(output_folder))
+
+
 def consolidate_folds(output_folder_base, validation_folder_name='validation_raw', advanced_postprocessing: bool = False):
     """
     Used to determine the postprocessing for an experiment after all five folds have been completed. In the validation of
