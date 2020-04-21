@@ -55,7 +55,7 @@ class nnUNetTrainerV2_ResencUNet(nnUNetTrainerV2):
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         ds = self.network.decoder.deep_supervision
-        self.network.deep_supervision = False
+        self.network.decoder.deep_supervision = False
         ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
                                      overwrite, validation_folder_name, debug, all_in_gpu,
                                      force_separate_z=force_separate_z, interpolation_order=interpolation_order,
