@@ -55,20 +55,22 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder, force_separate_z=F
         print(pat)
         data_file = trainer.dataset_val[pat]['data_file']
         data_preprocessed = np.load(data_file)['data'][:-1]
-        predicted = trainer.predict_preprocessed_data_return_softmax(data_preprocessed, True, 1, False, 1,
-                                                                     trainer.data_aug_params['mirror_axes'],
-                                                                     True, True, 2, trainer.patch_size, True)
+
+        predicted_probabilities = trainer.predict_preprocessed_data_return_seg_and_softmax(
+            data_preprocessed, trainer.data_aug_params["do_mirror"], trainer.data_aug_params['mirror_axes']
+        )[1]
+
         data_file_nofolder = data_file.split("/")[-1]
         data_file_nextstage = join(stage_to_be_predicted_folder, data_file_nofolder)
         data_nextstage = np.load(data_file_nextstage)['data']
         target_shp = data_nextstage.shape[1:]
         output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
 
-        if np.prod(predicted.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
-            np.save(output_file[:-4] + ".npy", predicted)
-            predicted = output_file[:-4] + ".npy"
+        if np.prod(predicted_probabilities.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            np.save(output_file[:-4] + ".npy", predicted_probabilities)
+            predicted_probabilities = output_file[:-4] + ".npy"
 
-        results.append(export_pool.starmap_async(resample_and_save, [(predicted, target_shp, output_file,
+        results.append(export_pool.starmap_async(resample_and_save, [(predicted_probabilities, target_shp, output_file,
                                                                       force_separate_z, interpolation_order,
                                                                       interpolation_order_z)]))
 

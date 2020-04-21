@@ -14,6 +14,7 @@
 
 from collections import OrderedDict
 from time import sleep
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -145,7 +146,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
                                     len(self.net_num_pool_op_kernel_sizes),
-                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
+                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
+                                    dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.cuda()
@@ -361,7 +363,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         net.do_ds = ds
         return ret
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
@@ -372,32 +374,30 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                 net = self.network
             ds = net.do_ds
             net.do_ds = False
-            ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
+            ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
                                          overwrite, validation_folder_name, debug, all_in_gpu,
                                          force_separate_z=force_separate_z, interpolation_order=interpolation_order,
                                          interpolation_order_z=interpolation_order_z)
             net.do_ds = ds
             return ret
 
-    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                 all_in_gpu=False):
-        """
-        Don't use this. If you need softmax output, use preprocess_predict_nifti and set softmax_output_file.
-        :param data:
-        :param do_mirroring:
-        :param num_repeats:
-        :param use_train_mode:
-        :param batch_size:
-        :param mirror_axes:
-        :param tiled:
-        :param tile_in_z:
-        :param step:
-        :param min_size:
-        :param use_gaussian:
-        :param use_temporal:
-        :return:
-        """
+    def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
+                                                         mirror_axes: Tuple[int] = None,
+                                                         use_sliding_window: bool = True,
+                                                         step_size: float = 0.5, use_gaussian: bool = True,
+                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
+                                                         all_in_gpu: bool = True,
+                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+        if pad_border_mode == 'constant' and pad_kwargs is None:
+            pad_kwargs = {'constant_values': 0}
+
+        if do_mirroring and mirror_axes is None:
+            mirror_axes = self.data_aug_params['mirror_axes']
+
+        if do_mirroring:
+            assert self.data_aug_params["do_mirror"], "Cannot do mirroring as test time augmentation when training " \
+                                                      "was done without mirroring"
+
         valid = list((SegmentationNetwork, nn.DataParallel, DDP))
         assert isinstance(self.network, tuple(valid))
         if isinstance(self.network, DDP):
@@ -406,10 +406,9 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             net = self.network
         ds = net.do_ds
         net.do_ds = False
-        ret = net.predict_3D(data, do_mirroring, num_repeats, use_train_mode, batch_size, mirror_axes,
-                             tiled, tile_in_z, step, min_size, use_gaussian=use_gaussian,
-                             pad_border_mode=self.inference_pad_border_mode,
-                             pad_kwargs=self.inference_pad_kwargs, all_in_gpu=all_in_gpu)[2]
+        ret = net.predict_3D(data, do_mirroring, mirror_axes, use_sliding_window, step_size, self.patch_size,
+                             self.regions_class_order, use_gaussian, pad_border_mode, pad_kwargs,
+                             all_in_gpu, verbose)
         net.do_ds = ds
         return ret
 

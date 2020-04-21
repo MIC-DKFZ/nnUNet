@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from typing import Tuple
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
@@ -113,7 +113,7 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
         self.was_initialized = True
 
-    def validate(self, do_mirroring=True, use_train_mode=False, tiled=True, step=2, save_softmax=True,
+    def validate(self, do_mirroring=True, use_train_mode=False, use_sliding_window=True, step_size=2, save_softmax=True,
                  use_gaussian=True, compute_global_dice=True, overwrite=True, validation_folder_name='validation_raw',
                  debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
@@ -127,43 +127,13 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
                   "do_mirroring was set to False")
         do_mirroring = False
         self.network.do_ds = False
-        ret = super().validate(do_mirroring, use_train_mode, tiled, step, save_softmax, use_gaussian,
+        ret = super().validate(do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
                                overwrite, validation_folder_name, debug, all_in_gpu,
                                force_separate_z=force_separate_z, interpolation_order=interpolation_order,
                                interpolation_order_z=interpolation_order_z)
         self.network.do_ds = ds
         return ret
 
-    def predict_preprocessed_data_return_softmax(self, data, do_mirroring, num_repeats, use_train_mode, batch_size,
-                                                 mirror_axes, tiled, tile_in_z, step, min_size, use_gaussian,
-                                                 all_in_gpu=False):
-        """
-        We need to wrap this because we need to enforce self.network.do_ds = False for prediction
-        :param data:
-        :param do_mirroring:
-        :param num_repeats:
-        :param use_train_mode:
-        :param batch_size:
-        :param mirror_axes:
-        :param tiled:
-        :param tile_in_z:
-        :param step:
-        :param min_size:
-        :param use_gaussian:
-        :return:
-        """
-        ds = self.network.do_ds
-        self.network.do_ds = False
-        if do_mirroring:
-            print("WARNING! do_mirroring was True but we cannot do that because we trained without mirroring. "
-                  "do_mirroring was set to False")
-        do_mirroring = False
-        ret = super().predict_preprocessed_data_return_softmax(data, do_mirroring, num_repeats, use_train_mode,
-                                                               batch_size,
-                                                               mirror_axes, tiled, tile_in_z, step, min_size,
-                                                               use_gaussian, all_in_gpu)
-        self.network.do_ds = ds
-        return ret
 
 
 nnUNetTrainerV2_noDataAugmentation_copy1 = nnUNetTrainerV2_noDataAugmentation

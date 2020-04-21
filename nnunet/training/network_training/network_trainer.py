@@ -14,9 +14,13 @@
 
 
 from _warnings import warn
+from typing import Tuple
+
 import matplotlib
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.network_architecture.neural_network import SegmentationNetwork
 from sklearn.model_selection import KFold
+from torch import nn
 from torch.optim.lr_scheduler import _LRScheduler
 
 matplotlib.use("agg")
@@ -68,7 +72,7 @@ class NetworkTrainer(object):
             torch.backends.cudnn.benchmark = True
 
         ################# SET THESE IN self.initialize() ###################################
-        self.network = None
+        self.network: Tuple[SegmentationNetwork, nn.DataParallel] = None
         self.optimizer = None
         self.lr_scheduler = None
         self.tr_gen = self.val_gen = None

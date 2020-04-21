@@ -184,7 +184,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         self.was_initialized = True
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
+    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
@@ -204,8 +204,8 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
                          'use_train_mode': use_train_mode,
-                         'tiled': tiled,
-                         'step': step,
+                         'use_sliding_window': use_sliding_window,
+                         'step': step_size,
                          'save_softmax': save_softmax,
                          'use_gaussian': use_gaussian,
                          'overwrite': overwrite,
@@ -244,13 +244,11 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
-                data_for_net = np.concatenate(
-                    (data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
-                softmax_pred = self.predict_preprocessed_data_return_softmax(data_for_net, do_mirroring, 1,
-                                                                             use_train_mode, 1, mirror_axes, tiled,
-                                                                             True, step, self.patch_size,
-                                                                             use_gaussian=use_gaussian,
-                                                                             all_in_gpu=all_in_gpu)
+                data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
+
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
+                    data_for_net, do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
+                    all_in_gpu=all_in_gpu)[1]
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
@@ -291,7 +289,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),
-                             json_name=job_name + " val tiled %s" % (str(tiled)),
+                             json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
                              json_author="Fabian",
                              json_task=task, num_threads=default_num_threads)
 
