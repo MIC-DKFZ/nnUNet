@@ -148,7 +148,7 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
         # on epoch end is called before the epoch counter is incremented, so we need to do that here to get the correct epoch number
         if (self.epoch + 1) % self.validate_every == 0:
-            whole, core, enhancing = self.validate(do_mirroring=False, use_sliding_window=False,
+            whole, core, enhancing = self.validate(do_mirroring=False, use_sliding_window=True,
                                                    step_size=0.5,
                                                    save_softmax=False,
                                                    use_gaussian=True, overwrite=True,

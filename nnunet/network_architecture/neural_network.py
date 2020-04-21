@@ -284,10 +284,21 @@ class SegmentationNetwork(NeuralNetwork):
             # for sliding window inference the image must at least be as large as the patch size. It does not matter
             # whether the shape is divisible by 2**num_pool as long as the patch size is
             data, slicer = pad_nd_image(x, patch_size, pad_border_mode, pad_kwargs, True, None)
+            data_shape = data.shape  # still c, x, y, z
+
+            # compute the steps for sliding window
+            steps = self._compute_steps_for_sliding_window(patch_size, data_shape[1:], step_size)
+            num_tiles = len(steps[0]) * len(steps[1]) * len(steps[2])
+
+            if verbose:
+                print("data shape:", data_shape)
+                print("patch size:", patch_size)
+                print("steps (x, y, and z):", steps)
+                print("number of tiles:", num_tiles)
 
             # we only need to compute that once. It can take a while to compute this due to the large sigma in
             # gaussian_filter
-            if use_gaussian:
+            if use_gaussian and num_tiles > 1:
                 if self._gaussian_3d is None or not all(
                         [i == j for i, j in zip(patch_size, self._patch_size_for_gaussian_3d)]):
                     if verbose: print('computing Gaussian')
@@ -304,8 +315,6 @@ class SegmentationNetwork(NeuralNetwork):
 
             else:
                 gaussian_importance_map = None
-
-            data_shape = data.shape  # still c, x, y, z
 
             if all_in_gpu:
                 # If we run the inference in GPU only (meaning all tensors are allocated on the GPU, this reduces
@@ -341,15 +350,6 @@ class SegmentationNetwork(NeuralNetwork):
                     add_for_nb_of_preds = np.ones(data.shape[1:], dtype=np.float32)
                 aggregated_results = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
                 aggregated_nb_of_predictions = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
-
-            # compute the steps for sliding window
-            steps = self._compute_steps_for_sliding_window(patch_size, data_shape[1:], step_size)
-
-            if verbose:
-                print("data shape:", data_shape)
-                print("patch size:", patch_size)
-                print("steps (x, y, and z):", steps)
-                print("number of tiles:", len(steps[0]) * len(steps[1]) * len(steps[2]))
 
             for x in steps[0]:
                 lb_x = x
@@ -604,10 +604,21 @@ class SegmentationNetwork(NeuralNetwork):
             # for sliding window inference the image must at least be as large as the patch size. It does not matter
             # whether the shape is divisible by 2**num_pool as long as the patch size is
             data, slicer = pad_nd_image(x, patch_size, pad_border_mode, pad_kwargs, True, None)
+            data_shape = data.shape  # still c, x, y
+
+            # compute the steps for sliding window
+            steps = self._compute_steps_for_sliding_window(patch_size, data_shape[1:], step_size)
+            num_tiles = len(steps[0]) * len(steps[1])
+
+            if verbose:
+                print("data shape:", data_shape)
+                print("patch size:", patch_size)
+                print("steps (x, y, and z):", steps)
+                print("number of tiles:", num_tiles)
 
             # we only need to compute that once. It can take a while to compute this due to the large sigma in
             # gaussian_filter
-            if use_gaussian:
+            if use_gaussian and num_tiles > 1:
                 if self._gaussian_2d is None or not all(
                         [i == j for i, j in zip(patch_size, self._patch_size_for_gaussian_2d)]):
                     if verbose: print('computing Gaussian')
@@ -621,11 +632,8 @@ class SegmentationNetwork(NeuralNetwork):
 
                 gaussian_importance_map = torch.from_numpy(gaussian_importance_map).cuda(self.get_device(),
                                                                                          non_blocking=True)
-
             else:
                 gaussian_importance_map = None
-
-            data_shape = data.shape  # still c, x, y
 
             if all_in_gpu:
                 # If we run the inference in GPU only (meaning all tensors are allocated on the GPU, this reduces
@@ -661,15 +669,6 @@ class SegmentationNetwork(NeuralNetwork):
                     add_for_nb_of_preds = np.ones(data.shape[1:], dtype=np.float32)
                 aggregated_results = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
                 aggregated_nb_of_predictions = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
-
-            # compute the steps for sliding window
-            steps = self._compute_steps_for_sliding_window(patch_size, data_shape[1:], step_size)
-
-            if verbose:
-                print("data shape:", data_shape)
-                print("patch size:", patch_size)
-                print("steps (x, y, and z):", steps)
-                print("number of tiles:", len(steps[0]) * len(steps[1]))
 
             for x in steps[0]:
                 lb_x = x
