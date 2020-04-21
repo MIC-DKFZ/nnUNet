@@ -184,11 +184,14 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         self.was_initialized = True
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
+    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
+
+        current_mode = self.network.training
+        self.network.eval()
 
         # save whether network is in deep supervision mode or not
         ds = self.network.do_ds
@@ -203,7 +206,6 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         maybe_mkdir_p(output_folder)
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
-                         'use_train_mode': use_train_mode,
                          'use_sliding_window': use_sliding_window,
                          'step': step_size,
                          'save_softmax': save_softmax,
@@ -326,4 +328,5 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                     raise e
 
         # restore network deep supervision mode
+        self.network.train(current_mode)
         self.network.do_ds = ds

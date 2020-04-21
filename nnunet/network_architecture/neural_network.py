@@ -69,7 +69,7 @@ class SegmentationNetwork(NeuralNetwork):
 
     def predict_3D(self, x: np.ndarray, do_mirroring: bool, mirror_axes: Tuple[int, ...] = (0, 1, 2),
                    use_sliding_window: bool = False,
-                   step_size: float = 0.5, patch_size: Tuple[int, int, int] = None, regions_class_order: Tuple[int, ...] = None,
+                   step_size: float = 0.5, patch_size: Tuple[int, ...] = None, regions_class_order: Tuple[int, ...] = None,
                    use_gaussian: bool = False, pad_border_mode: str = "constant",
                    pad_kwargs: dict = None, all_in_gpu: bool = False,
                    verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
@@ -493,7 +493,9 @@ class SegmentationNetwork(NeuralNetwork):
             x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
             result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
                                        dtype=torch.float).cuda(self.get_device(), non_blocking=True)
-            mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
+
+            if mult is not None:
+                mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
 
             if do_mirroring:
                 mirror_idx = 8
@@ -549,9 +551,11 @@ class SegmentationNetwork(NeuralNetwork):
 
         with torch.no_grad():
             x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
-            mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
             result_torch = torch.zeros([x.shape[0], self.num_classes] + list(x.shape[2:]),
                                        dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+
+            if mult is not None:
+                mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
 
             if do_mirroring:
                 mirror_idx = 4

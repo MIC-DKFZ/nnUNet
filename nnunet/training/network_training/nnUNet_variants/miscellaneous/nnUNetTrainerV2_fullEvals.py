@@ -1,5 +1,21 @@
+#    Copyright 2020 Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg, Germany
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
 from multiprocessing.pool import Pool
+
 import numpy as np
+import torch
 from nnunet.configuration import default_num_threads
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -18,23 +34,30 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
                          deterministic, fp16)
         self.validate_every = 1
         self.evaluation_regions = get_brats_regions()
-        self.num_val_batches_per_epoch = 0
-        self.num_batches_per_epoch = 10
+        self.num_val_batches_per_epoch = 0 # we dont need this because this does not evaluate on full images
 
     def finish_online_evaluation(self):
         pass
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, tiled: bool = True, step: int = 2,
-                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
+                 step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
+                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
         """
         disable nnunet postprocessing. this would just waste computation time and does not benefit brats
 
+        !!!We run this with use_sliding_window=False per default (see on_epoch_end). This triggers fully convolutional
+        inference. THIS ONLY MAKES SENSE WHEN TRAINING ON FULL IMAGES! Make sure use_sliding_window=True when running
+        with default patch size (128x128x128)!!!
+
         per default this does not use test time data augmentation (mirroring). The reference implementation, however,
-        does.
-        I disabled it here because this eats up a lot of computation time
+        does. I disabled it here because this eats up a lot of computation time
+
         """
+
+        current_mode = self.network.training
+        self.network.eval()
+
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
         if self.dataset_val is None:
             self.load_dataset()
@@ -46,9 +69,8 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
-                         'use_train_mode': use_train_mode,
-                         'tiled': tiled,
-                         'step': step,
+                         'use_sliding_window': use_sliding_window,
+                         'step_size': step_size,
                          'save_softmax': save_softmax,
                          'use_gaussian': use_gaussian,
                          'overwrite': overwrite,
@@ -80,11 +102,9 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
                 print(k, data.shape)
 
-                softmax_pred = self.predict_preprocessed_data_return_softmax(data[:-1], do_mirroring, 1,
-                                                                             use_train_mode, 1, mirror_axes, tiled,
-                                                                             True, step, self.patch_size,
-                                                                             use_gaussian=use_gaussian,
-                                                                             all_in_gpu=all_in_gpu)
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
+                    data[:-1], do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
+                    all_in_gpu=all_in_gpu, verbose=False)[1]
 
                 # this does not do anything in brats -> remove this line
                 # softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
@@ -108,25 +128,31 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
         # evaluate raw predictions
         self.print_to_log_file("evaluation of raw predictions")
-        evaluate_regions(output_folder, self.gt_niftis_folder, self.evaluation_regions)
 
         # this writes a csv file into output_folder
-        import IPython;
-        IPython.embed()
-        csv_file = np.loadtxt(join(output_folder, 'summary.csv'), skiprows=1, dtype=str)[:, 1:]
+        evaluate_regions(output_folder, self.gt_niftis_folder, self.evaluation_regions)
+        csv_file = np.loadtxt(join(output_folder, 'summary.csv'), skiprows=1, dtype=str, delimiter=',')[:, 1:]
+
         # these are the values that are compute with np.nanmean aggregation
         whole, core, enhancing = csv_file[-3, :].astype(float)
+
+        # do some cleanup
+        torch.cuda.empty_cache()
+
+        self.network.train(current_mode)
+
         return whole, core, enhancing
 
     def on_epoch_end(self):
-        ret = super().on_epoch_end()
+        return_value = True
 
         # on epoch end is called before the epoch counter is incremented, so we need to do that here to get the correct epoch number
-        if (self.epoch + 1) % 5 == self.validate_every:
-            whole, core, enhancing = self.validate(do_mirroring=True, use_train_mode=False, tiled=False, step=2,
+        if (self.epoch + 1) % self.validate_every == 0:
+            whole, core, enhancing = self.validate(do_mirroring=False, use_sliding_window=False,
+                                                   step_size=0.5,
                                                    save_softmax=False,
                                                    use_gaussian=True, overwrite=True,
-                                                   validation_folder_name='validation_after_ep_%04.0d' % (self.epoch),
+                                                   validation_folder_name='validation_after_ep_%04.0d' % self.epoch,
                                                    debug=False, all_in_gpu=False)
 
             here = np.mean((whole, core, enhancing))
@@ -140,7 +166,18 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
             mean_dice = np.mean(fully_trained_nnunet)
             target = 0.97 * mean_dice
 
+            self.all_val_eval_metrics.append(here)
+            self.print_to_log_file("Target mean: %0.4f" % target)
+
             if here >= target:
+                self.print_to_log_file("I am done!")
                 self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
-                self.epoch = self.max_num_epochs # this will then cause the training to abort
-        return ret
+                return_value = False # this triggers early stopping
+
+        ret_old = super().on_epoch_end()
+        # if we do not achieve the target accuracy in 1000 epochs then we need to stop the training. This is not built
+        # to run longer than 1000 epochs
+        if not ret_old:
+            return_value = ret_old
+
+        return return_value

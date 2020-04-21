@@ -198,7 +198,7 @@ class NetworkTrainer(object):
 
             if len(self.all_val_losses_tr_mode) > 0:
                 ax.plot(x_values, self.all_val_losses_tr_mode, color='g', ls='-', label="loss_val, train=True")
-            if len(self.all_val_eval_metrics) == len(self.all_val_losses):
+            if len(self.all_val_eval_metrics) == len(x_values):
                 ax2.plot(x_values, self.all_val_eval_metrics, color='g', ls='--', label="evaluation metric")
 
             ax.set_xlabel("epoch")

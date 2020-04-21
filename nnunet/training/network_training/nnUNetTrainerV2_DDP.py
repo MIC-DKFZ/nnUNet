@@ -363,7 +363,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         net.do_ds = ds
         return ret
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True, step_size: float = 0.5,
+    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
@@ -374,7 +374,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                 net = self.network
             ds = net.do_ds
             net.do_ds = False
-            ret = nnUNetTrainer.validate(self, do_mirroring, use_train_mode, use_sliding_window, step_size, save_softmax, use_gaussian,
+            ret = nnUNetTrainer.validate(self, do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
                                          overwrite, validation_folder_name, debug, all_in_gpu,
                                          force_separate_z=force_separate_z, interpolation_order=interpolation_order,
                                          interpolation_order_z=interpolation_order_z)

@@ -147,11 +147,14 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         assert isinstance(self.network, SegmentationNetwork)
         self.was_initialized = True
 
-    def validate(self, do_mirroring: bool = True, use_train_mode: bool = False, use_sliding_window: bool = True,
+    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
                  step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
+
+        current_mode = self.network.training
+        self.network.eval()
 
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
         if self.dataset_val is None:
@@ -257,3 +260,5 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                 except OSError:
                     attempts += 1
                     sleep(1)
+
+        self.network.train(current_mode)
