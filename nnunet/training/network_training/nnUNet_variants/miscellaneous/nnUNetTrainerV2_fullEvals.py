@@ -137,7 +137,8 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
         whole, core, enhancing = csv_file[-3, :].astype(float)
 
         # do some cleanup
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         self.network.train(current_mode)
 

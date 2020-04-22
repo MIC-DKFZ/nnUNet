@@ -39,7 +39,8 @@ class nnUNetTrainerV2_ResencUNet(nnUNetTrainerV2):
                                    pool_op_kernel_sizes, conv_kernel_sizes, cfg, self.num_classes,
                                    blocks_per_stage_decoder, True, False, 320, InitWeights_He(1e-2))
 
-        self.network.cuda()
+        if torch.cuda.is_available():
+            self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
     def setup_DA_params(self):

@@ -155,7 +155,8 @@ class nnUNetTrainerV2_noDeepSupervision(nnUNetTrainerV2):
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, False, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        self.network.cuda()
+        if torch.cuda.is_available():
+            self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
     def run_online_evaluation(self, output, target):

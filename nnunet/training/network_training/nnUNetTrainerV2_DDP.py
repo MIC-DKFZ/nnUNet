@@ -52,10 +52,12 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         self.distribute_batch_size = distribute_batch_size
         np.random.seed(local_rank)
         torch.manual_seed(local_rank)
-        torch.cuda.manual_seed_all(local_rank)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(local_rank)
         self.local_rank = local_rank
 
-        torch.cuda.set_device(local_rank)
+        if torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
         dist.init_process_group(backend='nccl', init_method='env://')
 
         self.val_loss_ma_alpha = 0.95
@@ -150,7 +152,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                                     dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        self.network.cuda()
+        if torch.cuda.is_available():
+            self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
     def process_plans(self, plans):
@@ -252,8 +255,9 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        data = to_cuda(data, gpu_id=None)
-        target = to_cuda(target, gpu_id=None)
+        if torch.cuda.is_available():
+            data = to_cuda(data, gpu_id=None)
+            target = to_cuda(target, gpu_id=None)
 
         self.optimizer.zero_grad()
 

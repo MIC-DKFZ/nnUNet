@@ -155,7 +155,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
                                     dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        self.network.cuda()
+        if torch.cuda.is_available():
+            self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
     def initialize_optimizer_and_scheduler(self):
@@ -226,8 +227,9 @@ class nnUNetTrainerV2(nnUNetTrainer):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        data = to_cuda(data)
-        target = to_cuda(target)
+        if torch.cuda.is_available():
+            data = to_cuda(data)
+            target = to_cuda(target)
 
         self.optimizer.zero_grad()
 
@@ -248,6 +250,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
                     scaled_loss.backward()
             _ = clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
+
         return loss.detach().cpu().numpy()
 
     def do_split(self):

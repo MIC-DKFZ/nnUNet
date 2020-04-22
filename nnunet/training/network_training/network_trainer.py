@@ -34,6 +34,7 @@ from collections import OrderedDict
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
+from tqdm import tqdm, trange
 
 try:
     from apex import amp
@@ -64,7 +65,8 @@ class NetworkTrainer(object):
         if deterministic:
             np.random.seed(12345)
             torch.manual_seed(12345)
-            torch.cuda.manual_seed_all(12345)
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(12345)
             cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
         else:
@@ -125,9 +127,9 @@ class NetworkTrainer(object):
         modify self.output_folder if you are doing cross-validation (one folder per fold)
 
         set self.tr_gen and self.val_gen
-        
+
         call self.initialize_network and self.initialize_optimizer_and_scheduler (important!)
-        
+
         finally set self.was_initialized to True
         :param training:
         :return:
@@ -400,7 +402,8 @@ class NetworkTrainer(object):
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
 
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         self._maybe_init_amp()
 
@@ -423,9 +426,15 @@ class NetworkTrainer(object):
 
             # train one epoch
             self.network.train()
-            for b in range(self.num_batches_per_epoch):
-                l = self.run_iteration(self.tr_gen, True)
-                train_losses_epoch.append(l)
+
+            with trange(self.num_batches_per_epoch) as tbar:
+                for b in tbar:
+                    tbar.set_description("Epoch {}/{}"".format(self.epoch+1, self.max_num_epochs))
+
+                    l = self.run_iteration(self.tr_gen, True)
+
+                    tbar.set_postfix(loss=l)
+                    train_losses_epoch.append(l)
 
             self.all_tr_losses.append(np.mean(train_losses_epoch))
             self.print_to_log_file("train loss : %.4f" % self.all_tr_losses[-1])
@@ -509,8 +518,8 @@ class NetworkTrainer(object):
         else:
             if len(self.all_val_eval_metrics) == 0:
                 """
-                We here use alpha * old - (1 - alpha) * new because new in this case is the vlaidation loss and lower 
-                is better, so we need to negate it. 
+                We here use alpha * old - (1 - alpha) * new because new in this case is the vlaidation loss and lower
+                is better, so we need to negate it.
                 """
                 self.val_eval_criterion_MA = self.val_eval_criterion_alpha * self.val_eval_criterion_MA - (
                         1 - self.val_eval_criterion_alpha) * \
@@ -604,8 +613,9 @@ class NetworkTrainer(object):
         if not isinstance(target, torch.Tensor):
             target = torch.from_numpy(target).float()
 
-        data = data.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
+        if torch.cuda.is_available():
+            data = data.cuda(non_blocking=True)
+            target = target.cuda(non_blocking=True)
 
         self.optimizer.zero_grad()
         output = self.network(data)

@@ -263,7 +263,8 @@ class nnUNetTrainer(NetworkTrainer):
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.inference_apply_nonlin = softmax_helper
 
-        self.network.cuda()
+        if torch.cuda.is_available():
+            self.network.cuda()
 
     def initialize_optimizer_and_scheduler(self):
         assert self.network is not None, "self.initialize_network must be called first"
@@ -278,8 +279,12 @@ class nnUNetTrainer(NetworkTrainer):
         try:
             from batchgenerators.utilities.file_and_folder_operations import join
             import hiddenlayer as hl
-            g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)).cuda(),
-                               transforms=None)
+            if torch.cuda.is_available():
+                g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)).cuda(),
+                                   transforms=None)
+            else:
+                g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)),
+                                   transforms=None)
             g.save(join(self.output_folder, "network_architecture.pdf"))
             del g
         except Exception as e:
@@ -290,7 +295,8 @@ class nnUNetTrainer(NetworkTrainer):
             self.print_to_log_file(self.network)
             self.print_to_log_file("\n")
         finally:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def run_training(self):
         dct = OrderedDict()
@@ -552,12 +558,12 @@ class nnUNetTrainer(NetworkTrainer):
                 else:
                     softmax_fname = None
 
-                """There is a problem with python process communication that prevents us from communicating obejcts 
-                larger than 2 GB between processes (basically when the length of the pickle string that will be sent is 
-                communicated by the multiprocessing.Pipe object then the placeholder (\%i I think) does not allow for long 
-                enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually 
-                patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will 
-                then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
+                """There is a problem with python process communication that prevents us from communicating obejcts
+                larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+                communicated by the multiprocessing.Pipe object then the placeholder (\%i I think) does not allow for long
+                enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+                patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+                then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
                 filename or np.ndarray and will handle this automatically"""
                 if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                     np.save(join(output_folder, fname + ".npy"), softmax_pred)

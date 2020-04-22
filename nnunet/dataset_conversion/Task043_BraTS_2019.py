@@ -48,7 +48,7 @@ if __name__ == "__main__":
     """
 
     task_name = "Task043_BraTS2019"
-    downloaded_data_dir = "/home/fabian/data/BraTS2019/MICCAI_BraTS_2019_Data_Training"
+    downloaded_data_dir = "/home/sdp/MLPERF/Brats2019_DATA/MICCAI_BraTS_2019_Data_Training"
 
     target_base = join(nnUNet_raw_data, task_name)
     target_imagesTr = join(target_base, "imagesTr")
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     save_json(json_dict, join(target_base, "dataset.json"))
 
-    downloaded_data_dir = "/home/fabian/Downloads/BraTS2018_train_val_test_data/MICCAI_BraTS_2019_Data_Validation"
+    downloaded_data_dir = "/home/sdp/MLPERF/Brats2019_DATA/MICCAI_BraTS_2019_Data_Validation"
 
     for p in subdirs(downloaded_data_dir, join=False):
         patdir = join(downloaded_data_dir, p)
