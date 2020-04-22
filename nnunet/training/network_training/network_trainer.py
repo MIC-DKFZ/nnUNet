@@ -34,7 +34,7 @@ from collections import OrderedDict
 import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
-from tqdm import tqdm, trange
+from tqdm import trange
 
 try:
     from apex import amp
@@ -429,7 +429,7 @@ class NetworkTrainer(object):
 
             with trange(self.num_batches_per_epoch) as tbar:
                 for b in tbar:
-                    tbar.set_description("Epoch {}/{}"".format(self.epoch+1, self.max_num_epochs))
+                    tbar.set_description("Epoch {}/{}".format(self.epoch+1, self.max_num_epochs))
 
                     l = self.run_iteration(self.tr_gen, True)
 
