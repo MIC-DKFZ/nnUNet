@@ -6,7 +6,7 @@ To use the full functionality of nnU-Net, the following three environment variab
 1) nnUNet_raw_data_base: This is where nnU-Net finds the raw data and stored the cropped data. The folder located at 
 nnUNet_raw_data_base must have at least the subfolder nnUNet_raw_data, which in turn contains one subfolder for each Task. 
 It is the responsibility of the user to bring the raw data into the appropriate format - nnU-Net will then take care of 
-the rest ;-) For more information on the required raw data format, see [here](dataset_conversion/readme.md).
+the rest ;-) For more information on the required raw data format, see [here](dataset_conversion.md).
 
     Example tree structure:
     ```
