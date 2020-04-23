@@ -236,7 +236,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                                                                     self.data_aug_params,
                                                                     deep_supervision_scales=self.deep_supervision_scales,
                                                                     seeds_train=seeds_train,
-                                                                    seeds_val=seeds_val)
+                                                                    seeds_val=seeds_val,
+                                                                    pin_memory=self.pin_memory)
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                        also_print_to_console=False)
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
