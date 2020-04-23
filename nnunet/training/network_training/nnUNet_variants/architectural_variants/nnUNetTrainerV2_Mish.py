@@ -12,8 +12,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+try:
+    from apex import amp
+except ImportError:
+    amp = None
 
-from apex import amp
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2

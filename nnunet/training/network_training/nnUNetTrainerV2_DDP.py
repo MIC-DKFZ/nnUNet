@@ -19,8 +19,14 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed as dist
-from apex import amp
-from apex.parallel import DistributedDataParallel as DDP
+
+try:
+    from apex import amp
+    from apex.parallel import DistributedDataParallel as DDP
+except ImportError:
+    amp = None
+    DDP = None
+
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
