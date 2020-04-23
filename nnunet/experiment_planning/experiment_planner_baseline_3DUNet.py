@@ -246,7 +246,7 @@ class ExperimentPlanner(object):
 
     def plan_experiment(self):
         use_nonzero_mask_for_normalization = self.determine_whether_to_use_mask_for_norm()
-        print("Are we using the nonzero maks for normalizaion?", use_nonzero_mask_for_normalization)
+        print("Are we using the nonzero mask for normalizaion?", use_nonzero_mask_for_normalization)
         spacings = self.dataset_properties['all_spacings']
         sizes = self.dataset_properties['all_sizes']
 
