@@ -149,6 +149,8 @@ def main():
             else:
                 trainer.load_latest_checkpoint(train=False)
 
+        trainer.network.eval()
+
         # predict validation
         trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder, force_separate_z=force_separate_z,
                          interpolation_order=interp_order, interpolation_order_z=interp_order_z)
