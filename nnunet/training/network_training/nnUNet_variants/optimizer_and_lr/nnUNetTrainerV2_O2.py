@@ -26,7 +26,7 @@ class nnUNetTrainerV2_O2(nnUNetTrainerV2):
     force O2 in amp
     """
     def _maybe_init_amp(self):
-        if self.fp16:
+        if self.fp16 and torch.cuda.is_available():
             if not self.amp_initialized:
                 if amp is not None:
                     self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")

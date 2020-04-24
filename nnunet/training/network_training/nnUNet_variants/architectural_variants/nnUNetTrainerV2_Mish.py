@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import torch
 
 try:
     from apex import amp
@@ -57,7 +58,7 @@ class nnUNetTrainerV2_Mish(nnUNetTrainerV2):
         :return:
         """
         # we use fp16 for training only, not inference
-        if self.fp16:
+        if self.fp16 and torch.cuda.is_available():
             if not self.amp_initialized:
                 if amp is not None:
                     self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O2")

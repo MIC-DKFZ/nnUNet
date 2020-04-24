@@ -338,7 +338,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         del target
 
         if do_backprop:
-            if not self.fp16 or amp is None:
+            if not self.fp16 or amp is None or not torch.cuda.is_available():
                 total_loss.backward()
             else:
                 with amp.scale_loss(total_loss, self.optimizer) as scaled_loss:

@@ -232,7 +232,7 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         ###########
 
         if do_backprop:
-            if not self.fp16 or amp is None:
+            if not self.fp16 or amp is None or not torch.cuda.is_available():
                 loss.backward()
             else:
                 with amp.scale_loss(loss, self.optimizer) as scaled_loss:

@@ -381,7 +381,7 @@ class NetworkTrainer(object):
 
     def _maybe_init_amp(self):
         # we use fp16 for training only, not inference
-        if self.fp16:
+        if self.fp16 and torch.cuda.is_available():
             if not self.amp_initialized:
                 if amp is not None:
                     self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O1")
@@ -628,7 +628,7 @@ class NetworkTrainer(object):
         del target
 
         if do_backprop:
-            if not self.fp16 or amp is None:
+            if not self.fp16 or amp is None or not torch.cuda.is_available():
                 l.backward()
             else:
                 with amp.scale_loss(l, self.optimizer) as scaled_loss:
