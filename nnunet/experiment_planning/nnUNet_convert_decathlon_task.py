@@ -14,9 +14,11 @@
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.utils import split_4d
+from nnunet.utilities.file_endings import remove_trailing_slash
 
 
 def crawl_and_remove_hidden_from_decathlon(folder):
+    folder = remove_trailing_slash(folder)
     assert folder.split('/')[-1].startswith("Task"), "This does not seem to be a decathlon folder. Please give me a " \
                                                      "folder that starts with TaskXX and has the subfolders imagesTr, " \
                                                      "labelsTr and imagesTs"
