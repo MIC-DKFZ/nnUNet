@@ -319,7 +319,7 @@ class SegmentationNetwork(NeuralNetwork):
                 # If we run the inference in GPU only (meaning all tensors are allocated on the GPU, this reduces
                 # CPU-GPU communication but required more GPU memory) we need to preallocate a few things on GPU
 
-                if use_gaussian:
+                if use_gaussian and num_tiles > 1:
                     # half precision for the outputs should be good enough. If the outputs here are half, the
                     # gaussian_importance_map should be as well
                     gaussian_importance_map = gaussian_importance_map.half()
@@ -343,7 +343,7 @@ class SegmentationNetwork(NeuralNetwork):
                 aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
                                                            device=self.get_device())
             else:
-                if use_gaussian:
+                if use_gaussian and num_tiles > 1:
                     add_for_nb_of_preds = self._gaussian_3d
                 else:
                     add_for_nb_of_preds = np.ones(data.shape[1:], dtype=np.float32)
@@ -638,7 +638,7 @@ class SegmentationNetwork(NeuralNetwork):
                 # If we run the inference in GPU only (meaning all tensors are allocated on the GPU, this reduces
                 # CPU-GPU communication but required more GPU memory) we need to preallocate a few things on GPU
 
-                if use_gaussian:
+                if use_gaussian and num_tiles > 1:
                     # half precision for the outputs should be good enough. If the outputs here are half, the
                     # gaussian_importance_map should be as well
                     gaussian_importance_map = gaussian_importance_map.half()
@@ -662,7 +662,7 @@ class SegmentationNetwork(NeuralNetwork):
                 aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
                                                            device=self.get_device())
             else:
-                if use_gaussian:
+                if use_gaussian and num_tiles > 1:
                     add_for_nb_of_preds = self._gaussian_2d
                 else:
                     add_for_nb_of_preds = np.ones(data.shape[1:], dtype=np.float32)
