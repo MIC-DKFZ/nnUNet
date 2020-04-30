@@ -85,7 +85,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
             weights = np.array([1 / (2 ** i) for i in range(net_numpool)])
 
             # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-            mask = np.array([True if i < net_numpool - 1 else False for i in range(net_numpool)])
+            mask = np.array([True] + [True if i < net_numpool - 1 else False for i in range(1, net_numpool)])
             weights[~mask] = 0
             weights = weights / weights.sum()
             self.ds_loss_weights = weights
