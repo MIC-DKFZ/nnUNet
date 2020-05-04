@@ -293,7 +293,10 @@ During training it is often useful to watch the progress. We therefore recommend
 progress.png when running the first training. It will be updated after each epoch.
 
 #### Multi GPU training
-Yes. nnU-Net supports two different multi-GPU implementation: DataParallel (DP) and Distributed Data Parallel (DDP)
+
+**Multi GPU training is experimental and NOT RECOMMENDED!**
+
+nnU-Net supports two different multi-GPU implementation: DataParallel (DP) and Distributed Data Parallel (DDP)
 (but currently only on one host!). DDP is faster than DP and should be preferred if possible. However, if you did not 
 install nnunet as a framework (meaning you used the `pip install nnunet` variant), DDP is not available. It requires a 
 different way of calling the correct python script (see below) which we cannot support from our terminal commands.
@@ -331,6 +334,10 @@ all happens on the same system. Again, you can use CUDA_VISIBLE_DEVICES=0,1,2 to
 If you run more than one DDP training on the same system (say you have 4 GPUs and you run two training with 2 GPUs each) 
 you need to specify a different --master_port for each training!
 
+*IMPORTANT!*
+Multi-GPU training results in models that cannot be used for inference easily (as said above, all of this is experimental ;-) ).
+After finishing the training of all folds, run `nnUNet_change_trainer_class` on the folder where the trained model is 
+(see `nnUNet_change_trainer_class -h` for instructions). After that you can run inference.
 
 ### Identifying the best U-Net configuration
 Once all models are trained, use the following 
