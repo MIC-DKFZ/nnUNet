@@ -136,7 +136,7 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
         csv_file = np.loadtxt(join(output_folder, 'summary.csv'), skiprows=1, dtype=str, delimiter=',')[:, 1:]
 
         # these are the values that are compute with np.nanmean aggregation
-        whole, core, enhancing = csv_file[-3, :].astype(float)
+        whole, core, enhancing = csv_file[-4, :].astype(float)
 
         # do some cleanup
         if torch.cuda.is_available():
