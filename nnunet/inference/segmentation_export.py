@@ -30,7 +30,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
                                          seg_postprogess_fn: callable = None, seg_postprocess_args: tuple = None,
                                          resampled_npz_fname: str = None,
                                          non_postprocessed_fname: str = None, force_separate_z: bool = None,
-                                         interpolation_order_z: int = 0):
+                                         interpolation_order_z: int = 0, verbose: bool = True):
     """
     This is a utility for writing segmentations to nifto and npz. It requires the data to have been preprocessed by
     GenericPreprocessor because it depends on the property dictionary output (dct) to know the geometry of the original
@@ -58,9 +58,11 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
     :param force_separate_z: if None then we dynamically decide how to resample along z, if True/False then always
     /never resample along z separately. Do not touch unless you know what you are doing
     :param interpolation_order_z: if separate z resampling is done then this is the order for resampling in z
+    :param verbose:
     :return:
     """
-    print("force_separate_z:", force_separate_z, "interpolation order:", order)
+    if verbose: print("force_separate_z:", force_separate_z, "interpolation order:", order)
+
     if isinstance(segmentation_softmax, str):
         assert isfile(segmentation_softmax), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
@@ -93,13 +95,13 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
             else:
                 lowres_axis = None
 
-        print("separate z:", do_separate_z, "lowres axis", lowres_axis)
+        if verbose: print("separate z:", do_separate_z, "lowres axis", lowres_axis)
         seg_old_spacing = resample_data_or_seg(segmentation_softmax, shape_original_after_cropping, is_seg=False,
                                                axis=lowres_axis, order=order, do_separate_z=do_separate_z, cval=0,
                                                order_z=interpolation_order_z)
         # seg_old_spacing = resize_softmax_output(segmentation_softmax, shape_original_after_cropping, order=order)
     else:
-        print("no resampling necessary")
+        if verbose: print("no resampling necessary")
         seg_old_spacing = segmentation_softmax
 
     if resampled_npz_fname is not None:

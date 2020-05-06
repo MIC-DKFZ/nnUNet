@@ -468,11 +468,12 @@ class NetworkTrainer(object):
                     self.all_val_losses_tr_mode.append(np.mean(val_losses))
                     self.print_to_log_file("validation loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
 
-            epoch_end_time = time()
-
             self.update_train_loss_MA()  # needed for lr scheduler and stopping of training
 
             continue_training = self.on_epoch_end()
+
+            epoch_end_time = time()
+
             if not continue_training:
                 # allows for early stopping
                 break
