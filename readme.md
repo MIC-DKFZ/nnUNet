@@ -112,10 +112,7 @@ set a few of environment variables. Please follow the instructions [here](docume
 plots of the network topologies it generates (see [Model training](#model-training)). To install hiddenlayer, 
 run the following commands:
     ```bash
-    git clone https://github.com/nanohanno/hiddenlayer.git
-    cd hiddenlayer
-    git checkout bugfix/get_trace_graph
-    pip install -e .
+    pip install --upgrade git+https://github.com/nanohanno/hiddenlayer.git@bugfix/get_trace_graph#egg=hiddenlayer
     ```
 
 Installing nnU-Net will add several new commands to your terminal. These commands are used to run the entire nnU-Net 
