@@ -181,7 +181,8 @@ def main():
         all_in_gpu = True
     elif all_in_gpu == "False":
         all_in_gpu = False
-
+    import os
+    print("current_directory:",os.getcwd())
     # we need to catch the case where model is 3d cascade fullres and the low resolution folder has not been set.
     # In that case we need to try and predict with 3d low res first
     if model == "3d_cascade_fullres" and lowres_segmentations is None:

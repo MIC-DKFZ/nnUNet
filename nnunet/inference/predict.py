@@ -530,7 +530,7 @@ def predict_from_folder(model, input_folder, output_folder, folds, save_npz, num
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, tta, fp16=False,
                         overwrite_existing=True, mode='normal', overwrite_all_in_gpu=None, step=2,
                         force_separate_z=None, interp_order=3, interp_order_z=0, 
-                        checkpoint_name="model_final_checkpoint"):
+                        checkpoint_name="model_best"):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
