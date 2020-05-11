@@ -150,7 +150,9 @@ class ExperimentPlanner2D(ExperimentPlanner):
                  'keep_only_largest_region': only_keep_largest_connected_component,
                  'min_region_size_per_class': min_region_size_per_class, 'min_size_per_class': min_size_per_class,
                  'transpose_forward': self.transpose_forward, 'transpose_backward': self.transpose_backward,
-                 'data_identifier': self.data_identifier, 'plans_per_stage': self.plans_per_stage}
+                 'data_identifier': self.data_identifier, 'plans_per_stage': self.plans_per_stage,
+                 'preprocessor_name': self.preprocessor_name,
+                 }
 
         self.plans = plans
         self.save_my_plans()
