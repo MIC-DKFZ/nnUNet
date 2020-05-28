@@ -105,7 +105,7 @@ def main():
         #splitted_4d_output_dir_task = os.path.join(nnUNet_raw_data, t)
         #lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
-        dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)  # this class creates the fingerprint
+        dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False, num_processes=tf)  # this class creates the fingerprint
         _ = dataset_analyzer.analyze_dataset()  # this will write output files that will be used by the ExperimentPlanner
 
         maybe_mkdir_p(preprocessing_output_dir_this_task)
