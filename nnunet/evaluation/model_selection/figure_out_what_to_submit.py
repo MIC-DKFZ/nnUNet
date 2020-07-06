@@ -16,6 +16,7 @@
 from itertools import combinations
 import nnunet
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.evaluation.add_mean_dice_to_json import foreground_mean
 from nnunet.paths import network_training_output_dir
 import numpy as np
 from subprocess import call
@@ -33,8 +34,12 @@ def find_task_name(folder, task_id):
 
 def get_mean_foreground_dice(json_file):
     results = load_json(json_file)
+    return get_foreground_mean(results)
+
+
+def get_foreground_mean(results):
     results_mean = results['results']['mean']
-    dice_scores = [results_mean[i]['Dice'] for i in results_mean.keys() if i != "0"]
+    dice_scores = [results_mean[i]['Dice'] for i in results_mean.keys() if i != "0" and i != 'mean']
     return np.mean(dice_scores)
 
 
@@ -105,6 +110,7 @@ def main():
                 # obtain mean foreground dice
                 summary_file = join(cv_niftis_folder, "summary.json")
                 results[m] = get_mean_foreground_dice(summary_file)
+                foreground_mean(summary_file)
                 all_results[m] = load_json(summary_file)['results']['mean']
                 valid_models.append(m)
 
@@ -134,11 +140,13 @@ def main():
                           network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder])
                 if p != 0:
                     raise RuntimeError("ensembling failed, see error message above (most likely you did not run model validation with --npz)")
-                # ensembling will automatically do postprocessing
+                # ensembling will automatically do postprocessingget_foreground_mean
 
                 # now get result of ensemble
                 results[ensemble_name] = get_mean_foreground_dice(join(output_folder_base, "ensembled_raw", "summary.json"))
-                all_results[ensemble_name] = load_json(join(output_folder_base, "ensembled_raw", "summary.json"))['results']['mean']
+                summary_file = join(output_folder_base, "ensembled_raw", "summary.json")
+                foreground_mean(summary_file)
+                all_results[ensemble_name] = load_json(summary_file)['results']['mean']
 
         # now print all mean foreground dice and highlight the best
         foreground_dices = list(results.values())
@@ -173,18 +181,18 @@ def main():
         with open(join(summary_folder, "prediction_commands.txt"), 'w') as f:
             f.write(predict_str)
 
-        num_classes = len(all_results[best_model].keys())
+        num_classes = len([i for i in all_results[best_model].keys() if i != 'mean'])
         with open(join(summary_folder, "summary.csv"), 'w') as f:
             f.write("model")
-            for c in range(1, num_classes + 1):
+            for c in range(1, num_classes):
                 f.write(",class%d" % c)
             f.write(",average")
             f.write("\n")
             for m in all_results.keys():
                 f.write(m)
-                for c in range(1, num_classes + 1):
+                for c in range(1, num_classes):
                     f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
-                f.write(",%01.4f" % results[m])
+                f.write(",%01.4f" % all_results[m]['mean']["Dice"])
                 f.write("\n")
 
 
