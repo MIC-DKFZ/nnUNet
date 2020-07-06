@@ -131,6 +131,7 @@ def main():
 
                 ensemble_name = "ensemble_" + m1 + "__" + trainer_m1 + "__" + pl + "--" + m2 + "__" + trainer_m2 + "__" + pl
                 output_folder_base = join(network_training_output_dir, "ensembles", id_task_mapping[t], ensemble_name)
+                maybe_mkdir_p(output_folder_base)
 
                 network1_folder = get_output_folder_name(m1, id_task_mapping[t], trainer_m1, pl)
                 network2_folder = get_output_folder_name(m2, id_task_mapping[t], trainer_m2, pl)
@@ -178,6 +179,7 @@ def main():
                 print(predict_str)
 
         summary_folder = join(network_training_output_dir, "ensembles", id_task_mapping[t])
+        maybe_mkdir_p(summary_folder)
         with open(join(summary_folder, "prediction_commands.txt"), 'w') as f:
             f.write(predict_str)
 
