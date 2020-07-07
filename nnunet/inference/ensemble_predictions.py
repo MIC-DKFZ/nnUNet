@@ -23,14 +23,31 @@ from multiprocessing import Pool
 from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_postprocessing
 
 
-def merge_files(args):
-    files, properties_file, out_file, only_keep_largest_connected_component, min_region_size_per_class, override, store_npz = args
+def merge_files(files, properties_files, out_file, override, store_npz):
     if override or not isfile(out_file):
         softmax = [np.load(f)['softmax'][None] for f in files]
         softmax = np.vstack(softmax)
         softmax = np.mean(softmax, 0)
-        props = load_pickle(properties_file)
-        save_segmentation_nifti_from_softmax(softmax, out_file, props, 3, None, None, None, force_separate_z=None)
+        props = [load_pickle(f) for f in properties_files]
+
+        reg_class_orders = [props[p]['regions_class_order'] if 'regions_class_order' in p.keys() else None
+                            for p in props]
+
+        if not all([i is None for i in reg_class_orders]):
+            # if reg_class_orders are not None then they must be the same in all pkls
+            tmp = reg_class_orders[0]
+            for r in reg_class_orders[1:]:
+                assert tmp == r, 'If merging files with regions_class_order, the regions_class_orders of all ' \
+                                 'files must be the same. regions_class_order: %s, \n files: %s' % \
+                                 (str(reg_class_orders), str(files))
+            regions_class_order = tmp
+        else:
+            regions_class_order = None
+
+        # Softmax probabilities are already at target spacing so this will not do any resampling (resampling parameters
+        # don't matter here)
+        save_segmentation_nifti_from_softmax(softmax, out_file, props[0], 3, regions_class_order, None, None,
+                                             force_separate_z=None)
         if store_npz:
             np.savez_compressed(out_file[:-7] + ".npz", softmax=softmax)
             save_pickle(props, out_file[:-7] + ".pkl")
@@ -62,16 +79,11 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
     out_files = []
     for p in patient_ids:
         files.append([join(f, p + ".npz") for f in folders])
-        property_files.append(join(folders[0], p + ".pkl"))
+        property_files.append([join(f, p + ".pkl") for f in folders])
         out_files.append(join(output_folder, p + ".nii.gz"))
 
-    plans = load_pickle(join(folders[0], "plans.pkl"))
-
-    only_keep_largest_connected_component, min_region_size_per_class = plans['keep_only_largest_region'], \
-                                                                       plans['min_region_size_per_class']
     p = Pool(threads)
-    p.map(merge_files, zip(files, property_files, out_files, [only_keep_largest_connected_component] * len(out_files),
-                           [min_region_size_per_class] * len(out_files), [override] * len(out_files), [store_npz] * len(out_files)))
+    p.starmap(merge_files, zip(files, property_files, out_files, [override] * len(out_files), [store_npz] * len(out_files)))
     p.close()
     p.join()
 
