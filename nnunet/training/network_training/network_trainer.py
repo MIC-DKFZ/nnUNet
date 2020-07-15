@@ -411,14 +411,13 @@ class NetworkTrainer(object):
 
         self._maybe_init_amp()
 
+        maybe_mkdir_p(self.output_folder)        
         self.plot_network_architecture()
 
         if cudnn.benchmark and cudnn.deterministic:
             warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
                  "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
                  "If you want deterministic then set benchmark=False")
-
-        maybe_mkdir_p(self.output_folder)
 
         if not self.was_initialized:
             self.initialize(True)
