@@ -185,16 +185,15 @@ class nnUNetTrainerV2(nnUNetTrainer):
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
                  step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+                 segmentation_export_kwargs: dict = None):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
         """
         ds = self.network.do_ds
         self.network.do_ds = False
         ret = super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu,
-                               force_separate_z=force_separate_z, interpolation_order=interpolation_order,
-                               interpolation_order_z=interpolation_order_z)
+                               overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
+
         self.network.do_ds = ds
         return ret
 
