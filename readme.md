@@ -45,7 +45,7 @@ Please also cite this paper if you are using nnU-Net for your research!
 # Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
-  * [How to run nnU-Net on a new datasets](#how-to-run-nnu-net-on-a-new-datasets)
+  * [How to run nnU-Net on a new dataset](#how-to-run-nnu-net-on-a-new-dataset)
     + [Dataset conversion](#dataset-conversion)
     + [Experiment planning and preprocessing](#experiment-planning-and-preprocessing)
     + [Model training](#model-training)
