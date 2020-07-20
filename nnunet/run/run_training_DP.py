@@ -67,13 +67,13 @@ def main():
                         help="disable mixed precision training and run old school fp32")
     parser.add_argument("--val_folder", required=False, default="validation_raw",
                         help="name of the validation folder. No need to use this for most people")
-    parser.add_argument("--interp_order", required=False, default=3, type=int,
-                        help="order of interpolation for segmentations. Testing purpose only. Hands off")
-    parser.add_argument("--interp_order_z", required=False, default=0, type=int,
-                        help="order of interpolation along z if z is resampled separately. Testing purpose only. "
-                             "Hands off")
-    parser.add_argument("--force_separate_z", required=False, default="None", type=str,
-                        help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
+    # parser.add_argument("--interp_order", required=False, default=3, type=int,
+    #                     help="order of interpolation for segmentations. Testing purpose only. Hands off")
+    # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
+    #                     help="order of interpolation along z if z is resampled separately. Testing purpose only. "
+    #                          "Hands off")
+    # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
+    #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
 
     args = parser.parse_args()
 
@@ -93,9 +93,9 @@ def main():
     num_gpus = args.gpus
     fp32 = args.fp32
     val_folder = args.val_folder
-    interp_order = args.interp_order
-    interp_order_z = args.interp_order_z
-    force_separate_z = args.force_separate_z
+    # interp_order = args.interp_order
+    # interp_order_z = args.interp_order_z
+    # force_separate_z = args.force_separate_z
 
     if not task.startswith("Task"):
         task_id = int(task)
@@ -106,14 +106,14 @@ def main():
     else:
         fold = int(fold)
 
-    if force_separate_z == "None":
-        force_separate_z = None
-    elif force_separate_z == "False":
-        force_separate_z = False
-    elif force_separate_z == "True":
-        force_separate_z = True
-    else:
-        raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
+    # if force_separate_z == "None":
+    #     force_separate_z = None
+    # elif force_separate_z == "False":
+    #     force_separate_z = False
+    # elif force_separate_z == "True":
+    #     force_separate_z = True
+    # else:
+    #     raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
 
     plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
         trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
@@ -152,8 +152,7 @@ def main():
         trainer.network.eval()
 
         # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder, force_separate_z=force_separate_z,
-                         interpolation_order=interp_order, interpolation_order_z=interp_order_z)
+        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder)
 
         if network == '3d_lowres':
             trainer.load_best_checkpoint(False)
