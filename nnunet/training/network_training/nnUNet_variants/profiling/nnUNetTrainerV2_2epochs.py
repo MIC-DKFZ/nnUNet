@@ -68,10 +68,11 @@ class nnUNetTrainerV2_5epochs(nnUNetTrainerV2):
 
 
 class nnUNetTrainerV2_DDP_5epochs(nnUNetTrainerV2_DDP):
-    def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
-        super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+    def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True,
+                 stage=None,
+                 unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False):
+        super().__init__(plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+                         deterministic, distribute_batch_size, fp16)
         self.max_num_epochs = 5
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
