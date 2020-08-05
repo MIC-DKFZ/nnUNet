@@ -131,17 +131,17 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
                   all_in_gpu=False, step_size=0.5, force_separate_z=None, interp_order=3, interp_order_z=0,
                   checkpoint_name="model_final_checkpoint"):
     """
-
-    :param model:
-    :param list_of_lists:
-    :param output_filenames:
-    :param folds:
-    :param save_npz:
+    :param model: folder where the model is saved, must contain fold_x subfolders
+    :param list_of_lists: [[case0_0000.nii.gz, case0_0001.nii.gz], [case1_0000.nii.gz, case1_0001.nii.gz], ...]
+    :param output_filenames: [output_file_case0.nii.gz, output_file_case1.nii.gz, ...]
+    :param folds: default: (0, 1, 2, 3, 4) (but can also be 'all' or a subset of the five folds, for example use (0, )
+    for using only fold_0
+    :param save_npz: default: False
     :param num_threads_preprocessing:
     :param num_threads_nifti_save:
     :param segs_from_prev_stage:
-    :param do_tta:
-    :param overwrite_existing:
+    :param do_tta: default: True, can be set to False for a 8x speedup at the cost of a reduced segmentation quality
+    :param overwrite_existing: default: True
     :param fp16: if None then we take no action. If True/False we overwrite what the model has in its init
     :return:
     """

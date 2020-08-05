@@ -315,7 +315,6 @@ class GenericPreprocessor(object):
 
         all_data = np.vstack((data, seg)).astype(np.float32)
 
-
         print("saving: ", os.path.join(output_folder_stage, "%s.npz" % case_identifier))
         np.savez_compressed(os.path.join(output_folder_stage, "%s.npz" % case_identifier),
                             data=all_data.astype(np.float32))
