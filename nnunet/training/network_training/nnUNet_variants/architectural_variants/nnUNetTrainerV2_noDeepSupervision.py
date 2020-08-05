@@ -26,6 +26,7 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
+import torch
 
 
 class nnUNetTrainerV2_noDeepSupervision(nnUNetTrainerV2):
