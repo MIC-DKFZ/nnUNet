@@ -119,3 +119,9 @@ class nnUNetTrainerV2_5epochs_dummyLoadCEnoDS(nnUNetTrainerV2_noDeepSupervision)
             self.optimizer.step()
 
         return loss.detach().cpu().numpy()
+
+    def run_online_evaluation(self, output, target):
+        pass
+
+    def finish_online_evaluation(self):
+        pass
