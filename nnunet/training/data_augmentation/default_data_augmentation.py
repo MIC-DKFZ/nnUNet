@@ -84,7 +84,7 @@ default_3D_augmentation_params = {
     "additive_brightness_mu": 0.0,
     "additive_brightness_sigma": 0.1,
 
-    "num_threads": 12 if 'nnUNet_n_proc_DA' not in os.environ else os.environ['nnUNet_n_proc_DA'],
+    "num_threads": 12 if 'nnUNet_n_proc_DA' not in os.environ else int(os.environ['nnUNet_n_proc_DA']),
     "num_cached_per_thread": 1,
 }
 
