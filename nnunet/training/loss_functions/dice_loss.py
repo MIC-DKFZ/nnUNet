@@ -316,7 +316,7 @@ class DC_and_CE_loss(nn.Module):
         self.weight_dice = weight_dice
         self.weight_ce = weight_ce
         self.aggregate = aggregate
-        self.ce = CrossentropyND(**ce_kwargs)
+        self.ce = nn.CrossEntropyLoss(**ce_kwargs)
         if not square_dice:
             self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
         else:
@@ -324,7 +324,7 @@ class DC_and_CE_loss(nn.Module):
 
     def forward(self, net_output, target):
         dc_loss = self.dc(net_output, target) if self.weight_dice != 0 else 0
-        ce_loss = self.ce(net_output, target) if self.weight_ce != 0 else 0
+        ce_loss = self.ce(net_output, target[:, 0].long()) if self.weight_ce != 0 else 0
         if self.aggregate == "sum":
             result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         else:
