@@ -70,7 +70,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         self.val_loss_MA = None
 
         self.loss = None
-        self.ce_loss = CrossentropyND()
+        self.ce_loss = nn.CrossEntropyLoss()
 
         self.global_batch_size = None  # we need to know this to properly steer oversample
 
@@ -295,7 +295,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             else:
                 pass
 
-            ce_loss = self.ce_loss(output[i], target[i])
+            ce_loss = self.ce_loss(output[i], target[i][:, 0].long())
 
             # we smooth by 1e-5 to penalize false positives if tp is 0
             dice_loss = (- (nominator + 1e-5) / (denominator + 1e-5)).mean()
