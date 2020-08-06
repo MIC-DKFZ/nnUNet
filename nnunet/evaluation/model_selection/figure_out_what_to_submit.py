@@ -17,6 +17,7 @@ from itertools import combinations
 import nnunet
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.evaluation.add_mean_dice_to_json import foreground_mean
+from nnunet.evaluation.model_selection.ensemble import ensemble
 from nnunet.paths import network_training_output_dir
 import numpy as np
 from subprocess import call
@@ -60,7 +61,7 @@ def main():
                            help="nnUNetTrainer class for cascade model. Default: %s" % default_cascade_trainer)
     parser.add_argument("-pl", type=str, required=False, default=default_plans_identifier,
                            help="plans name, Default: %s" % default_plans_identifier)
-
+    parser.add_argument('-f', '--folds', nargs='+', default=(0, 1, 2, 3, 4), help="use this if you have non-standard folds")
     parser.add_argument("--strict", required=False, default=False, action="store_true",
                         help="set this flag if you want this script to crash of one of the models is missing")
 
@@ -72,6 +73,7 @@ def main():
     trc = args.ctr
     strict = args.strict
     pl = args.pl
+    folds = tuple(int(i) for i in args.folds)
 
     validation_folder = "validation_raw"
 
@@ -103,7 +105,7 @@ def main():
                 cv_niftis_folder = join(output_folder, "cv_niftis_raw")
                 if not isfile(postprocessing_json) or not isdir(cv_niftis_folder):
                     print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
-                    consolidate_folds(output_folder)
+                    consolidate_folds(output_folder, folds=folds)
                 assert isfile(postprocessing_json), "Postprocessing json missing, expected: %s" % postprocessing_json
                 assert isdir(cv_niftis_folder), "Folder with niftis from CV missing, expected: %s" % cv_niftis_folder
 
@@ -137,10 +139,7 @@ def main():
                 network2_folder = get_output_folder_name(m2, id_task_mapping[t], trainer_m2, pl)
 
                 print("ensembling", network1_folder, network2_folder)
-                p = call(["python", join(nnunet.__path__[0], "evaluation/model_selection/ensemble.py"),
-                          network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder])
-                if p != 0:
-                    raise RuntimeError("ensembling failed, see error message above (most likely you did not run model validation with --npz)")
+                ensemble(network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder, folds)
                 # ensembling will automatically do postprocessingget_foreground_mean
 
                 # now get result of ensemble

@@ -30,30 +30,17 @@ def merge(args):
         res2 = np.load(file2)['softmax']
         props = load_pickle(properties_file)
         mn = np.mean((res1, res2), 0)
+        # Softmax probabilities are already at target spacing so this will not do any resampling (resampling parameters
+        # don't matter here)
         save_segmentation_nifti_from_softmax(mn, out_file, props, 3, None, None, None, force_separate_z=None,
                                              interpolation_order_z=0)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(usage="This is intended to ensemble training images (from cross-validation) only. Use"
-                                           "inference/ensemble_predictions.py instead")
-    parser.add_argument("training_output_folder1")
-    parser.add_argument("training_output_folder2")
-    parser.add_argument("output_folder")
-    parser.add_argument("task") # we need to know this for gt_segmentations
-    parser.add_argument("validation_folder")
-
-    args = parser.parse_args()
-
-    training_output_folder1 = args.training_output_folder1
-    training_output_folder2 = args.training_output_folder2
-
+def ensemble(training_output_folder1, training_output_folder2, output_folder, task, validation_folder, folds):
     print("\nEnsembling folders\n", training_output_folder1, "\n", training_output_folder2)
 
-    output_folder_base = args.output_folder
+    output_folder_base = output_folder
     output_folder = join(output_folder_base, "ensembled_raw")
-    task = args.task
-    validation_folder = args.validation_folder
 
     # only_keep_largest_connected_component is the same for all stages
     dataset_directory = join(preprocessing_output_dir, task)
@@ -67,8 +54,6 @@ if __name__ == "__main__":
 
     folder_with_gt_segs = join(dataset_directory, "gt_segmentations")
     # in the correct shape and we need the original geometry to restore the niftis
-
-    folds = np.arange(5)
 
     for f in folds:
         validation_folder_net1 = join(training_output_folder1, "fold_%d" % f, validation_folder)
@@ -123,5 +108,26 @@ if __name__ == "__main__":
         json_out["experiment_name"] = output_folder_base.split("/")[-1]
         save_json(json_out, join(output_folder_base, "ensembled_postprocessed", "summary.json"))
 
+        maybe_mkdir_p(out_dir_all_json)
         shutil.copy(join(output_folder_base, "ensembled_postprocessed", "summary.json"),
                     join(out_dir_all_json, "%s__%s.json" % (task, output_folder_base.split("/")[-1])))
+
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(usage="This is intended to ensemble training images (from cross-validation) only. Use"
+                                           "inference/ensemble_predictions.py instead")
+    parser.add_argument("training_output_folder1")
+    parser.add_argument("training_output_folder2")
+    parser.add_argument("output_folder")
+    parser.add_argument("task") # we need to know this for gt_segmentations
+    parser.add_argument("validation_folder")
+    parser.add_argument("--folds", nargs='+', type=int, default=(0, 1, 2, 3, 4), required=False)
+
+    args = parser.parse_args()
+
+    training_output_folder1 = args.training_output_folder1
+    training_output_folder2 = args.training_output_folder2
+    ensemble(training_output_folder1, training_output_folder2, args.output_folder, args.task, args.validation_folder,
+             args.folds)
