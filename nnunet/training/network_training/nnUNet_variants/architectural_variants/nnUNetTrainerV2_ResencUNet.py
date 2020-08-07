@@ -14,6 +14,7 @@
 from typing import Tuple
 
 import numpy as np
+import torch
 from nnunet.network_architecture.generic_modular_residual_UNet import FabiansUNet, get_default_network_config
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer

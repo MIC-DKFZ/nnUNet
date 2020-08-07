@@ -11,8 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
+import torch
 from nnunet.network_architecture.generic_UNet import Generic_UNet, ConvDropoutNonlinNorm
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -42,5 +41,6 @@ class nnUNetTrainerV2_lReLU_convReLUIN(nnUNetTrainerV2):
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True,
                                     basic_block=ConvDropoutNonlinNorm)
-        self.network.cuda()
+        if torch.cuda.is_available():
+            self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
