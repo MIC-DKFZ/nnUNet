@@ -47,18 +47,19 @@ class SegmentationNetwork(NeuralNetwork):
         super(NeuralNetwork, self).__init__()
 
         # if we have 5 pooling then our patch size must be divisible by 2**5
-        self.input_shape_must_be_divisible_by = None
+        self.input_shape_must_be_divisible_by = None  # for example in a 2d network that does 5 pool in x and 6 pool
+        # in y this would be (32, 64)
 
         # we need to know this because we need to know if we are a 2d or a 3d netowrk
-        self.conv_op = None
+        self.conv_op = None  # nn.Conv2d or nn.Conv3d
 
         # this tells us how many channely we have in the output. Important for preallocation in inference
-        self.num_classes = None
+        self.num_classes = None  # number of channels in the output
 
         # depending on the loss, we do not hard code a nonlinearity into the architecture. To aggregate predictions
         # during inference, we need to apply the nonlinearity, however. So it is important to let the newtork know what
         # to apply in inference. For the most part this will be softmax
-        self.inference_apply_nonlin = lambda x: x
+        self.inference_apply_nonlin = lambda x: x  # softmax_helper
 
         # This is for saving a gaussian importance map for inference. It weights voxels higher that are closer to the
         # center. Prediction at the borders are often less accurate and are thus downweighted. Creating these Gaussians
@@ -141,10 +142,10 @@ class SegmentationNetwork(NeuralNetwork):
             if use_sliding_window:
                 res = self._internal_predict_3D_2Dconv_tiled(x, patch_size, do_mirroring, mirror_axes, step_size,
                                                              regions_class_order, use_gaussian, pad_border_mode,
-                                                             pad_kwargs, all_in_gpu, verbose)
+                                                             pad_kwargs, all_in_gpu, False)
             else:
                 res = self._internal_predict_3D_2Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
-                                                       pad_border_mode, pad_kwargs, all_in_gpu, verbose)
+                                                       pad_border_mode, pad_kwargs, all_in_gpu, False)
         else:
             raise RuntimeError("Invalid conv op, cannot determine what dimensionality (2d/3d) the network is")
 
@@ -401,7 +402,7 @@ class SegmentationNetwork(NeuralNetwork):
 
                 class_probabilities = class_probabilities.detach().cpu().numpy()
 
-        print("prediction done")
+        if verbose: print("prediction done")
         return predicted_segmentation, class_probabilities
 
     def _internal_predict_2D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
@@ -717,7 +718,7 @@ class SegmentationNetwork(NeuralNetwork):
 
                 class_probabilities = class_probabilities.detach().cpu().numpy()
 
-        print("prediction done")
+        if verbose: print("prediction done")
         return predicted_segmentation, class_probabilities
 
     def _internal_predict_3D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
