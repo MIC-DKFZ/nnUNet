@@ -106,6 +106,9 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
 
     if resampled_npz_fname is not None:
         np.savez_compressed(resampled_npz_fname, softmax=seg_old_spacing.astype(np.float16))
+        # this is needed for ensembling if the nonlinearity is sigmoid
+        if region_class_order is not None:
+            properties_dict['regions_class_order'] = region_class_order
         save_pickle(properties_dict, resampled_npz_fname[:-4] + ".pkl")
 
     if region_class_order is None:
@@ -147,7 +150,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
         sitk.WriteImage(seg_resized_itk, non_postprocessed_fname)
 
 
-def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separate_z=None):
+def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separate_z=None, order_z=0):
     """
     faster and uses less ram than save_segmentation_nifti_from_softmax, but maybe less precise and also does not support
     softmax export (which is needed for ensembling). So it's a niche function that may be useful in some cases.
@@ -199,8 +202,8 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
 
             print("separate z:", do_separate_z, "lowres axis", lowres_axis)
             seg_old_spacing = resample_data_or_seg(segmentation[None], shape_original_after_cropping, is_seg=True,
-                                                   axis=lowres_axis, order=order, do_separate_z=do_separate_z, cval=0)[
-                0]
+                                                   axis=lowres_axis, order=order, do_separate_z=do_separate_z, cval=0,
+                                                   order_z=order_z)[0]
     else:
         seg_old_spacing = segmentation
 
