@@ -73,7 +73,7 @@ class nnUNetTrainerV2_ResencUNet(nnUNetTrainerV2):
                                                          all_in_gpu: bool = True,
                                                          verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         ds = self.network.decoder.deep_supervision
-        self.network.deep_supervision = False
+        self.network.decoder.deep_supervision = False
         ret = nnUNetTrainer.predict_preprocessed_data_return_seg_and_softmax(self, data, do_mirroring, mirror_axes,
                                                                              use_sliding_window, step_size,
                                                                              use_gaussian, pad_border_mode, pad_kwargs,
