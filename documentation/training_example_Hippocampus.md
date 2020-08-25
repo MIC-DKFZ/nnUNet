@@ -29,7 +29,7 @@ destination of your choice.
     nnUNet_train 3d_fullres nnUNetTrainerV2 4 0
     ```
    nnU-Net per default requires all trainings as 5-fold cross validation. The command above will run only the training for the 
-   first fold (fold 0). 4 is the task identifier of the hippocampus dataset. Training one fold should take about 20 
+   first fold (fold 0). 4 is the task identifier of the hippocampus dataset. Training one fold should take about 9 
    hours on a modern GPU.
    
 This tutorial is only intended to demonstrate how easy it is to get nnU-Net running. You do not need to finish the 

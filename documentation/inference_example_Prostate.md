@@ -48,7 +48,13 @@ a _0000 to the file name if only one input modality is required). Instructions c
     ``` 
     Note that `-t 5` specifies the task with id 5 (which corresponds to the Prostate dataset). You can also give the full 
     task name `Task005_Prostate`. `OUTPUT_DIRECTORY` is where the resulting segmentations are saved.
-8) If you want to use an ensemble for inference, you need to run the following commands:
+    
+    Predictions should be quite fast and you should be donw within a couple of minutes. If you would like to speed it 
+    up (at the expense of a slightly lower segmentation quality) you can disable test time data augmentation by 
+    setting the `--disable_tta` flag (8x speedup). If this is still too slow for you, you can consider using only a 
+    single model instead of the ensemble by specifying `-f 0`. This will use only the model trained on fold 0 of the 
+    cross-validation for another 5x speedup.
+8) If you want to use an ensemble of different U-Net configurations for inference, you need to run the following commands:
 
     Prediction with 3d full resolution U-Net (this command is a little different than the one above). 
     ```bash

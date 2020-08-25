@@ -65,11 +65,19 @@ Please also cite this paper if you are using nnU-Net for your research!
 ecotrust-canada.github.io/markdown-toc/
 
 # Installation
-nnU-Net is only tested on Linux (Ubuntu). It may work on other operating systems as well but we do not guarantee that it will.
+nnU-Net is only tested on Linux (Ubuntu 16, 18 and 20; centOS, RHEL). It may work on other operating systems as well 
+but we do not guarantee that it will.
 
 nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For training nnU-Net models the GPU should have at 
 least 11 GB (such as the RTX 2080ti). Due to the use of mixed precision, fastest training times are achieved with the 
-Volta architecture (Titan V, V100 GPUs) (tensorcore acceleration for 3D convolutions does not yet work on Turing-based GPUs).
+Volta architecture (Titan V, V100 GPUs) or when compiling pytorch from source 
+(see [here](https://github.com/pytorch/pytorch#from-source)) using cuDNN 8.0.2. Note that future versions of pytorch 
+will include cuDNN 8.0.2 or newer by default and compiling from source will not be necessary.
+
+For training, we recommend a strong CPU top go along with the GPU. At least 6 CPU cores (12 threads) are recommended. CPU 
+requirements are mostly related to data augmentation and scale with the number of input channels and are thus higher 
+for datasets like BraTS which use 4 image 
+modalities and lower for datasets like LiTS which only uses CT images.
 
 We very strongly recommend you install nnU-Net in a virtual environment. 
 [Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/).
@@ -124,7 +132,12 @@ environment must be activated when executing the commands.
 
 All nnU-Net commands have a `-h` option which gives information on how to use them.
 
+A typical installation of nnU-Net can be completed in less than 5 minutes. If pytorch needs to be compiled from source 
+(which is what we currently recommend when using Turing GPUs), this can extend to more than an hour.
+
 # Usage
+To familiarize yourself with nnU-Net we recommend you have a look at the [Examples](#Examples) before you start with 
+your own dataset.
 
 ## How to run nnU-Net on a new dataset
 Given some dataset, nnU-Net fully automatically configures an entire segmentation pipeline that matches its properties. 
@@ -169,6 +182,11 @@ used with the `-tl` and `-tf` options.
 
 After `nnUNet_plan_and_preprocess` is completed, the U-Net configurations have been created and a preprocessed copy 
 of the data will be located at nnUNet_preprocessed/TaskXXX_MYTASK.
+
+Extraction of the dataset fingerprint can take from a couple of seconds to several minutes depending on the properties 
+of the segmentation task. Pipeline configuration given the extracted finger print is nearly instantaneous (couple 
+of seconds). Preprocessing depends on image size and how powerful the CPU is. It can take between seconds and several 
+tens of minutes.
 
 ### Model training
 nnU-Net trains all U-Net configurations in a 5-fold cross-validation. This enables nnU-Net to determine the 
@@ -288,6 +306,9 @@ contains the validation metrics (a mean over all cases is provided at the end of
 
 During training it is often useful to watch the progress. We therefore recommend that you have a look at the generated 
 progress.png when running the first training. It will be updated after each epoch.
+
+Training times largely depend on the GPU. The smallest GPU we recommend for training is the Nvidia RTX 2080ti. With 
+this GPU (and pytorch compiled with cuDNN 8.0.2), all network trainings take less than 2 days.
 
 #### Multi GPU training
 
