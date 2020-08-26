@@ -312,9 +312,8 @@ class GenericPreprocessor(object):
                                                             force_separate_z=force_separate_z)
         return data.astype(np.float32), seg, properties
 
-    def _run_star(self, args):
-        target_spacing, case_identifier, output_folder_stage, cropped_output_dir, force_separate_z = args
-
+    def _run_internal(self, target_spacing, case_identifier, output_folder_stage, cropped_output_dir, force_separate_z,
+                      all_classes):
         data, seg, properties = self.load_cropped(cropped_output_dir, case_identifier)
 
         data = data.transpose((0, *[i + 1 for i in self.transpose_forward]))
@@ -324,6 +323,25 @@ class GenericPreprocessor(object):
                                                             properties, seg, force_separate_z)
 
         all_data = np.vstack((data, seg)).astype(np.float32)
+
+        # we need to find out where the classes are and sample some random locations
+        # let's do 10.000 samples per class
+        # seed this for reproducibility!
+        num_samples = 10000
+        min_percent_coverage = 0.01 # at least 1% of the class voxels need to be selected, otherwise it may be too sparse
+        rndst = np.random.RandomState(1234)
+        class_locs = {}
+        for c in all_classes:
+            all_locs = np.argwhere(all_data[-1] == c)
+            if len(all_locs) == 0:
+                class_locs[c] = []
+                continue
+            target_num_samples = min(num_samples, len(all_locs))
+            target_num_samples = max(target_num_samples, len(all_locs) * min_percent_coverage)
+            selected = all_locs[rndst.choice(len(all_locs), target_num_samples, replace=False)]
+            class_locs[c] = selected
+            print(c, target_num_samples)
+        properties['class_locations'] = class_locs
 
         print("saving: ", os.path.join(output_folder_stage, "%s.npz" % case_identifier))
         np.savez_compressed(os.path.join(output_folder_stage, "%s.npz" % case_identifier),
@@ -353,6 +371,10 @@ class GenericPreprocessor(object):
 
         assert len(num_threads) == num_stages
 
+        # we need to know which classes are present in this dataset so that we can precompute where these classes are
+        # located. This is needed for oversampling foreground
+        all_classes = load_pickle(join(input_folder_with_cropped_npz, 'dataset_properties.pkl'))['all_classes']
+
         for i in range(num_stages):
             all_args = []
             output_folder_stage = os.path.join(output_folder, data_identifier + "_stage%d" % i)
@@ -360,10 +382,10 @@ class GenericPreprocessor(object):
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
                 case_identifier = get_case_identifier_from_npz(case)
-                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z
+                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z, all_classes
                 all_args.append(args)
             p = Pool(num_threads[i])
-            p.map(self._run_star, all_args)
+            p.starmap(self._run_internal, all_args)
             p.close()
             p.join()
 
@@ -559,16 +581,21 @@ class PreprocessorFor2D(GenericPreprocessor):
         maybe_mkdir_p(output_folder)
         all_args = []
         num_stages = len(target_spacings)
+
+        # we need to know which classes are present in this dataset so that we can precompute where these classes are
+        # located. This is needed for oversampling foreground
+        all_classes = load_pickle(join(input_folder_with_cropped_npz, 'dataset_properties.pkl'))['all_classes']
+
         for i in range(num_stages):
             output_folder_stage = os.path.join(output_folder, data_identifier + "_stage%d" % i)
             maybe_mkdir_p(output_folder_stage)
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
                 case_identifier = get_case_identifier_from_npz(case)
-                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z
+                args = spacing, case_identifier, output_folder_stage, input_folder_with_cropped_npz, force_separate_z, all_classes
                 all_args.append(args)
         p = Pool(num_threads)
-        p.map(self._run_star, all_args)
+        p.starmap(self._run_internal, all_args)
         p.close()
         p.join()
 
