@@ -43,10 +43,18 @@ def resample_and_save(predicted, target_shape, output_file, force_separate_z=Fal
     np.savez_compressed(output_file, data=seg_new_shape.astype(np.uint8))
 
 
-def predict_next_stage(trainer, stage_to_be_predicted_folder, force_separate_z=False, interpolation_order=1,
-                       interpolation_order_z=0):
+def predict_next_stage(trainer, stage_to_be_predicted_folder):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
     maybe_mkdir_p(output_folder)
+
+    if 'segmentation_export_params' in trainer.plans.keys():
+        force_separate_z = trainer.plans['segmentation_export_params']['force_separate_z']
+        interpolation_order = trainer.plans['segmentation_export_params']['interpolation_order']
+        interpolation_order_z = trainer.plans['segmentation_export_params']['interpolation_order_z']
+    else:
+        force_separate_z = None
+        interpolation_order = 1
+        interpolation_order_z = 0
 
     export_pool = Pool(2)
     results = []

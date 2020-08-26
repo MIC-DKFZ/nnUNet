@@ -17,6 +17,7 @@ from urllib.request import urlopen
 from nnunet.paths import network_training_output_dir
 from subprocess import call
 import requests
+import os
 
 
 def get_available_models():
@@ -186,33 +187,37 @@ def download_and_install_from_url(url):
     http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
 
     with tempfile.NamedTemporaryFile() as f:
-        fname = f.name
-        print("Downloading pretrained model", url)
-        data = urlopen(url).read()
-        f.write(data)
-        # unzip -o zip_file -d output_dir
-        print("Download finished. Extracting...")
-        install_model_from_zip_file(fname)
-        print("Done")
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=8192 * 16):
+                # If you have chunk encoded response uncomment if
+                # and set chunk_size parameter to None.
+                # if chunk:
+                f.write(chunk)
+
+            fname = f.name
+            # print("Downloading pretrained model", url)
+            # data = urlopen(url).read()
+            # f.write(data)
+            # unzip -o zip_file -d output_dir
+            print("Download finished. Extracting...")
+            install_model_from_zip_file(fname)
+            print("Done")
+    os.remove(fname)
 
 
-def download_and_install_from_url2(url):
-    assert network_training_output_dir is not None, "Cannot install model because network_training_output_dir is not " \
-                                                    "set (RESULTS_FOLDER missing as environment variable, see " \
-                                                    "Installation instructions)"
-    import http.client
-    http.client.HTTPConnection._http_vsn = 10
-    http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
-
-    with tempfile.NamedTemporaryFile() as f:
-        fname = f.name
-        print("Downloading pretrained model", url)
-        r = requests.get(url)
-        f.write(r.content)
-
-        print("Download finished. Extracting...")
-        install_model_from_zip_file(fname)
-        print("Done")
+def download_file(url, local_filename):
+    # borrowed from https://stackoverflow.com/questions/16694907/download-large-file-in-python-with-requests
+    # NOTE the stream=True parameter below
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(local_filename, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=None):
+                # If you have chunk encoded response uncomment if
+                # and set chunk_size parameter to None.
+                #if chunk:
+                f.write(chunk)
+    return local_filename
 
 
 def install_model_from_zip_file(zip_file: str):

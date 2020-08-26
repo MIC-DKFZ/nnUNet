@@ -15,7 +15,7 @@
 from copy import deepcopy
 
 import numpy as np
-from batchgenerators.dataloading import MultiThreadedAugmenter
+from batchgenerators.dataloading import MultiThreadedAugmenter, SingleThreadedAugmenter
 from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform, SpatialTransform, \
     GammaTransform, MirrorTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
@@ -24,7 +24,7 @@ from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform, 
 from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from nnunet.training.data_augmentation.custom_transforms import Convert3DTo2DTransform, Convert2DTo3DTransform, \
-    MaskTransform
+    MaskTransform, ConvertSegmentationToRegionsTransform, RemoveKeyTransform
 from nnunet.training.data_augmentation.downsampling import DownsampleSegForDSTransform3, DownsampleSegForDSTransform2
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData, \
     ApplyRandomBinaryOperatorTransform, \
@@ -44,6 +44,7 @@ default_3D_augmentation_params = {
     "do_scaling": True,
     "scale_range": (0.85, 1.25),
     "independent_scale_factor_for_each_axis": False,
+    "p_independent_scale_per_axis": 1,
     "p_scale": 0.2,
 
     "do_rotation": True,
@@ -128,7 +129,7 @@ def get_patch_size(final_patch_size, rot_x, rot_y, rot_z, scale_range):
 
 def get_default_augmentation(dataloader_train, dataloader_val, patch_size, params=default_3D_augmentation_params,
                              border_val_seg=-1, pin_memory=True,
-                             seeds_train=None, seeds_val=None):
+                             seeds_train=None, seeds_val=None, regions=None):
     assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
     tr_transforms = []
 
@@ -187,7 +188,12 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
                 dont_do_if_covers_more_than_X_percent=params.get("cascade_remove_conn_comp_fill_with_other_class_p")))
 
     tr_transforms.append(RenameTransform('seg', 'target', True))
+
+    if regions is not None:
+        tr_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+
     tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
+
     tr_transforms = Compose(tr_transforms)
     # from batchgenerators.dataloading import SingleThreadedAugmenter
     # batchgenerator_train = SingleThreadedAugmenter(dataloader_train, tr_transforms)
@@ -208,6 +214,10 @@ def get_default_augmentation(dataloader_train, dataloader_val, patch_size, param
         val_transforms.append(MoveSegAsOneHotToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
 
     val_transforms.append(RenameTransform('seg', 'target', True))
+
+    if regions is not None:
+        val_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+
     val_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
     val_transforms = Compose(val_transforms)
 
@@ -222,7 +232,7 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
                         border_val_seg=-1,
                         seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
                         soft_ds=False,
-                        classes=None, pin_memory=True):
+                        classes=None, pin_memory=True, regions=None):
     """
     use this instead of get_default_augmentation (drop in replacement) to turn off all data augmentation
     :param dataloader_train:
@@ -244,6 +254,9 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
 
     tr_transforms.append(RenameTransform('seg', 'target', True))
 
+    if regions is not None:
+        tr_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+
     if deep_supervision_scales is not None:
         if soft_ds:
             assert classes is not None
@@ -253,6 +266,7 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
                                                               output_key='target'))
 
     tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
+
     tr_transforms = Compose(tr_transforms)
 
     batchgenerator_train = MultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
@@ -268,6 +282,9 @@ def get_no_augmentation(dataloader_train, dataloader_val, patch_size, params=def
         val_transforms.append(SegChannelSelectionTransform(params.get("selected_seg_channels")))
 
     val_transforms.append(RenameTransform('seg', 'target', True))
+
+    if regions is not None:
+        val_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
 
     if deep_supervision_scales is not None:
         if soft_ds:
@@ -291,7 +308,7 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
                             border_val_seg=-1,
                             seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
                             soft_ds=False,
-                            classes=None, pin_memory=True):
+                            classes=None, pin_memory=True, regions=None):
     assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
 
     tr_transforms = []
@@ -385,6 +402,9 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
 
     tr_transforms.append(RenameTransform('seg', 'target', True))
 
+    if regions is not None:
+        tr_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+
     if deep_supervision_scales is not None:
         if soft_ds:
             assert classes is not None
@@ -392,12 +412,15 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
         else:
             tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, 0, input_key='target',
                                                               output_key='target'))
+
+
     tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
     tr_transforms = Compose(tr_transforms)
 
     batchgenerator_train = MultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
                                                   params.get("num_cached_per_thread"),
                                                   seeds=seeds_train, pin_memory=pin_memory)
+    #batchgenerator_train = SingleThreadedAugmenter(dataloader_train, tr_transforms)
 
     val_transforms = []
     val_transforms.append(RemoveLabelTransform(-1, 0))
@@ -410,6 +433,9 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
         val_transforms.append(MoveSegAsOneHotToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
 
     val_transforms.append(RenameTransform('seg', 'target', True))
+
+    if regions is not None:
+        val_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
 
     if deep_supervision_scales is not None:
         if soft_ds:
@@ -432,7 +458,7 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
                               border_val_seg=-1,
                               seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
                               soft_ds=False,
-                              classes=None, pin_memory=True):
+                              classes=None, pin_memory=True, regions=None):
     assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
 
     tr_transforms = []
@@ -459,7 +485,8 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
         border_mode_seg="constant", border_cval_seg=border_val_seg,
         order_seg=order_seg, random_crop=params.get("random_crop"), p_el_per_sample=params.get("p_eldef"),
         p_scale_per_sample=params.get("p_scale"), p_rot_per_sample=params.get("p_rot"),
-        independent_scale_for_each_axis=params.get("independent_scale_factor_for_each_axis")
+        independent_scale_for_each_axis=params.get("independent_scale_factor_for_each_axis"),
+        p_independent_scale_per_axis=params.get("p_independent_scale_per_axis")
     ))
 
     if params.get("dummy_2D"):
@@ -479,6 +506,12 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
     tr_transforms.append(
         GammaTransform(params.get("gamma_range"), True, True, retain_stats=params.get("gamma_retain_stats"),
                        p_per_sample=0.15))  # inverted gamma
+
+    if params.get("do_additive_brightness"):
+        tr_transforms.append(BrightnessTransform(params.get("additive_brightness_mu"),
+                                                 params.get("additive_brightness_sigma"),
+                                                 True, p_per_sample=params.get("additive_brightness_p_per_sample"),
+                                                 p_per_channel=params.get("additive_brightness_p_per_channel")))
 
     if params.get("do_gamma"):
         tr_transforms.append(
@@ -516,6 +549,9 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
 
     tr_transforms.append(RenameTransform('seg', 'target', True))
 
+    if regions is not None:
+        tr_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+
     if deep_supervision_scales is not None:
         if soft_ds:
             assert classes is not None
@@ -523,6 +559,7 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
         else:
             tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, 0, input_key='target',
                                                               output_key='target'))
+
     tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
     tr_transforms = Compose(tr_transforms)
 
@@ -541,6 +578,9 @@ def get_insaneDA_augmentation(dataloader_train, dataloader_val, patch_size, para
         val_transforms.append(MoveSegAsOneHotToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
 
     val_transforms.append(RenameTransform('seg', 'target', True))
+
+    if regions is not None:
+        val_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
 
     if deep_supervision_scales is not None:
         if soft_ds:

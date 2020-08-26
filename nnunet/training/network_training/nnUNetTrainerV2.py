@@ -29,6 +29,7 @@ from nnunet.training.data_augmentation.default_data_augmentation import default_
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
+from sklearn.model_selection import KFold
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from nnunet.training.learning_rate.poly_lr import poly_lr
@@ -264,21 +265,50 @@ class nnUNetTrainerV2(nnUNetTrainer):
         Folds > 4 will be independent from each other
         :return:
         """
-        if self.fold == 'all' or self.fold < 5:
-            return super().do_split()
+        if self.fold == "all":
+            # if fold==all then we use all images for training and validation
+            tr_keys = val_keys = list(self.dataset.keys())
         else:
-            rnd = np.random.RandomState(seed=12345 + self.fold)
-            keys = np.sort(list(self.dataset.keys()))
-            idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
-            idx_val = [i for i in range(len(keys)) if i not in idx_tr]
+            splits_file = join(self.dataset_directory, "splits_final.pkl")
 
-            self.dataset_tr = OrderedDict()
-            for i in idx_tr:
-                self.dataset_tr[keys[i]] = self.dataset[keys[i]]
+            # if the split file does not exist we need to create it
+            if not isfile(splits_file):
+                self.print_to_log_file("Creating new split...")
+                splits = []
+                all_keys_sorted = np.sort(list(self.dataset.keys()))
+                kfold = KFold(n_splits=5, shuffle=True, random_state=12345)
+                for i, (train_idx, test_idx) in enumerate(kfold.split(all_keys_sorted)):
+                    train_keys = np.array(all_keys_sorted)[train_idx]
+                    test_keys = np.array(all_keys_sorted)[test_idx]
+                    splits.append(OrderedDict())
+                    splits[-1]['train'] = train_keys
+                    splits[-1]['val'] = test_keys
+                save_pickle(splits, splits_file)
 
-            self.dataset_val = OrderedDict()
-            for i in idx_val:
-                self.dataset_val[keys[i]] = self.dataset[keys[i]]
+            splits = load_pickle(splits_file)
+
+            if self.fold < len(splits):
+                tr_keys = splits[self.fold]['train']
+                val_keys = splits[self.fold]['val']
+            else:
+                self.print_to_log_file("INFO: Requested fold %d but split file only has %d folds. I am now creating a "
+                                       "random 80:20 split!" % (self.fold, len(splits)))
+                # if we request a fold that is not in the split file, create a random 80:20 split
+                rnd = np.random.RandomState(seed=12345 + self.fold)
+                keys = np.sort(list(self.dataset.keys()))
+                idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
+                idx_val = [i for i in range(len(keys)) if i not in idx_tr]
+                tr_keys = [keys[i] for i in idx_tr]
+                val_keys = [keys[i] for i in idx_val]
+
+        tr_keys.sort()
+        val_keys.sort()
+        self.dataset_tr = OrderedDict()
+        for i in tr_keys:
+            self.dataset_tr[i] = self.dataset[i]
+        self.dataset_val = OrderedDict()
+        for i in val_keys:
+            self.dataset_val[i] = self.dataset[i]
 
     def setup_DA_params(self):
         """

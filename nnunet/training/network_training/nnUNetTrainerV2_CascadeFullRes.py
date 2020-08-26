@@ -188,16 +188,29 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+                 segmentation_export_kwargs: dict = None):
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
 
         current_mode = self.network.training
         self.network.eval()
-
         # save whether network is in deep supervision mode or not
         ds = self.network.do_ds
         # disable deep supervision
         self.network.do_ds = False
+
+        if segmentation_export_kwargs is None:
+            if 'segmentation_export_params' in self.plans.keys():
+                force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+                interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+                interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+            else:
+                force_separate_z = None
+                interpolation_order = 1
+                interpolation_order_z = 0
+        else:
+            force_separate_z = segmentation_export_kwargs['force_separate_z']
+            interpolation_order = segmentation_export_kwargs['interpolation_order']
+            interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         if self.dataset_val is None:
             self.load_dataset()
@@ -215,9 +228,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                          'validation_folder_name': validation_folder_name,
                          'debug': debug,
                          'all_in_gpu': all_in_gpu,
-                         'force_separate_z': force_separate_z,
-                         'interpolation_order': interpolation_order,
-                         'interpolation_order_z': interpolation_order_z,
+                         'segmentation_export_kwargs': segmentation_export_kwargs,
                          }
         save_json(my_input_args, join(output_folder, "validation_args.json"))
 
@@ -247,6 +258,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
+
                 data_for_net = np.concatenate((data[:-1], to_one_hot(seg_from_prev_stage[0], range(1, self.num_classes))))
 
                 softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(

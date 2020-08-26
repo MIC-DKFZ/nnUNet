@@ -237,9 +237,11 @@ class DatasetAnalyzer(object):
         # get all classes and what classes are in what patients
         # class min size
         # region size per class
-        class_dct, segmentation_props_per_patient = self.analyse_segmentations()
-        all_classes = np.array([int(i) for i in class_dct.keys()])
-        all_classes = all_classes[all_classes > 0]
+        #class_dct, segmentation_props_per_patient = self.analyse_segmentations()
+        #all_classes = np.array([int(i) for i in class_dct.keys()])
+        #all_classes = all_classes[all_classes > 0]
+        classes = self.get_classes()
+        all_classes = [int(i) for i in classes.keys() if int(i) > 0]
 
         # modalities
         modalities = self.get_modalities()
@@ -256,8 +258,8 @@ class DatasetAnalyzer(object):
         dataset_properties = dict()
         dataset_properties['all_sizes'] = sizes
         dataset_properties['all_spacings'] = spacings
-        dataset_properties['segmentation_props_per_patient'] = segmentation_props_per_patient
-        dataset_properties['class_dct'] = class_dct  # {int: class name}
+        #dataset_properties['segmentation_props_per_patient'] = segmentation_props_per_patient
+        #dataset_properties['class_dct'] = class_dct  # {int: class name}
         dataset_properties['all_classes'] = all_classes
         dataset_properties['modalities'] = modalities  # {idx: modality name}
         dataset_properties['intensityproperties'] = intensityproperties

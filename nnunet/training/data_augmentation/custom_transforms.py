@@ -94,7 +94,7 @@ class Convert2DTo3DTransform(AbstractTransform):
 
 
 class ConvertSegmentationToRegionsTransform(AbstractTransform):
-    def __init__(self, regions, seg_key="seg", output_key="seg", seg_channel=0):
+    def __init__(self, regions: dict, seg_key: str = "seg", output_key: str = "seg", seg_channel: int = 0):
         """
         regions are tuple of tuples where each inner tuple holds the class indices that are merged into one region, example:
         regions= ((1, 2), (2, )) will result in 2 regions: one covering the region of labels 1&2 and the other just 2
@@ -116,8 +116,8 @@ class ConvertSegmentationToRegionsTransform(AbstractTransform):
             output_shape[1] = num_regions
             region_output = np.zeros(output_shape, dtype=seg.dtype)
             for b in range(seg_shp[0]):
-                for r in range(num_regions):
-                    for l in self.regions[r]:
+                for r, k in enumerate(self.regions.keys()):
+                    for l in self.regions[k]:
                         region_output[b, r][seg[b, self.seg_channel] == l] = 1
             data_dict[self.output_key] = region_output
         return data_dict

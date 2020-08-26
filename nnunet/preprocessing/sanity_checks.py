@@ -47,13 +47,28 @@ def verify_same_geometry(img_1: sitk.Image, img_2: sitk.Image):
     ori2, spacing2, direction2, size2 = img_2.GetOrigin(), img_2.GetSpacing(), img_2.GetDirection(), img_2.GetSize()
 
     same_ori = np.all(np.isclose(ori1, ori2))
-    if not same_ori: print("the origin does not match between the images")
+    if not same_ori:
+        print("the origin does not match between the images:")
+        print(ori1)
+        print(ori2)
+
     same_spac = np.all(np.isclose(spacing1, spacing2))
-    if not same_spac: print("the spacing does not match between the images")
+    if not same_spac:
+        print("the spacing does not match between the images")
+        print(spacing1)
+        print(spacing2)
+
     same_dir = np.all(np.isclose(direction1, direction2))
-    if not same_dir: print("the direction does not match between the images")
+    if not same_dir:
+        print("the direction does not match between the images")
+        print(direction1)
+        print(direction2)
+
     same_size = np.all(np.isclose(size1, size2))
-    if not same_size: print("the size does not match between the images")
+    if not same_size:
+        print("the size does not match between the images")
+        print(size1)
+        print(size2)
 
     if same_ori and same_spac and same_dir and same_size:
         return True
@@ -98,8 +113,11 @@ def verify_dataset_integrity(folder):
     nii_files_in_labelsTr = subfiles((join(folder, "labelsTr")), suffix=".nii.gz", join=False)
 
     label_files = []
+    geometries_OK = True
 
     # check all cases
+    if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)): raise RuntimeError("found duplicate training cases in dataset.json")
+
     print("Verifying training set")
     for c in expected_train_identifiers:
         print("checking case", c)
@@ -108,20 +126,21 @@ def verify_dataset_integrity(folder):
         label_files.append(expected_label_file)
         expected_image_files = [join(folder, "imagesTr", c + "_%04.0d.nii.gz" % i) for i in range(num_modalities)]
         assert isfile(expected_label_file), "could not find label file for case %s. Expected file: \n%s" % (
-        c, expected_label_file)
+            c, expected_label_file)
         assert all([isfile(i) for i in
                     expected_image_files]), "some image files are missing for case %s. Expected files:\n %s" % (
-        c, expected_image_files)
+            c, expected_image_files)
 
         # verify that all modalities and the label have the same shape and geometry.
         label_itk = sitk.ReadImage(expected_label_file)
         images_itk = [sitk.ReadImage(i) for i in expected_image_files]
         for i, img in enumerate(images_itk):
             same_geometry = verify_same_geometry(img, label_itk)
-            assert same_geometry, "The geometry of the image %s does not match the geometry of the label file. " \
-                                  "The pixel arrays will not be aligned and nnU-Net cannot use this data. " \
-                                  "Please make sure your image modalities are coregistered and have the same geometry " \
-                                  "as the label" % expected_image_files[i]
+            if not same_geometry:
+                geometries_OK = False
+                print("The geometry of the image %s does not match the geometry of the label file. The pixel arrays "
+                      "will not be aligned and nnU-Net cannot use this data. Please make sure your image modalities "
+                      "are coregistered and have the same geometry as the label" % expected_image_files[0][:-12])
 
         # now remove checked files from the lists nii_files_in_imagesTr and nii_files_in_labelsTr
         for i in expected_image_files:
@@ -147,7 +166,7 @@ def verify_dataset_integrity(folder):
     for i, r in enumerate(results):
         if not r[0]:
             print("Unexpected labels found in file %s. Found these unexpected values (they should not be there) %s" % (
-            label_files[i], r[1]))
+                label_files[i], r[1]))
             fail = True
 
     if fail:
@@ -166,7 +185,7 @@ def verify_dataset_integrity(folder):
             expected_image_files = [join(folder, "imagesTs", c + "_%04.0d.nii.gz" % i) for i in range(num_modalities)]
             assert all([isfile(i) for i in
                         expected_image_files]), "some image files are missing for case %s. Expected files:\n %s" % (
-            c, expected_image_files)
+                c, expected_image_files)
 
             # verify that all modalities and the label have the same geometry. We use the affine for this
             if num_modalities > 1:
@@ -176,7 +195,7 @@ def verify_dataset_integrity(folder):
                 for i, img in enumerate(images_itk[1:]):
                     assert verify_same_geometry(img, reference_img), "The modalities of the image %s do not seem to be " \
                                                                      "registered. Please coregister your modalities." % (
-                                                                     expected_image_files[i])
+                                                                         expected_image_files[i])
 
             # now remove checked files from the lists nii_files_in_imagesTr and nii_files_in_labelsTr
             for i in expected_image_files:
@@ -189,7 +208,10 @@ def verify_dataset_integrity(folder):
         print(
             "WARNING: Not all images in the dataset have the same axis ordering. We very strongly recommend you correct that by reorienting the data. fslreorient2std should do the trick")
     # save unique orientations to dataset.json
-    print("Dataset OK")
+    if not geometries_OK:
+        raise Warning("GEOMETRY MISMATCH FOUND! CHECK THE TEXT OUTPUT! This does not cause an error at this point  but you should definitely check whether your geometries are alright!")
+    else:
+        print("Dataset OK")
 
 
 def reorient_to_RAS(img_fname: str, output_fname: str = None):

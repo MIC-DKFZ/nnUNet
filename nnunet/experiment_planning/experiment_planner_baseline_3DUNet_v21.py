@@ -50,7 +50,8 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
 
         target = np.percentile(np.vstack(spacings), self.target_spacing_percentile, 0)
 
-        # Todo this should be used to determine the new median shape. The old implementation is not 100% correct
+        # This should be used to determine the new median shape. The old implementation is not 100% correct.
+        # Fixed in 2.4
         # sizes = [np.array(i) / target * np.array(j) for i, j in zip(spacings, sizes)]
 
         target_size = np.percentile(np.vstack(sizes), self.target_spacing_percentile, 0)

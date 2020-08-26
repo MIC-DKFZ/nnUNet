@@ -28,8 +28,6 @@ except ImportError:
     DDP = None
 
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
-from nnunet.network_architecture.generic_UNet import Generic_UNet
-from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
@@ -129,38 +127,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
     def print_to_log_file(self, *args, also_print_to_console=True):
         if self.local_rank == 0:
             super().print_to_log_file(*args, also_print_to_console=also_print_to_console)
-
-    def initialize_network(self):
-        """
-        This is specific to the U-Net and must be adapted for other network architectures
-        :return:
-        """
-        self.print_to_log_file(self.net_num_pool_op_kernel_sizes)
-        self.print_to_log_file(self.net_conv_kernel_sizes)
-
-        if self.threeD:
-            conv_op = nn.Conv3d
-            dropout_op = nn.Dropout3d
-            norm_op = nn.InstanceNorm3d
-
-        else:
-            conv_op = nn.Conv2d
-            dropout_op = nn.Dropout2d
-            norm_op = nn.InstanceNorm2d
-
-        norm_op_kwargs = {'eps': 1e-5, 'affine': True}
-        dropout_op_kwargs = {'p': 0, 'inplace': True}
-        net_nonlin = nn.LeakyReLU
-        net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
-        self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
-                                    len(self.net_num_pool_op_kernel_sizes),
-                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
-                                    dropout_op_kwargs,
-                                    net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
-                                    self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        if torch.cuda.is_available():
-            self.network.cuda()
-        self.network.inference_apply_nonlin = softmax_helper
 
     def process_plans(self, plans):
         super().process_plans(plans)
@@ -385,8 +351,10 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                 net = self.network
             ds = net.do_ds
             net.do_ds = False
-            ret = nnUNetTrainer.validate(self, do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
+
+            ret = nnUNetTrainer.validate(self, do_mirroring, use_sliding_window, step_size, save_softmax,
+                                         use_gaussian, overwrite, validation_folder_name, debug, all_in_gpu,
+                                         segmentation_export_kwargs)
             net.do_ds = ds
             return ret
 

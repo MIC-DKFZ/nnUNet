@@ -105,10 +105,8 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
     num_pool_per_axis = [0] * dim
 
     while True:
-        # find axes that are within factor 2 of min axis spacing
-        # TODO this is a problem because sometimes we have spacing 20, 50, 50 and we want to still keep pooling.
-        #  Here we would stop however. This is not what we want! We need to restrict min_spacing = min(current_spacing)
-        #  to only the spacings that belong to axes that can still be pooled :-/
+        # This is a problem because sometimes we have spacing 20, 50, 50 and we want to still keep pooling.
+        # Here we would stop however. This is not what we want! Fixed in get_pool_and_conv_propsv2
         min_spacing = min(current_spacing)
         valid_axes_for_pool = [i for i in range(dim) if current_spacing[i] / min_spacing < 2]
         axes = []
@@ -140,12 +138,87 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
             pool_kernel_sizes[v] = 2
             num_pool_per_axis[v] += 1
             current_spacing[v] *= 2
-            current_size[v] /= 2
+            current_size[v] = np.ceil(current_size[v] / 2)
         for nv in other_axes:
             pool_kernel_sizes[nv] = 1
 
         pool_op_kernel_sizes.append(pool_kernel_sizes)
         conv_kernel_sizes.append(conv_kernel_size)
+        #print(conv_kernel_sizes)
+
+    must_be_divisible_by = get_shape_must_be_divisible_by(num_pool_per_axis)
+    patch_size = pad_shape(patch_size, must_be_divisible_by)
+
+    # we need to add one more conv_kernel_size for the bottleneck. We always use 3x3(x3) conv here
+    conv_kernel_sizes.append([3]*dim)
+    return num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, patch_size, must_be_divisible_by
+
+
+def get_pool_and_conv_props_v2(spacing, patch_size, min_feature_map_size, max_numpool):
+    """
+
+    :param spacing:
+    :param patch_size:
+    :param min_feature_map_size: min edge length of feature maps in bottleneck
+    :return:
+    """
+    dim = len(spacing)
+
+    current_spacing = deepcopy(list(spacing))
+    current_size = deepcopy(list(patch_size))
+
+    pool_op_kernel_sizes = []
+    conv_kernel_sizes = []
+
+    num_pool_per_axis = [0] * dim
+    kernel_size = [1] * dim
+
+    while True:
+        # exclude axes that we cannot pool further because of min_feature_map_size constraint
+        valid_axes_for_pool = [i for i in range(dim) if current_size[i] >= 2*min_feature_map_size]
+        if len(valid_axes_for_pool) < 1:
+            break
+
+        spacings_of_axes = [current_spacing[i] for i in valid_axes_for_pool]
+
+        # find axis that are within factor of 2 within smallest spacing
+        min_spacing_of_valid = min(spacings_of_axes)
+        valid_axes_for_pool = [i for i in valid_axes_for_pool if current_spacing[i] / min_spacing_of_valid < 2]
+
+        # max_numpool constraint
+        valid_axes_for_pool = [i for i in valid_axes_for_pool if num_pool_per_axis[i] < max_numpool]
+
+        if len(valid_axes_for_pool) == 1:
+            if current_size[valid_axes_for_pool[0]] >= 3 * min_feature_map_size:
+                pass
+            else:
+                break
+        if len(valid_axes_for_pool) < 1:
+            break
+
+        # now we need to find kernel sizes
+        # kernel sizes are initialized to 1. They are successively set to 3 when their associated axis becomes within
+        # factor 2 of min_spacing. Once they are 3 they remain 3
+        for d in range(dim):
+            if kernel_size[d] == 3:
+                continue
+            else:
+                if spacings_of_axes[d] / min(current_spacing) < 2:
+                    kernel_size[d] = 3
+
+        other_axes = [i for i in range(dim) if i not in valid_axes_for_pool]
+
+        pool_kernel_sizes = [0] * dim
+        for v in valid_axes_for_pool:
+            pool_kernel_sizes[v] = 2
+            num_pool_per_axis[v] += 1
+            current_spacing[v] *= 2
+            current_size[v] = np.ceil(current_size[v] / 2)
+        for nv in other_axes:
+            pool_kernel_sizes[nv] = 1
+
+        pool_op_kernel_sizes.append(pool_kernel_sizes)
+        conv_kernel_sizes.append(deepcopy(kernel_size))
         #print(conv_kernel_sizes)
 
     must_be_divisible_by = get_shape_must_be_divisible_by(num_pool_per_axis)
@@ -185,3 +258,10 @@ def get_network_numpool(patch_size, maxpool_cap=999, min_feature_map_size=4):
     network_numpool_per_axis = np.floor([np.log(i / min_feature_map_size) / np.log(2) for i in patch_size]).astype(int)
     network_numpool_per_axis = [min(i, maxpool_cap) for i in network_numpool_per_axis]
     return network_numpool_per_axis
+
+
+if __name__ == '__main__':
+    # trying to fix https://github.com/MIC-DKFZ/nnUNet/issues/261
+    median_shape = [24, 504, 512]
+    spacing = [5.9999094, 0.50781202, 0.50781202]
+    num_pool_per_axis, net_num_pool_op_kernel_sizes, net_conv_kernel_sizes, patch_size, must_be_divisible_by = get_pool_and_conv_props_poolLateV2(median_shape, min_feature_map_size=4, max_numpool=999, spacing=spacing)

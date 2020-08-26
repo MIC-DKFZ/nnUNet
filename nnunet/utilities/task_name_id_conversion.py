@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 
-from nnunet.paths import nnUNet_raw_data, preprocessing_output_dir, nnUNet_cropped_data
+from nnunet.paths import nnUNet_raw_data, preprocessing_output_dir, nnUNet_cropped_data, network_training_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 
@@ -35,7 +35,13 @@ def convert_id_to_task_name(task_id: int):
     else:
         candidates_cropped = []
 
-    all_candidates = candidates_cropped + candidates_preprocessed + candidates_raw
+    candidates_trained_models = []
+    if network_training_output_dir is not None:
+        for m in ['2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres']:
+            if isdir(join(network_training_output_dir, m)):
+                candidates_trained_models += subdirs(join(network_training_output_dir, m), prefix=startswith, join=False)
+
+    all_candidates = candidates_cropped + candidates_preprocessed + candidates_raw + candidates_trained_models
     unique_candidates = np.unique(all_candidates)
     if len(unique_candidates) > 1:
         raise RuntimeError("More than one task name found for task id %d. Please correct that. (I looked in the "

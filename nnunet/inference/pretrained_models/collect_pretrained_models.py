@@ -166,10 +166,6 @@ def export_pretrained_model(task_name: str, output_file: str,
                                                                                         (task_name, m)
 
         assert isfile(join(expected_output_folder, "plans.pkl")), "plans.pkl missing, Task %s model %s" % (task_name, m)
-        assert isfile(join(expected_output_folder, "postprocessing.json")), "postprocessing.json missing, " \
-                                                                            "Task %s model %s. Run nnUNet_" \
-                                                                            "determine_postprocessing first." % \
-                                                                            (task_name, m)
 
         for e in expected_folders:
             zipf.write(join(expected_output_folder, e, "debug.json"),
@@ -190,8 +186,14 @@ def export_pretrained_model(task_name: str, output_file: str,
 
         zipf.write(join(expected_output_folder, "plans.pkl"),
                    os.path.relpath(join(expected_output_folder, "plans.pkl"), network_training_output_dir))
-        zipf.write(join(expected_output_folder, "postprocessing.json"),
-                   os.path.relpath(join(expected_output_folder, "postprocessing.json"), network_training_output_dir))
+        if not isfile(join(expected_output_folder, "postprocessing.json")):
+            if strict:
+                raise RuntimeError('postprocessing.json missing. Run nnUNet_determine_postprocessing or disable strict')
+            else:
+                print('WARNING: postprocessing.json missing')
+        else:
+            zipf.write(join(expected_output_folder, "postprocessing.json"),
+                       os.path.relpath(join(expected_output_folder, "postprocessing.json"), network_training_output_dir))
 
     ensemble_dir = join(network_training_output_dir, 'ensembles', task_name)
     if not isdir(ensemble_dir):
@@ -229,6 +231,8 @@ def export_entry_point():
                         default=default_cascade_trainer)
     parser.add_argument('-pl', type=str, help='nnunet plans identifier. Default: %s' % default_plans_identifier,
                         required=False, default=default_plans_identifier)
+    parser.add_argument('--disable_strict', action='store_true', help='set this if you want to allow skipping '
+                                                                     'missing things', required=False)
     args = parser.parse_args()
 
     taskname = args.t
@@ -242,7 +246,7 @@ def export_entry_point():
             raise e
         taskname = convert_id_to_task_name(taskid)
 
-    export_pretrained_model(taskname, args.o, args.m, args.tr, args.trc, args.pl)
+    export_pretrained_model(taskname, args.o, args.m, args.tr, args.trc, args.pl, strict=not args.disable_strict)
 
 
 def export_for_paper():

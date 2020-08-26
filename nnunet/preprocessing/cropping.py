@@ -172,9 +172,6 @@ class ImageCropper(object):
             print(e)
             raise e
 
-    def _load_crop_save_star(self, args):
-        return self.load_crop_save(*args)
-
     def get_list_of_cropped_files(self):
         return subfiles(self.output_folder, join=True, suffix=".npz")
 
@@ -205,7 +202,7 @@ class ImageCropper(object):
             list_of_args.append((case, case_identifier, overwrite_existing))
 
         p = Pool(self.num_threads)
-        p.map(self._load_crop_save_star, list_of_args)
+        p.starmap(self.load_crop_save, list_of_args)
         p.close()
         p.join()
 

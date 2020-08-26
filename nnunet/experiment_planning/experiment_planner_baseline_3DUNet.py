@@ -362,7 +362,7 @@ class ExperimentPlanner(object):
         num_modalities = len(list(modalities.keys()))
 
         for i in range(num_modalities):
-            if modalities[i] == "CT":
+            if modalities[i] == "CT" or modalities[i] == 'ct':
                 schemes[i] = "CT"
             else:
                 schemes[i] = "nonCT"

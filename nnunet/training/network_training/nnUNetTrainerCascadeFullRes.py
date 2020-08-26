@@ -29,6 +29,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 from nnunet.utilities.one_hot_encoding import to_one_hot
 import shutil
+
 matplotlib.use("agg")
 
 
@@ -137,7 +138,8 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                         "will wait all winter for your model to finish!")
 
                 self.tr_gen, self.val_gen = get_default_augmentation(self.dl_tr, self.dl_val,
-                                                                     self.data_aug_params['patch_size_for_spatialtransform'],
+                                                                     self.data_aug_params[
+                                                                         'patch_size_for_spatialtransform'],
                                                                      self.data_aug_params)
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())))
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())))
@@ -151,7 +153,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                  step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z: int = 0):
+                 segmentation_export_kwargs: dict = None):
 
         current_mode = self.network.training
         self.network.eval()
@@ -160,6 +162,20 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         if self.dataset_val is None:
             self.load_dataset()
             self.do_split()
+
+        if segmentation_export_kwargs is None:
+            if 'segmentation_export_params' in self.plans.keys():
+                force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+                interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+                interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+            else:
+                force_separate_z = None
+                interpolation_order = 1
+                interpolation_order_z = 0
+        else:
+            force_separate_z = segmentation_export_kwargs['force_separate_z']
+            interpolation_order = segmentation_export_kwargs['interpolation_order']
+            interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         output_folder = join(self.output_folder, validation_folder_name)
         maybe_mkdir_p(output_folder)
@@ -213,13 +229,15 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                 np.save(fname + ".npy", softmax_pred)
                 softmax_pred = fname + ".npy"
+
             results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                                         ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, interpolation_order, None, None, None,
-                                                           softmax_fname, None, force_separate_z,
-                                                           interpolation_order_z),
-                                                          )
-                                                         )
+                                                     ((softmax_pred, join(output_folder, fname + ".nii.gz"),
+                                                       properties, interpolation_order, self.regions_class_order,
+                                                       None, None,
+                                                       softmax_fname, None, force_separate_z,
+                                                       interpolation_order_z),
+                                                      )
+                                                     )
                            )
 
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
@@ -262,3 +280,5 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                     sleep(1)
 
         self.network.train(current_mode)
+        export_pool.close()
+        export_pool.join()
