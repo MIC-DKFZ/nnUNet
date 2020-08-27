@@ -16,6 +16,7 @@
 import torch
 from torch import distributed
 from torch import autograd
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 def print_if_rank0(*args):
@@ -67,7 +68,6 @@ if __name__ == "__main__":
 
     # so far this works as expected
     print("now running a DDP model")
-    from apex.parallel import DistributedDataParallel as DDP
     c = nn.Conv2d(2, 3, 3, 1, 1, 1, 1, True).cuda()
     c = DDP(c)
     opt = Adam(c.parameters())

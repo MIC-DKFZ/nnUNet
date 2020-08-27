@@ -12,12 +12,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import torch
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
-
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2

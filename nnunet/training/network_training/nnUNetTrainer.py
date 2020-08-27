@@ -41,12 +41,8 @@ from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 from torch.optim import lr_scheduler
 
-matplotlib.use("agg")
 
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-except ImportError:
-    DDP = None
+matplotlib.use("agg")
 
 
 class nnUNetTrainer(NetworkTrainer):

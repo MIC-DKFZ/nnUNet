@@ -344,12 +344,10 @@ class NetworkTrainer(object):
                 key = key[7:]
             new_state_dict[key] = value
 
-        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
         if self.fp16:
             self._maybe_init_amp()
             if 'amp_grad_scaler' in checkpoint.keys():
                 self.amp_grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
-
 
         self.network.load_state_dict(new_state_dict)
         self.epoch = checkpoint['epoch']

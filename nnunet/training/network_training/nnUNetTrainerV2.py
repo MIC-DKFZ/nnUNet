@@ -252,6 +252,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
             if do_backprop:
                 l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
                 self.optimizer.step()
 
         if run_online_evaluation:

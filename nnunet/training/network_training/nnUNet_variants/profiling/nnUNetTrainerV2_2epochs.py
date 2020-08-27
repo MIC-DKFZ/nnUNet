@@ -20,11 +20,8 @@ from nnunet.training.network_training.nnUNet_variants.architectural_variants.nnU
     nnUNetTrainerV2_noDeepSupervision
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
 from torch import nn
+from torch.cuda.amp import autocast
 from torch.nn.utils import clip_grad_norm_
-try:
-    from apex import amp
-except ImportError:
-    amp = None
 
 
 class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
@@ -108,7 +105,7 @@ class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
         target = data_dict['target']
 
         data = maybe_to_torch(data)
-        target = maybe_to_torch(target)
+        target = maybe_to_torch(target).long()[:, 0]
 
         if torch.cuda.is_available():
             data = to_cuda(data)
@@ -116,26 +113,34 @@ class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
 
         self.optimizer.zero_grad()
 
-        output = self.network(data)
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.loss(output, target)
 
-        del data
-        target = target.long()[:, 0]
-        loss = self.loss(output, target)
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
+
         del target
 
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                loss.backward()
-            else:
-                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-
-        return loss.detach().cpu().numpy()
+        return l.detach().cpu().numpy()
 
     def run_online_evaluation(self, output, target):
         pass
@@ -182,25 +187,34 @@ class nnUNetTrainerV2_5epochs_noDS(nnUNetTrainerV2_noDeepSupervision):
 
         self.optimizer.zero_grad()
 
-        output = self.network(data)
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.loss(output, target)
 
-        del data
-        loss = self.loss(output, target)
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
+
         del target
 
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                loss.backward()
-            else:
-                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-
-        return loss.detach().cpu().numpy()
+        return l.detach().cpu().numpy()
 
     def run_online_evaluation(self, output, target):
         pass
