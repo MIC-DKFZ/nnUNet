@@ -18,14 +18,12 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 
 class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
-    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
-                 save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
+    def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
+                 step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 force_separate_z: bool = None, interpolation_order: int = 3, interpolation_order_z=0):
+                 segmentation_export_kwargs: dict = None):
         return super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                                overwrite, validation_folder_name, debug, all_in_gpu,
-                                force_separate_z=False, interpolation_order=3,
-                                interpolation_order_z=3)
+                               overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
 
     def preprocess_predict_nifti(self, input_files, output_file=None, softmax_ouput_file=None):
         """

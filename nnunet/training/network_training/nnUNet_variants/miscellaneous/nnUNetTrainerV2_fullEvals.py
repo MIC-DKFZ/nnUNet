@@ -104,9 +104,12 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
                 #print(k, data.shape)
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
-                    data[:-1], do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
-                    all_in_gpu=all_in_gpu, verbose=False)[1]
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1], do_mirroring,
+                                                                                     mirror_axes, use_sliding_window,
+                                                                                     step_size, use_gaussian,
+                                                                                     all_in_gpu=all_in_gpu,
+                                                                                     verbose=False,
+                                                                                     mixed_precision=self.fp16)[1]
 
                 # this does not do anything in brats -> remove this line
                 # softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])

@@ -363,11 +363,10 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
-                                                         use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         if pad_border_mode == 'constant' and pad_kwargs is None:
             pad_kwargs = {'constant_values': 0}
 
@@ -388,7 +387,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         net.do_ds = False
         ret = net.predict_3D(data, do_mirroring, mirror_axes, use_sliding_window, step_size, self.patch_size,
                              self.regions_class_order, use_gaussian, pad_border_mode, pad_kwargs,
-                             all_in_gpu, verbose)
+                             all_in_gpu, verbose, mixed_precision=mixed_precision)
         net.do_ds = ds
         return ret
 
