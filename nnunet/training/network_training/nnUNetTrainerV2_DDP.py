@@ -31,7 +31,6 @@ from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, 
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -213,7 +212,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
-            self._maybe_init_amp()
             self.network = DDP(self.network)
 
         else:
@@ -389,10 +387,10 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         net.do_ds = ds
         return ret
 
-    def load_checkpoint_ram(self, saved_model, train=True):
+    def load_checkpoint_ram(self, checkpoint, train=True):
         """
         used for if the checkpoint is already in ram
-        :param saved_model:
+        :param checkpoint:
         :param train:
         :return:
         """
@@ -403,7 +401,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         curr_state_dict_keys = list(self.network.state_dict().keys())
         # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
-        for k, value in saved_model['state_dict'].items():
+        for k, value in checkpoint['state_dict'].items():
             key = k
             if key not in curr_state_dict_keys:
                 print("duh")
@@ -419,20 +417,20 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             self.network = DDP(self.network)
 
         self.network.load_state_dict(new_state_dict)
-        self.epoch = saved_model['epoch']
+        self.epoch = checkpoint['epoch']
         if train:
-            optimizer_state_dict = saved_model['optimizer_state_dict']
+            optimizer_state_dict = checkpoint['optimizer_state_dict']
             if optimizer_state_dict is not None:
                 self.optimizer.load_state_dict(optimizer_state_dict)
 
-            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and checkpoint[
                 'lr_scheduler_state_dict'] is not None:
-                self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
+                self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
 
             if issubclass(self.lr_scheduler.__class__, _LRScheduler):
                 self.lr_scheduler.step(self.epoch)
 
-        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
+        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = checkpoint[
             'plot_stuff']
 
         # after the training is done, the epoch is incremented one more time in my old code. This results in
@@ -447,6 +445,3 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             self.all_val_losses = self.all_val_losses[:self.epoch]
             self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
             self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
-
-        self.amp_initialized = False
-        self._maybe_init_amp()

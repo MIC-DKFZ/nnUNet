@@ -31,14 +31,9 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.nn.utils import clip_grad_norm_
+from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
 
 
 class nnUNetTrainerV2(nnUNetTrainer):
@@ -238,25 +233,33 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         self.optimizer.zero_grad()
 
-        output = self.network(data)
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.loss(output, target)
 
-        del data
-        loss = self.loss(output, target)
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                self.optimizer.step()
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
+
         del target
 
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                loss.backward()
-            else:
-                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-
-        return loss.detach().cpu().numpy()
+        return l.detach().cpu().numpy()
 
     def do_split(self):
         """
