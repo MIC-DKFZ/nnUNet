@@ -319,7 +319,6 @@ class DataLoader3D(SlimDataLoaderBase):
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
             # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
             # remove label -1 in the data augmentation but this way it is less error prone)
-
             case_all_data = case_all_data[:, valid_bbox_x_lb:valid_bbox_x_ub,
                                              valid_bbox_y_lb:valid_bbox_y_ub,
                                              valid_bbox_z_lb:valid_bbox_z_ub]
