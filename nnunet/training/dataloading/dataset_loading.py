@@ -85,8 +85,9 @@ def delete_npy(folder):
         os.remove(n)
 
 
-def load_dataset(folder):
-    # we don't load the actual data but instead return the filename to the np file. the properties are loaded though
+def load_dataset(folder, num_cases_properties_loading_threshold=1000):
+    # we don't load the actual data but instead return the filename to the np file.
+    print('loading dataset')
     case_identifiers = get_case_identifiers(folder)
     case_identifiers.sort()
     dataset = OrderedDict()
@@ -99,6 +100,11 @@ def load_dataset(folder):
 
         if dataset[c].get('seg_from_prev_stage_file') is not None:
             dataset[c]['seg_from_prev_stage_file'] = join(folder, "%s_segs.npz" % c)
+
+    if len(case_identifiers) <= num_cases_properties_loading_threshold:
+        print('loading all case properties')
+        for i in dataset.keys():
+            dataset[i]['properties'] = load_pickle(dataset[i]['properties_file'])
     return dataset
 
 
@@ -222,8 +228,12 @@ class DataLoader3D(SlimDataLoaderBase):
             else:
                 force_fg = False
 
-            properties = load_pickle(self._data[i]['properties_file'])
+            if 'properties' in self._data[i].keys():
+                properties = self._data[i]['properties']
+            else:
+                properties = load_pickle(self._data[i]['properties_file'])
             case_properties.append(properties)
+
             # cases are stores as npz, but we require unpack_dataset to be run. This will decompress them into npy
             # which is much faster to access
             if isfile(self._data[i]['data_file'][:-4] + ".npy"):
@@ -410,10 +420,6 @@ class DataLoader2D(SlimDataLoaderBase):
             self.need_to_pad += pad_sides
         self.pad_sides = pad_sides
         self.data_shape, self.seg_shape = self.determine_shapes()
-        if len(self._data.keys()) < 2000:
-            # this uses more ram because we now have the class_locations precomputed. Only do this if the number
-            # of training cases is 'small'
-            self.load_all_properties_files()
 
     def determine_shapes(self):
         num_seg = 1
@@ -430,10 +436,6 @@ class DataLoader2D(SlimDataLoaderBase):
 
     def get_do_oversample(self, batch_idx):
         return not batch_idx < round(self.batch_size * (1 - self.oversample_foreground_percent))
-
-    def load_all_properties_files(self):
-        for i in self._data.keys():
-            self._data[i]['properties'] = load_pickle(self._data[i]['properties_file'])
 
     def generate_train_batch(self):
         selected_keys = np.random.choice(self.list_of_keys, self.batch_size, True, None)
