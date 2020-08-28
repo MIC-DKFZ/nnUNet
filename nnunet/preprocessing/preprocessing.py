@@ -337,7 +337,7 @@ class GenericPreprocessor(object):
                 class_locs[c] = []
                 continue
             target_num_samples = min(num_samples, len(all_locs))
-            target_num_samples = max(target_num_samples, len(all_locs) * min_percent_coverage)
+            target_num_samples = max(target_num_samples, int(np.ceil(len(all_locs) * min_percent_coverage)))
             selected = all_locs[rndst.choice(len(all_locs), target_num_samples, replace=False)]
             class_locs[c] = selected
             print(c, target_num_samples)
