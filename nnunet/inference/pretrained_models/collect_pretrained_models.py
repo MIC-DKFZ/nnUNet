@@ -159,7 +159,7 @@ def export_pretrained_model(task_name: str, output_file: str,
             else:
                 continue
 
-        expected_folders = ["fold_%d" % i for i in folds]
+        expected_folders = ["fold_%d" % i if i != 'all' else i for i in folds]
         assert all([isdir(join(expected_output_folder, i)) for i in expected_folders]), "not all requested folds " \
                                                                                         "present, " \
                                                                                         "Task %s model %s" % \
@@ -233,7 +233,11 @@ def export_entry_point():
                         required=False, default=default_plans_identifier)
     parser.add_argument('--disable_strict', action='store_true', help='set this if you want to allow skipping '
                                                                      'missing things', required=False)
+    parser.add_argument('-f', nargs='+', type=str, help='Folds. Default: 0 1 2 3 4', required=False, default=default_trainer)
     args = parser.parse_args()
+
+    folds = args.f
+    folds = [int(i) if i != 'all' else i for i in folds]
 
     taskname = args.t
     if taskname.startswith("Task"):
@@ -246,7 +250,8 @@ def export_entry_point():
             raise e
         taskname = convert_id_to_task_name(taskid)
 
-    export_pretrained_model(taskname, args.o, args.m, args.tr, args.trc, args.pl, strict=not args.disable_strict)
+    export_pretrained_model(taskname, args.o, args.m, args.tr, args.trc, args.pl, strict=not args.disable_strict,
+                            folds=folds)
 
 
 def export_for_paper():
