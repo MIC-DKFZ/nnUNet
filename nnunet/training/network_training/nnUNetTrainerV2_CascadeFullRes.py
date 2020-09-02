@@ -245,7 +245,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         results = []
 
         for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
+            properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
 
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \

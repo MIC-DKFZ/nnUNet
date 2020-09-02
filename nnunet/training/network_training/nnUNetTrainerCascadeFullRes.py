@@ -193,7 +193,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         transpose_backward = self.plans.get('transpose_backward')
 
         for k in self.dataset_val.keys():
-            properties = self.dataset[k]['properties']
+            properties = load_pickle(self.dataset[k]['properties_file'])
             data = np.load(self.dataset[k]['data_file'])['data']
 
             # concat segmentation of previous step

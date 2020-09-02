@@ -156,31 +156,3 @@ class ExperimentPlanner2D(ExperimentPlanner):
 
         self.plans = plans
         self.save_my_plans()
-
-    def run_preprocessing(self, num_threads):
-        super().run_preprocessing(num_threads)
-        self.add_classes_in_slice_info()
-
-    def add_classes_in_slice_info(self):
-        """
-        this speeds up oversampling foreground during training
-        :return:
-        """
-        p = Pool(default_num_threads)
-
-        # if there is more than one my_data_identifier (different brnaches) then this code will run for all of them if
-        # they start with the same string. not problematic, but not pretty
-        stages = [join(self.preprocessed_output_folder, self.data_identifier + "_stage%d" % i) for i in range(len(self.plans_per_stage))]
-
-        for s in stages:
-            print(s.split("/")[-1])
-            list_of_npz_files = subfiles(s, True, None, ".npz", True)
-            list_of_pkl_files = [i[:-4]+".pkl" for i in list_of_npz_files]
-            all_classes = []
-            for pk in list_of_pkl_files:
-                props = load_pickle(pk)
-                all_classes_tmp = np.array(props['classes'])
-                all_classes.append(all_classes_tmp[all_classes_tmp >= 0])
-            p.map(add_classes_in_slice_info, zip(list_of_npz_files, list_of_pkl_files, all_classes))
-        p.close()
-        p.join()
