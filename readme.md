@@ -504,3 +504,5 @@ in 3d_fullres (for example Liver is about 512x512x512 and the patch size is 128x
 3d_lowres is created). You can enforce the creation of 3d_lowres models for smaller datasets by changing the value of
 `HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0` (located in experiment_planning.configuration).
     
+#### Error: mmap length is greater than file size
+Please delete all .npy files in the nnUNet_preprocessed folder of the test you were trying to train. Then try again.
