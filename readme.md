@@ -85,25 +85,8 @@ Please do not use conda environments. This has caused multiple issues in the pas
 
 Python 2 is deprecated and not supported. Please make sure you are using Python 3 :-)
 
-1) Install [PyTorch](https://pytorch.org/get-started/locally/)
-2) Install [Nvidia Apex](https://github.com/NVIDIA/apex). Follow the instructions [here](https://github.com/NVIDIA/apex#quick-start).
-You can skip this step if all you want to do is run inference with our pretrained models. Apex is required for 
-mixed precision training. (Please **do not use** `pip install apex` - this will not install the correct package). 
-When installing apex, you have two choices (both are described on the apex website linked above!):
-    1) Python-only installation:
-    This will not compile custom kernels and is a little bit slower than the other option (<10%). But it is much easier to do, 
-    which is why we recommend this option for less experienced users
-    2) Regular installation:
-    This gives more performance, but requires a CUDA toolkit installation. When installing pytorch, you must make sure to 
-    select the Cuda version that matches the toolkit version you have installed. You can check which version you have by 
-    running `nvcc --version`. You furthermore need to have the python3 dev libraries installed on your system. Follow the
-    instructions [here](https://stackoverflow.com/questions/21530577/fatal-error-python-h-no-such-file-or-directory) for how to do this.
-    Only after these prerequisites are done you can install apex.
-    Note that pytorch will compile the kernels only for the type of GPU that is in your system. If you intend to swap 
-    out your GPU (or are installing this in a cluster environment), run `export TORCH_CUDA_ARCH_LIST="6.1;7.0;7.5"` 
-    prior to installing apex. This will tell pytorch to compile for all currently available GPU types.
-    
-3) Install nnU-Net depending on your use case:
+1) Install [PyTorch](https://pytorch.org/get-started/locally/). You need at least version 1.6
+2) Install nnU-Net depending on your use case:
     1) For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running **inference with pretrained models**:
       
         ```pip install nnunet```
@@ -114,9 +97,9 @@ When installing apex, you have two choices (both are described on the apex websi
           cd nnUNet
           pip install -e .
           ```
-4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to 
+3) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to 
 set a few of environment variables. Please follow the instructions [here](documentation/setting_up_paths.md).
-5) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate 
+4) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate 
 plots of the network topologies it generates (see [Model training](#model-training)). To install hiddenlayer, 
 run the following commands:
     ```bash
