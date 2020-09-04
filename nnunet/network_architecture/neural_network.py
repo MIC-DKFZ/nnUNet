@@ -15,11 +15,14 @@
 
 import numpy as np
 from batchgenerators.augmentations.utils import pad_nd_image
+from nnunet.utilities.random_stuff import no_op
 from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
 from torch import nn
 import torch
 from scipy.ndimage.filters import gaussian_filter
 from typing import Union, Tuple, List
+
+from torch.cuda.amp import autocast
 
 
 class NeuralNetwork(nn.Module):
@@ -72,7 +75,7 @@ class SegmentationNetwork(NeuralNetwork):
                    step_size: float = 0.5, patch_size: Tuple[int, ...] = None, regions_class_order: Tuple[int, ...] = None,
                    use_gaussian: bool = False, pad_border_mode: str = "constant",
                    pad_kwargs: dict = None, all_in_gpu: bool = False,
-                   verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                   verbose: bool = True, mixed_precision: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         Use this function to predict a 3D image. It does not matter whether the network is a 2D or 3D U-Net, it will
         detect that automatically and run the appropriate code.
@@ -102,6 +105,7 @@ class SegmentationNetwork(NeuralNetwork):
         :param pad_kwargs: leave this alone
         :param all_in_gpu: experimental. You probably want to leave this as is it
         :param verbose: Do you want a wall of text? If yes then set this to True
+        :param mixed_precision: if True, will run inference in mixed precision with autocast()
         :return:
         """
         assert step_size <= 1, 'step_size must be smaller than 1. Otherwise there will be a gap between consecutive ' \
@@ -129,25 +133,31 @@ class SegmentationNetwork(NeuralNetwork):
 
         assert len(x.shape) == 4, "data must have shape (c,x,y,z)"
 
-        if self.conv_op == nn.Conv3d:
-            if use_sliding_window:
-                res = self._internal_predict_3D_3Dconv_tiled(x, step_size, do_mirroring, mirror_axes, patch_size,
-                                                             regions_class_order, use_gaussian, pad_border_mode,
-                                                             pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu,
-                                                             verbose=verbose)
-            else:
-                res = self._internal_predict_3D_3Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
-                                                       pad_border_mode, pad_kwargs=pad_kwargs, verbose=verbose)
-        elif self.conv_op == nn.Conv2d:
-            if use_sliding_window:
-                res = self._internal_predict_3D_2Dconv_tiled(x, patch_size, do_mirroring, mirror_axes, step_size,
-                                                             regions_class_order, use_gaussian, pad_border_mode,
-                                                             pad_kwargs, all_in_gpu, False)
-            else:
-                res = self._internal_predict_3D_2Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
-                                                       pad_border_mode, pad_kwargs, all_in_gpu, False)
+        if mixed_precision:
+            context = autocast
         else:
-            raise RuntimeError("Invalid conv op, cannot determine what dimensionality (2d/3d) the network is")
+            context = no_op
+
+        with context():
+            if self.conv_op == nn.Conv3d:
+                if use_sliding_window:
+                    res = self._internal_predict_3D_3Dconv_tiled(x, step_size, do_mirroring, mirror_axes, patch_size,
+                                                                 regions_class_order, use_gaussian, pad_border_mode,
+                                                                 pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu,
+                                                                 verbose=verbose)
+                else:
+                    res = self._internal_predict_3D_3Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
+                                                           pad_border_mode, pad_kwargs=pad_kwargs, verbose=verbose)
+            elif self.conv_op == nn.Conv2d:
+                if use_sliding_window:
+                    res = self._internal_predict_3D_2Dconv_tiled(x, patch_size, do_mirroring, mirror_axes, step_size,
+                                                                 regions_class_order, use_gaussian, pad_border_mode,
+                                                                 pad_kwargs, all_in_gpu, False)
+                else:
+                    res = self._internal_predict_3D_2Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
+                                                           pad_border_mode, pad_kwargs, all_in_gpu, False)
+            else:
+                raise RuntimeError("Invalid conv op, cannot determine what dimensionality (2d/3d) the network is")
 
         return res
 
@@ -155,7 +165,7 @@ class SegmentationNetwork(NeuralNetwork):
                    step_size: float = 0.5, patch_size: tuple = None, regions_class_order: tuple = None,
                    use_gaussian: bool = False, pad_border_mode: str = "constant",
                    pad_kwargs: dict = None, all_in_gpu: bool = False,
-                   verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                   verbose: bool = True, mixed_precision: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         Use this function to predict a 2D image. If this is a 3D U-Net it will crash because you cannot predict a 2D
         image with that (you dummy).
@@ -211,16 +221,22 @@ class SegmentationNetwork(NeuralNetwork):
 
         assert len(x.shape) == 3, "data must have shape (c,x,y)"
 
-        if self.conv_op == nn.Conv2d:
-            if use_sliding_window:
-                res = self._internal_predict_2D_2Dconv_tiled(x, step_size, do_mirroring, mirror_axes, patch_size,
-                                                             regions_class_order, use_gaussian, pad_border_mode,
-                                                             pad_kwargs, all_in_gpu, verbose)
-            else:
-                res = self._internal_predict_2D_2Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
-                                                       pad_border_mode, pad_kwargs, verbose)
+        if mixed_precision:
+            context = autocast
         else:
-            raise RuntimeError("Invalid conv op, cannot determine what dimensionality (2d/3d) the network is")
+            context = no_op
+
+        with context():
+            if self.conv_op == nn.Conv2d:
+                if use_sliding_window:
+                    res = self._internal_predict_2D_2Dconv_tiled(x, step_size, do_mirroring, mirror_axes, patch_size,
+                                                                 regions_class_order, use_gaussian, pad_border_mode,
+                                                                 pad_kwargs, all_in_gpu, verbose)
+                else:
+                    res = self._internal_predict_2D_2Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
+                                                           pad_border_mode, pad_kwargs, verbose)
+            else:
+                raise RuntimeError("Invalid conv op, cannot determine what dimensionality (2d/3d) the network is")
 
         return res
 

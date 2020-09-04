@@ -19,19 +19,12 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed as dist
-
-try:
-    from apex import amp
-    from apex.parallel import DistributedDataParallel as DDP
-except ImportError:
-    amp = None
-    DDP = None
-
+from torch.cuda.amp import autocast
+from torch.nn.parallel import DistributedDataParallel as DDP
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -213,8 +206,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
-            self._maybe_init_amp()
-            self.network = DDP(self.network)
+            self.network = DDP(self.network, device_ids=[self.local_rank])
 
         else:
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
@@ -234,9 +226,36 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
         self.optimizer.zero_grad()
 
-        output = self.network(data)
-        del data
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.compute_loss(output, target)
 
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.compute_loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
+
+        if run_online_evaluation:
+            self.run_online_evaluation(output, target)
+
+        del target
+
+        return l.detach().cpu().numpy()
+
+    def compute_loss(self, output, target):
         total_loss = None
         for i in range(len(output)):
             # Starting here it gets spicy!
@@ -269,56 +288,40 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                 total_loss = self.ds_loss_weights[i] * (ce_loss + dice_loss)
             else:
                 total_loss += self.ds_loss_weights[i] * (ce_loss + dice_loss)
+        return total_loss
 
-        if run_online_evaluation:
-            with torch.no_grad():
-                num_classes = output[0].shape[1]
-                output_seg = output[0].argmax(1)
-                target = target[0][:, 0]
-                axes = tuple(range(1, len(target.shape)))
-                tp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
-                fp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
-                fn_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
-                for c in range(1, num_classes):
-                    tp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target == c).float(), axes=axes)
-                    fp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target != c).float(), axes=axes)
-                    fn_hard[:, c - 1] = sum_tensor((output_seg != c).float() * (target == c).float(), axes=axes)
+    def run_online_evaluation(self, output, target):
+        with torch.no_grad():
+            num_classes = output[0].shape[1]
+            output_seg = output[0].argmax(1)
+            target = target[0][:, 0]
+            axes = tuple(range(1, len(target.shape)))
+            tp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
+            fp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
+            fn_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
+            for c in range(1, num_classes):
+                tp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target == c).float(), axes=axes)
+                fp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target != c).float(), axes=axes)
+                fn_hard[:, c - 1] = sum_tensor((output_seg != c).float() * (target == c).float(), axes=axes)
 
-                # tp_hard, fp_hard, fn_hard = get_tp_fp_fn((output_softmax > (1 / num_classes)).float(), target,
-                #                                         axes, None)
-                # print_if_rank0("before allgather", tp_hard.shape)
-                tp_hard = tp_hard.sum(0, keepdim=False)[None]
-                fp_hard = fp_hard.sum(0, keepdim=False)[None]
-                fn_hard = fn_hard.sum(0, keepdim=False)[None]
+            # tp_hard, fp_hard, fn_hard = get_tp_fp_fn((output_softmax > (1 / num_classes)).float(), target,
+            #                                         axes, None)
+            # print_if_rank0("before allgather", tp_hard.shape)
+            tp_hard = tp_hard.sum(0, keepdim=False)[None]
+            fp_hard = fp_hard.sum(0, keepdim=False)[None]
+            fn_hard = fn_hard.sum(0, keepdim=False)[None]
 
-                tp_hard = awesome_allgather_function.apply(tp_hard)
-                fp_hard = awesome_allgather_function.apply(fp_hard)
-                fn_hard = awesome_allgather_function.apply(fn_hard)
-                # print_if_rank0("after allgather", tp_hard.shape)
+            tp_hard = awesome_allgather_function.apply(tp_hard)
+            fp_hard = awesome_allgather_function.apply(fp_hard)
+            fn_hard = awesome_allgather_function.apply(fn_hard)
 
-                # print_if_rank0("after sum", tp_hard.shape)
-
-                self.run_online_evaluation(tp_hard.detach().cpu().numpy().sum(0),
-                                           fp_hard.detach().cpu().numpy().sum(0),
-                                           fn_hard.detach().cpu().numpy().sum(0))
-        del target
-
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                total_loss.backward()
-            else:
-                with amp.scale_loss(total_loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-
-        return total_loss.detach().cpu().numpy()
-
-    def run_online_evaluation(self, tp, fp, fn):
-        self.online_eval_foreground_dc.append(list((2 * tp) / (2 * tp + fp + fn + 1e-8)))
-        self.online_eval_tp.append(list(tp))
-        self.online_eval_fp.append(list(fp))
-        self.online_eval_fn.append(list(fn))
+        tp_hard = tp_hard.detach().cpu().numpy().sum(0)
+        fp_hard = fp_hard.detach().cpu().numpy().sum(0)
+        fn_hard = fn_hard.detach().cpu().numpy().sum(0)
+        self.online_eval_foreground_dc.append(list((2 * tp_hard) / (2 * tp_hard + fp_hard + fn_hard + 1e-8)))
+        self.online_eval_tp.append(list(tp_hard))
+        self.online_eval_fp.append(list(fp_hard))
+        self.online_eval_fn.append(list(fn_hard))
 
     def run_training(self):
         """
@@ -360,11 +363,10 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
-                                                         use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         if pad_border_mode == 'constant' and pad_kwargs is None:
             pad_kwargs = {'constant_values': 0}
 
@@ -385,14 +387,14 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         net.do_ds = False
         ret = net.predict_3D(data, do_mirroring, mirror_axes, use_sliding_window, step_size, self.patch_size,
                              self.regions_class_order, use_gaussian, pad_border_mode, pad_kwargs,
-                             all_in_gpu, verbose)
+                             all_in_gpu, verbose, mixed_precision=mixed_precision)
         net.do_ds = ds
         return ret
 
-    def load_checkpoint_ram(self, saved_model, train=True):
+    def load_checkpoint_ram(self, checkpoint, train=True):
         """
         used for if the checkpoint is already in ram
-        :param saved_model:
+        :param checkpoint:
         :param train:
         :return:
         """
@@ -403,36 +405,33 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         curr_state_dict_keys = list(self.network.state_dict().keys())
         # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
-        for k, value in saved_model['state_dict'].items():
+        for k, value in checkpoint['state_dict'].items():
             key = k
             if key not in curr_state_dict_keys:
                 print("duh")
                 key = key[7:]
             new_state_dict[key] = value
 
-        # if we are fp16, then we need to reinitialize the network and the optimizer. Otherwise amp will throw an error
         if self.fp16:
-            self.network, self.optimizer, self.lr_scheduler = None, None, None
-            self.initialize_network()
-            self.initialize_optimizer_and_scheduler()
-            # we need to reinitialize DDP here
-            self.network = DDP(self.network)
+            self._maybe_init_amp()
+            if 'amp_grad_scaler' in checkpoint.keys():
+                self.amp_grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
 
         self.network.load_state_dict(new_state_dict)
-        self.epoch = saved_model['epoch']
+        self.epoch = checkpoint['epoch']
         if train:
-            optimizer_state_dict = saved_model['optimizer_state_dict']
+            optimizer_state_dict = checkpoint['optimizer_state_dict']
             if optimizer_state_dict is not None:
                 self.optimizer.load_state_dict(optimizer_state_dict)
 
-            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and saved_model[
+            if self.lr_scheduler is not None and hasattr(self.lr_scheduler, 'load_state_dict') and checkpoint[
                 'lr_scheduler_state_dict'] is not None:
-                self.lr_scheduler.load_state_dict(saved_model['lr_scheduler_state_dict'])
+                self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state_dict'])
 
             if issubclass(self.lr_scheduler.__class__, _LRScheduler):
                 self.lr_scheduler.step(self.epoch)
 
-        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = saved_model[
+        self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode, self.all_val_eval_metrics = checkpoint[
             'plot_stuff']
 
         # after the training is done, the epoch is incremented one more time in my old code. This results in
@@ -447,6 +446,3 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             self.all_val_losses = self.all_val_losses[:self.epoch]
             self.all_val_losses_tr_mode = self.all_val_losses_tr_mode[:self.epoch]
             self.all_val_eval_metrics = self.all_val_eval_metrics[:self.epoch]
-
-        self.amp_initialized = False
-        self._maybe_init_amp()

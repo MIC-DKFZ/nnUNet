@@ -41,12 +41,8 @@ from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 from torch.optim import lr_scheduler
 
-matplotlib.use("agg")
 
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-except ImportError:
-    DDP = None
+matplotlib.use("agg")
 
 
 class nnUNetTrainer(NetworkTrainer):
@@ -481,11 +477,10 @@ class nnUNetTrainer(NetworkTrainer):
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
-                                                         use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         verbose: bool = True, mixed_precision: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         :param data:
         :param do_mirroring:
@@ -516,7 +511,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.network.eval()
         ret = self.network.predict_3D(data, do_mirroring, mirror_axes, use_sliding_window, step_size, self.patch_size,
                                       self.regions_class_order, use_gaussian, pad_border_mode, pad_kwargs,
-                                      all_in_gpu, verbose)
+                                      all_in_gpu, verbose, mixed_precision=mixed_precision)
         self.network.train(current_mode)
         return ret
 
@@ -589,10 +584,11 @@ class nnUNetTrainer(NetworkTrainer):
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(
-                    data[:-1], do_mirroring, mirror_axes, use_sliding_window, step_size, use_gaussian,
-                    all_in_gpu=all_in_gpu
-                )[1]
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1], do_mirroring,
+                                                                                     mirror_axes, use_sliding_window,
+                                                                                     step_size, use_gaussian,
+                                                                                     all_in_gpu=all_in_gpu,
+                                                                                     mixed_precision=self.fp16)[1]
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 

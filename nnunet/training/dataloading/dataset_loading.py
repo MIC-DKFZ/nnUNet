@@ -105,6 +105,7 @@ def load_dataset(folder, num_cases_properties_loading_threshold=1000):
         print('loading all case properties')
         for i in dataset.keys():
             dataset[i]['properties'] = load_pickle(dataset[i]['properties_file'])
+
     return dataset
 
 

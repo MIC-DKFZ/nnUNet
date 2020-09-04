@@ -67,17 +67,17 @@ class nnUNetTrainerV2_ResencUNet(nnUNetTrainerV2):
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
-                                                         use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         ds = self.network.decoder.deep_supervision
         self.network.decoder.deep_supervision = False
         ret = nnUNetTrainer.predict_preprocessed_data_return_seg_and_softmax(self, data, do_mirroring, mirror_axes,
                                                                              use_sliding_window, step_size,
                                                                              use_gaussian, pad_border_mode, pad_kwargs,
-                                                                             all_in_gpu, verbose)
+                                                                             all_in_gpu, verbose,
+                                                                             mixed_precision=mixed_precision)
         self.network.decoder.deep_supervision = ds
         return ret
 

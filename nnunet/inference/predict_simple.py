@@ -120,6 +120,9 @@ def main():
                         help='checkpoint name, default: model_final_checkpoint',
                         required=False,
                         default='model_final_checkpoint')
+    parser.add_argument('--disable_mixed_precision', default=False, action='store_true', required=False,
+                        help='set this flad to disable mixed precision in inference. This is not recommended '
+                             '(mixed precision is 2x faster!)')
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -220,7 +223,7 @@ def main():
     predict_from_folder(model_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, not disable_tta,
                         overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16,
-                        step_size=step_size, checkpoint_name=args.chk)
+                        step_size=step_size, checkpoint_name=args.chk, mixed_precision=not args.disable_mixed_precision)
 
 
 if __name__ == "__main__":

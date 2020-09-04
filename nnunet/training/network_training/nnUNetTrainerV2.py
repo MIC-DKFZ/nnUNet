@@ -31,14 +31,9 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.nn.utils import clip_grad_norm_
+from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
 
 
 class nnUNetTrainerV2(nnUNetTrainer):
@@ -200,11 +195,10 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
-                                                         use_sliding_window: bool = True,
-                                                         step_size: float = 0.5, use_gaussian: bool = True,
-                                                         pad_border_mode: str = 'constant', pad_kwargs: dict = None,
-                                                         all_in_gpu: bool = True,
-                                                         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
         """
@@ -212,7 +206,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
         self.network.do_ds = False
         ret = super().predict_preprocessed_data_return_seg_and_softmax(data, do_mirroring, mirror_axes,
                                                                        use_sliding_window, step_size, use_gaussian,
-                                                                       pad_border_mode, pad_kwargs, all_in_gpu, verbose)
+                                                                       pad_border_mode, pad_kwargs, all_in_gpu, verbose,
+                                                                       mixed_precision=mixed_precision)
         self.network.do_ds = ds
         return ret
 
@@ -238,25 +233,34 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         self.optimizer.zero_grad()
 
-        output = self.network(data)
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                del data
+                l = self.loss(output, target)
 
-        del data
-        loss = self.loss(output, target)
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
 
         if run_online_evaluation:
             self.run_online_evaluation(output, target)
+
         del target
 
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                loss.backward()
-            else:
-                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-
-        return loss.detach().cpu().numpy()
+        return l.detach().cpu().numpy()
 
     def do_split(self):
         """
