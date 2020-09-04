@@ -339,8 +339,7 @@ class NetworkTrainer(object):
         # match. Use heuristic to make it match
         for k, value in saved_model['state_dict'].items():
             key = k
-            if key not in curr_state_dict_keys:
-                print("duh")
+            if key not in curr_state_dict_keys and key.startswith('module.'):
                 key = key[7:]
             new_state_dict[key] = value
 

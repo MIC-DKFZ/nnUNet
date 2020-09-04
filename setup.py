@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(name='nnunet',
       packages=find_namespace_packages(include=["nnunet", "nnunet.*"]),
-      version='1.1.4.3',
+      version='1.1.5',
       description='nnU-Net. Framework for out-of-the box biomedical image segmentation.',
       url='https://github.com/MIC-DKFZ/nnUNet',
       author='Division of Medical Image Computing, German Cancer Research Center',
