@@ -52,7 +52,7 @@ class nnUNetTrainerV2_graduallyTransitionFromCEToDice(nnUNetTrainerV2):
         self.update_loss()
         return ret
 
-    def load_checkpoint_ram(self, saved_model, train=True):
-        ret = super().load_checkpoint_ram(saved_model, train)
+    def load_checkpoint_ram(self, checkpoint, train=True):
+        ret = super().load_checkpoint_ram(checkpoint, train)
         self.update_loss()
         return ret

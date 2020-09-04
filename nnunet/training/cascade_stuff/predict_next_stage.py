@@ -64,9 +64,11 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
         data_file = trainer.dataset_val[pat]['data_file']
         data_preprocessed = np.load(data_file)['data'][:-1]
 
-        predicted_probabilities = trainer.predict_preprocessed_data_return_seg_and_softmax(
-            data_preprocessed, trainer.data_aug_params["do_mirror"], trainer.data_aug_params['mirror_axes']
-        )[1]
+        predicted_probabilities = trainer.predict_preprocessed_data_return_seg_and_softmax(data_preprocessed,
+                                                                                           trainer.data_aug_params[
+                                                                                               "do_mirror"],
+                                                                                           trainer.data_aug_params[
+                                                                                               'mirror_axes'])[1]
 
         data_file_nofolder = data_file.split("/")[-1]
         data_file_nextstage = join(stage_to_be_predicted_folder, data_file_nofolder)

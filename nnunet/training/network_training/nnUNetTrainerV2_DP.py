@@ -26,12 +26,9 @@ from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
+from torch.cuda.amp import autocast
+from torch.nn.parallel.data_parallel import DataParallel
 from torch.nn.utils import clip_grad_norm_
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
 
 
 class nnUNetTrainerV2_DP(nnUNetTrainerV2):
@@ -120,7 +117,7 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
 
-            assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
+            assert isinstance(self.network, (SegmentationNetwork, DataParallel))
         else:
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
         self.was_initialized = True
@@ -162,11 +159,10 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         self.maybe_update_lr(self.epoch)
 
         # amp must be initialized before DP
-        self._maybe_init_amp()
 
         ds = self.network.do_ds
         self.network.do_ds = True
-        self.network = nn.DataParallel(self.network, tuple(range(self.num_gpus)), )
+        self.network = DataParallel(self.network, tuple(range(self.num_gpus)), )
         ret = nnUNetTrainer.run_training(self)
         self.network = self.network.module
         self.network.do_ds = ds
@@ -186,22 +182,50 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
 
         self.optimizer.zero_grad()
 
-        ###############
-        ret = self.network(data, target, return_hard_tp_fp_fn=run_online_evaluation)
-        if run_online_evaluation:
-            ces, tps, fps, fns, tp_hard, fp_hard, fn_hard = ret
-            tp_hard = tp_hard.detach().cpu().numpy().mean(0)
-            fp_hard = fp_hard.detach().cpu().numpy().mean(0)
-            fn_hard = fn_hard.detach().cpu().numpy().mean(0)
-            self.online_eval_foreground_dc.append(list((2 * tp_hard) / (2 * tp_hard + fp_hard + fn_hard + 1e-8)))
-            self.online_eval_tp.append(list(tp_hard))
-            self.online_eval_fp.append(list(fp_hard))
-            self.online_eval_fn.append(list(fn_hard))
+        if self.fp16:
+            with autocast():
+                ret = self.network(data, target, return_hard_tp_fp_fn=run_online_evaluation)
+                if run_online_evaluation:
+                    ces, tps, fps, fns, tp_hard, fp_hard, fn_hard = ret
+                    self.run_online_evaluation(tp_hard, fp_hard, fn_hard)
+                else:
+                    ces, tps, fps, fns = ret
+                del data, target
+                l = self.compute_loss(ces, tps, fps, fns)
+
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
         else:
-            ces, tps, fps, fns = ret
+            ret = self.network(data, target, return_hard_tp_fp_fn=run_online_evaluation)
+            if run_online_evaluation:
+                ces, tps, fps, fns, tp_hard, fp_hard, fn_hard = ret
+                self.run_online_evaluation(tp_hard, fp_hard, fn_hard)
+            else:
+                ces, tps, fps, fns = ret
+            del data, target
+            l = self.compute_loss(ces, tps, fps, fns)
 
-        del data, target
+            if do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
 
+        return l.detach().cpu().numpy()
+
+    def run_online_evaluation(self, tp_hard, fp_hard, fn_hard):
+        tp_hard = tp_hard.detach().cpu().numpy().mean(0)
+        fp_hard = fp_hard.detach().cpu().numpy().mean(0)
+        fn_hard = fn_hard.detach().cpu().numpy().mean(0)
+        self.online_eval_foreground_dc.append(list((2 * tp_hard) / (2 * tp_hard + fp_hard + fn_hard + 1e-8)))
+        self.online_eval_tp.append(list(tp_hard))
+        self.online_eval_fp.append(list(fp_hard))
+        self.online_eval_fn.append(list(fn_hard))
+
+    def compute_loss(self, ces, tps, fps, fns):
         # we now need to effectively reimplement the loss
         loss = None
         for i in range(len(ces)):
@@ -230,13 +254,4 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
             else:
                 loss += self.loss_weights[i] * (ces[i].mean() + dice_loss)
         ###########
-
-        if do_backprop:
-            if not self.fp16 or amp is None or not torch.cuda.is_available():
-                loss.backward()
-            else:
-                with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            _ = clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-        return loss.detach().cpu().numpy()
+        return loss

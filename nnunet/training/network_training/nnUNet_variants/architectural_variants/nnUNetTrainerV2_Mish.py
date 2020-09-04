@@ -12,12 +12,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import torch
-
-try:
-    from apex import amp
-except ImportError:
-    amp = None
-
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -51,18 +45,3 @@ class nnUNetTrainerV2_Mish(nnUNetTrainerV2):
             self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
-    def _maybe_init_amp(self):
-        """
-        In O1 mish will result in super super high memory usage. I believe that may be because amp decides to be save
-        and use fp32 for all activation functions. By using O2 we reduce memory comsumption by a lot
-        :return:
-        """
-        # we use fp16 for training only, not inference
-        if self.fp16 and torch.cuda.is_available():
-            if not self.amp_initialized:
-                if amp is not None:
-                    self.network, self.optimizer = amp.initialize(self.network, self.optimizer, opt_level="O2")
-                    self.amp_initialized = True
-                else:
-                    self.print_to_log_file("WARNING: FP16 training was requested but nvidia apex is not installed. "
-                                           "Install it from https://github.com/NVIDIA/apex")

@@ -131,7 +131,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None, overwrite_existing=False,
                   all_in_gpu=False, step_size=0.5, checkpoint_name="model_final_checkpoint",
-                  segmentation_export_kwargs: dict = None):
+                  segmentation_export_kwargs: dict = None, mixed_precision: bool = True):
     """
     :param segmentation_export_kwargs:
     :param model: folder where the model is saved, must contain fold_x subfolders
@@ -212,9 +212,9 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         softmax = []
         for p in params:
             trainer.load_checkpoint_ram(p, False)
-            softmax.append(trainer.predict_preprocessed_data_return_seg_and_softmax(
-                d, do_tta, trainer.data_aug_params['mirror_axes'], True, step_size=step_size, use_gaussian=True,
-                all_in_gpu=all_in_gpu)[1][None])
+            softmax.append(trainer.predict_preprocessed_data_return_seg_and_softmax(d, do_tta, trainer.data_aug_params[
+                'mirror_axes'], True, step_size=step_size, use_gaussian=True, all_in_gpu=all_in_gpu,
+                                                                                    mixed_precision=mixed_precision)[1][None])
 
         softmax = np.vstack(softmax)
         softmax_mean = np.mean(softmax, 0)
@@ -286,7 +286,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
                        num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None,
                        overwrite_existing=False,
                        all_in_gpu=False, step_size=0.5, checkpoint_name="model_final_checkpoint",
-                       segmentation_export_kwargs: dict = None):
+                       segmentation_export_kwargs: dict = None, mixed_precision: bool = True):
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
@@ -358,9 +358,11 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
         for i, p in enumerate(params):
             trainer.load_checkpoint_ram(p, False)
 
-            res = trainer.predict_preprocessed_data_return_seg_and_softmax(
-                d, do_tta, trainer.data_aug_params['mirror_axes'], True, step_size=step_size, use_gaussian=True,
-                all_in_gpu=all_in_gpu)
+            res = trainer.predict_preprocessed_data_return_seg_and_softmax(d, do_tta,
+                                                                           trainer.data_aug_params['mirror_axes'], True,
+                                                                           step_size=step_size, use_gaussian=True,
+                                                                           all_in_gpu=all_in_gpu,
+                                                                           mixed_precision=mixed_precision)
 
             if len(params) > 1:
                 # otherwise we dont need this and we can save ourselves the time it takes to copy that
@@ -420,7 +422,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
 def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,
                           num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, fp16=None,
                           overwrite_existing=False, all_in_gpu=True, step_size=0.5,
-                          checkpoint_name="model_final_checkpoint"):
+                          checkpoint_name="model_final_checkpoint", mixed_precision: bool = True):
     assert len(list_of_lists) == len(output_filenames)
     if segs_from_prev_stage is not None: assert len(segs_from_prev_stage) == len(output_filenames)
 
@@ -477,10 +479,11 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
 
         for i, p in enumerate(params):
             trainer.load_checkpoint_ram(p, False)
-            res = trainer.predict_preprocessed_data_return_seg_and_softmax(
-                d, do_tta, trainer.data_aug_params['mirror_axes'], True, step_size=step_size, use_gaussian=True,
-                all_in_gpu=all_in_gpu
-            )
+            res = trainer.predict_preprocessed_data_return_seg_and_softmax(d, do_tta,
+                                                                           trainer.data_aug_params['mirror_axes'], True,
+                                                                           step_size=step_size, use_gaussian=True,
+                                                                           all_in_gpu=all_in_gpu,
+                                                                           mixed_precision=mixed_precision)
             if len(params) > 1:
                 # otherwise we dont need this and we can save ourselves the time it takes to copy that
                 all_softmax_outputs[i] = res[1]
@@ -573,7 +576,8 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                         part_id: int, num_parts: int, tta: bool, fp16: bool = False,
                         overwrite_existing: bool = True, mode: str = 'normal', overwrite_all_in_gpu: bool = None,
                         step_size: float = 0.5, checkpoint_name: str = "model_final_checkpoint",
-                        segmentation_export_kwargs: dict = None):
+                        segmentation_export_kwargs: dict = None,
+                        mixed_precision: bool = True):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -625,7 +629,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                              save_npz, num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations, tta,
                              fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu,
                              step_size=step_size, checkpoint_name=checkpoint_name,
-                             segmentation_export_kwargs=segmentation_export_kwargs)
+                             segmentation_export_kwargs=segmentation_export_kwargs, mixed_precision=mixed_precision)
     elif mode == "fast":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
@@ -637,7 +641,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                                   num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                                   tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu,
                                   step_size=step_size, checkpoint_name=checkpoint_name,
-                                  segmentation_export_kwargs=segmentation_export_kwargs)
+                                  segmentation_export_kwargs=segmentation_export_kwargs, mixed_precision=mixed_precision)
     elif mode == "fastest":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
@@ -648,7 +652,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
         return predict_cases_fastest(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
                                      num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                                      tta, fp16=fp16, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu,
-                                     step_size=step_size, checkpoint_name=checkpoint_name)
+                                     step_size=step_size, checkpoint_name=checkpoint_name, mixed_precision=mixed_precision)
     else:
         raise ValueError("unrecognized mode. Must be normal, fast or fastest")
 
