@@ -102,9 +102,6 @@ def main():
     parser.add_argument("--overwrite_existing", required=False, default=False, action="store_true",
                         help="Set this flag if the target folder contains predictions that you would like to overwrite")
 
-    parser.add_argument("--fp16", required=False, help="Flag for inference in FP16, default = off. DO NOT USE! "
-                                                       "It doesn't work", action="store_true")
-
     parser.add_argument("--mode", type=str, default="normal", required=False, help="Hands off!")
     parser.add_argument("--all_in_gpu", type=str, default="None", required=False, help="can be None, False or True. "
                                                                                        "Do not touch.")
@@ -121,8 +118,9 @@ def main():
                         required=False,
                         default='model_final_checkpoint')
     parser.add_argument('--disable_mixed_precision', default=False, action='store_true', required=False,
-                        help='set this flad to disable mixed precision in inference. This is not recommended '
-                             '(mixed precision is 2x faster!)')
+                        help='Predictions are done with mixed precision by default. This improves speed and reduces '
+                             'the required vram. If you want to disable mixed precision you can set this flag. Note '
+                             'that yhis is not recommended (mixed precision is ~2x faster!)')
 
     args = parser.parse_args()
     input_folder = args.input_folder
@@ -135,7 +133,6 @@ def main():
     num_threads_preprocessing = args.num_threads_preprocessing
     num_threads_nifti_save = args.num_threads_nifti_save
     disable_tta = args.disable_tta
-    fp16 = args.fp16
     step_size = args.step_size
     # interp_order = args.interp_order
     # interp_order_z = args.interp_order_z
@@ -164,9 +161,6 @@ def main():
     #     force_separate_z = True
     # else:
     #     raise ValueError("force_separate_z must be None, True or False. Given: %s" % force_separate_z)
-
-    if fp16:
-        raise RuntimeError("FP16 support for inference does not work yet. Sorry :-/")
 
     if lowres_segmentations == "None":
         lowres_segmentations = None
@@ -204,7 +198,7 @@ def main():
         predict_from_folder(model_folder_name, input_folder, lowres_output_folder, folds, False,
                             num_threads_preprocessing, num_threads_nifti_save, None, part_id, num_parts, not disable_tta,
                             overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu,
-                            fp16=fp16,
+                            mixed_precision=not args.disable_mixed_precision,
                             step_size=step_size)
         lowres_segmentations = lowres_output_folder
         torch.cuda.empty_cache()
@@ -222,8 +216,9 @@ def main():
 
     predict_from_folder(model_folder_name, input_folder, output_folder, folds, save_npz, num_threads_preprocessing,
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, not disable_tta,
-                        overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu, fp16=fp16,
-                        step_size=step_size, checkpoint_name=args.chk, mixed_precision=not args.disable_mixed_precision)
+                        overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu,
+                        mixed_precision=not args.disable_mixed_precision,
+                        step_size=step_size, checkpoint_name=args.chk)
 
 
 if __name__ == "__main__":

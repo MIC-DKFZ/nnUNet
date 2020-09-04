@@ -106,7 +106,7 @@ def load_best_model_for_inference(folder):
     return restore_model(pkl_file, checkpoint, False)
 
 
-def load_model_and_checkpoint_files(folder, folds=None, fp16=None, checkpoint_name="model_best"):
+def load_model_and_checkpoint_files(folder, folds=None, mixed_precision=None, checkpoint_name="model_best"):
     """
     used for if you need to ensemble the five models of a cross-validation. This will restore the model from the
     checkpoint in fold 0, load all parameters of the five folds in ram and return both. This will allow for fast
@@ -115,7 +115,7 @@ def load_model_and_checkpoint_files(folder, folds=None, fp16=None, checkpoint_na
     This is best used for inference and test prediction
     :param folder:
     :param folds:
-    :param fp16: if None then we take no action. If True/False we overwrite what the model has in its init
+    :param mixed_precision: if None then we take no action. If True/False we overwrite what the model has in its init
     :return:
     """
     if isinstance(folds, str):
@@ -137,7 +137,7 @@ def load_model_and_checkpoint_files(folder, folds=None, fp16=None, checkpoint_na
     else:
         raise ValueError("Unknown value for folds. Type: %s. Expected: list of int, int, str or None", str(type(folds)))
 
-    trainer = restore_model(join(folds[0], "%s.model.pkl" % checkpoint_name), fp16=fp16)
+    trainer = restore_model(join(folds[0], "%s.model.pkl" % checkpoint_name), fp16=mixed_precision)
     trainer.output_folder = folder
     trainer.output_folder_base = folder
     trainer.update_fold(0)
