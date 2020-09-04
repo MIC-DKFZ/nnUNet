@@ -114,6 +114,7 @@ def verify_dataset_integrity(folder):
 
     label_files = []
     geometries_OK = True
+    has_nan = False
 
     # check all cases
     if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)): raise RuntimeError("found duplicate training cases in dataset.json")
@@ -133,14 +134,24 @@ def verify_dataset_integrity(folder):
 
         # verify that all modalities and the label have the same shape and geometry.
         label_itk = sitk.ReadImage(expected_label_file)
+
+        nans_in_seg = np.any(np.isnan(sitk.GetArrayFromImage(label_itk)))
+        has_nan = has_nan | nans_in_seg
+        if nans_in_seg:
+            print("There are NAN values in segmentation %s" % expected_label_file)
+
         images_itk = [sitk.ReadImage(i) for i in expected_image_files]
         for i, img in enumerate(images_itk):
+            nans_in_image = np.any(np.isnan(sitk.GetArrayFromImage(img)))
+            has_nan = has_nan | nans_in_image
             same_geometry = verify_same_geometry(img, label_itk)
             if not same_geometry:
                 geometries_OK = False
                 print("The geometry of the image %s does not match the geometry of the label file. The pixel arrays "
                       "will not be aligned and nnU-Net cannot use this data. Please make sure your image modalities "
                       "are coregistered and have the same geometry as the label" % expected_image_files[0][:-12])
+            if nans_in_image:
+                print("There are NAN values in image %s" % expected_image_files[i])
 
         # now remove checked files from the lists nii_files_in_imagesTr and nii_files_in_labelsTr
         for i in expected_image_files:
@@ -212,6 +223,9 @@ def verify_dataset_integrity(folder):
         raise Warning("GEOMETRY MISMATCH FOUND! CHECK THE TEXT OUTPUT! This does not cause an error at this point  but you should definitely check whether your geometries are alright!")
     else:
         print("Dataset OK")
+
+    if has_nan:
+        raise RuntimeError("Some images have nan values in them. This will break the training. See text output above to see which ones")
 
 
 def reorient_to_RAS(img_fname: str, output_fname: str = None):
