@@ -29,7 +29,8 @@ def get_case_identifiers(folder):
 
 
 def get_case_identifiers_from_raw_folder(folder):
-    case_identifiers = np.unique([i[:-12] for i in os.listdir(folder) if i.endswith(".nii.gz") and (i.find("segFromPrevStage") == -1)])
+    case_identifiers = np.unique(
+        [i[:-12] for i in os.listdir(folder) if i.endswith(".nii.gz") and (i.find("segFromPrevStage") == -1)])
     return case_identifiers
 
 
@@ -64,7 +65,7 @@ def unpack_dataset(folder, threads=default_num_threads, key="data"):
     """
     p = Pool(threads)
     npz_files = subfiles(folder, True, None, ".npz", True)
-    p.map(convert_to_npy, zip(npz_files, [key]*len(npz_files)))
+    p.map(convert_to_npy, zip(npz_files, [key] * len(npz_files)))
     p.close()
     p.join()
 
@@ -72,14 +73,14 @@ def unpack_dataset(folder, threads=default_num_threads, key="data"):
 def pack_dataset(folder, threads=default_num_threads, key="data"):
     p = Pool(threads)
     npy_files = subfiles(folder, True, None, ".npy", True)
-    p.map(save_as_npz, zip(npy_files, [key]*len(npy_files)))
+    p.map(save_as_npz, zip(npy_files, [key] * len(npy_files)))
     p.close()
     p.join()
 
 
 def delete_npy(folder):
     case_identifiers = get_case_identifiers(folder)
-    npy_files = [join(folder, i+".npy") for i in case_identifiers]
+    npy_files = [join(folder, i + ".npy") for i in case_identifiers]
     npy_files = [i for i in npy_files if isfile(i)]
     for n in npy_files:
         os.remove(n)
@@ -140,11 +141,14 @@ def crop_2D_image_force_fg(img, crop_size, valid_voxels):
 
     selected_center_voxel = np.array(selected_center_voxel)
     for i in range(2):
-        selected_center_voxel[i] = max(crop_size[i]//2, selected_center_voxel[i])
-        selected_center_voxel[i] = min(img.shape[i+1] - crop_size[i]//2 - crop_size[i] % 2, selected_center_voxel[i])
+        selected_center_voxel[i] = max(crop_size[i] // 2, selected_center_voxel[i])
+        selected_center_voxel[i] = min(img.shape[i + 1] - crop_size[i] // 2 - crop_size[i] % 2,
+                                       selected_center_voxel[i])
 
-    result = img[:, (selected_center_voxel[0] - crop_size[0]//2):(selected_center_voxel[0] + crop_size[0]//2 + crop_size[0] % 2),
-             (selected_center_voxel[1] - crop_size[1]//2):(selected_center_voxel[1] + crop_size[1]//2 + crop_size[1] % 2)]
+    result = img[:, (selected_center_voxel[0] - crop_size[0] // 2):(
+                selected_center_voxel[0] + crop_size[0] // 2 + crop_size[0] % 2),
+             (selected_center_voxel[1] - crop_size[1] // 2):(
+                         selected_center_voxel[1] + crop_size[1] // 2 + crop_size[1] % 2)]
     return result
 
 
@@ -235,7 +239,7 @@ class DataLoader3D(SlimDataLoaderBase):
                 properties = load_pickle(self._data[i]['properties_file'])
             case_properties.append(properties)
 
-            # cases are stores as npz, but we require unpack_dataset to be run. This will decompress them into npy
+            # cases are stored as npz, but we require unpack_dataset to be run. This will decompress them into npy
             # which is much faster to access
             if isfile(self._data[i]['data_file'][:-4] + ".npy"):
                 case_all_data = np.load(self._data[i]['data_file'][:-4] + ".npy", self.memmap_mode)
@@ -255,7 +259,7 @@ class DataLoader3D(SlimDataLoaderBase):
                 # we theoretically support several possible previsous segmentations from which only one is sampled. But
                 # in practice this feature was never used so it's always only one segmentation
                 seg_key = np.random.choice(segs_from_previous_stage.shape[0])
-                seg_from_previous_stage = segs_from_previous_stage[seg_key:seg_key+1]
+                seg_from_previous_stage = segs_from_previous_stage[seg_key:seg_key + 1]
                 assert all([i == j for i, j in zip(seg_from_previous_stage.shape[1:], case_all_data.shape[1:])]), \
                     "seg_from_previous_stage does not match the shape of case_all_data: %s vs %s" % \
                     (str(seg_from_previous_stage.shape[1:]), str(case_all_data.shape[1:]))
@@ -272,8 +276,8 @@ class DataLoader3D(SlimDataLoaderBase):
             for d in range(3):
                 # if case_all_data.shape + need_to_pad is still < patch size we need to pad more! We pad on both sides
                 # always
-                if need_to_pad[d] + case_all_data.shape[d+1] < self.patch_size[d]:
-                    need_to_pad[d] = self.patch_size[d] - case_all_data.shape[d+1]
+                if need_to_pad[d] + case_all_data.shape[d + 1] < self.patch_size[d]:
+                    need_to_pad[d] = self.patch_size[d] - case_all_data.shape[d + 1]
 
             # we can now choose the bbox from -need_to_pad // 2 to shape - patch_size + need_to_pad // 2. Here we
             # define what the upper and lower bound can be to then sample form them with np.random.randint
@@ -293,7 +297,8 @@ class DataLoader3D(SlimDataLoaderBase):
                 bbox_z_lb = np.random.randint(lb_z, ub_z + 1)
             else:
                 # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
-                foreground_classes = np.array([i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) != 0])
+                foreground_classes = np.array(
+                    [i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) != 0])
                 foreground_classes = foreground_classes[foreground_classes > 0]
 
                 if len(foreground_classes) == 0:
@@ -341,37 +346,40 @@ class DataLoader3D(SlimDataLoaderBase):
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
             # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
             # remove label -1 in the data augmentation but this way it is less error prone)
-            case_all_data = case_all_data[:, valid_bbox_x_lb:valid_bbox_x_ub,
-                                             valid_bbox_y_lb:valid_bbox_y_ub,
-                                             valid_bbox_z_lb:valid_bbox_z_ub]
+            case_all_data = np.copy(case_all_data[:, valid_bbox_x_lb:valid_bbox_x_ub,
+                                    valid_bbox_y_lb:valid_bbox_y_ub,
+                                    valid_bbox_z_lb:valid_bbox_z_ub])
             if seg_from_previous_stage is not None:
                 seg_from_previous_stage = seg_from_previous_stage[:, valid_bbox_x_lb:valid_bbox_x_ub,
-                                                                     valid_bbox_y_lb:valid_bbox_y_ub,
-                                                                     valid_bbox_z_lb:valid_bbox_z_ub]
+                                          valid_bbox_y_lb:valid_bbox_y_ub,
+                                          valid_bbox_z_lb:valid_bbox_z_ub]
 
-            case_all_data_donly = np.pad(case_all_data[:-1], ((0,0),
+            case_all_data_donly = np.pad(case_all_data[:-1], ((0, 0),
                                                               (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
                                                               (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
                                                               (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                          self.pad_mode, **self.pad_kwargs_data)
 
-            case_all_data_segonly = np.pad(case_all_data[-1:], ((0,0),
-                                                              (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
-                                                              (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
-                                                              (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
-                                         'constant', **{'constant_values':-1})
+            case_all_data_segonly = np.pad(case_all_data[-1:], ((0, 0),
+                                                                (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
+                                                                (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
+                                                                (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
+                                           'constant', **{'constant_values': -1})
             if seg_from_previous_stage is not None:
-                seg_from_previous_stage = np.pad(seg_from_previous_stage, ((0,0),
-                                                              (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
-                                                              (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
-                                                              (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
+                seg_from_previous_stage = np.pad(seg_from_previous_stage, ((0, 0),
+                                                                           (-min(0, bbox_x_lb),
+                                                                            max(bbox_x_ub - shape[0], 0)),
+                                                                           (-min(0, bbox_y_lb),
+                                                                            max(bbox_y_ub - shape[1], 0)),
+                                                                           (-min(0, bbox_z_lb),
+                                                                            max(bbox_z_ub - shape[2], 0))),
                                                  'constant', **{'constant_values': 0})
                 case_all_data_segonly = np.concatenate((case_all_data_segonly, seg_from_previous_stage), 0)
 
             data[j] = case_all_data_donly
             seg[j] = case_all_data_segonly
 
-        return {'data':data, 'seg':seg, 'properties':case_properties, 'keys': selected_keys}
+        return {'data': data, 'seg': seg, 'properties': case_properties, 'keys': selected_keys}
 
 
 class DataLoader2D(SlimDataLoaderBase):
@@ -471,7 +479,8 @@ class DataLoader2D(SlimDataLoaderBase):
                 random_slice = np.random.choice(case_all_data.shape[1])
                 selected_class = None
             else:
-                foreground_classes = np.array([i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) != 0])
+                foreground_classes = np.array(
+                    [i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) != 0])
                 foreground_classes = foreground_classes[foreground_classes > 0]
                 if len(foreground_classes) == 0:
                     selected_class = None
@@ -526,8 +535,8 @@ class DataLoader2D(SlimDataLoaderBase):
             for d in range(2):
                 # if case_all_data.shape + need_to_pad is still < patch size we need to pad more! We pad on both sides
                 # always
-                if need_to_pad[d] + case_all_data.shape[d+1] < self.patch_size[d]:
-                    need_to_pad[d] = self.patch_size[d] - case_all_data.shape[d+1]
+                if need_to_pad[d] + case_all_data.shape[d + 1] < self.patch_size[d]:
+                    need_to_pad[d] = self.patch_size[d] - case_all_data.shape[d + 1]
 
             shape = case_all_data.shape[1:]
             lb_x = - need_to_pad[0] // 2
@@ -593,5 +602,7 @@ if __name__ == "__main__":
         plans = pickle.load(f)
     unpack_dataset(p)
     dl = DataLoader3D(dataset, (32, 32, 32), (32, 32, 32), 2, oversample_foreground_percent=0.33)
-    dl = DataLoader3D(dataset, np.array(plans['patch_size']).astype(int), np.array(plans['patch_size']).astype(int), 2, oversample_foreground_percent=0.33)
-    dl2d = DataLoader2D(dataset, (64, 64), np.array(plans['patch_size']).astype(int)[1:], 12, oversample_foreground_percent=0.33)
+    dl = DataLoader3D(dataset, np.array(plans['patch_size']).astype(int), np.array(plans['patch_size']).astype(int), 2,
+                      oversample_foreground_percent=0.33)
+    dl2d = DataLoader2D(dataset, (64, 64), np.array(plans['patch_size']).astype(int)[1:], 12,
+                        oversample_foreground_percent=0.33)
