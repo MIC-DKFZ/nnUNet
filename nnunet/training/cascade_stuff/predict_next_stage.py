@@ -68,7 +68,7 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
                                                                                            trainer.data_aug_params[
                                                                                                "do_mirror"],
                                                                                            trainer.data_aug_params[
-                                                                                               'mirror_axes'])[1]
+                                                                                               'mirror_axes'], mixed_precision=trainer.fp16)[1]
 
         data_file_nofolder = data_file.split("/")[-1]
         data_file_nextstage = join(stage_to_be_predicted_folder, data_file_nofolder)

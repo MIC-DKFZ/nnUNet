@@ -442,12 +442,13 @@ class nnUNetTrainer(NetworkTrainer):
         return d, s, properties
 
     def preprocess_predict_nifti(self, input_files: List[str], output_file: str = None,
-                                 softmax_ouput_file: str = None) -> None:
+                                 softmax_ouput_file: str = None, mixed_precision: bool = True) -> None:
         """
         Use this to predict new data
         :param input_files:
         :param output_file:
         :param softmax_ouput_file:
+        :param mixed_precision:
         :return:
         """
         print("preprocessing...")
@@ -456,7 +457,8 @@ class nnUNetTrainer(NetworkTrainer):
         pred = self.predict_preprocessed_data_return_seg_and_softmax(d, self.data_aug_params["do_mirror"],
                                                                      self.data_aug_params['mirror_axes'], True, 0.5,
                                                                      True, 'constant', {'constant_values': 0},
-                                                                     self.patch_size, True)[1]
+                                                                     self.patch_size, True,
+                                                                     mixed_precision=mixed_precision)[1]
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
         if 'segmentation_export_params' in self.plans.keys():

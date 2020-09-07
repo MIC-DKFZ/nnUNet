@@ -25,12 +25,14 @@ class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
         return super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
                                overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
 
-    def preprocess_predict_nifti(self, input_files, output_file=None, softmax_ouput_file=None):
+    def preprocess_predict_nifti(self, input_files, output_file=None, softmax_ouput_file=None,
+                                 mixed_precision: bool = True):
         """
         Use this to predict new data
         :param input_files:
         :param output_file:
         :param softmax_ouput_file:
+        :param mixed_precision:
         :return:
         """
         print("preprocessing...")
@@ -39,7 +41,8 @@ class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
         pred = self.predict_preprocessed_data_return_seg_and_softmax(d, self.data_aug_params["do_mirror"],
                                                                      self.data_aug_params['mirror_axes'], True, 0.5,
                                                                      True, 'constant', {'constant_values': 0},
-                                                                     self.patch_size, True)[1]
+                                                                     self.patch_size, True,
+                                                                     mixed_precision=mixed_precision)[1]
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
         print("resampling to original spacing and nifti export...")
