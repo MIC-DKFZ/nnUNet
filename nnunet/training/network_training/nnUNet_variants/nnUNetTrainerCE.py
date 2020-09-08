@@ -11,9 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
@@ -22,4 +20,4 @@ class nnUNetTrainerCE(nnUNetTrainer):
                  unpack_data=True, deterministic=True, fp16=False):
         super(nnUNetTrainerCE, self).__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage,
                                               unpack_data, deterministic, fp16)
-        self.loss = CrossentropyND()
+        self.loss = RobustCrossEntropyLoss()

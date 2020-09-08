@@ -14,14 +14,14 @@
 from typing import Tuple
 import numpy as np
 import torch
+
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.network_training.nnUNetTrainerV2_DDP import nnUNetTrainerV2_DDP
 from nnunet.training.network_training.nnUNet_variants.architectural_variants.nnUNetTrainerV2_noDeepSupervision import \
     nnUNetTrainerV2_noDeepSupervision
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
-from torch import nn
 from torch.cuda.amp import autocast
-from torch.nn.utils import clip_grad_norm_
 
 
 class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
@@ -80,7 +80,7 @@ class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 5
-        self.loss = nn.CrossEntropyLoss() # CrossentropyND()
+        self.loss = RobustCrossEntropyLoss()
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,

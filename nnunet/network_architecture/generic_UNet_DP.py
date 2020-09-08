@@ -14,10 +14,9 @@
 
 
 import torch
-
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
@@ -57,7 +56,7 @@ class Generic_UNet_DP(Generic_UNet):
                                               conv_kernel_sizes,
                                               upscale_logits, convolutional_pooling, convolutional_upsampling,
                                               max_num_features)
-        self.ce_loss = CrossentropyND()
+        self.ce_loss = RobustCrossEntropyLoss()
 
     def forward(self, x, y=None, return_hard_tp_fp_fn=False):
         res = super(Generic_UNet_DP, self).forward(x)  # regular Generic_UNet forward pass

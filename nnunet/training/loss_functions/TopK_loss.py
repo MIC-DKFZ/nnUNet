@@ -14,10 +14,10 @@
 
 import numpy as np
 import torch
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 
 
-class TopKLoss(CrossentropyND):
+class TopKLoss(RobustCrossEntropyLoss):
     """
     Network has to have NO LINEARITY!
     """

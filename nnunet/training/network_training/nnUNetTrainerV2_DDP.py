@@ -25,6 +25,7 @@ from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, 
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -61,7 +62,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         self.val_loss_MA = None
 
         self.loss = None
-        self.ce_loss = nn.CrossEntropyLoss()
+        self.ce_loss = RobustCrossEntropyLoss()
 
         self.global_batch_size = None  # we need to know this to properly steer oversample
 

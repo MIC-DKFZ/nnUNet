@@ -14,7 +14,8 @@
 from typing import Tuple
 
 import torch
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
+
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.network_training.nnUNet_variants.architectural_variants.nnUNetTrainerV2_noDeepSupervision import \
     nnUNetTrainerV2_noDeepSupervision
 from nnunet.training.network_training.nnUNet_variants.profiling.nnUNetTrainerV2_2epochs import nnUNetTrainerV2_5epochs
@@ -73,7 +74,7 @@ class nnUNetTrainerV2_5epochs_dummyLoadCEnoDS(nnUNetTrainerV2_noDeepSupervision)
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 5
-        self.loss = nn.CrossEntropyLoss() # CrossentropyND()
+        self.loss = RobustCrossEntropyLoss()
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,

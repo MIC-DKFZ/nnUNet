@@ -14,13 +14,12 @@
 
 
 import torch
-from nnunet.training.loss_functions.ND_Crossentropy import CrossentropyND
 from nnunet.training.loss_functions.TopK_loss import TopKLoss
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 import numpy as np
-import torch.nn.functional as F
 
 
 class GDL(nn.Module):
@@ -322,7 +321,7 @@ class DC_and_CE_loss(nn.Module):
         self.weight_dice = weight_dice
         self.weight_ce = weight_ce
         self.aggregate = aggregate
-        self.ce = nn.CrossEntropyLoss(**ce_kwargs)
+        self.ce = RobustCrossEntropyLoss(**ce_kwargs)
 
         self.ignore_label = ignore_label
 
@@ -394,7 +393,7 @@ class GDL_and_CE_loss(nn.Module):
     def __init__(self, gdl_dice_kwargs, ce_kwargs, aggregate="sum"):
         super(GDL_and_CE_loss, self).__init__()
         self.aggregate = aggregate
-        self.ce = CrossentropyND(**ce_kwargs)
+        self.ce = RobustCrossEntropyLoss(**ce_kwargs)
         self.dc = GDL(softmax_helper, **gdl_dice_kwargs)
 
     def forward(self, net_output, target):
