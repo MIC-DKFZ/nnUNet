@@ -13,7 +13,11 @@
 #    limitations under the License.
 import shutil
 import tempfile
+from time import time
 from urllib.request import urlopen
+
+from batchgenerators.utilities.file_and_folder_operations import join, isfile
+
 from nnunet.paths import network_training_output_dir
 from subprocess import call
 import requests
@@ -209,24 +213,29 @@ def download_and_install_from_url(url):
     http.client.HTTPConnection._http_vsn = 10
     http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
 
-    with tempfile.NamedTemporaryFile() as f:
-        with requests.get(url, stream=True) as r:
-            r.raise_for_status()
-            for chunk in r.iter_content(chunk_size=8192 * 16):
-                # If you have chunk encoded response uncomment if
-                # and set chunk_size parameter to None.
-                # if chunk:
-                f.write(chunk)
+    import os
+    home = os.path.expanduser('~')
+    random_number = int(time() * 1e7)
+    tempfile = join(home, '.nnunetdownload_%s' % str(random_number))
 
-            fname = f.name
-            # print("Downloading pretrained model", url)
-            # data = urlopen(url).read()
-            # f.write(data)
-            # unzip -o zip_file -d output_dir
-            print("Download finished. Extracting...")
-            install_model_from_zip_file(fname)
-            print("Done")
-    os.remove(fname)
+    try:
+        with open(tempfile, 'wb') as f:
+            with requests.get(url, stream=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=8192 * 16):
+                    # If you have chunk encoded response uncomment if
+                    # and set chunk_size parameter to None.
+                    # if chunk:
+                    f.write(chunk)
+
+        print("Download finished. Extracting...")
+        install_model_from_zip_file(tempfile)
+        print("Done")
+    except Exception as e:
+        raise e
+    finally:
+        if isfile(tempfile):
+            os.remove(tempfile)
 
 
 def download_file(url, local_filename):
