@@ -296,6 +296,10 @@ class DataLoader3D(SlimDataLoaderBase):
                 bbox_y_lb = np.random.randint(lb_y, ub_y + 1)
                 bbox_z_lb = np.random.randint(lb_z, ub_z + 1)
             else:
+                # these values should have been precomputed
+                if 'class_locations' not in properties.keys():
+                    raise RuntimeError("Please rerun the preprocessing with the newest version of nnU-Net!")
+
                 # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
                 foreground_classes = np.array(
                     [i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) != 0])
@@ -309,9 +313,6 @@ class DataLoader3D(SlimDataLoaderBase):
                 else:
                     selected_class = np.random.choice(foreground_classes)
 
-                    # these values should have been precomputed
-                    if 'class_locations' not in properties.keys():
-                        raise RuntimeError("Please rerun the preprocessing with the newest version of nnU-Net!")
                     voxels_of_that_class = properties['class_locations'][selected_class]
 
                 if voxels_of_that_class is not None:
