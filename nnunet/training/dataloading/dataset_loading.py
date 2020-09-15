@@ -480,6 +480,10 @@ class DataLoader2D(SlimDataLoaderBase):
                 random_slice = np.random.choice(case_all_data.shape[1])
                 selected_class = None
             else:
+                # these values should have been precomputed
+                if 'class_locations' not in properties.keys():
+                    raise RuntimeError("Please rerun the preprocessing with the newest version of nnU-Net!")
+
                 foreground_classes = np.array(
                     [i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) != 0])
                 foreground_classes = foreground_classes[foreground_classes > 0]
@@ -489,9 +493,6 @@ class DataLoader2D(SlimDataLoaderBase):
                     print('case does not contain any foreground classes', i)
                 else:
                     selected_class = np.random.choice(foreground_classes)
-                    # these values should have been precomputed
-                    if 'class_locations' not in properties.keys():
-                        raise RuntimeError("Please rerun the preprocessing with the newest version of nnU-Net!")
 
                     voxels_of_that_class = properties['class_locations'][selected_class]
                     valid_slices = np.unique(voxels_of_that_class[:, 0])
