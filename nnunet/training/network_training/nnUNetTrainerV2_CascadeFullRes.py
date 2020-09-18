@@ -84,6 +84,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                                   pad_mode="constant", pad_sides=self.pad_all_sides)
         else:
             raise NotImplementedError("2D has no cascade")
+
         return dl_tr, dl_val
 
     def process_plans(self, plans):
@@ -93,7 +94,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
     def setup_DA_params(self):
         super().setup_DA_params()
 
-        self.data_aug_params["num_cached_per_thread"] = 9
+        self.data_aug_params["num_cached_per_thread"] = 2
 
         self.data_aug_params['move_last_seg_chanel_to_data'] = True
         self.data_aug_params['cascade_do_cascade_augmentations'] = True
