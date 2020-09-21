@@ -30,7 +30,7 @@ def merge_files(files, properties_files, out_file, override, store_npz):
         softmax = np.mean(softmax, 0)
         props = [load_pickle(f) for f in properties_files]
 
-        reg_class_orders = [props[p]['regions_class_order'] if 'regions_class_order' in p.keys() else None
+        reg_class_orders = [p['regions_class_order'] if 'regions_class_order' in p.keys() else None
                             for p in props]
 
         if not all([i is None for i in reg_class_orders]):
