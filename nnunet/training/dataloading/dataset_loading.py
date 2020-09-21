@@ -146,9 +146,9 @@ def crop_2D_image_force_fg(img, crop_size, valid_voxels):
                                        selected_center_voxel[i])
 
     result = img[:, (selected_center_voxel[0] - crop_size[0] // 2):(
-                selected_center_voxel[0] + crop_size[0] // 2 + crop_size[0] % 2),
+            selected_center_voxel[0] + crop_size[0] // 2 + crop_size[0] % 2),
              (selected_center_voxel[1] - crop_size[1] // 2):(
-                         selected_center_voxel[1] + crop_size[1] // 2 + crop_size[1] % 2)]
+                     selected_center_voxel[1] + crop_size[1] // 2 + crop_size[1] % 2)]
     return result
 
 
@@ -215,7 +215,7 @@ class DataLoader3D(SlimDataLoaderBase):
             case_all_data = np.load(self._data[k]['data_file'][:-4] + ".npy", self.memmap_mode)
         else:
             case_all_data = np.load(self._data[k]['data_file'])['data']
-        num_color_channels = case_all_data.shape[0] - num_seg
+        num_color_channels = case_all_data.shape[0] - 1
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
         seg_shape = (self.batch_size, num_seg, *self.patch_size)
         return data_shape, seg_shape
@@ -355,30 +355,26 @@ class DataLoader3D(SlimDataLoaderBase):
                                           valid_bbox_y_lb:valid_bbox_y_ub,
                                           valid_bbox_z_lb:valid_bbox_z_ub]
 
-            case_all_data_donly = np.pad(case_all_data[:-1], ((0, 0),
-                                                              (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
-                                                              (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
-                                                              (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
-                                         self.pad_mode, **self.pad_kwargs_data)
+            data[j] = np.pad(case_all_data[:-1], ((0, 0),
+                                                  (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
+                                                  (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
+                                                  (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
+                             self.pad_mode, **self.pad_kwargs_data)
 
-            case_all_data_segonly = np.pad(case_all_data[-1:], ((0, 0),
-                                                                (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
-                                                                (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
-                                                                (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
-                                           'constant', **{'constant_values': -1})
+            seg[j, 0] = np.pad(case_all_data[-1:], ((0, 0),
+                                                    (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
+                                                    (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
+                                                    (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
+                               'constant', **{'constant_values': -1})
             if seg_from_previous_stage is not None:
-                seg_from_previous_stage = np.pad(seg_from_previous_stage, ((0, 0),
-                                                                           (-min(0, bbox_x_lb),
-                                                                            max(bbox_x_ub - shape[0], 0)),
-                                                                           (-min(0, bbox_y_lb),
-                                                                            max(bbox_y_ub - shape[1], 0)),
-                                                                           (-min(0, bbox_z_lb),
-                                                                            max(bbox_z_ub - shape[2], 0))),
-                                                 'constant', **{'constant_values': 0})
-                case_all_data_segonly = np.concatenate((case_all_data_segonly, seg_from_previous_stage), 0)
-
-            data[j] = case_all_data_donly
-            seg[j] = case_all_data_segonly
+                seg[j, 1] = np.pad(seg_from_previous_stage, ((0, 0),
+                                                             (-min(0, bbox_x_lb),
+                                                              max(bbox_x_ub - shape[0], 0)),
+                                                             (-min(0, bbox_y_lb),
+                                                              max(bbox_y_ub - shape[1], 0)),
+                                                             (-min(0, bbox_z_lb),
+                                                              max(bbox_z_ub - shape[2], 0))),
+                                   'constant', **{'constant_values': 0})
 
         return {'data': data, 'seg': seg, 'properties': case_properties, 'keys': selected_keys}
 
