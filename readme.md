@@ -391,7 +391,6 @@ Thus, all 5 folds must have been trained prior to running inference. The list of
 printed at the start of the inference.
 
 ## How to run inference with pretrained models
-(work in progress! Model weights have not been uploaded yet!)
 
 Trained models for all challenges we participated in are publicly available. They can be downloaded and installed 
 directly with nnU-Net. Note that downloading a pretrained model will overwrite other models that were trained with 
