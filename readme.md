@@ -17,7 +17,7 @@ turn affects the required receptive field of the network, a factor that itself i
 hyperparameters in the pipeline. As a result, pipelines that were developed on one (type of) dataset are inherently 
 incomaptible with other datasets in the domain.
 
-**nnU-Net is the first segmentation method that is designed to deal with the dataset diversity found in the somain. It 
+**nnU-Net is the first segmentation method that is designed to deal with the dataset diversity found in the domain. It 
 condenses and automates the keys decisions for designing a successful segmentation pipeline for any given dataset.**
 
 nnU-Net makes the following contributions to the field:
