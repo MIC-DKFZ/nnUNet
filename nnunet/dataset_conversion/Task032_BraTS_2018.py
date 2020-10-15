@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from multiprocessing.pool import Pool
 
 import numpy as np
 from collections import OrderedDict
@@ -31,7 +31,16 @@ def convert_labels_back_to_BraTS(seg: np.ndarray):
     return new_seg
 
 
-def convert_labels_back_to_BraTS_2018_2019_convention(input_folder: str, output_folder: str):
+def load_convert_save(filename, input_folder, output_folder):
+    a = sitk.ReadImage(join(input_folder, filename))
+    b = sitk.GetArrayFromImage(a)
+    c = convert_labels_back_to_BraTS(b)
+    d = sitk.GetImageFromArray(c)
+    d.CopyInformation(a)
+    sitk.WriteImage(d, join(output_folder, filename))
+
+
+def convert_labels_back_to_BraTS_2018_2019_convention(input_folder: str, output_folder: str, num_processes: int = 12):
     """
     reads all prediction files (nifti) in the input folder, converts the labels back to BraTS convention and saves the
     result in output_folder
@@ -41,13 +50,10 @@ def convert_labels_back_to_BraTS_2018_2019_convention(input_folder: str, output_
     """
     maybe_mkdir_p(output_folder)
     nii = subfiles(input_folder, suffix='.nii.gz', join=False)
-    for n in nii:
-        a = sitk.ReadImage(join(input_folder, n))
-        b = sitk.GetArrayFromImage(a)
-        c = convert_labels_back_to_BraTS(b)
-        d = sitk.GetImageFromArray(c)
-        d.CopyInformation(a)
-        sitk.WriteImage(d, join(output_folder, n))
+    p = Pool(num_processes)
+    p.starmap(load_convert_save, zip(nii, [input_folder] * len(nii), [output_folder] * len(nii)))
+    p.close()
+    p.join()
 
 
 if __name__ == "__main__":
