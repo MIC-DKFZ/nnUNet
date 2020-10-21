@@ -1,4 +1,4 @@
-### nnU-Net gets 'stuck' during preprocessing, training or inference
+# nnU-Net gets 'stuck' during preprocessing, training or inference
 nnU-Net uses python multiprocessing to leverage multiple CPU cores during preprocessing, background workers for data 
 augmentation in training, preprocessing of cases during inference as well as resampling and exporting the final 
 predictions during validation and inference. Unfortunately, python (or maybe it is just me as a programmer) is not 
@@ -22,7 +22,7 @@ RAM (not GPU memory!) usage. If your RAM is full or close to full, you need to t
    - upgrade your RAM! (32 GB should get the job done)
 
 
-### nnU-Net training: RuntimeError: CUDA out of memory
+# nnU-Net training: RuntimeError: CUDA out of memory
 
 This section is dealing with error messages such as this:
 
@@ -44,21 +44,21 @@ the place while these benchmarks run and can briefly exceed the 8GB nnU-Net typi
  `--deterministic` flag when using `nnUNet_train`. Setting this flag can slow down your training, so it is recommended 
  to only use it if necessary.
  
-### nnU-Net training in Docker container: RuntimeError: unable to write to file </torch_781_2606105346>
+# nnU-Net training in Docker container: RuntimeError: unable to write to file </torch_781_2606105346>
 
 Nvidia NGC (https://ngc.nvidia.com/catalog/containers/nvidia:pytorch) is a great place to find Docker containers with 
 the most recent software (pytorch, cuDNN, etc.) in them. When starting Docker containers with command provided on the 
 Nvidia website, the docker will crash with errors like this when running nnU-Net: `RuntimeError: unable to write to 
 file </torch_781_2606105346>`. Please start the docker with the `--ipc=host` flag to solve this.
 
-### Downloading pretrained models: unzip: cannot find zipfile directory in one of /home/isensee/.nnunetdownload_16031094034174126
+# Downloading pretrained models: unzip: cannot find zipfile directory in one of /home/isensee/.nnunetdownload_16031094034174126
 
 Sometimes downloading the large zip files containing our pretrained models can fail and cause the error above. Please 
 make sure to use the most recent nnU-Net version (we constantly try to improve the downloading). If that does not fix it
 you can always download the zip file from our zenodo (https://zenodo.org/record/4003545) and use the 
 `nnUNet_install_pretrained_model_from_zip` command to install the model.
 
-### nnU-Net training (2D U-Net): High (and increasing) system RAM usage, OOM
+# nnU-Net training (2D U-Net): High (and increasing) system RAM usage, OOM
 
 There was a issue with mixed precision causing a system RAM memory leak. This is fixed when using cuDNN 8.0.2 or newer, 
 but the current pytorch master comes with cuDNN 7.6.5. If you encounter this problem, please consider using Nvidias NGC 
@@ -66,11 +66,11 @@ pytorch container for training (the pytorch it comes with has a recent cuDNN ver
 cuDNN version on your system and compile pytorch yourself (instructions on the pytorch website!). This is what we do at DKFZ.
 
 
-### nnU-Net training of cascade: Error `seg from prev stage missing` 
+# nnU-Net training of cascade: Error `seg from prev stage missing` 
 You need to run all five folds of `3d_lowres`. Segmentations of the previous stage can only be generated from the 
 validation set, otherwise we would overfit.
 
-### nnU-Net training: `RuntimeError: CUDA error: device-side assert triggered`?
+# nnU-Net training: `RuntimeError: CUDA error: device-side assert triggered`?
 This error often goes along with something like `void THCudaTensor_scatterFillKernel(TensorInfo<Real, IndexType>, 
 TensorInfo<long, IndexType>, Real, int, IndexType) [with IndexType = unsigned int, Real = float, Dims = -1]: 
 block: [4770,0,0], thread: [374,0,0] Assertion indexValue >= 0 && indexValue < tensor.sizes[dim] failed.`.
@@ -82,5 +82,5 @@ must be 0, 1, 2, 3 (where 0 must be background!). There cannot be any other valu
 If you run `nnUNet_plan_and_preprocess` with the `--verify_dataset_integrity` option, this should never happen because 
 it will check for wrong values in the label images.
 
-### nnU-Net training: Error: mmap length is greater than file size
+# nnU-Net training: Error: mmap length is greater than file size
 Please delete all .npy files in the nnUNet_preprocessed folder of the test you were trying to train. Then try again.

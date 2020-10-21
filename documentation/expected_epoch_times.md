@@ -1,11 +1,11 @@
-### Introduction
+# Introduction
 Trainings can take some time. A well-running training setup is essential to get the most of nnU-Net. nnU-Net does not 
 require any fancy hardware, just a well-balanced system. We recommend at least 32 GB of RAM, 6 CPU cores (12 threads), 
 SSD storage (this can be SATA and does not have to be PCIe. DO NOT use an external SSD connected via USB!) and a 
 2080 ti GPU. If your system has multiple GPUs, the 
 other components need to scale linearly with  the number of GPUs.
 
-### Benchmark Details
+# Benchmark Details
 To ensure your system is running as intended, we provide some benchmark numbers against which you can compare. Here 
 are the details about benchmarking:
 
@@ -19,7 +19,7 @@ the dataloader and instead uses random dummy inputs, bypassing all data augmenta
 - All trainings are done with mixed precision. This is why Pascal GPUs (Titan Xp) are so slow (they do not have 
 tensor cores) 
 
-### How to run the benchmark
+# How to run the benchmark
 First go into the folder where the preprocessed data and plans file of the task you would like to use are located. For me this is
 `/home/fabian/data/nnUNet_preprocessed/Task002_Heart`
 
@@ -46,13 +46,13 @@ The time we are interested in is the epoch time. You can find it in the text out
 located in your `RESULTS_FOLDER`. Note that the trainers used here run for 5 epochs. Select the fastest time from your 
 output as your benchmark time.
 
-### Results
+# Results
 
 The following table shows the results we are getting on our servers/workstations. You should be seeing similar numbers when you 
 run the benchmark on your server/workstation. Note that fluctuations of a couple of seconds are normal!
 
 
-|                                   | V100 32GB SXM3 (DGX2) 350W | V100 32GB SXM2 300W | V100 32GB PCIe 250W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan X 12GB 250W |
+|                                   | V100 32GB SXM3 (DGX2) 350W | V100 32GB SXM2 300W | V100 32GB PCIe 250W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
 |-----------------------------------|----------------------------|---------------------|---------------------|---------------------|-----------------------|-------------------|
 | Task002_Heart 2d                  |            65.63           |        69.07        |        73.22        |        82.27        |         99.39         |       183.71      |
 | Task003_Liver 2d                  |            71.80           |        73.44        |        78.63        |        86.11        |         103.89        |       187.30      |
@@ -67,12 +67,12 @@ run the benchmark on your server/workstation. Note that fluctuations of a couple
 | Task003_Liver 3d_fullres large    |           271.54           |        285.41       |        295.42       |        324.74       |          OOM          |        OOM        |
 | Task005_Prostate 3d_fullres large |           280.30           |        296.37       |        304.16       |        289.22       |          OOM          |        OOM        |
 
-### Troubleshooting
+# Troubleshooting
 Your epoch times are substantially slower than ours? That's not good! This section will help you figure out what is 
 wrong. Note that each system is unique and we cannot help you find bottlenecks beyond providing the information 
 presented in this section!
 
-#### First step: Make sure you have the right software!
+## First step: Make sure you have the right software!
 In order to get maximum performance, you need to have pytorch compiled cuDNN 8.0.2 or newer. The easiest way to get 
 that is by using the [Nvidia pytorch Docker](https://ngc.nvidia.com/catalog/containers/nvidia:pytorch). 
 If you cannot use docker, you will need to compile pytorch 
@@ -94,7 +94,7 @@ python -c 'import torch;print(torch.backends.cudnn.version())'
 
 If the output is `8002` or higher, then you are good to go. If not you may have to take action.
 
-#### Identifying the bottleneck
+## Identifying the bottleneck
 If the software is up to date and you are still experiencing problems, this is how you can figure out what is going on:
 
 While a training is running, run `htop` and `watch -n 0.1 nvidia-smi` (depending on your region you may have to use 
@@ -109,7 +109,7 @@ This means that up to 13 processes should be running simultaneously.
 - the I/O LED indicates that your system is reading/writing data from/to your hard drive/SSD. Whenever this is 
 blinking your system is doing something with your HDD/SSD.
 
-##### GPU bottleneck
+### GPU bottleneck
 If `nvidia-smi` is constantly showing 90-100% GPU utilization and the reported power draw is near the maximum, your 
 GPU is the bottleneck. This is great! That means that your other components are not slowing it down. Your epochs times 
 should be the same as ours reported above. If they are not then you need to investigate your software stack (see cuDNN stuff above).
@@ -121,7 +121,7 @@ What can you do about it?
 costs into your calculations. Sometimes it is better to go with more cheaper but slower GPUs run run multiple trainings 
 in parallel.
 
-##### CPU bottleneck
+### CPU bottleneck
 You can recognize a CPU bottleneck as follows:
 1) htop is consistently showing 10+ processes that are associated with your nnU-Net training
 2) nvidia-smi is reporting jumps of GPU activity with zeroes in between
@@ -139,7 +139,7 @@ to the number of threads you have available.
  side or the EPYC 7302P, 7402P, 7502P or 7702P on the AMD side. Make sure to scale the number of cores according to your 
  number of GPUs and use case. Feel free to also use our nnU-net recommendations from above.
  
-##### I/O bottleneck
+### I/O bottleneck
 On a workstation, I/O bottlenecks can be identified by looking at the LED indicating I/O activity. This is what an 
 I/O bottleneck looks like:
 - nvidia-smi is reporting jumps of GPU activity with zeroes in between
