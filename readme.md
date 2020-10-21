@@ -1,3 +1,10 @@
+**[2020_10_21] Update:** We now have documentation for [common questions](documentation/common_questions.md) and
+[common issues](documentation/common_problems_and_solutions.md). We now also provide [reference epoch times for 
+several datasets and tips on how to identify bottlenecks](documentation/expected_epoch_times.md).
+
+Please read these documents before opening a new issue!
+
+
 # nnU-Net
 
 In 3D biomedical image segmentation, dataset properties like imaging modality, image sizes, voxel spacings, class 
@@ -55,14 +62,14 @@ Please also cite this paper if you are using nnU-Net for your research!
         * [3D low resolution U-Net](#3d-low-resolution-u-net)
         * [3D full resolution U-Net](#3d-full-resolution-u-net-1)
       - [Multi GPU training](#multi-gpu-training)
-    + [Identifying the best U-Net configuration(s)](#identifying-the-best-u-net-configuration)
+    + [Identifying the best U-Net configuration](#identifying-the-best-u-net-configuration)
     + [Run inference](#run-inference)
   * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
-  * [Examples](#Examples)
+  * [Examples](#examples)
 - [Extending/Changing nnU-Net](#extending-changing-nnu-net)
-- [FAQ](#faq)
+- [Information on Runtime and potential performance bottlenecks.](#information-on-runtime-and-potential-performance-bottlenecks)
+- [Common questions and issues](#common-questions-and-issues)
 
-ecotrust-canada.github.io/markdown-toc/
 
 # Installation
 nnU-Net is only tested on Linux (Ubuntu 16, 18 and 20; centOS, RHEL). It may work on other operating systems as well 
