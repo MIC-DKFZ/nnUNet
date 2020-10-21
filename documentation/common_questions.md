@@ -50,6 +50,7 @@ What these changes need to look like specifically is hard to say without knowing
 Before you open a new issue on GitHub, please have a look around the `nnunet.training.network_training` folder first! 
 There are tons of examples modifying various parts of the pipeline.
 
+Also see [here](extending_nnunet.md)
 
 # How does nnU-Net handle multi-modal images?
 

@@ -70,7 +70,7 @@ cuDNN version on your system and compile pytorch yourself (instructions on the p
 You need to run all five folds of `3d_lowres`. Segmentations of the previous stage can only be generated from the 
 validation set, otherwise we would overfit.
 
-# nnU-Net training: `RuntimeError: CUDA error: device-side assert triggered`?
+# nnU-Net training: `RuntimeError: CUDA error: device-side assert triggered`
 This error often goes along with something like `void THCudaTensor_scatterFillKernel(TensorInfo<Real, IndexType>, 
 TensorInfo<long, IndexType>, Real, int, IndexType) [with IndexType = unsigned int, Real = float, Dims = -1]: 
 block: [4770,0,0], thread: [374,0,0] Assertion indexValue >= 0 && indexValue < tensor.sizes[dim] failed.`.
