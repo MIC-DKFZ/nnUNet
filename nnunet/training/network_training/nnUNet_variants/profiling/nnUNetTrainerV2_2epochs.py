@@ -223,7 +223,6 @@ class nnUNetTrainerV2_5epochs_noDS(nnUNetTrainerV2_noDeepSupervision):
         pass
 
 
-
 class nnUNetTrainerV2_DDP_5epochs(nnUNetTrainerV2_DDP):
     def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True,
                  stage=None,
