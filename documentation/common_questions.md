@@ -1,4 +1,6 @@
-# Creating and managing data splits
+# FAQ
+
+## Creating and managing data splits
 
 At the start of each training, nnU-Net will check whether the splits_final.pkl file is present in the directory where 
 the preprocessed data of the requested dataset is located. If the file is not present, nnU-Net will create its own 
@@ -33,7 +35,7 @@ nnU-Net's five-fold cross validation will always create a list of len(splits)=5.
 that if you define only 4 splits (fold 0-3) and then set fold=4 when training (that would be the fifth split), 
 nnU-Net will print a warning and proceed to use a random 80:20 data split. 
 
-# How can I swap component XXX (for example the loss) of nnU-Net?
+## How can I swap component XXX (for example the loss) of nnU-Net?
 
 All changes in nnU-Net are handled the same way:
 
@@ -52,12 +54,12 @@ There are tons of examples modifying various parts of the pipeline.
 
 Also see [here](extending_nnunet.md)
 
-# How does nnU-Net handle multi-modal images?
+## How does nnU-Net handle multi-modal images?
 
 Multi-modal images are treated as color channels. BraTS, which comes with T1, T1c, T2 and Flair images for each 
 training case will thus for example have 4 input channels.
 
-# Why does nnU-Net not use all my GPU memory?
+## Why does nnU-Net not use all my GPU memory?
 
 nnU-net and all its parameters are optimized for a training setting that uses about 8GB of VRAM for a network training. 
 Using more VRAM will not speed up the training. Using more VRAM has also not (yet) been beneficial for model 
@@ -82,7 +84,7 @@ your own using the code of the 11GB or 32GB planner (same goes for a 2D planner)
 these planners and not found an increase in segmentation performance as a result of using them. Training times are 
 again longer than with the default.
 
-# Do I need to always run all U-Net configurations?
+## Do I need to always run all U-Net configurations?
 The model training pipeline above is for challenge participations. Depending on your task you may not want to train all 
 U-Net models and you may also not want to run a cross-validation all the time.
 Here are some recommendations about what U-Net model to train:
@@ -103,7 +105,7 @@ You do not have to run five-fold cross-validation all the time. If you want to t
 CAREFUL: DO NOT use fold=all when you intend to run the cascade! You must run the cross-validation in 3d_lowres so 
 that you get proper (=not overfitted) low resolution predictions.
  
-# Sharing Models
+## Sharing Models
 You can share trained models by simply sending the corresponding output folder from `RESULTS_FOLDER/nnUNet` to 
 whoever you want share them with. The recipient can then use nnU-Net for inference with this model.
 
@@ -129,7 +131,7 @@ issues, simply reduce the reference value. You should do this adaptation as part
 Please read the instructions [here](documentation/extending_nnunet.md).
 
 
-# Why is no 3d_lowres model created?
+## Why is no 3d_lowres model created?
 3d_lowres is created only if the patch size in 3d_fullres less than 1/8 of the voxels of the median shape of the data 
 in 3d_fullres (for example Liver is about 512x512x512 and the patch size is 128x128x128, so that's 1/64 and thus 
 3d_lowres is created). You can enforce the creation of 3d_lowres models for smaller datasets by changing the value of
