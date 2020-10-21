@@ -1,5 +1,3 @@
-(this document is under construction! Come back later)
-
 ### nnU-Net gets 'stuck' during preprocessing, training or inference
 nnU-Net uses python multiprocessing to leverage multiple CPU cores during preprocessing, background workers for data 
 augmentation in training, preprocessing of cases during inference as well as resampling and exporting the final 

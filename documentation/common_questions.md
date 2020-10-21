@@ -1,5 +1,3 @@
-(this document is under construction! Come back later)
-
 ### Creating and managing data splits
 
 At the start of each training, nnU-Net will check whether the splits_final.pkl file is present in the directory where 
