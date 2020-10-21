@@ -112,7 +112,7 @@ whoever you want share them with. The recipient can then use nnU-Net for inferen
 You can now also use `nnUNet_export_model_to_zip` to export a trained model (or models) to a zip file. The recipient 
 can then use `nnUNet_install_pretrained_model_from_zip` to install the model from this zip file. 
 
-# Can I run nnU-Net on smaller GPUs?
+## Can I run nnU-Net on smaller GPUs?
 nnU-Net is guaranteed to run on GPUs with 11GB of memory. Many configurations may also run on 8 GB.
 If you have an 11GB and there is still an `Out of Memory` error, please read 'nnU-Net training: RuntimeError: CUDA out of memory' [here](common_problems_and_solutions.md).
  
