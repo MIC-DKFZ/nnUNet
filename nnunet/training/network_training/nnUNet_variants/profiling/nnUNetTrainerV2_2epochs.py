@@ -250,11 +250,8 @@ class nnUNetTrainerV2_DDP_5epochs(nnUNetTrainerV2_DDP):
 
 
 class nnUNetTrainerV2_DDP_5epochs_dummyLoad(nnUNetTrainerV2_DDP_5epochs):
-    def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True,
-                 stage=None,
-                 unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False):
-        super().__init__(plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, distribute_batch_size, fp16)
+    def initialize(self, training=True, force_load_plans=False):
+        super().initialize(training, force_load_plans)
         self.some_batch = torch.rand((self.batch_size, self.num_input_channels, *self.patch_size)).float().cuda()
 
         self.some_gt = [torch.round(torch.rand((self.batch_size, 1, *[int(i * j) for i, j in zip(self.patch_size, k)])) * (
