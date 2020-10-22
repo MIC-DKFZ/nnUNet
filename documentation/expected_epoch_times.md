@@ -9,12 +9,12 @@ other components need to scale linearly with  the number of GPUs.
 To ensure your system is running as intended, we provide some benchmark numbers against which you can compare. Here 
 are the details about benchmarking:
 
-- We benchmark **2d**, **3d_fullres** and a modified 3d_fullres that uses 3x the default batch size (called **3d_fullres_large** here) 
-- The datasets **Task02_Heart**, **Task05_Prostate** and **Task03_Liver** of the Medical Segmentation Decathlon are used 
+- We benchmark **2d**, **3d_fullres** and a modified 3d_fullres that uses 3x the default batch size (called **3d_fullres large** here) 
+- The datasets **Task002_Heart**, **Task005_Prostate** and **Task003_Liver** of the Medical Segmentation Decathlon are used 
 (they provide a good spectrum of dataset properties)
-- we use the **nnUNetTrainerV2_5epochs** trainer. This will run only for 5 epochs and it will skip validation. 
+- we use the nnUNetTrainerV2_5epochs trainer. This will run only for 5 epochs and it will skip validation. 
 From the 5 epochs, we select the fastest one as the epoch time. 
-- We will also be running the **nnUNetTrainerV2_5epochs_dummyLoad** trainer on the **3d_fullres** config. This trainer does not use 
+- We will also be running the nnUNetTrainerV2_5epochs_dummyLoad trainer on the 3d_fullres config (called **3d_fullres dummy**). This trainer does not use 
 the dataloader and instead uses random dummy inputs, bypassing all data augmentation (CPU) and I/O bottlenecks. 
 - All trainings are done with mixed precision. This is why Pascal GPUs (Titan Xp) are so slow (they do not have 
 tensor cores) 
