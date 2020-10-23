@@ -426,7 +426,7 @@ if __name__ == "__main__":
     #################################################
     # custom split
     #################################################
-    patients = subdirs(d, join=False)
+    patients = subdirs(join(root, "MR"), join=False)
     task_name_variant1 = "Task037_CHAOS_Task_3_5_Variant1"
     task_name_variant2 = "Task038_CHAOS_Task_3_5_Variant2"
 
