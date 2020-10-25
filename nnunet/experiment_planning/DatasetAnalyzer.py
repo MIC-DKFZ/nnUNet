@@ -140,10 +140,12 @@ class DatasetAnalyzer(object):
         return class_dct, props_per_patient
 
     def get_sizes_and_spacings_after_cropping(self):
-        case_identifiers = get_patient_identifiers_from_cropped_files(self.folder_with_cropped_data)
+        # XXX: redundant implemention with __init__() function: line39 self.patient_identifiers
+        # case_identifiers = get_patient_identifiers_from_cropped_files(self.folder_with_cropped_data)
         sizes = []
         spacings = []
-        for c in case_identifiers:
+        # for c in case_identifiers:
+        for c in self.patient_identifiers:
             properties = self.load_properties_of_cropped(c)
             sizes.append(properties["size_after_cropping"])
             spacings.append(properties["original_spacing"])
