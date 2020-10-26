@@ -494,6 +494,7 @@ class DataLoader2D(SlimDataLoaderBase):
                     valid_slices = np.unique(voxels_of_that_class[:, 0])
                     random_slice = np.random.choice(valid_slices)
                     voxels_of_that_class = voxels_of_that_class[voxels_of_that_class[:, 0] == random_slice]
+                    voxels_of_that_class = voxels_of_that_class[:, 1:]
 
             # now crop case_all_data to contain just the slice of interest. If we want additional slice above and
             # below the current slice, here is where we get them. We stack those as additional color channels
