@@ -69,6 +69,9 @@ def main():
     parser.add_argument("--find_lr", required=False, default=False, action="store_true", help="")
     parser.add_argument("--val_folder", required=False, default="validation_raw",
                         help="name of the validation folder. No need to use this for most people")
+    parser.add_argument("--disable_saving", required=False, action='store_true',
+                        help="If set nnU-Net will not save any parameter files. Useful for development when you are "
+                             "only interested in the results and want to save some disk space")
     # parser.add_argument("--interp_order", required=False, default=3, type=int,
     #                     help="order of interpolation for segmentations. Testing purpose only. Hands off")
     # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
@@ -133,6 +136,12 @@ def main():
                             dataset_directory=dataset_directory, batch_dice=batch_dice, stage=stage,
                             unpack_data=decompress_data, deterministic=deterministic, fp16=not fp32,
                             distribute_batch_size=args.dbs)
+
+    if args.disable_saving:
+        trainer.save_latest_only = False  # if false it will not store/overwrite _latest but separate files each
+        trainer.save_intermediate_checkpoints = False  # whether or not to save checkpoint_latest
+        trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to self.best_val_eval_criterion_MA
+        trainer.save_final_checkpoint = False  # whether or not to save the final checkpoint
 
     trainer.initialize(not validation_only)
 
