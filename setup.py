@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 
 setup(name='nnunet',
       packages=find_namespace_packages(include=["nnunet", "nnunet.*"]),
-      version='1.6.4',
+      version='1.6.5',
       description='nnU-Net. Framework for out-of-the box biomedical image segmentation.',
       url='https://github.com/MIC-DKFZ/nnUNet',
       author='Division of Medical Image Computing, German Cancer Research Center',
@@ -40,6 +40,7 @@ setup(name='nnunet',
               'nnUNet_export_model_to_zip = nnunet.inference.pretrained_models.collect_pretrained_models:export_entry_point',
               'nnUNet_install_pretrained_model_from_zip = nnunet.inference.pretrained_models.download_pretrained_model:install_from_zip_entry_point',
               'nnUNet_change_trainer_class = nnunet.inference.change_trainer:main',
+              'nnUNet_evaluate_folder = nnunet.evaluation.evaluator:nnunet_evaluate_folder'
           ],
       },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',

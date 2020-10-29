@@ -112,26 +112,18 @@ class DatasetAnalyzer(object):
 
     def analyse_segmentations(self):
         class_dct = self.get_classes()
-        all_classes = np.array([int(i) for i in class_dct.keys()])
-        all_classes = all_classes[all_classes > 0]  # remove background
 
         if self.overwrite or not isfile(self.props_per_case_file):
             p = Pool(self.num_processes)
-            #res = p.starmap(self._load_seg_analyze_classes, zip(self.patient_identifiers,
-            #                                                [all_classes] * len(self.patient_identifiers)))
             res = p.map(self._get_unique_labels, self.patient_identifiers)
             p.close()
             p.join()
 
             props_per_patient = OrderedDict()
-            #for p, (unique_classes, all_in_one_region, voxels_per_class, region_volume_per_class) in \
             for p, unique_classes in \
                             zip(self.patient_identifiers, res):
                 props = dict()
                 props['has_classes'] = unique_classes
-                #props['only_one_region'] = all_in_one_region
-                #props['volume_per_class'] = voxels_per_class
-                #props['region_volume_per_class'] = region_volume_per_class
                 props_per_patient[p] = props
 
             save_pickle(props_per_patient, self.props_per_case_file)
@@ -140,10 +132,10 @@ class DatasetAnalyzer(object):
         return class_dct, props_per_patient
 
     def get_sizes_and_spacings_after_cropping(self):
-        case_identifiers = get_patient_identifiers_from_cropped_files(self.folder_with_cropped_data)
         sizes = []
         spacings = []
-        for c in case_identifiers:
+        # for c in case_identifiers:
+        for c in self.patient_identifiers:
             properties = self.load_properties_of_cropped(c)
             sizes.append(properties["size_after_cropping"])
             spacings.append(properties["original_spacing"])
@@ -237,9 +229,6 @@ class DatasetAnalyzer(object):
         # get all classes and what classes are in what patients
         # class min size
         # region size per class
-        #class_dct, segmentation_props_per_patient = self.analyse_segmentations()
-        #all_classes = np.array([int(i) for i in class_dct.keys()])
-        #all_classes = all_classes[all_classes > 0]
         classes = self.get_classes()
         all_classes = [int(i) for i in classes.keys() if int(i) > 0]
 
@@ -258,8 +247,6 @@ class DatasetAnalyzer(object):
         dataset_properties = dict()
         dataset_properties['all_sizes'] = sizes
         dataset_properties['all_spacings'] = spacings
-        #dataset_properties['segmentation_props_per_patient'] = segmentation_props_per_patient
-        #dataset_properties['class_dct'] = class_dct  # {int: class name}
         dataset_properties['all_classes'] = all_classes
         dataset_properties['modalities'] = modalities  # {idx: modality name}
         dataset_properties['intensityproperties'] = intensityproperties
@@ -267,16 +254,3 @@ class DatasetAnalyzer(object):
 
         save_pickle(dataset_properties, join(self.folder_with_cropped_data, "dataset_properties.pkl"))
         return dataset_properties
-
-
-if __name__ == "__main__":
-    tasks = [i for i in os.listdir(nnUNet_raw_data) if os.path.isdir(os.path.join(nnUNet_raw_data, i))]
-    tasks.sort()
-
-    t = 'Task14_BoneSegmentation'
-
-    print("\n\n\n", t)
-    cropped_out_dir = os.path.join(nnUNet_cropped_data, t)
-
-    dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)
-    props = dataset_analyzer.analyze_dataset()
