@@ -153,6 +153,7 @@ def export_pretrained_model(task_name: str, output_file: str,
     for m in models:
         to = trainer_output_dir_cascade if m == "3d_cascade_fullres" else trainer_output_dir
         expected_output_folder = join(network_training_output_dir, m, task_name, to)
+        print(expected_output_folder)
         if not isdir(expected_output_folder):
             if strict:
                 raise RuntimeError("Task %s is missing the model %s" % (task_name, m))
@@ -202,6 +203,7 @@ def export_pretrained_model(task_name: str, output_file: str,
     subd = subdirs(ensemble_dir, join=False)
     valid = []
     for s in subd:
+        print(s)
         v = check_if_valid(s, models, (nnunet_trainer, nnunet_trainer_cascade), (plans_identifier))
         if v:
             valid.append(s)

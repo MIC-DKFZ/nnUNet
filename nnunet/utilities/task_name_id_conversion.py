@@ -43,6 +43,7 @@ def convert_id_to_task_name(task_id: int):
 
     all_candidates = candidates_cropped + candidates_preprocessed + candidates_raw + candidates_trained_models
     unique_candidates = np.unique(all_candidates)
+    print(unique_candidates)
     if len(unique_candidates) > 1:
         raise RuntimeError("More than one task name found for task id %d. Please correct that. (I looked in the "
                            "following folders:\n%s\n%s\n%s" % (task_id, nnUNet_raw_data, preprocessing_output_dir,
