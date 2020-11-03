@@ -39,7 +39,7 @@ Now you can run the benchmarks. Each should only take a couple of minutes
 nnUNet_train 2d nnUNetTrainerV2_5epochs TASKID 0
 nnUNet_train 3d_fullres nnUNetTrainerV2_5epochs TASKID 0
 nnUNet_train 3d_fullres nnUNetTrainerV2_5epochs_dummyLoad TASKID 0
-nnUNet_train 3d_fullres nnUNetTrainerV2_5epochs TASKID 0 -p nnUNetPlansv2.1_plans_bs3x # optional, only for GPUs with more than 16GB of VRAM
+nnUNet_train 3d_fullres nnUNetTrainerV2_5epochs TASKID 0 -p nnUNetPlansv2.1_bs3x # optional, only for GPUs with more than 16GB of VRAM
 ```
 
 The time we are interested in is the epoch time. You can find it in the text output (stdout) or the log file 
