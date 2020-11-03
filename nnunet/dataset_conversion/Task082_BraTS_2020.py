@@ -39,7 +39,7 @@ def apply_brats_threshold(fname, out_dir, threshold, replace_with):
     img_npy = sitk.GetArrayFromImage(img_itk)
     s = np.sum(img_npy == 3)
     if s < threshold:
-        print(s, fname)
+        # print(s, fname)
         img_npy[img_npy == 3] = replace_with
     img_itk_postprocessed = sitk.GetImageFromArray(img_npy)
     img_itk_postprocessed.CopyInformation(img_itk)
@@ -315,6 +315,7 @@ def compute_BraTS_dice(ref, pred):
             return 0
     else:
         return dc(pred, ref)
+
 
 def convert_all_to_BraTS(input_folder, output_folder, expected_num_cases=125):
     for s in subdirs(input_folder, join=False):
@@ -624,10 +625,13 @@ def score_and_postprocess_model_based_on_rank_then_aggregate():
 
 if __name__ == "__main__":
     """
+<<<<<<< HEAD
+=======
     THIS CODE IS A MESS. IT IS PROVIDED AS IS WITH NO GUARANTEES. YOU HAVE TO DIG THROUGH IT YOURSELF. GOOD LUCK ;-)
     """
 
     """
+>>>>>>> master
     REMEMBER TO CONVERT LABELS BACK TO BRATS CONVENTION AFTER PREDICTION!
     """
 
@@ -748,5 +752,5 @@ if __name__ == "__main__":
 
     # test set
     #  nnUNet_ensemble -f nnUNetTrainerV2BraTSRegions_DA3_BN_BD__nnUNetPlansv2.1_bs5_5fold nnUNetTrainerV2BraTSRegions_DA4_BN_BD__nnUNetPlansv2.1_bs5_5fold nnUNetTrainerV2BraTSRegions_DA4_BN__nnUNetPlansv2.1_bs5_15fold -o ensembled_nnUNetTrainerV2BraTSRegions_DA3_BN_BD__nnUNetPlansv2.1_bs5_5fold__nnUNetTrainerV2BraTSRegions_DA4_BN_BD__nnUNetPlansv2.1_bs5_5fold__nnUNetTrainerV2BraTSRegions_DA4_BN__nnUNetPlansv2.1_bs5_15fold
-    # apply_threshold_to_folder('ensembled_nnUNetTrainerV2BraTSRegions_DA3_BN_BD__nnUNetPlansv2.1_bs5_5fold__nnUNetTrainerV2BraTSRegions_DA4_BN_BD__nnUNetPlansv2.1_bs5_5fold__nnUNetTrainerV2BraTSRegions_DA4_BN__nnUNetPlansv2.1_bs5_15fold/', 'ensemble_PP100/', 100, 2)
-    # convert_labels_back_to_BraTS_2018_2019_convention('ensemble_PP100/', 'ensemble_PP100_converted')
+    # apply_threshold_to_folder('ensembled_nnUNetTrainerV2BraTSRegions_DA3_BN_BD__nnUNetPlansv2.1_bs5_5fold__nnUNetTrainerV2BraTSRegions_DA4_BN_BD__nnUNetPlansv2.1_bs5_5fold__nnUNetTrainerV2BraTSRegions_DA4_BN__nnUNetPlansv2.1_bs5_15fold/', 'ensemble_PP200/', 200, 2)
+    # convert_labels_back_to_BraTS_2018_2019_convention('ensemble_PP200/', 'ensemble_PP200_converted')
