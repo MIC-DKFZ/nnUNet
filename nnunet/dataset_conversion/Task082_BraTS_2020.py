@@ -625,13 +625,8 @@ def score_and_postprocess_model_based_on_rank_then_aggregate():
 
 if __name__ == "__main__":
     """
-<<<<<<< HEAD
-=======
     THIS CODE IS A MESS. IT IS PROVIDED AS IS WITH NO GUARANTEES. YOU HAVE TO DIG THROUGH IT YOURSELF. GOOD LUCK ;-)
-    """
 
-    """
->>>>>>> master
     REMEMBER TO CONVERT LABELS BACK TO BRATS CONVENTION AFTER PREDICTION!
     """
 
