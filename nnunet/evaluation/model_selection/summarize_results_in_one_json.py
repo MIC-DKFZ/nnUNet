@@ -24,7 +24,7 @@ def summarize(tasks, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fullre
     maybe_mkdir_p(output_dir)
 
     if len(tasks) == 1 and tasks[0] == "all":
-        tasks = list(range(100))
+        tasks = list(range(999))
     else:
         tasks = [int(i) for i in tasks]
 
@@ -103,7 +103,7 @@ def summarize2(task_ids, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fu
     maybe_mkdir_p(output_dir)
 
     if len(task_ids) == 1 and task_ids[0] == "all":
-        task_ids = list(range(100))
+        task_ids = list(range(999))
     else:
         task_ids = [int(i) for i in task_ids]
 
