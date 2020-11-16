@@ -67,30 +67,36 @@ Please also cite this paper if you are using nnU-Net for your research!
   * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
   * [Examples](#examples)
 - [Extending/Changing nnU-Net](#extending-changing-nnu-net)
-- [Information on Runtime and potential performance bottlenecks.](#information-on-runtime-and-potential-performance-bottlenecks)
+- [Information on run time and potential performance bottlenecks.](#information-on-run-time-and-potential-performance-bottlenecks)
 - [Common questions and issues](#common-questions-and-issues)
 
 
 # Installation
-nnU-Net is only tested on Linux (Ubuntu 16, 18 and 20; centOS, RHEL). It may work on other operating systems as well 
-but we do not guarantee that it will.
+nnU-Net has been tested on Linux (Ubuntu 16, 18 and 20; centOS, RHEL). We do not provide support for other operating 
+systems.
 
 nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For training nnU-Net models the GPU should have at 
-least 11 GB (such as the RTX 2080ti). Due to the use of mixed precision, fastest training times are achieved with the 
-Volta architecture (Titan V, V100 GPUs) or when compiling pytorch from source 
-(see [here](https://github.com/pytorch/pytorch#from-source)) using cuDNN 8.0.2. Note that future versions of pytorch 
-will include cuDNN 8.0.2 or newer by default and compiling from source will not be necessary.
+least 10 GB (popular non-datacenter options are the RTX 2080ti, RTX 3080 or RTX 3090). Due to the use of automated mixed 
+precision, fastest training times are achieved with the Volta architecture (Titan V, V100 GPUs) when installing pytorch 
+the easy way. Since pytorch comes with cuDNN 7.6.5 and tensor core acceleration on Turing GPUs is not supported for 3D 
+convolutions in this version, you will not get the best training speeds on Turing GPUs. You can remedy that by compiling pytorch from source 
+(see [here](https://github.com/pytorch/pytorch#from-source)) using cuDNN 8.0.2 or newer. This will unlock Turing GPUs 
+(RTX 2080ti, RTX 6000) for automated mixed precision training with 3D convolutions and make the training blistering 
+fast as well. Note that future versions of pytorch may include cuDNN 8.0.2 or newer by default and 
+compiling from source will not be necessary.
+We don't know the speed of Ampere GPUs with vanilla vs self-compiled pytorch yet - this section will be updated as 
+soon as we know.
 
-For training, we recommend a strong CPU top go along with the GPU. At least 6 CPU cores (12 threads) are recommended. CPU 
-requirements are mostly related to data augmentation and scale with the number of input channels and are thus higher 
-for datasets like BraTS which use 4 image 
-modalities and lower for datasets like LiTS which only uses CT images.
+For training, we recommend a strong CPU to go along with the GPU. At least 6 CPU cores (12 threads) are recommended. CPU 
+requirements are mostly related to data augmentation and scale with the number of input channels. They are thus higher 
+for datasets like BraTS which use 4 image modalities and lower for datasets like LiTS which only uses CT images.
 
 We very strongly recommend you install nnU-Net in a virtual environment. 
-[Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/).
-Please do not use conda environments. This has caused multiple issues in the past.
+[Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/)
+If you choose to compile pytorch from source, you will need to use conda instead of pip. In that case, please set the 
+environment variable OMP_NUM_THREADS=1 (preferably in your bashrc using `export OMP_NUM_THREADS=1`). This is important!
 
-Python 2 is deprecated and not supported. Please make sure you are using Python 3 :-)
+Python 2 is deprecated and not supported. Please make sure you are using Python 3.
 
 1) Install [PyTorch](https://pytorch.org/get-started/locally/). You need at least version 1.6
 2) Install nnU-Net depending on your use case:
@@ -433,7 +439,7 @@ Usability not good enough? Let us know!
 # Extending/Changing nnU-Net
 Please refer to [this](documentation/extending_nnunet.md) guide.
 
-# Information on Runtime and potential performance bottlenecks.
+# Information on run time and potential performance bottlenecks.
 
 We have compiled a list of expected epoch times on standardized datasets across many different GPUs. You can use them 
 to verify that your system is performing as expected. There are also tips on how to identify bottlenecks and what 
