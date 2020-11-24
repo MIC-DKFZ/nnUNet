@@ -44,7 +44,7 @@ class ExperimentPlanner3D_v22(ExperimentPlanner3D_v21):
         other_spacings = [target[i] for i in other_axes]
         other_sizes = [target_size[i] for i in other_axes]
 
-        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * min(other_spacings))
+        has_aniso_spacing = target[worst_spacing_axis] > (self.anisotropy_threshold * max(other_spacings))
         has_aniso_voxels = target_size[worst_spacing_axis] * self.anisotropy_threshold < min(other_sizes)
         # we don't use the last one for now
         #median_size_in_mm = target[target_size_mm] * RESAMPLING_SEPARATE_Z_ANISOTROPY_THRESHOLD < max(target_size_mm)
@@ -53,7 +53,7 @@ class ExperimentPlanner3D_v22(ExperimentPlanner3D_v21):
             spacings_of_that_axis = np.vstack(spacings)[:, worst_spacing_axis]
             target_spacing_of_that_axis = np.percentile(spacings_of_that_axis, 10)
             # don't let the spacing of that axis get higher than self.anisotropy_thresholdxthe_other_axes
-            target_spacing_of_that_axis = max(min(other_spacings) * self.anisotropy_threshold, target_spacing_of_that_axis)
+            target_spacing_of_that_axis = max(max(other_spacings) * self.anisotropy_threshold, target_spacing_of_that_axis)
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
