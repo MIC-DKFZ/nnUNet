@@ -168,7 +168,7 @@ def split_4d_for_all_pat(files_paths, split_folder):
           zip(files_paths, [split_folder] * len(files_paths), [None] * len(files_paths)))
 
 if __name__ == "__main__":
-    task_name = "Task114_heart_mnms"
+    task_name = "Task114_heart_MNMs"
     train_dir = "/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/nnUnet_raw/nnUNet_raw_data/{}/imagesTr".format(task_name)
     test_dir = "/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/nnUnet_raw/nnUNet_raw_data/{}/imagesTs".format(task_name)
     #out_dir='/media/full/tera2/output_nnUNet/preprocessed_data/Task114_heart_mnms'

@@ -188,7 +188,7 @@ def get_available_models():
                             "See also https://www.ub.edu/mnms/ \n"
                             "Note: Labels of the M&Ms Challenge are not in the same order as for the ACDC challenge. \n"
                             "See https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunet/dataset_conversion/Task114_heart_mnms.py",
-            'url': "https://zenodo.org/record/4134721/files/TASK114_heart_mnms.zip?download=1"
+            'url': "https://zenodo.org/record/4288464/files/Task114_heart_MNMs.zip?download=1"
         },
 
     }
