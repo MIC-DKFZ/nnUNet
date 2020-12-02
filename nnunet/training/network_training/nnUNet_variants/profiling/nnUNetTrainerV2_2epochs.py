@@ -41,7 +41,7 @@ class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         pass
 
@@ -66,7 +66,7 @@ class nnUNetTrainerV2_5epochs(nnUNetTrainerV2):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         pass
 
@@ -92,7 +92,7 @@ class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         pass
 
@@ -166,7 +166,7 @@ class nnUNetTrainerV2_5epochs_noDS(nnUNetTrainerV2_noDeepSupervision):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         pass
 
@@ -241,7 +241,7 @@ class nnUNetTrainerV2_DDP_5epochs(nnUNetTrainerV2_DDP):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
         pass
 

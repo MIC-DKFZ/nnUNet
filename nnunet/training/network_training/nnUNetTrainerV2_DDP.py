@@ -366,7 +366,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision=True) -> Tuple[
         np.ndarray, np.ndarray]:
         if pad_border_mode == 'constant' and pad_kwargs is None:

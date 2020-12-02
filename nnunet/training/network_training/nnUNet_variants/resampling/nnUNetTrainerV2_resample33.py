@@ -38,10 +38,12 @@ class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
         print("preprocessing...")
         d, s, properties = self.preprocess_patient(input_files)
         print("predicting...")
-        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, self.data_aug_params["do_mirror"],
-                                                                     self.data_aug_params['mirror_axes'], True, 0.5,
-                                                                     True, 'constant', {'constant_values': 0},
-                                                                     self.patch_size, True,
+        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, do_mirroring=self.data_aug_params["do_mirror"],
+                                                                     mirror_axes=self.data_aug_params['mirror_axes'],
+                                                                     use_sliding_window=True, step_size=0.5,
+                                                                     use_gaussian=True, pad_border_mode='constant',
+                                                                     pad_kwargs={'constant_values': 0},
+                                                                     all_in_gpu=True,
                                                                      mixed_precision=mixed_precision)[1]
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 

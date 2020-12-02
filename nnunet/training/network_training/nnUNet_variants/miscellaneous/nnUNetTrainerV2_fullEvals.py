@@ -104,9 +104,12 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
                 #print(k, data.shape)
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1], do_mirroring,
-                                                                                     mirror_axes, use_sliding_window,
-                                                                                     step_size, use_gaussian,
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                     do_mirroring=do_mirroring,
+                                                                                     mirror_axes=mirror_axes,
+                                                                                     use_sliding_window=use_sliding_window,
+                                                                                     step_size=step_size,
+                                                                                     use_gaussian=use_gaussian,
                                                                                      all_in_gpu=all_in_gpu,
                                                                                      verbose=False,
                                                                                      mixed_precision=self.fp16)[1]

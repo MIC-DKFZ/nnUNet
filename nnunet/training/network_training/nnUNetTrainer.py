@@ -454,10 +454,12 @@ class nnUNetTrainer(NetworkTrainer):
         print("preprocessing...")
         d, s, properties = self.preprocess_patient(input_files)
         print("predicting...")
-        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, self.data_aug_params["do_mirror"],
-                                                                     self.data_aug_params['mirror_axes'], True, 0.5,
-                                                                     True, 'constant', {'constant_values': 0},
-                                                                     self.patch_size, True,
+        pred = self.predict_preprocessed_data_return_seg_and_softmax(d, do_mirroring=self.data_aug_params["do_mirror"],
+                                                                     mirror_axes=self.data_aug_params['mirror_axes'],
+                                                                     use_sliding_window=True, step_size=0.5,
+                                                                     use_gaussian=True, pad_border_mode='constant',
+                                                                     pad_kwargs={'constant_values': 0},
+                                                                     verbose=True, all_in_gpu=False,
                                                                      mixed_precision=mixed_precision)[1]
         pred = pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
@@ -481,7 +483,7 @@ class nnUNetTrainer(NetworkTrainer):
                                                          mirror_axes: Tuple[int] = None,
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
-                                                         pad_kwargs: dict = None, all_in_gpu: bool = True,
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
                                                          verbose: bool = True, mixed_precision: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
         :param data:
@@ -589,9 +591,12 @@ class nnUNetTrainer(NetworkTrainer):
                 print(k, data.shape)
                 data[-1][data[-1] == -1] = 0
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1], do_mirroring,
-                                                                                     mirror_axes, use_sliding_window,
-                                                                                     step_size, use_gaussian,
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                     do_mirroring=do_mirroring,
+                                                                                     mirror_axes=mirror_axes,
+                                                                                     use_sliding_window=use_sliding_window,
+                                                                                     step_size=step_size,
+                                                                                     use_gaussian=use_gaussian,
                                                                                      all_in_gpu=all_in_gpu,
                                                                                      mixed_precision=self.fp16)[1]
 

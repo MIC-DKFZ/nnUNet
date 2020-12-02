@@ -29,10 +29,10 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 
 
 def resample_and_save(predicted, target_shape, output_file, force_separate_z=False,
-                         interpolation_order=1, interpolation_order_z=0):
+                      interpolation_order=1, interpolation_order_z=0):
     if isinstance(predicted, str):
         assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
-                                             "isfile(segmentation_softmax) must be True"
+                                  "isfile(segmentation_softmax) must be True"
         del_file = deepcopy(predicted)
         predicted = np.load(predicted)
         os.remove(del_file)
@@ -64,11 +64,9 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
         data_file = trainer.dataset_val[pat]['data_file']
         data_preprocessed = np.load(data_file)['data'][:-1]
 
-        predicted_probabilities = trainer.predict_preprocessed_data_return_seg_and_softmax(data_preprocessed,
-                                                                                           trainer.data_aug_params[
-                                                                                               "do_mirror"],
-                                                                                           trainer.data_aug_params[
-                                                                                               'mirror_axes'], mixed_precision=trainer.fp16)[1]
+        predicted_probabilities = trainer.predict_preprocessed_data_return_seg_and_softmax(
+            data_preprocessed, do_mirroring=trainer.data_aug_params["do_mirror"],
+            mirror_axes=trainer.data_aug_params['mirror_axes'], mixed_precision=trainer.fp16)[1]
 
         data_file_nofolder = data_file.split("/")[-1]
         data_file_nextstage = join(stage_to_be_predicted_folder, data_file_nofolder)
@@ -97,7 +95,7 @@ if __name__ == "__main__":
     cascade. It needs to run once for each fold so that the segmentation is only generated for the validation set 
     and not on the data the network was trained on. Run it with
     python predict_next_stage TRAINERCLASS TASK FOLD"""
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument("network_trainer")
     parser.add_argument("task")
@@ -111,17 +109,18 @@ if __name__ == "__main__":
 
     plans_file, folder_with_preprocessed_data, output_folder_name, dataset_directory, batch_dice, stage = \
         get_default_configuration("3d_lowres", task)
-    
-    trainer_class = recursive_find_python_class([join(nnunet.__path__[0], "training", "network_training")], trainerclass,
-                                           "nnunet.training.network_training")
-    
+
+    trainer_class = recursive_find_python_class([join(nnunet.__path__[0], "training", "network_training")],
+                                                trainerclass,
+                                                "nnunet.training.network_training")
+
     if trainer_class is None:
         raise RuntimeError("Could not find trainer class in nnunet.training.network_training")
     else:
         assert issubclass(trainer_class,
                           nnUNetTrainer), "network_trainer was found but is not derived from nnUNetTrainer"
-    
-    trainer = trainer_class(plans_file, fold, folder_with_preprocessed_data,output_folder=output_folder_name,
+
+    trainer = trainer_class(plans_file, fold, folder_with_preprocessed_data, output_folder=output_folder_name,
                             dataset_directory=dataset_directory, batch_dice=batch_dice, stage=stage)
 
     trainer.initialize(False)
@@ -134,4 +133,3 @@ if __name__ == "__main__":
     maybe_mkdir_p(output_folder)
 
     predict_next_stage(trainer, stage_to_be_predicted_folder)
-
