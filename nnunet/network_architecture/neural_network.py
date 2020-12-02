@@ -108,6 +108,8 @@ class SegmentationNetwork(NeuralNetwork):
         :param mixed_precision: if True, will run inference in mixed precision with autocast()
         :return:
         """
+        torch.cuda.empty_cache()
+
         assert step_size <= 1, 'step_size must be smaller than 1. Otherwise there will be a gap between consecutive ' \
                                'predictions'
 
@@ -198,6 +200,8 @@ class SegmentationNetwork(NeuralNetwork):
         :param verbose: Do you want a wall of text? If yes then set this to True
         :return:
         """
+        torch.cuda.empty_cache()
+
         assert step_size <= 1, 'step_size must be smaler than 1. Otherwise there will be a gap between consecutive ' \
                                'predictions'
 
@@ -293,8 +297,6 @@ class SegmentationNetwork(NeuralNetwork):
         assert self.get_device() != "cpu"
         if verbose: print("step_size:", step_size)
         if verbose: print("do mirror:", do_mirroring)
-
-        torch.cuda.empty_cache()
 
         assert patch_size is not None, "patch_size cannot be None for tiled prediction"
 
@@ -435,8 +437,6 @@ class SegmentationNetwork(NeuralNetwork):
                                                                   'run _internal_predict_2D_2Dconv'
         if verbose: print("do mirror:", do_mirroring)
 
-        torch.cuda.empty_cache()
-
         data, slicer = pad_nd_image(x, min_size, pad_border_mode, pad_kwargs, True,
                                     self.input_shape_must_be_divisible_by)
 
@@ -472,8 +472,6 @@ class SegmentationNetwork(NeuralNetwork):
         assert self.input_shape_must_be_divisible_by is not None, 'input_shape_must_be_divisible_by must be set to ' \
                                                                   'run _internal_predict_3D_3Dconv'
         if verbose: print("do mirror:", do_mirroring)
-
-        torch.cuda.empty_cache()
 
         data, slicer = pad_nd_image(x, min_size, pad_border_mode, pad_kwargs, True,
                                     self.input_shape_must_be_divisible_by)
@@ -609,8 +607,6 @@ class SegmentationNetwork(NeuralNetwork):
         assert self.get_device() != "cpu"
         if verbose: print("step_size:", step_size)
         if verbose: print("do mirror:", do_mirroring)
-
-        torch.cuda.empty_cache()
 
         assert patch_size is not None, "patch_size cannot be None for tiled prediction"
 
