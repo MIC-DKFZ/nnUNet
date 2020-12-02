@@ -187,8 +187,10 @@ class nnUNetTrainerV2(nnUNetTrainer):
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        ret = super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
+        ret = super().validate(do_mirroring=do_mirroring, use_sliding_window=use_sliding_window, step_size=step_size,
+                               save_softmax=save_softmax, use_gaussian=use_gaussian,
+                               overwrite=overwrite, validation_folder_name=validation_folder_name, debug=debug,
+                               all_in_gpu=all_in_gpu, segmentation_export_kwargs=segmentation_export_kwargs)
 
         self.network.do_ds = ds
         return ret

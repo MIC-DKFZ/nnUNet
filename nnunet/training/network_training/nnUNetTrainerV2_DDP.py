@@ -367,7 +367,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
                                                          pad_kwargs: dict = None, all_in_gpu: bool = True,
-                                                         verbose: bool = True, mixed_precision=True) -> Tuple[np.ndarray, np.ndarray]:
+                                                         verbose: bool = True, mixed_precision=True) -> Tuple[
+        np.ndarray, np.ndarray]:
         if pad_border_mode == 'constant' and pad_kwargs is None:
             pad_kwargs = {'constant_values': 0}
 
@@ -386,9 +387,12 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             net = self.network
         ds = net.do_ds
         net.do_ds = False
-        ret = net.predict_3D(data, do_mirroring, mirror_axes, use_sliding_window, step_size, self.patch_size,
-                             self.regions_class_order, use_gaussian, pad_border_mode, pad_kwargs,
-                             all_in_gpu, verbose, mixed_precision=mixed_precision)
+        ret = net.predict_3D(data, do_mirroring=do_mirroring, mirror_axes=mirror_axes,
+                             use_sliding_window=use_sliding_window, step_size=step_size,
+                             patch_size=self.patch_size, regions_class_order=self.regions_class_order,
+                             use_gaussian=use_gaussian, pad_border_mode=pad_border_mode,
+                             pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu, verbose=verbose,
+                             mixed_precision=mixed_precision)
         net.do_ds = ds
         return ret
 

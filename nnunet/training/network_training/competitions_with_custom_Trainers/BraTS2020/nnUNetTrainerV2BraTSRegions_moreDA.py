@@ -122,8 +122,10 @@ class nnUNetTrainerV2BraTSRegions_DA3_BN(nnUNetTrainerV2_DA3_BN):
                  step_size: int = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  segmentation_export_kwargs: dict = None):
-        super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                         overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
+        super().validate(do_mirroring=do_mirroring, use_sliding_window=use_sliding_window, step_size=step_size,
+                         save_softmax=save_softmax, use_gaussian=use_gaussian,
+                         overwrite=overwrite, validation_folder_name=validation_folder_name, debug=debug,
+                         all_in_gpu=all_in_gpu, segmentation_export_kwargs=segmentation_export_kwargs)
         # run brats specific validation
         output_folder = join(self.output_folder, validation_folder_name)
         evaluate_regions(output_folder, self.gt_niftis_folder, self.regions)
@@ -267,5 +269,3 @@ class nnUNetTrainerV2BraTSRegions_DA4_BN_BD(nnUNetTrainerV2BraTSRegions_DA4_BN):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.loss = DC_and_BCE_loss({}, {'batch_dice': True, 'do_bg': True, 'smooth': 0})
-
-
