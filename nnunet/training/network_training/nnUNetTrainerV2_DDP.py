@@ -58,9 +58,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             torch.cuda.set_device(local_rank)
         dist.init_process_group(backend='nccl', init_method='env://')
 
-        self.val_loss_ma_alpha = 0.95
-        self.val_loss_MA = None
-
         self.loss = None
         self.ce_loss = RobustCrossEntropyLoss()
 
@@ -128,8 +125,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
     def initialize(self, training=True, force_load_plans=False):
         """
-        For prediction of test cases just set training=False, this will prevent loading of training data and
-        training batchgenerator initialization
         :param training:
         :return:
         """
