@@ -22,6 +22,7 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
 from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUNetTrainerV2CascadeFullRes
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
+import os
 
 
 def main():
@@ -71,9 +72,11 @@ def main():
     #                          "Hands off")
     # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
     #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
+    parser.add_argument("-d", "--device", help="Set the device", required=True)
 
     args = parser.parse_args()
 
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
     task = args.task
     fold = args.fold
     network = args.network

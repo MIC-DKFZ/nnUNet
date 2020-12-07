@@ -15,10 +15,10 @@
 import os
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join
 
-datasets_path = "/gris/gris-f/homelv/kgotkows/datasets/covid19/nnUnet_datasets/"
+datasets_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/"
 os.environ["nnUNet_raw_data_base"] = datasets_path + "nnUNet_raw_data"
 os.environ["nnUNet_preprocessed"] = datasets_path + "nnUNet_preprocessed"
-os.environ["RESULTS_FOLDER"] = "/gris/gris-f/homelv/kgotkows/experiments/nnUNet"
+os.environ["RESULTS_FOLDER"] = "/gris/gris-f/homelv/kgotkows/experiments"
 
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNet"

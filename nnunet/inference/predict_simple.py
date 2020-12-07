@@ -125,6 +125,7 @@ def main():
     parser.add_argument("-d", "--device", help="Set the device", required=True)
 
     args = parser.parse_args()
+
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
     input_folder = args.input_folder
     output_folder = args.output_folder
