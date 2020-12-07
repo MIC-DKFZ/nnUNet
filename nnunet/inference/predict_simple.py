@@ -20,6 +20,7 @@ from nnunet.inference.predict import predict_from_folder
 from nnunet.paths import default_plans_identifier, network_training_output_dir, default_cascade_trainer, default_trainer
 from batchgenerators.utilities.file_and_folder_operations import join, isdir
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
+import os
 
 
 def main():
@@ -121,8 +122,10 @@ def main():
                         help='Predictions are done with mixed precision by default. This improves speed and reduces '
                              'the required vram. If you want to disable mixed precision you can set this flag. Note '
                              'that yhis is not recommended (mixed precision is ~2x faster!)')
+    parser.add_argument("-d", "--device", help="Set the device", required=True)
 
     args = parser.parse_args()
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
     input_folder = args.input_folder
     output_folder = args.output_folder
     part_id = args.part_id
