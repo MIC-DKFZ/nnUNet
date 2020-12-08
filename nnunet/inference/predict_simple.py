@@ -123,6 +123,7 @@ def main():
                              'the required vram. If you want to disable mixed precision you can set this flag. Note '
                              'that yhis is not recommended (mixed precision is ~2x faster!)')
     parser.add_argument("-d", "--device", help="Set the device", required=True)
+    parser.add_argument("--output_probabilities", required=False, default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -147,6 +148,7 @@ def main():
     model = args.model
     trainer_class_name = args.trainer_class_name
     cascade_trainer_class_name = args.cascade_trainer_class_name
+    output_probabilities = args.output_probabilities
 
     task_name = args.task_name
 
@@ -222,7 +224,7 @@ def main():
                         num_threads_nifti_save, lowres_segmentations, part_id, num_parts, not disable_tta,
                         overwrite_existing=overwrite_existing, mode=mode, overwrite_all_in_gpu=all_in_gpu,
                         mixed_precision=not args.disable_mixed_precision,
-                        step_size=step_size, checkpoint_name=args.chk)
+                        step_size=step_size, checkpoint_name=args.chk, output_probabilities=output_probabilities)
 
 
 if __name__ == "__main__":

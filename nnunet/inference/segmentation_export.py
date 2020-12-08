@@ -30,7 +30,8 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
                                          seg_postprogess_fn: callable = None, seg_postprocess_args: tuple = None,
                                          resampled_npz_fname: str = None,
                                          non_postprocessed_fname: str = None, force_separate_z: bool = None,
-                                         interpolation_order_z: int = 0, verbose: bool = True):
+                                         interpolation_order_z: int = 0, verbose: bool = True,
+                                         output_probabilities: bool = False):
     """
     This is a utility for writing segmentations to nifto and npz. It requires the data to have been preprocessed by
     GenericPreprocessor because it depends on the property dictionary output (dct) to know the geometry of the original
@@ -111,14 +112,21 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
             properties_dict['regions_class_order'] = region_class_order
         save_pickle(properties_dict, resampled_npz_fname[:-4] + ".pkl")
 
-    if region_class_order is None:
-        seg_old_spacing = seg_old_spacing.argmax(0)
-    else:
-        seg_old_spacing_final = np.zeros(seg_old_spacing.shape[1:])
-        for i, c in enumerate(region_class_order):
-            seg_old_spacing_final[seg_old_spacing[i] > 0.5] = c
-        seg_old_spacing = seg_old_spacing_final
+    if not output_probabilities:
+        if region_class_order is None:
+            seg_old_spacing = seg_old_spacing.argmax(0)
+        else:
+            seg_old_spacing_final = np.zeros(seg_old_spacing.shape[1:])
+            for i, c in enumerate(region_class_order):
+                seg_old_spacing_final[seg_old_spacing[i] > 0.5] = c
+            seg_old_spacing = seg_old_spacing_final
 
+        save_single(seg_old_spacing, shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, out_fname, seg_postprocess_args, output_probabilities)
+    else:
+        for i in range(len(seg_old_spacing)):
+            save_single(seg_old_spacing[i], shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, out_fname[:-7] + "_" + str(i) + ".nii.gz", seg_postprocess_args, output_probabilities)
+
+def save_single(seg_old_spacing, shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, out_fname, seg_postprocess_args, output_probabilities):
     bbox = properties_dict.get('crop_bbox')
 
     if bbox is not None:
@@ -136,14 +144,20 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
     else:
         seg_old_size_postprocessed = seg_old_size
 
-    seg_resized_itk = sitk.GetImageFromArray(seg_old_size_postprocessed.astype(np.uint8))
+    if not output_probabilities:
+        seg_old_size_postprocessed = seg_old_size_postprocessed.astype(np.uint8)
+
+    seg_resized_itk = sitk.GetImageFromArray(seg_old_size_postprocessed)
     seg_resized_itk.SetSpacing(properties_dict['itk_spacing'])
     seg_resized_itk.SetOrigin(properties_dict['itk_origin'])
     seg_resized_itk.SetDirection(properties_dict['itk_direction'])
     sitk.WriteImage(seg_resized_itk, out_fname)
 
     if (non_postprocessed_fname is not None) and (seg_postprogess_fn is not None):
-        seg_resized_itk = sitk.GetImageFromArray(seg_old_size.astype(np.uint8))
+        if not output_probabilities:
+            seg_old_size = seg_old_size.astype(np.uint8)
+
+        seg_resized_itk = sitk.GetImageFromArray(seg_old_size)
         seg_resized_itk.SetSpacing(properties_dict['itk_spacing'])
         seg_resized_itk.SetOrigin(properties_dict['itk_origin'])
         seg_resized_itk.SetDirection(properties_dict['itk_direction'])

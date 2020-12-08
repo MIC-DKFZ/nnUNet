@@ -131,7 +131,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, mixed_precision=True, overwrite_existing=False,
                   all_in_gpu=False, step_size=0.5, checkpoint_name="model_final_checkpoint",
-                  segmentation_export_kwargs: dict = None):
+                  segmentation_export_kwargs: dict = None, output_probabilities: bool = False):
     """
     :param segmentation_export_kwargs:
     :param model: folder where the model is saved, must contain fold_x subfolders
@@ -254,30 +254,31 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
                                           ((softmax_mean, output_filename, dct, interpolation_order, region_class_order,
                                             None, None,
-                                            npz_file, None, force_separate_z, interpolation_order_z),)
+                                            npz_file, None, force_separate_z, interpolation_order_z, True, output_probabilities),)
                                           ))
 
     print("inference done. Now waiting for the segmentation export to finish...")
     _ = [i.get() for i in results]
-    # now apply postprocessing
-    # first load the postprocessing properties if they are present. Else raise a well visible warning
-    results = []
-    pp_file = join(model, "postprocessing.json")
-    if isfile(pp_file):
-        print("postprocessing...")
-        shutil.copy(pp_file, os.path.abspath(os.path.dirname(output_filenames[0])))
-        # for_which_classes stores for which of the classes everything but the largest connected component needs to be
-        # removed
-        for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
-        results.append(pool.starmap_async(load_remove_save,
-                                          zip(output_filenames, output_filenames,
-                                              [for_which_classes] * len(output_filenames),
-                                              [min_valid_obj_size] * len(output_filenames))))
-        _ = [i.get() for i in results]
-    else:
-        print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
-              "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
-              "%s" % model)
+    if not output_probabilities:
+        # now apply postprocessing
+        # first load the postprocessing properties if they are present. Else raise a well visible warning
+        results = []
+        pp_file = join(model, "postprocessing.json")
+        if isfile(pp_file):
+            print("postprocessing...")
+            shutil.copy(pp_file, os.path.abspath(os.path.dirname(output_filenames[0])))
+            # for_which_classes stores for which of the classes everything but the largest connected component needs to be
+            # removed
+            for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
+            results.append(pool.starmap_async(load_remove_save,
+                                              zip(output_filenames, output_filenames,
+                                                  [for_which_classes] * len(output_filenames),
+                                                  [min_valid_obj_size] * len(output_filenames))))
+            _ = [i.get() for i in results]
+        else:
+            print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
+                  "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
+                  "%s" % model)
 
     pool.close()
     pool.join()
@@ -579,7 +580,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                         part_id: int, num_parts: int, tta: bool, mixed_precision: bool = True,
                         overwrite_existing: bool = True, mode: str = 'normal', overwrite_all_in_gpu: bool = None,
                         step_size: float = 0.5, checkpoint_name: str = "model_final_checkpoint",
-                        segmentation_export_kwargs: dict = None):
+                        segmentation_export_kwargs: dict = None, output_probabilities: bool = False):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -631,7 +632,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                              save_npz, num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations, tta,
                              mixed_precision=mixed_precision, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu,
                              step_size=step_size, checkpoint_name=checkpoint_name,
-                             segmentation_export_kwargs=segmentation_export_kwargs)
+                             segmentation_export_kwargs=segmentation_export_kwargs, output_probabilities=output_probabilities)
     elif mode == "fast":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
