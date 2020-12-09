@@ -20,6 +20,7 @@ setup(name='nnunet',
             "sklearn",
             "SimpleITK",
             "pandas",
+            "requests",
             "nibabel", 'tifffile'
       ],
       entry_points={
