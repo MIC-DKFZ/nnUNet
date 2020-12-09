@@ -18,10 +18,19 @@ from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
-from torch.nn.functional import gelu
+
+try:
+    from torch.nn.functional import gelu
+except ImportError:
+    gelu = None
 
 
 class GeLU(nn.Module):
+    def __init__(self):
+        super().__init__()
+        if gelu is None:
+            raise ImportError('You need to have at least torch==1.7.0 to use GeLUs')
+
     def forward(self, x):
         return gelu(x)
 
@@ -61,9 +70,3 @@ class nnUNetTrainerV2_GeLU(nnUNetTrainerV2):
         if torch.cuda.is_available():
             self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
-
-
-nnUNetTrainerV2_GeLU_copy1 = nnUNetTrainerV2_GeLU
-nnUNetTrainerV2_GeLU_copy2 = nnUNetTrainerV2_GeLU
-nnUNetTrainerV2_GeLU_copy3 = nnUNetTrainerV2_GeLU
-nnUNetTrainerV2_GeLU_copy4 = nnUNetTrainerV2_GeLU
