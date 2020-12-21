@@ -53,15 +53,17 @@ def consolidate_folds(output_folder_base, validation_folder_name: str = 'validat
     :return:
     """
     output_folder_raw = join(output_folder_base, "cv_niftis_raw")
+    if isdir(output_folder_raw):
+        shutil.rmtree(output_folder_raw)
+
     output_folder_gt = join(output_folder_base, "gt_niftis")
     collect_cv_niftis(output_folder_base, output_folder_raw, validation_folder_name,
                       folds)
 
-    num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis")))
+    num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis"), suffix='.nii.gz'))
     # count niftis in there
-    num_niftis = len(subfiles(output_folder_raw))
+    num_niftis = len(subfiles(output_folder_raw, suffix='.nii.gz'))
     if num_niftis != num_niftis_gt:
-        shutil.rmtree(output_folder_raw)
         raise AssertionError("If does not seem like you trained all the folds! Train all folds first!")
 
     # load a summary file so that we can know what class labels to expect

@@ -306,6 +306,12 @@ class NetworkTrainer(object):
             return self.load_best_checkpoint(train)
         raise RuntimeError("No checkpoint found")
 
+    def load_final_checkpoint(self, train=False):
+        filename = join(self.output_folder, "model_final_checkpoint.model")
+        if not isfile(filename):
+            raise RuntimeError("Final checkpoint not found. Expected: %s. Please finish the training first." % filename)
+        return self.load_checkpoint(filename, train=train)
+
     def load_checkpoint(self, fname, train=True):
         self.print_to_log_file("loading checkpoint", fname, "train=", train)
         if not self.was_initialized:

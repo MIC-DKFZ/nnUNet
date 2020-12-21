@@ -21,9 +21,12 @@ class nnUNetTrainerV2_resample33(nnUNetTrainerV2):
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
                  step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 segmentation_export_kwargs: dict = None):
-        return super().validate(do_mirroring, use_sliding_window, step_size, save_softmax, use_gaussian,
-                               overwrite, validation_folder_name, debug, all_in_gpu, segmentation_export_kwargs)
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
+        return super().validate(do_mirroring=do_mirroring, use_sliding_window=use_sliding_window, step_size=step_size,
+                                save_softmax=save_softmax, use_gaussian=use_gaussian, overwrite=overwrite,
+                                validation_folder_name=validation_folder_name, debug=debug, all_in_gpu=all_in_gpu,
+                                segmentation_export_kwargs=segmentation_export_kwargs,
+                                run_postprocessing_on_folds=run_postprocessing_on_folds)
 
     def preprocess_predict_nifti(self, input_files, output_file=None, softmax_ouput_file=None,
                                  mixed_precision: bool = True):
