@@ -195,40 +195,53 @@ cascade is omitted because the patch size of the full resolution U-Net already c
 
 Training models is done with the `nnUNet_train` command. The general structure of the command is:
 ```bash
-nnUNet_train CONFIGURATION TRAINER_CLASS_NAME TASK_NAME_OR_ID FOLD (additional options)
+nnUNet_train CONFIGURATION TRAINER_CLASS_NAME TASK_NAME_OR_ID FOLD  --npz (additional options)
 ```
 
 CONFIGURATION is a string that identifies the requested U-Net configuration. TRAINER_CLASS_NAME is the name of the 
 model trainer. If you implement custom trainers (nnU-Net as a framework) you can specify your custom trainer here.
-TASK_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of the 5-fold-crossvalidaton is trained.
+TASK_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of the 5-fold-cross-validaton 
+is trained.
 
 nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `-c` to the 
 training command.
 
- 
+IMPORTANT: `--npz` makes the models save the softmax outputs during the final validation. It should only be used for trainings 
+where you plan to run `nnUNet_find_best_configuration` afterwards 
+(this is nnU-Nets automated selection of the best performing (ensemble of) configuration(s), see below). If you are developing new 
+trainer classes you may not need the softmax predictions and should therefore omit the `--npz` flag. Exported softmax 
+predictions are very large and therefore can take up a lot of disk space.
+If you ran initially without the `--npz` flag but now require the softmax predictions, simply run 
+```bash
+nnUNet_train CONFIGURATION TRAINER_CLASS_NAME TASK_NAME_OR_ID FOLD -val --npz
+```
+to generate them. This will only rerun the validation, not the training.
+
+See `nnUNet_train -h` for additional options.
+
 #### 2D U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
-nnUNet_train 2d nnUNetTrainerV2 TaskXXX_MYTASK FOLD
+nnUNet_train 2d nnUNetTrainerV2 TaskXXX_MYTASK FOLD --npz
 ```
 
 #### 3D full resolution U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
-nnUNet_train 3d_fullres nnUNetTrainerV2 TaskXXX_MYTASK FOLD
+nnUNet_train 3d_fullres nnUNetTrainerV2 TaskXXX_MYTASK FOLD --npz
 ```
 
 #### 3D U-Net cascade
 ##### 3D low resolution U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
-nnUNet_train 3d_lowres nnUNetTrainerV2 TaskXXX_MYTASK FOLD
+nnUNet_train 3d_lowres nnUNetTrainerV2 TaskXXX_MYTASK FOLD --npz
 ```
 
 ##### 3D full resolution U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
-nnUNet_train 3d_cascade_fullres nnUNetTrainerV2CascadeFullRes TaskXXX_MYTASK FOLD
+nnUNet_train 3d_cascade_fullres nnUNetTrainerV2CascadeFullRes TaskXXX_MYTASK FOLD --npz
 ```
 
 Note that the 3D full resolution U-Net of the cascade requires the five folds of the low resolution U-Net to be 
