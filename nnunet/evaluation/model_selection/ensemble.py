@@ -36,7 +36,7 @@ def merge(args):
                                              interpolation_order_z=0)
 
 
-def ensemble(training_output_folder1, training_output_folder2, output_folder, task, validation_folder, folds):
+def ensemble(training_output_folder1, training_output_folder2, output_folder, task, validation_folder, folds, allow_ensembling: bool = True):
     print("\nEnsembling folders\n", training_output_folder1, "\n", training_output_folder2)
 
     output_folder_base = output_folder
@@ -90,11 +90,11 @@ def ensemble(training_output_folder1, training_output_folder2, output_folder, ta
         maybe_mkdir_p(output_folder)
 
         for p in patient_identifiers1_npz:
-            files1.append(join(validation_folder_net1, p))
-            files2.append(join(validation_folder_net2, p))
-            property_files.append(join(validation_folder_net1, p)[:-3] + "pkl")
-            out_files.append(join(output_folder, p[:-4] + ".nii.gz"))
-            gt_segmentations.append(join(folder_with_gt_segs, p[:-4] + ".nii.gz"))
+            files1.append(join(validation_folder_net1, p + '.npz'))
+            files2.append(join(validation_folder_net2, p + '.npz'))
+            property_files.append(join(validation_folder_net1, p) + ".pkl")
+            out_files.append(join(output_folder, p + ".nii.gz"))
+            gt_segmentations.append(join(folder_with_gt_segs, p + ".nii.gz"))
 
     p = Pool(default_num_threads)
     p.map(merge, zip(files1, files2, property_files, out_files))
@@ -106,7 +106,7 @@ def ensemble(training_output_folder1, training_output_folder2, output_folder, ta
                      json_output_file=join(output_folder, "summary.json"), json_task=task,
                      json_name=task + "__" + output_folder_base.split("/")[-1], num_threads=default_num_threads)
 
-    if not isfile(join(output_folder_base, "postprocessing.json")):
+    if allow_ensembling and not isfile(join(output_folder_base, "postprocessing.json")):
         # now lets also look at postprocessing. We cannot just take what we determined in cross-validation and apply it
         # here because things may have changed and may also be too inconsistent between the two networks
         determine_postprocessing(output_folder_base, folder_with_gt_segs, "ensembled_raw", "temp",

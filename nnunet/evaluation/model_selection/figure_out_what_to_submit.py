@@ -108,27 +108,30 @@ def main():
                 # we need to collect the predicted niftis from the 5-fold cv and evaluate them against the ground truth
                 cv_niftis_folder = join(output_folder, 'cv_niftis_raw')
 
-                if isdir(cv_niftis_folder):
-                    shutil.rmtree(cv_niftis_folder)
+                if not isfile(join(cv_niftis_folder, 'summary.json')):
+                    print(t, m, ': collecting niftis from 5-fold cv')
+                    if isdir(cv_niftis_folder):
+                        shutil.rmtree(cv_niftis_folder)
 
-                collect_cv_niftis(output_folder, cv_niftis_folder, validation_folder, folds)
+                    collect_cv_niftis(output_folder, cv_niftis_folder, validation_folder, folds)
 
-                niftis_gt = subfiles(join(output_folder, "gt_niftis"), suffix='.nii.gz', join=False)
-                niftis_cv = subfiles(cv_niftis_folder, suffix='.nii.gz', join=False)
-                if not all([i in niftis_gt for i in niftis_cv]):
-                    raise AssertionError("It does not seem like you trained all the folds! Train " \
-                                                         "all folds first! There are %d gt niftis in %s but only " \
-                                                         "%d predicted niftis in %s" % (len(niftis_gt), niftis_gt,
-                                                                                        len(niftis_cv), niftis_cv))
+                    niftis_gt = subfiles(join(output_folder, "gt_niftis"), suffix='.nii.gz', join=False)
+                    niftis_cv = subfiles(cv_niftis_folder, suffix='.nii.gz', join=False)
+                    if not all([i in niftis_gt for i in niftis_cv]):
+                        raise AssertionError("It does not seem like you trained all the folds! Train " \
+                                                             "all folds first! There are %d gt niftis in %s but only " \
+                                                             "%d predicted niftis in %s" % (len(niftis_gt), niftis_gt,
+                                                                                            len(niftis_cv), niftis_cv))
 
-                # load a summary file so that we can know what class labels to expect
-                summary_fold0 = load_json(join(output_folder, "fold_%d" % folds[0], validation_folder,
-                                               "summary.json"))['results']['mean']
-                # read classes from summary.json
-                classes = tuple((int(i) for i in summary_fold0.keys()))
+                    # load a summary file so that we can know what class labels to expect
+                    summary_fold0 = load_json(join(output_folder, "fold_%d" % folds[0], validation_folder,
+                                                   "summary.json"))['results']['mean']
+                    # read classes from summary.json
+                    classes = tuple((int(i) for i in summary_fold0.keys()))
 
-                # evaluate the cv niftis
-                evaluate_folder(join(output_folder, "gt_niftis"), cv_niftis_folder, classes)
+                    # evaluate the cv niftis
+                    print(t, m, ': evaluating 5-fold cv results')
+                    evaluate_folder(join(output_folder, "gt_niftis"), cv_niftis_folder, classes)
 
             else:
                 postprocessing_json = join(output_folder, "postprocessing.json")
@@ -152,7 +155,7 @@ def main():
 
         if not disable_ensembling:
             # now run ensembling and add ensembling to results
-            print("\nFound the following valid models:\n", valid_models)
+            print("\nI will now ensemble combinations of the following models:\n", valid_models)
             if len(valid_models) > 1:
                 for m1, m2 in combinations(valid_models, 2):
 
@@ -167,7 +170,7 @@ def main():
                     network2_folder = get_output_folder_name(m2, id_task_mapping[t], trainer_m2, pl)
 
                     print("ensembling", network1_folder, network2_folder)
-                    ensemble(network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder, folds)
+                    ensemble(network1_folder, network2_folder, output_folder_base, id_task_mapping[t], validation_folder, folds, allow_ensembling=not disable_postprocessing)
                     # ensembling will automatically do postprocessingget_foreground_mean
 
                     # now get result of ensemble
