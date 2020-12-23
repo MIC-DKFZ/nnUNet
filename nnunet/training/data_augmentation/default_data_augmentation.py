@@ -16,6 +16,7 @@ from copy import deepcopy
 
 import numpy as np
 from batchgenerators.dataloading import MultiThreadedAugmenter, SingleThreadedAugmenter
+from batchgenerators.dataloading.fast_multi_threaded_augmenter import FasterMultiThreadedAugmenter
 from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform, SpatialTransform, \
     GammaTransform, MirrorTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
@@ -30,7 +31,6 @@ from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOne
     ApplyRandomBinaryOperatorTransform, \
     RemoveRandomConnectedComponentFromOneHotEncodingTransform
 import os
-
 
 default_3D_augmentation_params = {
     "selected_data_channels": None,
@@ -308,7 +308,8 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
                             border_val_seg=-1,
                             seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
                             soft_ds=False,
-                            classes=None, pin_memory=True, regions=None):
+                            classes=None, pin_memory=True, regions=None,
+                            use_FasterMultiThreadedAugmenter: bool = False):
     assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
 
     tr_transforms = []
@@ -413,15 +414,19 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
             tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, 0, input_key='target',
                                                               output_key='target'))
 
-
     tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
     tr_transforms = Compose(tr_transforms)
 
-    batchgenerator_train = MultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
-                                                  params.get("num_cached_per_thread"),
-                                                  seeds=seeds_train, pin_memory=pin_memory)
-    #batchgenerator_train = SingleThreadedAugmenter(dataloader_train, tr_transforms)
-    #import IPython;IPython.embed()
+    if use_FasterMultiThreadedAugmenter:
+        batchgenerator_train = FasterMultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
+                                                            params.get("num_cached_per_thread"), seeds=seeds_train,
+                                                            pin_memory=pin_memory)
+    else:
+        batchgenerator_train = MultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
+                                                      params.get("num_cached_per_thread"),
+                                                      seeds=seeds_train, pin_memory=pin_memory)
+    # batchgenerator_train = SingleThreadedAugmenter(dataloader_train, tr_transforms)
+    # import IPython;IPython.embed()
 
     val_transforms = []
     val_transforms.append(RemoveLabelTransform(-1, 0))
@@ -449,10 +454,17 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
     val_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
     val_transforms = Compose(val_transforms)
 
-    batchgenerator_val = MultiThreadedAugmenter(dataloader_val, val_transforms, max(params.get('num_threads') // 2, 1),
-                                                params.get("num_cached_per_thread"),
-                                                seeds=seeds_val, pin_memory=pin_memory)
-    #batchgenerator_val = SingleThreadedAugmenter(dataloader_val, val_transforms)
+    if use_FasterMultiThreadedAugmenter:
+        batchgenerator_val = FasterMultiThreadedAugmenter(dataloader_val, val_transforms,
+                                                          max(params.get('num_threads') // 2, 1),
+                                                          params.get("num_cached_per_thread"),
+                                                          seeds=seeds_val, pin_memory=pin_memory)
+    else:
+        batchgenerator_val = MultiThreadedAugmenter(dataloader_val, val_transforms,
+                                                    max(params.get('num_threads') // 2, 1),
+                                                    params.get("num_cached_per_thread"),
+                                                    seeds=seeds_val, pin_memory=pin_memory)
+    # batchgenerator_val = SingleThreadedAugmenter(dataloader_val, val_transforms)
 
     return batchgenerator_train, batchgenerator_val
 

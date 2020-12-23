@@ -108,7 +108,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
                         'patch_size_for_spatialtransform'],
                     self.data_aug_params,
                     deep_supervision_scales=self.deep_supervision_scales,
-                    pin_memory=self.pin_memory
+                    pin_memory=self.pin_memory,
+                    use_FasterMultiThreadedAugmenter=False
                 )
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                        also_print_to_console=False)

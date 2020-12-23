@@ -11,15 +11,18 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import os
 import shutil
+from _warnings import warn
 from collections import OrderedDict
 from multiprocessing import Pool
-from time import sleep
+from time import sleep, time
 from typing import Tuple
 
 import numpy as np
 import torch
 import torch.distributed as dist
+from torch.backends import cudnn
 from torch.cuda.amp import autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile, load_pickle, \
@@ -43,6 +46,7 @@ from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
 from torch import nn, distributed
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import _LRScheduler
+from tqdm import trange
 
 
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
@@ -327,9 +331,96 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             net = self.network
         ds = net.do_ds
         net.do_ds = True
-        ret = nnUNetTrainer.run_training(self)
+
+        _ = self.tr_gen.next()
+        _ = self.val_gen.next()
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        self._maybe_init_amp()
+
+        maybe_mkdir_p(self.output_folder)
+        self.plot_network_architecture()
+
+        if cudnn.benchmark and cudnn.deterministic:
+            warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
+                 "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
+                 "If you want deterministic then set benchmark=False")
+
+        if not self.was_initialized:
+            self.initialize(True)
+
+        while self.epoch < self.max_num_epochs:
+            self.print_to_log_file("\nepoch: ", self.epoch)
+            epoch_start_time = time()
+            train_losses_epoch = []
+
+            # train one epoch
+            self.network.train()
+
+            if self.use_progress_bar:
+                with trange(self.num_batches_per_epoch) as tbar:
+                    for b in tbar:
+                        tbar.set_description("Epoch {}/{}".format(self.epoch+1, self.max_num_epochs))
+
+                        l = self.run_iteration(self.tr_gen, True)
+
+                        tbar.set_postfix(loss=l)
+                        train_losses_epoch.append(l)
+            else:
+                for _ in range(self.num_batches_per_epoch):
+                    l = self.run_iteration(self.tr_gen, True)
+                    train_losses_epoch.append(l)
+
+            self.all_tr_losses.append(np.mean(train_losses_epoch))
+            self.print_to_log_file("train loss : %.4f" % self.all_tr_losses[-1])
+
+            with torch.no_grad():
+                # validation with train=False
+                self.network.eval()
+                val_losses = []
+                for b in range(self.num_val_batches_per_epoch):
+                    l = self.run_iteration(self.val_gen, False, True)
+                    val_losses.append(l)
+                self.all_val_losses.append(np.mean(val_losses))
+                self.print_to_log_file("validation loss: %.4f" % self.all_val_losses[-1])
+
+                if self.also_val_in_tr_mode:
+                    self.network.train()
+                    # validation with train=True
+                    val_losses = []
+                    for b in range(self.num_val_batches_per_epoch):
+                        l = self.run_iteration(self.val_gen, False)
+                        val_losses.append(l)
+                    self.all_val_losses_tr_mode.append(np.mean(val_losses))
+                    self.print_to_log_file("validation loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
+
+            self.update_train_loss_MA()  # needed for lr scheduler and stopping of training
+
+            continue_training = self.on_epoch_end()
+
+            epoch_end_time = time()
+
+            if not continue_training:
+                # allows for early stopping
+                break
+
+            self.epoch += 1
+            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time - epoch_start_time))
+
+        self.epoch -= 1  # if we don't do this we can get a problem with loading model_final_checkpoint.
+
+        if self.save_final_checkpoint: self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
+
+        if self.local_rank == 0:
+            # now we can delete latest as it will be identical with final
+            if isfile(join(self.output_folder, "model_latest.model")):
+                os.remove(join(self.output_folder, "model_latest.model"))
+            if isfile(join(self.output_folder, "model_latest.model.pkl")):
+                os.remove(join(self.output_folder, "model_latest.model.pkl"))
+
         net.do_ds = ds
-        return ret
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
                  step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
