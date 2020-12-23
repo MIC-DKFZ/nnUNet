@@ -86,3 +86,6 @@ it will check for wrong values in the label images.
 
 ## nnU-Net training: Error: mmap length is greater than file size and EOFError
 Please delete all .npy files in the nnUNet_preprocessed folder of the test you were trying to train. Then try again.
+
+## running nnU-Net on Azure instances
+see https://github.com/MIC-DKFZ/nnUNet/issues/437, thank you @Alaska47
