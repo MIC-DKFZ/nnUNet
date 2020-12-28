@@ -73,6 +73,7 @@ def main():
     # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
     #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
     parser.add_argument("-d", "--device", help="Set the device", required=True)
+    parser.add_argument("--dropout", required=False, default=False, action="store_true", help="Activate dropout")
 
     args = parser.parse_args()
 

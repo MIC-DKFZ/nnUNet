@@ -75,7 +75,7 @@ class SegmentationNetwork(NeuralNetwork):
                    step_size: float = 0.5, patch_size: Tuple[int, ...] = None, regions_class_order: Tuple[int, ...] = None,
                    use_gaussian: bool = False, pad_border_mode: str = "constant",
                    pad_kwargs: dict = None, all_in_gpu: bool = False,
-                   verbose: bool = True, mixed_precision: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                   verbose: bool = True, mixed_precision: bool = True, tta: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """
         Use this function to predict a 3D image. It does not matter whether the network is a 2D or 3D U-Net, it will
         detect that automatically and run the appropriate code.
@@ -147,10 +147,10 @@ class SegmentationNetwork(NeuralNetwork):
                         res = self._internal_predict_3D_3Dconv_tiled(x, step_size, do_mirroring, mirror_axes, patch_size,
                                                                      regions_class_order, use_gaussian, pad_border_mode,
                                                                      pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu,
-                                                                     verbose=verbose)
+                                                                     verbose=verbose, tta=tta)
                     else:
                         res = self._internal_predict_3D_3Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
-                                                               pad_border_mode, pad_kwargs=pad_kwargs, verbose=verbose)
+                                                               pad_border_mode, pad_kwargs=pad_kwargs, verbose=verbose, tta=tta)
                 elif self.conv_op == nn.Conv2d:
                     if use_sliding_window:
                         res = self._internal_predict_3D_2Dconv_tiled(x, patch_size, do_mirroring, mirror_axes, step_size,
@@ -291,7 +291,7 @@ class SegmentationNetwork(NeuralNetwork):
     def _internal_predict_3D_3Dconv_tiled(self, x: np.ndarray, step_size: float, do_mirroring: bool, mirror_axes: tuple,
                                           patch_size: tuple, regions_class_order: tuple, use_gaussian: bool,
                                           pad_border_mode: str, pad_kwargs: dict, all_in_gpu: bool,
-                                          verbose: bool) -> Tuple[np.ndarray, np.ndarray]:
+                                          verbose: bool, tta: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         # better safe than sorry
         assert len(x.shape) == 4, "x must be (c, x, y, z)"
         assert self.get_device() != "cpu"
@@ -382,7 +382,7 @@ class SegmentationNetwork(NeuralNetwork):
 
                     predicted_patch = self._internal_maybe_mirror_and_pred_3D(
                         data[None, :, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z], mirror_axes, do_mirroring,
-                        gaussian_importance_map)[0]
+                        gaussian_importance_map, tta=tta)[0]
 
                     if all_in_gpu:
                         predicted_patch = predicted_patch.half()
@@ -463,7 +463,7 @@ class SegmentationNetwork(NeuralNetwork):
     def _internal_predict_3D_3Dconv(self, x: np.ndarray, min_size: Tuple[int, ...], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1, 2), regions_class_order: tuple = None,
                                     pad_border_mode: str = "constant", pad_kwargs: dict = None,
-                                    verbose: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+                                    verbose: bool = True, tta: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """
         This one does fully convolutional inference. No sliding window
         """
@@ -477,7 +477,7 @@ class SegmentationNetwork(NeuralNetwork):
                                     self.input_shape_must_be_divisible_by)
 
         predicted_probabilities = self._internal_maybe_mirror_and_pred_3D(data[None], mirror_axes, do_mirroring,
-                                                                          None)[0]
+                                                                          None, tta=tta)[0]
 
         slicer = tuple(
             [slice(0, predicted_probabilities.shape[i]) for i in range(len(predicted_probabilities.shape) -
@@ -498,14 +498,17 @@ class SegmentationNetwork(NeuralNetwork):
 
     def _internal_maybe_mirror_and_pred_3D(self, x: Union[np.ndarray, torch.tensor], mirror_axes: tuple,
                                            do_mirroring: bool = True,
-                                           mult: np.ndarray or torch.tensor = None) -> torch.tensor:
+                                           mult: np.ndarray or torch.tensor = None, tta: bool = False) -> torch.tensor:
         assert len(x.shape) == 5, 'x must be (b, c, x, y, z)'
         # everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         # we now return a cuda tensor! Not numpy array!
 
         x = to_cuda(maybe_to_torch(x), gpu_id=self.get_device())
-        result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
-                                   dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+        if not tta:
+            result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
+                                       dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+        else:
+            result_torch = []
 
         if mult is not None:
             mult = to_cuda(maybe_to_torch(mult), gpu_id=self.get_device())
@@ -520,40 +523,77 @@ class SegmentationNetwork(NeuralNetwork):
         for m in range(mirror_idx):
             if m == 0:
                 pred = self.inference_apply_nonlin(self(x))
-                result_torch += 1 / num_results * pred
+                if not tta:
+                    result_torch += 1 / num_results * pred
+                else:
+                    result_torch.append(pred)
 
             if m == 1 and (2 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (4, ))))
-                result_torch += 1 / num_results * torch.flip(pred, (4,))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (4,))
+                else:
+                    result_torch.append(torch.flip(pred, (4,)))
 
             if m == 2 and (1 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (3, ))))
-                result_torch += 1 / num_results * torch.flip(pred, (3,))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (3,))
+                else:
+                    result_torch.append(torch.flip(pred, (3,)))
 
             if m == 3 and (2 in mirror_axes) and (1 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 3))))
-                result_torch += 1 / num_results * torch.flip(pred, (4, 3))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (4, 3))
+                else:
+                    result_torch.append(torch.flip(pred, (4, 3)))
 
             if m == 4 and (0 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (2, ))))
-                result_torch += 1 / num_results * torch.flip(pred, (2,))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (2,))
+                else:
+                    result_torch.append(torch.flip(pred, (2,)))
 
             if m == 5 and (0 in mirror_axes) and (2 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 2))))
-                result_torch += 1 / num_results * torch.flip(pred, (4, 2))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (4, 2))
+                else:
+                    result_torch.append(torch.flip(pred, (4, 2)))
 
             if m == 6 and (0 in mirror_axes) and (1 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (3, 2))))
-                result_torch += 1 / num_results * torch.flip(pred, (3, 2))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (3, 2))
+                else:
+                    result_torch.append(torch.flip(pred, (3, 2)))
 
             if m == 7 and (0 in mirror_axes) and (1 in mirror_axes) and (2 in mirror_axes):
                 pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 3, 2))))
-                result_torch += 1 / num_results * torch.flip(pred, (4, 3, 2))
+                if not tta:
+                    result_torch += 1 / num_results * torch.flip(pred, (4, 3, 2))
+                else:
+                    result_torch.append(torch.flip(pred, (4, 3, 2)))
 
-        if mult is not None:
+        if mult is not None and not tta:
             result_torch[:, :] *= mult
 
+        if tta:
+            result_torch = self._comp_uncertainty(result_torch)
+
         return result_torch
+
+    def _comp_uncertainty(self, predictions):
+        predictive_posterior_mean = torch.stack(predictions)
+        predictive_posterior_mean = torch.mean(predictive_posterior_mean, dim=0)
+        uncertainty = torch.zeros([1, self.num_classes] + list(predictions[0].shape[2:]),
+                                   dtype=torch.float).cuda(self.get_device(), non_blocking=True)
+        for prediction in predictions:
+            uncertainty += (prediction - predictive_posterior_mean) ** 2
+        uncertainty /= len(predictions)
+        return uncertainty
 
     def _internal_maybe_mirror_and_pred_2D(self, x: Union[np.ndarray, torch.tensor], mirror_axes: tuple,
                                            do_mirroring: bool = True,

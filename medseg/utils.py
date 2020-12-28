@@ -2,6 +2,10 @@ import numpy as np
 import os
 from natsort import natsorted
 import nibabel as nib
+from scipy.ndimage import affine_transform
+import transforms3d as t3d
+import sys
+import matplotlib.pyplot as plt
 
 def load_filenames(img_dir, extensions=('.nii.gz')):
     img_filenames, mask_files = [], []
@@ -27,6 +31,16 @@ def save_nifty(filepath, img, affine=None, spacing=None, header=None):
     if spacing is not None:
         img.header["pixdim"][1:4] = spacing
     nib.save(img, filepath)
+
+def reorient(img, affine):
+    reoriented = np.rot90(img, k=1)
+    reoriented = np.fliplr(reoriented)
+    # plt.imshow(normalize(img[:, :, 0]))
+    # plt.savefig("/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/001.png")
+    # plt.imshow(normalize(reoriented[:, :, 0]))
+    # plt.savefig("/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/002.png")
+    # sys.exit(0)
+    return reoriented
 
 def normalize(x):
     return (x - np.min(x)) / (np.max(x) - np.min(x))

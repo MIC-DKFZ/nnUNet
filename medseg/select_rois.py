@@ -5,8 +5,9 @@ from medseg import utils
 from skimage.util import view_as_windows
 from PIL import Image
 from pathlib import Path
+import cv2
 
-def select_rois(img_dir, uncertainty_mask_dir, save_dir, window_size_percentage=0.1, window_per_border=5, max_rois=10, min_z_distance_percentage=0.05, max_iou=0.3):
+def select_rois(img_dir, uncertainty_mask_dir, save_dir, window_size_percentage=0.02, window_per_border=3, max_rois=5, min_z_distance_percentage=0.1, max_iou=0.1):
     imgs_filenames = utils.load_filenames(img_dir)
     uncertainty_masks_filenames = utils.load_filenames(uncertainty_mask_dir)
     uncertainty_masks = [utils.load_nifty(uncertainty_mask_filename)[0] for uncertainty_mask_filename in uncertainty_masks_filenames]
@@ -18,15 +19,16 @@ def select_rois(img_dir, uncertainty_mask_dir, save_dir, window_size_percentage=
         img, affine, spacing, header = utils.load_nifty(imgs_filenames[i])
         if len(img.shape) == 4:  # TODO: Remove modality in the case of prostate dataset, remove in final version
             img = img[..., 0]
-        uncertainty_mask = uncertainty_masks[i]
+        img_reoriented = utils.reorient(img, affine)  # TODO: Reorient ist hardcoded
+        uncertainty_mask_reoriented = utils.reorient(uncertainty_masks[i], affine)
         rois = []  # Each entry is [roi_sum, x, y, z, width, length]
         for window_shape in tqdm(window_shapes):
-            window_shape_rois = comp_rois_single_window_shape(uncertainty_mask, window_shape)
+            window_shape_rois = comp_rois_single_window_shape(uncertainty_mask_reoriented, window_shape)
             rois.extend(window_shape_rois)
         rois = np.asarray(rois)
-        rois = filter_rois(rois, max_rois, uncertainty_mask.shape, min_z_distance_percentage, max_iou)
-        rois = extract_rois(img, uncertainty_mask, rois)
-        save_rois(save_dir, os.path.basename(uncertainty_masks_filenames[i][:-7]) + "/", rois, img, uncertainty_mask)
+        rois = filter_rois(rois, max_rois, uncertainty_mask_reoriented.shape, min_z_distance_percentage, max_iou)
+        rois = extract_rois(img_reoriented, uncertainty_mask_reoriented, rois)
+        save_rois(save_dir, os.path.basename(uncertainty_masks_filenames[i][:-7]) + "/", rois, img, uncertainty_masks[i], affine, spacing, header)
         # TODO: Save 3D img without affine transform for viewing in frontend and show roi coords or affine transform coords?
         # TODO: Save prediction (without uncertainty) as roi as well
 
@@ -41,13 +43,13 @@ def comp_rois_single_window_shape(uncertainty_mask, window_shape):
 
 
 def comp_rois_slice_single_window_shape(uncertainty_mask_slice, window_shape, z):
-    step = 5  # (int(window_shape[0]/3), int(window_shape[1]/3))
+    step = (5, 5)  # (int(window_shape[0]/3), int(window_shape[1]/3))
     windows = view_as_windows(uncertainty_mask_slice, window_shape, step=step)
     windows = np.sum(windows, axis=(2,3))
     rois = []
     for x in range(windows.shape[0]):
         for y in range(windows.shape[1]):
-            rois.append([windows[x][y], x, y, z, window_shape[0], window_shape[1]])
+            rois.append([windows[x][y], x * step[0], y * step[1], z, window_shape[0], window_shape[1]])
     return rois
 
 
@@ -83,7 +85,7 @@ def filter_rois(rois, max_rois, mask_shape, min_z_distance_percentage, max_iou):
 
 def extract_rois(img, mask, rois):
     # Each roi is [roi_sum, x, y, z, width, length]
-    # Return [[img_roi, mask_roi, coords], ...]
+    # Return [[img_roi, mask_roi, coords, img_with_bb], ...]
     extracted_rois = []
     for roi in rois:
         x = int(roi[1])
@@ -95,22 +97,33 @@ def extract_rois(img, mask, rois):
         mask_tmp = pad(mask, (width, length))
         img_roi = img_tmp[x:x + width, y:y + length, z]
         mask_roi = mask_tmp[x:x + width, y:y + length, z]
-        extracted_rois.append([img_roi, mask_roi, x, y, z, width, length])
+        img_with_bb = img_tmp[:, :, z]
+        mask_with_bb = mask_tmp[:, :, z]
+        img_roi = (utils.normalize(img_roi) * 255).astype(np.uint8)
+        #mask_roi = (utils.normalize(mask_roi) * 255).astype(np.uint8)
+        mask_roi = (mask_roi * 255).astype(np.uint8)
+        img_with_bb = (utils.normalize(img_with_bb) * 255).astype(np.uint8)
+        mask_with_bb = (mask_with_bb * 255).astype(np.uint8)
+        cv2.rectangle(img_with_bb, (y, x), (y + length, x + width), 255, 1)
+        cv2.rectangle(mask_with_bb, (y, x), (y + length, x + width), 255, 1)
+        extracted_rois.append([img_roi, mask_roi, img_with_bb, mask_with_bb, x, y, z, width, length])
     return extracted_rois
 
 
-def save_rois(save_dir, roi_dir, rois, img, uncertainty_mask):
-    # rois = [[img_roi, mask_roi, coords], ...]
+def save_rois(save_dir, roi_dir, rois, img, uncertainty_mask, affine, spacing, header):
+    # rois = [[img_roi, mask_roi, coords, img_with_bb], ...]
     Path(save_dir + roi_dir).mkdir(parents=True, exist_ok=True)
-    for i, (img_roi, mask_roi, x, y, z, width, length) in enumerate(rois):
-        img_roi = (utils.normalize(img_roi) * 255).astype(np.uint8)
-        mask_roi = (utils.normalize(mask_roi) * 255).astype(np.uint8)
+    for i, (img_roi, mask_roi, img_with_bb, mask_with_bb, x, y, z, width, length) in enumerate(rois):
         img_roi = Image.fromarray(img_roi).convert('L')
         mask_roi = Image.fromarray(mask_roi).convert('L')
-        img_roi.save(save_dir + roi_dir + str(i).zfill(3) + "_img_x_" + str(x) + "_y_" + str(y) + "_z_" + str(z) + ".png")
-        mask_roi.save(save_dir + roi_dir + str(i).zfill(3) + "_uncertainty_x_" + str(x) + "_y_" + str(y) + "_z_" + str(z) + ".png")
-    utils.save_nifty(save_dir + roi_dir + "img.nii.gz", img)
-    utils.save_nifty(save_dir + roi_dir + "uncertainty_mask.nii.gz", uncertainty_mask)
+        img_with_bb = Image.fromarray(img_with_bb).convert('L')
+        mask_with_bb = Image.fromarray(mask_with_bb).convert('L')
+        img_roi.save(save_dir + roi_dir + str(i).zfill(3) + "_img_x_" + str(x+1) + "_y_" + str(y+1) + "_z_" + str(z+1) + ".png")
+        mask_roi.save(save_dir + roi_dir + str(i).zfill(3) + "_uncertainty_x_" + str(x+1) + "_y_" + str(y+1) + "_z_" + str(z+1) + ".png")
+        img_with_bb.save(save_dir + roi_dir + str(i).zfill(3) + "_img_with_bb_x_" + str(x + 1) + "_y_" + str(y + 1) + "_z_" + str(z + 1) + ".png")
+        mask_with_bb.save(save_dir + roi_dir + str(i).zfill(3) + "_mask_with_bb_x_" + str(x + 1) + "_y_" + str(y + 1) + "_z_" + str(z + 1) + ".png")
+    utils.save_nifty(save_dir + roi_dir + "img.nii.gz", img, affine, spacing, header)
+    utils.save_nifty(save_dir + roi_dir + "uncertainty_mask.nii.gz", uncertainty_mask, affine, spacing, header)
 
 
 def comp_uncertainty_masks_mean(uncertainty_masks):
@@ -122,7 +135,7 @@ def comp_uncertainty_masks_mean(uncertainty_masks):
 
 def comp_window_shapes(uncertainty_masks_mean, window_size_percentage, window_per_border):
     max_window_size = np.sqrt((uncertainty_masks_mean ** 2) * window_size_percentage)
-    window_sizes = np.linspace(max_window_size / 2, max_window_size, window_per_border, endpoint=True, dtype=int)
+    window_sizes = np.linspace(max_window_size * 0.75, max_window_size, window_per_border, endpoint=True, dtype=int)
     window_shapes = []
     for x in window_sizes:
         y = (max_window_size ** 2) / x
@@ -195,6 +208,6 @@ def intersection_over_union(bb1, bb2):
 
 if __name__ == '__main__':
     img_dir = "/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/imagesTs/"
-    uncertainty_mask_dir = "/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/prediciton_diffs_label2/"
+    uncertainty_mask_dir = "/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/predictions_with_tta_label2/"
     save_dir = "/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/rois/"
     select_rois(img_dir, uncertainty_mask_dir, save_dir)

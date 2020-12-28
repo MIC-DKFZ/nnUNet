@@ -131,7 +131,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, mixed_precision=True, overwrite_existing=False,
                   all_in_gpu=False, step_size=0.5, checkpoint_name="model_final_checkpoint",
-                  segmentation_export_kwargs: dict = None, output_probabilities: bool = False):
+                  segmentation_export_kwargs: dict = None, output_probabilities: bool = False, tta: bool = False):
     """
     :param segmentation_export_kwargs:
     :param model: folder where the model is saved, must contain fold_x subfolders
@@ -215,7 +215,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             softmax.append(trainer.predict_preprocessed_data_return_seg_and_softmax(
                 d, do_mirroring=do_tta, mirror_axes=trainer.data_aug_params['mirror_axes'], use_sliding_window=True,
                 step_size=step_size, use_gaussian=True, all_in_gpu=all_in_gpu,
-                mixed_precision=mixed_precision)[1][None])
+                mixed_precision=mixed_precision, tta=tta)[1][None])
 
         softmax = np.vstack(softmax)
         softmax_mean = np.mean(softmax, 0)
@@ -580,7 +580,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                         part_id: int, num_parts: int, tta: bool, mixed_precision: bool = True,
                         overwrite_existing: bool = True, mode: str = 'normal', overwrite_all_in_gpu: bool = None,
                         step_size: float = 0.5, checkpoint_name: str = "model_final_checkpoint",
-                        segmentation_export_kwargs: dict = None, output_probabilities: bool = False):
+                        segmentation_export_kwargs: dict = None, output_probabilities: bool = False, uncertainty_tta: bool = False):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -632,7 +632,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                              save_npz, num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations, tta,
                              mixed_precision=mixed_precision, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu,
                              step_size=step_size, checkpoint_name=checkpoint_name,
-                             segmentation_export_kwargs=segmentation_export_kwargs, output_probabilities=output_probabilities)
+                             segmentation_export_kwargs=segmentation_export_kwargs, output_probabilities=output_probabilities, tta=uncertainty_tta)
     elif mode == "fast":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True
