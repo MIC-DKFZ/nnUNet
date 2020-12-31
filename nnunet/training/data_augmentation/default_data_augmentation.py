@@ -16,7 +16,6 @@ from copy import deepcopy
 
 import numpy as np
 from batchgenerators.dataloading import MultiThreadedAugmenter, SingleThreadedAugmenter
-from batchgenerators.dataloading.fast_multi_threaded_augmenter import FasterMultiThreadedAugmenter
 from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform, SpatialTransform, \
     GammaTransform, MirrorTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
@@ -418,6 +417,11 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
     tr_transforms = Compose(tr_transforms)
 
     if use_FasterMultiThreadedAugmenter:
+        try:
+            from batchgenerators.dataloading.fast_multi_threaded_augmenter import FasterMultiThreadedAugmenter
+        except ImportError as ie:
+            print("This functionality is not yet available")
+            raise ie
         batchgenerator_train = FasterMultiThreadedAugmenter(dataloader_train, tr_transforms, params.get('num_threads'),
                                                             params.get("num_cached_per_thread"), seeds=seeds_train,
                                                             pin_memory=pin_memory)
