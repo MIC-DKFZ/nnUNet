@@ -65,6 +65,14 @@ def main():
     parser.add_argument("--disable_saving", required=False, action='store_true',
                         help="If set nnU-Net will not save any parameter files. Useful for development when you are "
                              "only interested in the results and want to save some disk space")
+    parser.add_argument("--disable_postprocessing_on_folds", required=False, action='store_true',
+                        help="Running postprocessing on each fold only makes sense when developing with nnU-Net and "
+                             "closely observing the model performance on specific configurations. You do not need it "
+                             "when applying nnU-Net because the postprocessing for this will be determined only once "
+                             "all five folds have been trained and nnUNet_find_best_configuration is called. Usually "
+                             "running postprocessing on each fold is computationally cheap, but some users have "
+                             "reported issues with very large images. If your images are large (>600x600x600 voxels) "
+                             "you should consider setting this flag.")
     # parser.add_argument("--interp_order", required=False, default=3, type=int,
     #                     help="order of interpolation for segmentations. Testing purpose only. Hands off")
     # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
@@ -85,6 +93,7 @@ def main():
     validation_only = args.validation_only
     plans_identifier = args.p
     find_lr = args.find_lr
+    disable_postprocessing_on_folds = args.disable_postprocessing_on_folds
 
     use_compressed_data = args.use_compressed_data
     decompress_data = not use_compressed_data
@@ -157,12 +166,13 @@ def main():
             if valbest:
                 trainer.load_best_checkpoint(train=False)
             else:
-                trainer.load_latest_checkpoint(train=False)
+                trainer.load_final_checkpoint(train=False)
 
         trainer.network.eval()
 
         # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder)
+        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
+                         run_postprocessing_on_folds=not disable_postprocessing_on_folds)
 
         if network == '3d_lowres':
             print("predicting segmentations for the next stage of the cascade")

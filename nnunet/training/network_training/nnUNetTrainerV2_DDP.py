@@ -11,18 +11,28 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+import os
+import shutil
+from _warnings import warn
 from collections import OrderedDict
-from time import sleep
+from multiprocessing import Pool
+from time import sleep, time
 from typing import Tuple
 
 import numpy as np
 import torch
 import torch.distributed as dist
+from torch.backends import cudnn
 from torch.cuda.amp import autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile, load_pickle, \
+    save_json
+
+from nnunet.configuration import default_num_threads
+from nnunet.evaluation.evaluator import aggregate_scores
+from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.network_architecture.neural_network import SegmentationNetwork
+from nnunet.postprocessing.connected_components import determine_postprocessing
 from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
@@ -33,9 +43,10 @@ from nnunet.utilities.distributed import awesome_allgather_function
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
-from torch import nn
+from torch import nn, distributed
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import _LRScheduler
+from tqdm import trange
 
 
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
@@ -57,9 +68,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         if torch.cuda.is_available():
             torch.cuda.set_device(local_rank)
         dist.init_process_group(backend='nccl', init_method='env://')
-
-        self.val_loss_ma_alpha = 0.95
-        self.val_loss_MA = None
 
         self.loss = None
         self.ce_loss = RobustCrossEntropyLoss()
@@ -128,8 +136,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
     def initialize(self, training=True, force_load_plans=False):
         """
-        For prediction of test cases just set training=False, this will prevent loading of training data and
-        training batchgenerator initialization
         :param training:
         :return:
         """
@@ -152,22 +158,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                         print("unpacking dataset")
                         unpack_dataset(self.folder_with_preprocessed_data)
                         print("done")
-                    else:
-                        # we need to wait until worker 0 has finished unpacking
-                        npz_files = subfiles(self.folder_with_preprocessed_data, suffix=".npz", join=False)
-                        case_ids = [i[:-4] for i in npz_files]
-                        all_present = all(
-                            [isfile(join(self.folder_with_preprocessed_data, i + ".npy")) for i in case_ids])
-                        while not all_present:
-                            print("worker", self.local_rank, "is waiting for unpacking")
-                            sleep(3)
-                            all_present = all(
-                                [isfile(join(self.folder_with_preprocessed_data, i + ".npy")) for i in case_ids])
-                        # there is some slight chance that there may arise some error because dataloader are loading a file
-                        # that is still being written by worker 0. We ignore this for now an address it only if it becomes
-                        # relevant
-                        # (this can occur because while worker 0 writes the file is technically present so the other workers
-                        # will proceed and eventually try to read it)
+                    distributed.barrier()
                 else:
                     print(
                         "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
@@ -340,27 +331,266 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             net = self.network
         ds = net.do_ds
         net.do_ds = True
-        ret = nnUNetTrainer.run_training(self)
+
+        _ = self.tr_gen.next()
+        _ = self.val_gen.next()
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        self._maybe_init_amp()
+
+        maybe_mkdir_p(self.output_folder)
+        self.plot_network_architecture()
+
+        if cudnn.benchmark and cudnn.deterministic:
+            warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
+                 "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
+                 "If you want deterministic then set benchmark=False")
+
+        if not self.was_initialized:
+            self.initialize(True)
+
+        while self.epoch < self.max_num_epochs:
+            self.print_to_log_file("\nepoch: ", self.epoch)
+            epoch_start_time = time()
+            train_losses_epoch = []
+
+            # train one epoch
+            self.network.train()
+
+            if self.use_progress_bar:
+                with trange(self.num_batches_per_epoch) as tbar:
+                    for b in tbar:
+                        tbar.set_description("Epoch {}/{}".format(self.epoch+1, self.max_num_epochs))
+
+                        l = self.run_iteration(self.tr_gen, True)
+
+                        tbar.set_postfix(loss=l)
+                        train_losses_epoch.append(l)
+            else:
+                for _ in range(self.num_batches_per_epoch):
+                    l = self.run_iteration(self.tr_gen, True)
+                    train_losses_epoch.append(l)
+
+            self.all_tr_losses.append(np.mean(train_losses_epoch))
+            self.print_to_log_file("train loss : %.4f" % self.all_tr_losses[-1])
+
+            with torch.no_grad():
+                # validation with train=False
+                self.network.eval()
+                val_losses = []
+                for b in range(self.num_val_batches_per_epoch):
+                    l = self.run_iteration(self.val_gen, False, True)
+                    val_losses.append(l)
+                self.all_val_losses.append(np.mean(val_losses))
+                self.print_to_log_file("validation loss: %.4f" % self.all_val_losses[-1])
+
+                if self.also_val_in_tr_mode:
+                    self.network.train()
+                    # validation with train=True
+                    val_losses = []
+                    for b in range(self.num_val_batches_per_epoch):
+                        l = self.run_iteration(self.val_gen, False)
+                        val_losses.append(l)
+                    self.all_val_losses_tr_mode.append(np.mean(val_losses))
+                    self.print_to_log_file("validation loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
+
+            self.update_train_loss_MA()  # needed for lr scheduler and stopping of training
+
+            continue_training = self.on_epoch_end()
+
+            epoch_end_time = time()
+
+            if not continue_training:
+                # allows for early stopping
+                break
+
+            self.epoch += 1
+            self.print_to_log_file("This epoch took %f s\n" % (epoch_end_time - epoch_start_time))
+
+        self.epoch -= 1  # if we don't do this we can get a problem with loading model_final_checkpoint.
+
+        if self.save_final_checkpoint: self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
+
+        if self.local_rank == 0:
+            # now we can delete latest as it will be identical with final
+            if isfile(join(self.output_folder, "model_latest.model")):
+                os.remove(join(self.output_folder, "model_latest.model"))
+            if isfile(join(self.output_folder, "model_latest.model.pkl")):
+                os.remove(join(self.output_folder, "model_latest.model.pkl"))
+
         net.do_ds = ds
-        return ret
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True,
                  step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
-                 segmentation_export_kwargs: dict = None):
-        if self.local_rank == 0:
-            if isinstance(self.network, DDP):
-                net = self.network.module
-            else:
-                net = self.network
-            ds = net.do_ds
-            net.do_ds = False
+                 segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
+        if isinstance(self.network, DDP):
+            net = self.network.module
+        else:
+            net = self.network
+        ds = net.do_ds
+        net.do_ds = False
 
-            ret = nnUNetTrainer.validate(self, do_mirroring, use_sliding_window, step_size, save_softmax,
-                                         use_gaussian, overwrite, validation_folder_name, debug, all_in_gpu,
-                                         segmentation_export_kwargs)
-            net.do_ds = ds
-            return ret
+        current_mode = self.network.training
+        self.network.eval()
+
+        assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
+        if self.dataset_val is None:
+            self.load_dataset()
+            self.do_split()
+
+        if segmentation_export_kwargs is None:
+            if 'segmentation_export_params' in self.plans.keys():
+                force_separate_z = self.plans['segmentation_export_params']['force_separate_z']
+                interpolation_order = self.plans['segmentation_export_params']['interpolation_order']
+                interpolation_order_z = self.plans['segmentation_export_params']['interpolation_order_z']
+            else:
+                force_separate_z = None
+                interpolation_order = 1
+                interpolation_order_z = 0
+        else:
+            force_separate_z = segmentation_export_kwargs['force_separate_z']
+            interpolation_order = segmentation_export_kwargs['interpolation_order']
+            interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
+
+        # predictions as they come from the network go here
+        output_folder = join(self.output_folder, validation_folder_name)
+        maybe_mkdir_p(output_folder)
+        # this is for debug purposes
+        my_input_args = {'do_mirroring': do_mirroring,
+                         'use_sliding_window': use_sliding_window,
+                         'step_size': step_size,
+                         'save_softmax': save_softmax,
+                         'use_gaussian': use_gaussian,
+                         'overwrite': overwrite,
+                         'validation_folder_name': validation_folder_name,
+                         'debug': debug,
+                         'all_in_gpu': all_in_gpu,
+                         'segmentation_export_kwargs': segmentation_export_kwargs,
+                         }
+        save_json(my_input_args, join(output_folder, "validation_args.json"))
+
+        if do_mirroring:
+            if not self.data_aug_params['do_mirror']:
+                raise RuntimeError(
+                    "We did not train with mirroring so you cannot do inference with mirroring enabled")
+            mirror_axes = self.data_aug_params['mirror_axes']
+        else:
+            mirror_axes = ()
+
+        pred_gt_tuples = []
+
+        export_pool = Pool(default_num_threads)
+        results = []
+
+        all_keys = list(self.dataset_val.keys())
+        my_keys = all_keys[self.local_rank::dist.get_world_size()]
+        # we cannot simply iterate over all_keys because we need to know pred_gt_tuples and valid_labels of all cases
+        # for evaluation (which is done by local rank 0)
+        for k in my_keys:
+            properties = load_pickle(self.dataset[k]['properties_file'])
+            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
+                                   join(self.gt_niftis_folder, fname + ".nii.gz")])
+            if k in my_keys:
+                if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
+                        (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
+                    data = np.load(self.dataset[k]['data_file'])['data']
+
+                    print(k, data.shape)
+                    data[-1][data[-1] == -1] = 0
+
+                    softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                         do_mirroring=do_mirroring,
+                                                                                         mirror_axes=mirror_axes,
+                                                                                         use_sliding_window=use_sliding_window,
+                                                                                         step_size=step_size,
+                                                                                         use_gaussian=use_gaussian,
+                                                                                         all_in_gpu=all_in_gpu,
+                                                                                         mixed_precision=self.fp16)[1]
+
+                    softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
+
+                    if save_softmax:
+                        softmax_fname = join(output_folder, fname + ".npz")
+                    else:
+                        softmax_fname = None
+
+                    """There is a problem with python process communication that prevents us from communicating obejcts
+                    larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+                    communicated by the multiprocessing.Pipe object then the placeholder (\%i I think) does not allow for long
+                    enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+                    patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+                    then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
+                    filename or np.ndarray and will handle this automatically"""
+                    if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                        np.save(join(output_folder, fname + ".npy"), softmax_pred)
+                        softmax_pred = join(output_folder, fname + ".npy")
+
+                    results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
+                                                             ((softmax_pred, join(output_folder, fname + ".nii.gz"),
+                                                               properties, interpolation_order,
+                                                               self.regions_class_order,
+                                                               None, None,
+                                                               softmax_fname, None, force_separate_z,
+                                                               interpolation_order_z),
+                                                              )
+                                                             )
+                                   )
+
+        _ = [i.get() for i in results]
+        self.print_to_log_file("finished prediction")
+
+        distributed.barrier()
+
+        if self.local_rank == 0:
+            # evaluate raw predictions
+            self.print_to_log_file("evaluation of raw predictions")
+            task = self.dataset_directory.split("/")[-1]
+            job_name = self.experiment_name
+            _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
+                                 json_output_file=join(output_folder, "summary.json"),
+                                 json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
+                                 json_author="Fabian",
+                                 json_task=task, num_threads=default_num_threads)
+
+            if run_postprocessing_on_folds:
+                # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
+                # except the largest connected component for each class. To see if this improves results, we do this for all
+                # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
+                # have this applied during inference as well
+                self.print_to_log_file("determining postprocessing")
+                determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
+                                         final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
+                # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
+                # They are always in that folder, even if no postprocessing as applied!
+
+            # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
+            # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be
+            # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
+            # be used later
+            gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
+            maybe_mkdir_p(gt_nifti_folder)
+            for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
+                success = False
+                attempts = 0
+                e = None
+                while not success and attempts < 10:
+                    try:
+                        shutil.copy(f, gt_nifti_folder)
+                        success = True
+                    except OSError as e:
+                        attempts += 1
+                        sleep(1)
+                if not success:
+                    print("Could not copy gt nifti file %s into folder %s" % (f, gt_nifti_folder))
+                    if e is not None:
+                        raise e
+
+        self.network.train(current_mode)
+        net.do_ds = ds
 
     def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
                                                          mirror_axes: Tuple[int] = None,
