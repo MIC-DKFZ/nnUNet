@@ -30,8 +30,8 @@ def evaluate(prediction_dir, ground_truth_dir, uncertainty_dir, labels):
         thresholds = results[i]["thresholds"]
         threshold_scores = results[i]["threshold_scores"]
         for i in range(len(thresholds)):
-            print("Label: {}, Threshold: {}, Dice Score: {}, Uncertainty Dice Score 1: {}, Uncertainty Dice Score 2: {}, Uncertainty Miss Coverage Ratio: {}".format(
-                label, thresholds[i], round(threshold_scores[i][0], 3), round(threshold_scores[i][1], 3), round(threshold_scores[i][2], 3), round(threshold_scores[i][3], 3)))
+            print("Label: {}, Threshold: {}, Dice Score: {}, Uncertainty Dice Score 1: {}, Uncertainty Dice Score 2: {}, Uncertainty Miss Coverage Ratio: {}, Uncertainty GT Ratio: {}".format(
+                label, thresholds[i], round(threshold_scores[i][0], 3), round(threshold_scores[i][1], 3), round(threshold_scores[i][2], 3), round(threshold_scores[i][3], 3), round(threshold_scores[i][4], 3)))
         print("---------------------------------------")
 
 
@@ -40,9 +40,9 @@ def evaluate_label(prediction_filenames, ground_truth_filenames, uncertainty_fil
     thresholds = [0.5]  # [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     for i in tqdm(range(len(prediction_filenames))):
-        prediction = utils.load_nifty(prediction_filenames[i])[0]
-        ground_truth = utils.load_nifty(ground_truth_filenames[i])[0]
-        uncertainty = utils.load_nifty(uncertainty_filenames[i])[0]
+        prediction = utils.load_nifty(prediction_filenames[i])[0].astype(np.float16)
+        ground_truth = utils.load_nifty(ground_truth_filenames[i])[0].astype(np.float16)
+        uncertainty = utils.load_nifty(uncertainty_filenames[i])[0].astype(np.float16)
         case_threshold_scores = evaluate_case(prediction, ground_truth, uncertainty, thresholds, label)
         threshold_scores.append(case_threshold_scores)
     threshold_scores = np.asarray(threshold_scores)
@@ -77,7 +77,8 @@ def comp_metrices(prediction, ground_truth, thresholded_uncertainty):
     tp, fp, tn, fn = comp_uncertainty_confusion_matrix2(prediction, ground_truth, thresholded_uncertainty)
     uncertainty_dice_score2 = comp_dice_score(tp, fp, tn, fn)
     uncertainty_miss_coverage_ratio = comp_uncertainty_miss_coverage_ratio(ground_truth, fp, fn)
-    return [dice_score, uncertainty_dice_score1, uncertainty_dice_score2, uncertainty_miss_coverage_ratio]
+    uncertainty_gt_ratio = comp_uncertainty_gt_ratio(thresholded_uncertainty, ground_truth)
+    return [dice_score, uncertainty_dice_score1, uncertainty_dice_score2, uncertainty_miss_coverage_ratio, uncertainty_gt_ratio]
 
 
 def threshold_uncertainty(uncertainty, threshold):
@@ -131,6 +132,10 @@ def comp_dice_score(tp, fp, tn, fn):
 
 def comp_uncertainty_miss_coverage_ratio(ground_truth, fp, fn):
     return (fp + fn) / (np.sum(ground_truth) + sys.float_info.epsilon)
+
+
+def comp_uncertainty_gt_ratio(thresholded_uncertainty, ground_truth):
+    return np.sum(thresholded_uncertainty) / (np.sum(ground_truth) + sys.float_info.epsilon)
 
 
 def remove_missing_cases(prediction_filenames, ground_truth_filenames, uncertainty_filenames):

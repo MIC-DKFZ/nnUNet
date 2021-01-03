@@ -2,6 +2,9 @@ import numpy as np
 import os
 from natsort import natsorted
 import nibabel as nib
+from nilearn.image import resample_img
+import torch
+from torch.nn import functional as F
 from scipy.ndimage import affine_transform
 import transforms3d as t3d
 import sys
@@ -20,6 +23,11 @@ def load_filenames(img_dir, extensions=('.nii.gz')):
 
 def load_nifty(filepath):
     img = nib.load(filepath)
+    # if shape is not None:
+    #     if not mask:
+    #         img = resample_img(img, target_shape=shape, target_affine=np.eye(4))
+    #     else:
+    #         img = resample_img(img, target_shape=shape, target_affine=np.eye(4), interpolation='nearest')
     affine = img.affine
     img_np = img.get_fdata()
     spacing = img.header["pixdim"][1:4]
@@ -49,3 +57,14 @@ def normalize_list(x):
     min_value = np.min(x)
     max_value = np.min(x)
     return (x - min_value) / (max_value - min_value)
+
+def interpolate(data, shape, mask=False):
+    data = torch.FloatTensor(data)
+    data = data.unsqueeze(0).unsqueeze(0)
+    if not mask:
+        data = F.interpolate(data, shape, mode="trilinear", align_corners=False)
+    else:
+        data = F.interpolate(data, shape, mode="nearest")
+    data = data.squeeze(0).squeeze(0)
+    data = data.numpy()
+    return data
