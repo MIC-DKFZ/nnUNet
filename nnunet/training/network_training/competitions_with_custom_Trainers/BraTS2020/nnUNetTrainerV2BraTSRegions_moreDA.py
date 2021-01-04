@@ -16,6 +16,7 @@
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.training.data_augmentation.data_augmentation_insaneDA2 import get_insaneDA_augmentation2
 from torch import nn
 
 from nnunet.evaluation.region_based_evaluation import evaluate_regions, get_brats_regions
@@ -29,7 +30,7 @@ from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.loss_functions.dice_loss import DC_and_BCE_loss, get_tp_fp_fn_tn
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.network_training.nnUNet_variants.data_augmentation.nnUNetTrainerV2_DA3 import \
-    nnUNetTrainerV2_DA3_BN, get_insaneDA_augmentation2
+    nnUNetTrainerV2_DA3_BN
 
 
 class nnUNetTrainerV2BraTSRegions_DA3_BN(nnUNetTrainerV2_DA3_BN):

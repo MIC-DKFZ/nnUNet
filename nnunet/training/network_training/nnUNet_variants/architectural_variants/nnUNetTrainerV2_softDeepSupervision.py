@@ -14,6 +14,7 @@
 
 
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
+from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 
 try:
     from meddec.model_training.ablation_studies.new_nnUNet_candidates.nnUNetTrainerCandidate23_softDeepSupervision4 import \
@@ -22,7 +23,6 @@ except ImportError:
     MyDSLoss4 = None
 
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2

@@ -16,7 +16,7 @@
 import matplotlib
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-from nnunet.training.data_augmentation.default_data_augmentation import get_no_augmentation
+from nnunet.training.data_augmentation.data_augmentation_noDA import get_no_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset, DataLoader3D, DataLoader2D
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from torch import nn
@@ -75,10 +75,7 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
             else:
                 print("INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
                       "will wait all winter for your model to finish!")
-            self.tr_gen, self.val_gen = get_no_augmentation(self.dl_tr, self.dl_val,
-                                                                 self.data_aug_params[
-                                                                     'patch_size_for_spatialtransform'],
-                                                                 self.data_aug_params)
+            self.tr_gen, self.val_gen = get_no_augmentation(self.dl_tr, self.dl_val, params=self.data_aug_params)
             self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                    also_print_to_console=False)
             self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),

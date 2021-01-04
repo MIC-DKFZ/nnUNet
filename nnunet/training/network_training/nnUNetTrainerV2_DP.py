@@ -17,7 +17,7 @@ import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.generic_UNet_DP import Generic_UNet_DP
-from nnunet.training.data_augmentation.default_data_augmentation import get_moreDA_augmentation
+from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
 from nnunet.network_architecture.initialization import InitWeights_He
