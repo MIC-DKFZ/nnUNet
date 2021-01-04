@@ -18,8 +18,7 @@ from time import sleep
 import matplotlib
 from nnunet.configuration import default_num_threads
 from nnunet.postprocessing.connected_components import determine_postprocessing
-from nnunet.training.data_augmentation.default_data_augmentation import get_default_augmentation, \
-    get_moreDA_augmentation
+from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.dataloading.dataset_loading import DataLoader3D, unpack_dataset
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.network_architecture.neural_network import SegmentationNetwork

@@ -18,8 +18,9 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
+from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.data_augmentation.default_data_augmentation import default_3D_augmentation_params, \
-    default_2D_augmentation_params, get_patch_size, get_moreDA_augmentation
+    default_2D_augmentation_params, get_patch_size
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
