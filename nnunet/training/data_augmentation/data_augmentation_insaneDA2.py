@@ -13,8 +13,8 @@
 #    limitations under the License.
 
 from batchgenerators.dataloading import MultiThreadedAugmenter
-from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform, SpatialTransform, \
-    GammaTransform, MirrorTransform, Compose, SpatialTransform_2
+from batchgenerators.transforms import DataChannelSelectionTransform, SegChannelSelectionTransform, \
+    GammaTransform, MirrorTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
     ContrastAugmentationTransform, BrightnessTransform
 from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform, GaussianBlurTransform
@@ -27,6 +27,7 @@ from nnunet.training.data_augmentation.downsampling import DownsampleSegForDSTra
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData, \
     ApplyRandomBinaryOperatorTransform, \
     RemoveRandomConnectedComponentFromOneHotEncodingTransform
+from batchgenerators.transforms.spatial_transforms import SpatialTransform_2
 
 try:
     from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
