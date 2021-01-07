@@ -121,7 +121,8 @@ if __name__ == '__main__':
     patch size (and U-Net architecture) offer and could instead be made with more local information. Also, training with
     a batch size of just 2 in a dataset with 800 training cases means that each batch contains only limited variability.
     So one possible conclusion could be that smaller patches but larger patch sizes might result in a better 
-    segmentation outcome. Let's investigate (using the same GPU memory constraint!):
+    segmentation outcome. Let's investigate (using the same GPU memory constraint, determined manually with trial 
+    and error!):
     """
 
     """
