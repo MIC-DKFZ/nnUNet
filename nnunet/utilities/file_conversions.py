@@ -19,6 +19,8 @@ def convert_2d_image_to_nifti(input_filename: str, output_filename_truncated: st
 
     If Transform is not None it will be applied to the image after loading.
 
+    Segmentations will be converted to np.uint32!
+
     :param is_seg:
     :param transform:
     :param input_filename:
@@ -46,6 +48,10 @@ def convert_2d_image_to_nifti(input_filename: str, output_filename_truncated: st
         assert img.shape[0] == 1, 'segmentations can only have one color channel, not sure what happened here'
 
     for j, i in enumerate(img):
+
+        if is_seg:
+            i = i.astype(np.uint32)
+
         itk_img = sitk.GetImageFromArray(i)
         itk_img.SetSpacing(list(spacing)[::-1])
         if not is_seg:
