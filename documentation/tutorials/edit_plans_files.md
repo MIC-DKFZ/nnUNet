@@ -1,7 +1,14 @@
-
+Changing the plans files grants you a lot of flexibility: You can depart from nnU-Net's default configuration and play 
+with different U-Net topologies, batch sizes and patch sizes. It is a powerful tool!
+To better understand the components describing the network topology in our plans files, please read section 6.2 
+in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf) 
+(page 13) of our paper!
+    
 The goal of this tutorial is to demonstrate how to read and modify plans files and how to use them in your 
-experiments. The file used here works with Task120 and requires you to have run nnUNet_plan_and_preprocess for it.
-Note that this task is 2D only, but the same principles we use here can be applied to the other tasks as well
+experiments. The file used here works with Task120 and requires you to have downloaded the dataset, run 
+nnunet.dataset_conversion.Task120_Massachusetts_RoadSegm.py and then run nnUNet_plan_and_preprocess for it.
+
+Note that this task is 2D only, but the same principles we use here can be easily extended to 3D and other tasks as well.
 
 The output of `nnUNet_plan_and_preprocess` for this task looks like this:
 
@@ -101,8 +108,6 @@ nnUNet_determine_postprocessing to get the necessary metrics
     3d_fullres variant. If len(plans['plans_per_stage']) == 1 then [0] will be 3d_fullres and 3d_cascade_fullres 
     (they use the same plans).
     
-  - Read Section 6.2 in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf) (page 13) of our paper!!!
-    
   - 'pool_op_kernel_sizes' together with determines 'patch_size' determines the size of the feature map 
     representations at the bottleneck. For Variant 1 & 2 presented here, the size of the feature map representation is
     
@@ -112,3 +117,6 @@ nnUNet_determine_postprocessing to get the necessary metrics
     
     If you see a non-integer number here, your model will crash! Make sure these are always integers!
     nnU-Net will never create smaller bottlenecks than 4!
+
+  - do not change the 'current_spacing' in the plans file! This will not work properly. To change the target spacing, 
+  have a look at the [custom spacing](custom_spacing.md) tutorial.

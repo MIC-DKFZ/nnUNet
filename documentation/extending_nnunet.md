@@ -113,3 +113,7 @@ find_3d_configuration (same python file). The corresponding ExperimentPlanner
 compares this value to values generated for the currently configured network topology (which are also computed by 
 FabiansUNet.compute_approx_vram_consumption) to ensure that the GPU memory target is met.
 
+## Tutorials
+We have created tutorials on how to [manually edit plans files](nnunet/documentation/tutorials/edit_plans_files.md), 
+[change the target spacing](nnunet/documentation/tutorials/custom_spacing.md) and 
+[changing the normalization scheme for preprocessing](nnunet/documentation/tutorials/custom_preprocessing.md).
