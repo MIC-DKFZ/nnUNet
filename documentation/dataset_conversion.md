@@ -167,3 +167,13 @@ nnUNet_convert_decathlon_task -i FOLDER_TO_TASK_AS_DOWNLOADED_FROM_MSD -p NUM_PR
 FOLDER_TO_TASK_AS_DOWNLOADED_FROM_MSD needs to point to the downloaded task folder (such as Task05_Prostate, note the 
 2-digit task id!). The converted Task will be saved under the same name in nnUNet_raw_data_base/nnUNet_raw_data 
 (but with a 3 digit identifier). You can overwrite the task id of the converted task by using the `-output_task_id` option.
+
+
+## How to use 2D data with nnU-Net
+See [here](../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py).
+
+## How to convert other image formats to nifti
+Please have a look at the following tasks:
+- [Task120](../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py): 2D png images
+- [Task075](../nnunet/dataset_conversion/Task075_Fluo_C3DH_A549_ManAndSim.py) and [Task076](../nnunet/dataset_conversion/Task076_Fluo_N3DH_SIM.py): 3D tiff
+- [Task089](../nnunet/dataset_conversion/Task089_Fluo-N2DH-SIM.py) 2D tiff
