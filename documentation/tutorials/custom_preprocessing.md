@@ -4,7 +4,7 @@ with it. While this may appear cumbersome, the great thing about this approach i
 inference as well thus guaranteeing that images are preprocessed properly (i.e. the way the model expects).
 
 In this tutorial we will implement a custom normalization scheme for the Task120 Massachusetts Road Segmentation. Make 
-sure to download the dataset and run the code in nnunet.dataset_conversion.Task120_Massachusetts_RoadSegm.py prior to this tutorial.
+sure to download the dataset and run the code in [Task120_Massachusetts_RoadSegm.py](../../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py) prior to this tutorial.
 
 The images in the dataset are RGB with a value range of [0, 255]. nnU-nets defaultnormalization scheme will normalize 
 each color channel independently to have mean 0 and standard deviation 1. This works reasonably well, but may result 
@@ -12,10 +12,9 @@ in a shift of the color channels relative to each other and thus disturb the mod
 normalization will rescale the value range from [0, 255] to [0, 1] by simply dividing the intensities of each image by 
 255. Thus, there will be no longer a shift between the color channels.
 
-The new preprocessor class is located in nnunet.preprocessing.custom_preprocessors.preprocessor_scale_RGB_to_0_1.py. 
+The new preprocessor class is located in [preprocessor_scale_RGB_to_0_1.py](../../nnunet/preprocessing/custom_preprocessors/preprocessor_scale_RGB_to_0_1.py). 
 To acutally use it, we need to tell the ExperimentPlanner its name. For this purpose, it is best to create a new 
-ExperimentPlanner class. I created one and placed it in 
-nnunet.experiment_planning.alternative_experiment_planning.normalization.experiment_planner_2DUNet_v21_RGB_scaleto_0_1.py
+ExperimentPlanner class. I created one and placed it in [experiment_planner_2DUNet_v21_RGB_scaleto_0_1.py](../../nnunet/experiment_planning/alternative_experiment_planning/normalization/experiment_planner_2DUNet_v21_RGB_scaleto_0_1.py).
 
 Now go have a look at these two classes. Details are in the comments there.
 

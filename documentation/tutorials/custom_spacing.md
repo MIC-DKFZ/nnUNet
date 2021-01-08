@@ -6,7 +6,7 @@ This example requires you to have downloaded the dataset and converted it to nnU
 nnUNet_convert_decathlon_task
 
 We need to run the nnUNet_plan_and_preprocess command with a custom 3d experiment planner to achieve this. I have 
-created an appropriate trainer and placed it in `nnunet.experiment_planning.alternative_experiment_planning.target_spacing.experiment_planner_baseline_3DUNet_v21_customTargetSpacing_2x2x2.py`
+created an appropriate trainer and placed it in [experiment_planner_baseline_3DUNet_v21_customTargetSpacing_2x2x2.py](../../nnunet/experiment_planning/alternative_experiment_planning/target_spacing/experiment_planner_baseline_3DUNet_v21_customTargetSpacing_2x2x2.py)
 
 This will set a hard coded target spacing of 2x2x2mm for the 3d_fullres configuration (3d_lowres is unchanged). 
 Go have a look at this ExperimentPlanner now.
