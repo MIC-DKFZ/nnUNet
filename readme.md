@@ -66,7 +66,7 @@ Please also cite this paper if you are using nnU-Net for your research!
     + [Run inference](#run-inference)
   * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
   * [Examples](#examples)
-- [Extending/Changing nnU-Net](#extending-changing-nnu-net)
+- [Extending/Changing nnU-Net](#extending-or-changing-nnu-net)
 - [Information on run time and potential performance bottlenecks.](#information-on-run-time-and-potential-performance-bottlenecks)
 - [Common questions and issues](#common-questions-and-issues)
 
@@ -449,7 +449,7 @@ To get you started we compiled two simple to follow examples:
 
 Usability not good enough? Let us know!
 
-# Extending/Changing nnU-Net
+# Extending or Changing nnU-Net
 Please refer to [this](documentation/extending_nnunet.md) guide.
 
 # Information on run time and potential performance bottlenecks.

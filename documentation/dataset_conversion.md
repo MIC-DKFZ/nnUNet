@@ -167,3 +167,31 @@ nnUNet_convert_decathlon_task -i FOLDER_TO_TASK_AS_DOWNLOADED_FROM_MSD -p NUM_PR
 FOLDER_TO_TASK_AS_DOWNLOADED_FROM_MSD needs to point to the downloaded task folder (such as Task05_Prostate, note the 
 2-digit task id!). The converted Task will be saved under the same name in nnUNet_raw_data_base/nnUNet_raw_data 
 (but with a 3 digit identifier). You can overwrite the task id of the converted task by using the `-output_task_id` option.
+
+
+## How to use 2D data with nnU-Net
+nnU-Net was originally built for 3D images. It is also strongest when applied to 3D segmentation problems because a 
+large proportion of its design choices were built with 3D in mind. Also note that many 2D segmentation problems, 
+especially in the non-biomedical domain, may benefit from pretrained network architectures which nnU-Net does not
+support.
+Still, there is certainly a need for an out of the box segmentation solution for 2D segmentation problems. And 
+also on 2D segmentation tasks nnU-Net cam perform extremely well! We have, for example, won a 2D task in the cell 
+tracking challenge with nnU-Net (see our Nature Methods paper) and we have also successfully applied nnU-Net to 
+histopathological segmentation problems. 
+Working with 2D data in nnU-Net requires a small workaround in the creation of the dataset. Essentially, all images 
+must be converted to pseudo 3D images (so an image with shape (X, Y) needs to be converted to an image with shape 
+(1, X, Y). The resulting image must be saved in nifti format. Hereby it is important to set the spacing of the 
+first axis (the one with shape 1) to a value larger than the others. If you are working with niftis anyways, then 
+doing this should be easy for you. This example here is intended for demonstrating how nnU-Net can be used with 
+'regular' 2D images. We selected the massachusetts road segmentation dataset for this because it can be obtained 
+easily, it comes with a good amount of training cases but is still not too large to be difficult to handle.
+    
+See [here](../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py) for an example. 
+This script contains a lot of comments and useful information. Also have a look 
+[here](../nnunet/dataset_conversion/Task089_Fluo-N2DH-SIM.py).
+
+## How to convert other image formats to nifti
+Please have a look at the following tasks:
+- [Task120](../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py): 2D png images
+- [Task075](../nnunet/dataset_conversion/Task075_Fluo_C3DH_A549_ManAndSim.py) and [Task076](../nnunet/dataset_conversion/Task076_Fluo_N3DH_SIM.py): 3D tiff
+- [Task089](../nnunet/dataset_conversion/Task089_Fluo-N2DH-SIM.py) 2D tiff

@@ -5,7 +5,8 @@ import numpy as np
 import tifffile
 
 
-def convert_2d_image_to_nifti(filename: str, output_name: str, spacing=(999, 1, 1), transform=None, is_seg: bool = False) -> None:
+def convert_2d_image_to_nifti(input_filename: str, output_filename_truncated: str, spacing=(999, 1, 1),
+                              transform=None, is_seg: bool = False) -> None:
     """
     Reads an image (must be a format that it recognized by skimage.io.imread) and converts it into a series of niftis.
     The image can have an arbitrary number of input channels which will be exported separately (_0000.nii.gz,
@@ -18,15 +19,17 @@ def convert_2d_image_to_nifti(filename: str, output_name: str, spacing=(999, 1, 
 
     If Transform is not None it will be applied to the image after loading.
 
+    Segmentations will be converted to np.uint32!
+
     :param is_seg:
     :param transform:
-    :param filename:
-    :param output_name: do not use a file ending for this one! Example: output_name='./converted/image1'. This
+    :param input_filename:
+    :param output_filename_truncated: do not use a file ending for this one! Example: output_name='./converted/image1'. This
     function will add the suffix (_0000) and file ending (.nii.gz) for you.
     :param spacing:
     :return:
     """
-    img = io.imread(filename)
+    img = io.imread(input_filename)
 
     if transform is not None:
         img = transform(img)
@@ -45,12 +48,16 @@ def convert_2d_image_to_nifti(filename: str, output_name: str, spacing=(999, 1, 
         assert img.shape[0] == 1, 'segmentations can only have one color channel, not sure what happened here'
 
     for j, i in enumerate(img):
+
+        if is_seg:
+            i = i.astype(np.uint32)
+
         itk_img = sitk.GetImageFromArray(i)
         itk_img.SetSpacing(list(spacing)[::-1])
         if not is_seg:
-            sitk.WriteImage(itk_img, output_name + "_%04.0d.nii.gz" % j)
+            sitk.WriteImage(itk_img, output_filename_truncated + "_%04.0d.nii.gz" % j)
         else:
-            sitk.WriteImage(itk_img, output_name + ".nii.gz")
+            sitk.WriteImage(itk_img, output_filename_truncated + ".nii.gz")
 
 
 def convert_3d_tiff_to_nifti(filenames: List[str], output_name: str, spacing: Tuple[tuple, list], transform=None, is_seg=False) -> None:
