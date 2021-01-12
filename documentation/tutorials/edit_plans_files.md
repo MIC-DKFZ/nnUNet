@@ -64,7 +64,7 @@ save_pickle(plans, join(preprocessing_output_dir, task_name, 'nnUNetPlansv2.1_ps
 ```
 
 
-Variant 2: patch size 256x256, batch size 48
+Variant 2: patch size 256x256, batch size 60
 
 ```python
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -97,9 +97,28 @@ nnUNet_train 2d nnUNetTrainerV2 120 FOLD -p nnUNetPlansv2.1_ps256_bs60
 
 
 Let all 5 folds run for each plans file (original and the two variants). To compare the results, you can make use of
-nnUNet_determine_postprocessing to get the necessary metrics 
+nnUNet_determine_postprocessing to get the necessary metrics, for example:
 
-(TO BE CONTINUED)
+```bash
+nnUNet_determine_postprocessing -t 120 -tr nnUNetTrainerV2 -p nnUNetPlansv2.1_ps512_bs12 -m 2d
+```
+
+This will create a `cv_niftis_raw` and `cv_niftis_postprocessed` subfolder in the training output directory. In each
+ of these folders is a summary.json file that you can open with a regular text editor. In this file, there are metrics 
+ for each training example in the dataset representing the outcome of the 5-fold cross-validation. At the very bottom 
+ of the file, the metrics are aggregated through averaging (field "mean") and this is what you should be using to 
+ compare the experiments. I recommend using the non-postprocessed summary.json (located in `cv_niftis_raw`) for this 
+ because determining the postprocessing may actually overfit to the training dataset. Here are the results I obtained:
+ 
+Vanilla nnU-Net:    0.7720\
+Variant 1: 0.7724\
+Variant 2: 0.7734
+
+The results are remarkable similar and I would not necessarily conclude that such a small improvement in Dice is a 
+significant outcome. Nonetheless it was worth a try :-)
+
+Despite the results shown here I would like to emphasize that modifying the plans file can be an extremely powerful 
+tool to improve the performance of nnU-Net on some datasets. You never know until you try it.
 
 **ADDITIONAL INFORMATION (READ THIS!)**
 
