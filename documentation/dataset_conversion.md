@@ -125,6 +125,11 @@ The dataset.json file used by nnU-Net is identical to the ones used by the MSD. 
 them as well and thereby exactly follow the same structure. [This](https://drive.google.com/drive/folders/1HqEgzS8BV2c7xYNrZdEAnrHk7osJJ--2)
 is where you can download the MSD data for reference. 
 
+**NEW:** There now is a utility with which you can generate the dataset.json automatically. You can find it 
+[here](../nnunet/dataset_conversion/utils.py) (look for the function `generate_dataset_json`). 
+See [Task120](../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py) for an example on how to use it. And read 
+its documentation!
+
 Here is the content of the dataset.json from the Prostate task:
 
     { 

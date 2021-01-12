@@ -25,22 +25,23 @@ def get_identifiers_from_splitted_files(folder: str):
 
 
 def generate_dataset_json(output_file: str, imagesTr_dir: str, imagesTs_dir: str, modalities: Tuple,
-                          labels: dict,
-                          dataset_name: str,
-                          license: str = "hands off!", dataset_description: str = "",
+                          labels: dict, dataset_name: str, license: str = "hands off!", dataset_description: str = "",
                           dataset_reference="", dataset_release='0.0'):
     """
-
-    :param output_file:
-    :param imagesTr_dir: where the images are
-    :param imagesTs_dir: where the test images are, can be None
+    :param output_file: This needs to be the full path to the dataset.json you intend to write, so
+    output_file='DATASET_PATH/dataset.json' where the folder DATASET_PATH points to is the one with the
+    imagesTr and labelsTr subfolders
+    :param imagesTr_dir: path to the imagesTr folder of that dataset
+    :param imagesTs_dir: path to the imagesTs folder of that dataset. Can be None
     :param modalities: tuple of strings with modality names. must be in the same order as the images (first entry
-    corresponds to _0000.nii.gz, etc)
+    corresponds to _0000.nii.gz, etc). Example: ('T1', 'T2', 'FLAIR').
     :param labels: dict with int->str (key->value) mapping the label IDs to label names. Note that 0 is always
-    supposed to be background!
-    :param dataset_name:
+    supposed to be background! Example: {0: 'background', 1: 'edema', 2: 'enhancing tumor'}
+    :param dataset_name: The name of the dataset. Can be anything you want
     :param license:
     :param dataset_description:
+    :param dataset_reference: website of the dataset, if available
+    :param dataset_release:
     :return:
     """
     train_identifiers = get_identifiers_from_splitted_files(imagesTr_dir)
