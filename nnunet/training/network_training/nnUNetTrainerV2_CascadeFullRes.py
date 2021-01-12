@@ -62,7 +62,9 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
             self.dataset[k]['seg_from_prev_stage_file'] = join(self.folder_with_segs_from_prev_stage,
                                                                k + "_segFromPrevStage.npz")
             assert isfile(self.dataset[k]['seg_from_prev_stage_file']), \
-                "seg from prev stage missing: %s" % (self.dataset[k]['seg_from_prev_stage_file'])
+                "seg from prev stage missing: %s. " \
+                "Please run all 5 folds of the 3d_lowres configuration of this " \
+                "task!" % (self.dataset[k]['seg_from_prev_stage_file'])
         for k in self.dataset_val:
             self.dataset_val[k]['seg_from_prev_stage_file'] = join(self.folder_with_segs_from_prev_stage,
                                                                    k + "_segFromPrevStage.npz")
