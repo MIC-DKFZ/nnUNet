@@ -43,8 +43,8 @@ standardized environment.
 For more information about nnU-Net, please read the following paper:
 
 
-    Fabian Isensee, Paul F. Jäger, Simon A. A. Kohl, Jens Petersen, Klaus H. Maier-Hein "Automated Design of Deep Learning 
-    Methods for Biomedical Image Segmentation" arXiv preprint arXiv:1904.08128 (2020).
+    Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2020). nnU-Net: a self-configuring method 
+    for deep learning-based biomedical image segmentation. Nature Methods, 1-9.
 
 Please also cite this paper if you are using nnU-Net for your research!
 
