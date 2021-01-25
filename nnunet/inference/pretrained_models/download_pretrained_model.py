@@ -15,6 +15,7 @@ import shutil
 import tempfile
 from time import time
 from urllib.request import urlopen
+import zipfile
 
 from batchgenerators.utilities.file_and_folder_operations import join, isfile
 
@@ -261,7 +262,8 @@ def download_file(url, local_filename):
 
 
 def install_model_from_zip_file(zip_file: str):
-    call(['unzip', '-o', '-d', network_training_output_dir, zip_file])
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        zip_ref.extractall(network_training_output_dir)
 
 
 def print_license_warning():
