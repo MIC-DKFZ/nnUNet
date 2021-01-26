@@ -188,7 +188,7 @@ tens of minutes.
 nnU-Net trains all U-Net configurations in a 5-fold cross-validation. This enables nnU-Net to determine the 
 postprocessing and ensembling (see next step) on the training dataset. Per default, all U-Net configurations need to 
 be run on a given dataset. There are, however situations in which only some configurations (and maybe even without 
-running the cross-validation) are desired. See [FAQ](#faq) for more information.
+running the cross-validation) are desired. See [FAQ](documentation/common_questions.md) for more information.
 
 Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the U-Net 
 cascade is omitted because the patch size of the full resolution U-Net already covers a large part of the input images.
