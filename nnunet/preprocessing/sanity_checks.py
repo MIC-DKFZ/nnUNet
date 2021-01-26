@@ -167,6 +167,12 @@ def verify_dataset_integrity(folder):
     # verify that only properly declared values are present in the labels
     print("Verifying label values")
     expected_labels = list(int(i) for i in dataset['labels'].keys())
+
+    # check if labels are in consecutive order
+    assert expected_labels[0] == 0, 'The first label must be 0 and maps to the background'
+    labels_valid_consecutive = np.ediff1d(expected_labels) == 1
+    assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
+
     p = Pool(default_num_threads)
     results = p.starmap(verify_contains_only_expected_labels, zip(label_files, [expected_labels] * len(label_files)))
     p.close()
