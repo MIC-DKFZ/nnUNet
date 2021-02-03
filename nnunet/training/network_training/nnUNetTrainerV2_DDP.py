@@ -320,6 +320,9 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         we also need to make sure deep supervision in the network is enabled for training, thus the wrapper
         :return:
         """
+        if not torch.cuda.is_available():
+            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (torch.cuda.is_available() is False). This can be VERY slow!")
+
         self.maybe_update_lr(self.epoch)  # if we dont overwrite epoch then self.epoch+1 is used which is not what we
         # want at the start of the training
         if isinstance(self.network, DDP):
