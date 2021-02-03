@@ -411,6 +411,9 @@ class NetworkTrainer(object):
         pass
 
     def run_training(self):
+        if not torch.cuda.is_available():
+            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (torch.cuda.is_available() is False). This can be VERY slow!")
+
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
 
