@@ -233,7 +233,7 @@ def export_entry_point():
                         required=False, default=default_plans_identifier)
     parser.add_argument('--disable_strict', action='store_true', help='set this if you want to allow skipping '
                                                                      'missing things', required=False)
-    parser.add_argument('-f', nargs='+', type=int, help='Folds. Default: 0 1 2 3 4', required=False, default=[0, 1, 2, 3, 4])
+    parser.add_argument('-f', nargs='+', help='Folds. Default: 0 1 2 3 4', required=False, default=[0, 1, 2, 3, 4])
     args = parser.parse_args()
 
     folds = args.f
