@@ -1,5 +1,12 @@
 # Common Issues and their Solutions
 
+## RuntimeError: Expected scalar type half but found float
+
+This can happen when running inference (or training) with mixed precision enabled on older GPU hardware. It points 
+to some operation not being implemented in half precision for the type of GPU you are using. There are flags to enforce
+ the use of fp32 for both nnUNet_predict and nnUNet_train. If you run into this error, using these flags will probably 
+ solve it. See `nnUNet_predict -h` and `nnUNet_train -h` for what the flags are.
+
 ## nnU-Net gets 'stuck' during preprocessing, training or inference
 nnU-Net uses python multiprocessing to leverage multiple CPU cores during preprocessing, background workers for data 
 augmentation in training, preprocessing of cases during inference as well as resampling and exporting the final 
