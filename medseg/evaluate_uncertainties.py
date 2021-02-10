@@ -3,6 +3,7 @@ import numpy as np
 import os
 import sys
 from tqdm import tqdm
+import copy
 
 
 def evaluate(prediction_dir, ground_truth_dir, uncertainty_dir, labels):
@@ -82,9 +83,11 @@ def comp_metrices(prediction, ground_truth, thresholded_uncertainty):
 
 
 def threshold_uncertainty(uncertainty, threshold):
-    uncertainty[uncertainty <= threshold] = 0
-    uncertainty[uncertainty > threshold] = 1
-    return uncertainty
+    thresholded_uncertainty = copy.deepcopy(uncertainty)
+    thresholded_uncertainty[thresholded_uncertainty <= threshold] = 0
+    thresholded_uncertainty[thresholded_uncertainty > threshold] = 1
+    thresholded_uncertainty = thresholded_uncertainty.astype(int)
+    return thresholded_uncertainty
 
 
 def comp_confusion_matrix(prediction, ground_truth):

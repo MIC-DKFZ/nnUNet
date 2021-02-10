@@ -131,7 +131,7 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_threads_preprocessing,
                   num_threads_nifti_save, segs_from_prev_stage=None, do_tta=True, mixed_precision=True, overwrite_existing=False,
                   all_in_gpu=False, step_size=0.5, checkpoint_name="model_final_checkpoint",
-                  segmentation_export_kwargs: dict = None, output_probabilities: bool = False, tta: bool = False):
+                  segmentation_export_kwargs: dict = None, output_probabilities: bool = False, tta: int = -1, mcdo: int = -1):
     """
     :param segmentation_export_kwargs:
     :param model: folder where the model is saved, must contain fold_x subfolders
@@ -179,7 +179,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
     torch.cuda.empty_cache()
 
     print("loading parameters for folds,", folds)
-    trainer, params = load_model_and_checkpoint_files(model, folds, mixed_precision=mixed_precision, checkpoint_name=checkpoint_name)
+    trainer, params = load_model_and_checkpoint_files(model, folds, mixed_precision=mixed_precision, checkpoint_name=checkpoint_name, mcdo=mcdo)
 
     if segmentation_export_kwargs is None:
         if 'segmentation_export_params' in trainer.plans.keys():
@@ -215,10 +215,12 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             softmax.append(trainer.predict_preprocessed_data_return_seg_and_softmax(
                 d, do_mirroring=do_tta, mirror_axes=trainer.data_aug_params['mirror_axes'], use_sliding_window=True,
                 step_size=step_size, use_gaussian=True, all_in_gpu=all_in_gpu,
-                mixed_precision=mixed_precision, tta=tta)[1][None])
+                mixed_precision=mixed_precision, tta=tta, mcdo=mcdo)[1][None])
 
         softmax = np.vstack(softmax)
+        #print("softmax min: {}, max: {}".format(np.min(softmax), np.max(softmax)))
         softmax_mean = np.mean(softmax, 0)
+        #print("softmax mean min: {}, max: {}".format(np.min(softmax_mean), np.max(softmax_mean)))
 
         transpose_forward = trainer.plans.get('transpose_forward')
         if transpose_forward is not None:
@@ -251,10 +253,20 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             np.save(output_filename[:-7] + ".npy", softmax_mean)
             softmax_mean = output_filename[:-7] + ".npy"
 
+        if output_probabilities and tta != -1:
+            part = tta
+        elif output_probabilities and mcdo != -1:
+            part = mcdo
+        elif output_probabilities:
+            part = folds[0]
+        else:
+            part = -1
+
+        #print("softmax mean 2 min: {}, max: {}".format(np.min(softmax_mean), np.max(softmax_mean)))
         results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
                                           ((softmax_mean, output_filename, dct, interpolation_order, region_class_order,
                                             None, None,
-                                            npz_file, None, force_separate_z, interpolation_order_z, True, output_probabilities),)
+                                            npz_file, None, force_separate_z, interpolation_order_z, True, output_probabilities, part),)
                                           ))
 
     print("inference done. Now waiting for the segmentation export to finish...")
@@ -580,7 +592,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                         part_id: int, num_parts: int, tta: bool, mixed_precision: bool = True,
                         overwrite_existing: bool = True, mode: str = 'normal', overwrite_all_in_gpu: bool = None,
                         step_size: float = 0.5, checkpoint_name: str = "model_final_checkpoint",
-                        segmentation_export_kwargs: dict = None, output_probabilities: bool = False, uncertainty_tta: bool = False):
+                        segmentation_export_kwargs: dict = None, output_probabilities: bool = False, uncertainty_tta: int = -1, mcdo: int = -1):
     """
         here we use the standard naming scheme to generate list_of_lists and output_files needed by predict_cases
 
@@ -632,7 +644,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                              save_npz, num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations, tta,
                              mixed_precision=mixed_precision, overwrite_existing=overwrite_existing, all_in_gpu=all_in_gpu,
                              step_size=step_size, checkpoint_name=checkpoint_name,
-                             segmentation_export_kwargs=segmentation_export_kwargs, output_probabilities=output_probabilities, tta=uncertainty_tta)
+                             segmentation_export_kwargs=segmentation_export_kwargs, output_probabilities=output_probabilities, tta=uncertainty_tta, mcdo=mcdo)
     elif mode == "fast":
         if overwrite_all_in_gpu is None:
             all_in_gpu = True

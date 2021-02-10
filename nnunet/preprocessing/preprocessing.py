@@ -246,9 +246,27 @@ class GenericPreprocessor(object):
         # remove nans
         data[np.isnan(data)] = 0
 
+        # from medseg.utils import save_nifty
+        # import random
+        # name = random.randint(0, 1000)
+        # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_before.nii.gz".format(name), data[-1])
+        guiding_mask_index = None
+        for key in self.normalization_scheme_per_modality.keys():
+            if self.normalization_scheme_per_modality[key] == "GuidingMask":
+                # Move GuidingMask channel from data to seg before resampling
+                guiding_mask_index = key
+                seg = np.stack([seg, data[guiding_mask_index][np.newaxis, ...]], axis=1).squeeze(0)
+                data = np.delete(data, guiding_mask_index, axis=0)
+
         data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
                                      force_separate_z=force_separate_z, order_z_data=0, order_z_seg=0,
                                      separate_z_anisotropy_threshold=self.resample_separate_z_anisotropy_threshold)
+
+        if guiding_mask_index is not None:
+            # Move GuidingMask channel from seg to data after resampling
+            data = np.stack([data, seg[guiding_mask_index][np.newaxis, ...]], axis=1).squeeze(0)
+            seg = np.delete(seg, guiding_mask_index, axis=0)
+
         after = {
             'spacing': target_spacing,
             'data.shape (data is resampled)': data.shape
@@ -293,6 +311,9 @@ class GenericPreprocessor(object):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == "GuidingMask":  # New
+                # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_after.nii.gz".format(name), data[c])
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0

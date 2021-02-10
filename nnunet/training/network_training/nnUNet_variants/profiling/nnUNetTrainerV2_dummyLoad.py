@@ -87,7 +87,7 @@ class nnUNetTrainerV2_5epochs_dummyLoadCEnoDS(nnUNetTrainerV2_noDeepSupervision)
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
                                                          pad_kwargs: dict = None, all_in_gpu: bool = False,
-                                                         verbose: bool = True, mixed_precision=True, tta: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+                                                         verbose: bool = True, mixed_precision=True, tta: int = -1) -> Tuple[np.ndarray, np.ndarray]:
         pass
 
     def save_checkpoint(self, fname, save_optimizer=True):

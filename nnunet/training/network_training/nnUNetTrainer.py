@@ -186,7 +186,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.data_aug_params['selected_seg_channels'] = [0]
         self.data_aug_params['patch_size_for_spatialtransform'] = patch_size_for_spatialtransform
 
-    def initialize(self, training=True, force_load_plans=False):
+    def initialize(self, training=True, force_load_plans=False, mcdo=-1):
         """
         For prediction of test cases just set training=False, this will prevent loading of training data and
         training batchgenerator initialization
@@ -226,12 +226,12 @@ class nnUNetTrainer(NetworkTrainer):
                                    also_print_to_console=False)
         else:
             pass
-        self.initialize_network()
+        self.initialize_network(mcdo)
         self.initialize_optimizer_and_scheduler()
         # assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         self.was_initialized = True
 
-    def initialize_network(self):
+    def initialize_network(self, mcdo=-1):
         """
         This is specific to the U-Net and must be adapted for other network architectures
         :return:
@@ -251,7 +251,13 @@ class nnUNetTrainer(NetworkTrainer):
             norm_op = nn.InstanceNorm2d
 
         norm_op_kwargs = {'eps': 1e-5, 'affine': True}
-        dropout_op_kwargs = {'p': 0, 'inplace': True}
+        if mcdo != -1:
+            print("Dropout activated ############################################")
+            dropout_p = 0.5
+        else:
+            print("Dropout NOT activated ############################################")
+            dropout_p = 0.0
+        dropout_op_kwargs = {'p': dropout_p, 'inplace': True}
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes, net_numpool,
@@ -484,7 +490,7 @@ class nnUNetTrainer(NetworkTrainer):
                                                          use_sliding_window: bool = True, step_size: float = 0.5,
                                                          use_gaussian: bool = True, pad_border_mode: str = 'constant',
                                                          pad_kwargs: dict = None, all_in_gpu: bool = False,
-                                                         verbose: bool = True, mixed_precision: bool = True, tta: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+                                                         verbose: bool = True, mixed_precision: bool = True, tta: int = -1, mcdo: int = -1) -> Tuple[np.ndarray, np.ndarray]:
         """
         :param data:
         :param do_mirroring:
@@ -518,7 +524,7 @@ class nnUNetTrainer(NetworkTrainer):
                                       patch_size=self.patch_size, regions_class_order=self.regions_class_order,
                                       use_gaussian=use_gaussian, pad_border_mode=pad_border_mode,
                                       pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu, verbose=verbose,
-                                      mixed_precision=mixed_precision, tta=tta)
+                                      mixed_precision=mixed_precision, tta=tta, mcdo=mcdo)
         self.network.train(current_mode)
         return ret
 

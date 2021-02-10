@@ -5,8 +5,22 @@ import sys
 from tqdm import tqdm
 from scipy import optimize
 import time
+import matplotlib.pyplot as plt
+from numbers import Number
+import copy
+import pickle
+import multiprocessing
+from multiprocessing import Pool
+from functools import partial
+from medseg import uncertainty_metrices as um
 
-def evaluate(prediction_dir, ground_truth_dir, uncertainty_dir, labels, thresholds=None):
+
+def evaluate(data_dir, prediction_dir, ground_truth_dir, uncertainty_dir, labels, end=None, step=None, parallel=False):
+    if end is not None:
+        thresholds = np.arange(0.0, end, step)
+    else:
+        thresholds = None
+    print("Thresholds: ", thresholds)
     prediction_filenames = utils.load_filenames(prediction_dir)
     ground_truth_filenames = [os.path.join(ground_truth_dir, os.path.basename(prediction_filename)) for prediction_filename in prediction_filenames]
     uncertainty_filenames = []
@@ -23,22 +37,39 @@ def evaluate(prediction_dir, ground_truth_dir, uncertainty_dir, labels, threshol
     prediction_filenames, ground_truth_filenames, uncertainty_filenames = remove_missing_cases(prediction_filenames, ground_truth_filenames, uncertainty_filenames)
     results = []
 
+    start_time = time.time()
     for i, label in enumerate(tqdm(labels)):
         predictions, ground_truths, uncertainties = load_data(prediction_filenames, ground_truth_filenames, uncertainty_filenames[:, i])
-        predictions_label, ground_truths_label = binarize_data_by_label(predictions, ground_truths, label)
+        predictions, ground_truths = binarize_data_by_label(predictions, ground_truths, label)
         if thresholds is None:
-            thresholds = find_best_threshold(predictions_label, ground_truths_label, uncertainties)
-        if not isinstance(thresholds, list):
+            thresholds = find_best_threshold(predictions, ground_truths, uncertainties)
+        if isinstance(thresholds, Number):
             thresholds = [thresholds]
-        for threshold in thresholds:
-            dice_score = evaluate_threshold(predictions_label, ground_truths_label, uncertainties, threshold)
-            results.append({"label": label, "threshold": threshold, "dice_score": dice_score})
+        if not parallel:
+            for threshold in thresholds:
+                result = evaluate_threshold(predictions, ground_truths, uncertainties, threshold)
+                # result["label"] = label
+                # result["threshold"] = threshold
+                results.append(result)
+        else:
+            with Pool(processes=4) as pool:  # multiprocessing.cpu_count() kills memory
+                results = pool.map(partial(evaluate_threshold, predictions=predictions, ground_truths=ground_truths, uncertainties=uncertainties), thresholds)
+            results = [{"label": label, "threshold": thresholds[i], "dice_score": results[i][0], "uncertainty_sum": results[i][1]} for i in range(len(results))]  # TODO: Old
 
-    for i in range(len(results)):
-        label = results[i]["label"]
-        best_threshold = results[i]["threshold"]
-        dice_score = results[i]["dice_score"]
-        print("Label: {}, Threshold: {}, Dice Score: {}".format(label, best_threshold, dice_score))
+        for key in results[0].keys():
+            plt.plot(thresholds, [result[key] for result in results], label=key)
+        plt.legend(loc="upper left")
+        plt.xlim(0, end)
+        plt.ylim(0, 2)
+        plt.savefig(data_dir + os.path.basename(uncertainty_dir[:-1]) + "_end" + str(end) + "_step" + str(step) + '.png')
+
+    for result in results:
+        print(result)
+
+    with open(data_dir + os.path.basename(uncertainty_dir[:-1]) + "_end" + str(end) + "_step" + str(step) + ".pkl", 'wb') as handle:
+        pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    print("Elapsed time (evaluate): ", time.time() - start_time)
 
 
 def load_data(prediction_filenames, ground_truth_filenames, uncertainty_filenames):
@@ -50,6 +81,7 @@ def load_data(prediction_filenames, ground_truth_filenames, uncertainty_filename
         prediction = utils.load_nifty(prediction_filenames[i])[0].astype(np.float16)
         ground_truth = utils.load_nifty(ground_truth_filenames[i])[0].astype(np.float16)
         uncertainty = utils.load_nifty(uncertainty_filenames[i])[0].astype(np.float16)
+        uncertainty = np.nan_to_num(uncertainty)
         prediction = utils.interpolate(prediction, target_shape, mask=True)
         ground_truth = utils.interpolate(ground_truth, target_shape, mask=True)
         uncertainty = utils.interpolate(uncertainty, target_shape, mask=False)
@@ -57,36 +89,33 @@ def load_data(prediction_filenames, ground_truth_filenames, uncertainty_filename
         ground_truths.append(ground_truth)
         uncertainties.append(uncertainty)
 
+    predictions = np.asarray(predictions)
+    ground_truths = np.asarray(ground_truths)
+    uncertainties = np.asarray(uncertainties)
     print("Finished loading data")
     return predictions, ground_truths, uncertainties
 
 
 def binarize_data_by_label(predictions, ground_truths, label):
-    predictions_label, ground_truths_label = [], []
-
-    for i in range(len(predictions)):
-        prediction = np.rint(predictions[i])
-        ground_truth = np.rint(ground_truths[i])
-        prediction = prediction.astype(int)
-        ground_truth = ground_truth.astype(int)
-        prediction[prediction != label] = 0
-        ground_truth[ground_truth != label] = 0
-        prediction[prediction == label] = 1
-        ground_truth[ground_truth == label] = 1
-        predictions_label.append(prediction)
-        ground_truths_label.append(ground_truth)
-
-    return predictions_label, ground_truths_label
+    predictions = np.rint(predictions)
+    ground_truths = np.rint(ground_truths)
+    predictions = predictions.astype(int)
+    ground_truths = ground_truths.astype(int)
+    predictions[predictions != label] = 0
+    ground_truths[ground_truths != label] = 0
+    predictions[predictions == label] = 1
+    ground_truths[ground_truths == label] = 1
+    return predictions, ground_truths
 
 
 def find_best_threshold(predictions, ground_truths, uncertainties):
 
     def _evaluate_threshold(threshold):
-        return 1 - evaluate_threshold(predictions, ground_truths, uncertainties, threshold)
+        return 1 - evaluate_threshold(predictions, ground_truths, uncertainties, threshold)["uncertainty_filtered_dice"]
 
     start_time = time.time()
-    result = optimize.minimize_scalar(_evaluate_threshold, bounds=(0, 5))
-    print("Elapsed time: ", time.time() - start_time)
+    result = optimize.minimize_scalar(_evaluate_threshold, bounds=(0, 1))
+    print("Elapsed time (find_best_threshold): ", time.time() - start_time)
     print("Success: ", result.success)
     print("best_threshold: ", result.x)
     return result.x
@@ -94,84 +123,32 @@ def find_best_threshold(predictions, ground_truths, uncertainties):
 
 def evaluate_threshold(predictions, ground_truths, uncertainties, threshold):
     print("Threshold: ", threshold)
-    dice_scores = []
-    #tp, fp, tn, fn = comp_partial_confusion_matrix(prediction, ground_truth)
+    start_time = time.time()
 
-    for i in range(len(predictions)):
-        thresholded_uncertainty = threshold_uncertainty(uncertainties[i], threshold)
-        tp, fp, tn, fn = comp_uncertainty_confusion_matrix(predictions[i], ground_truths[i], thresholded_uncertainty)
-        dice_score = comp_dice_score(tp, fp, tn, fn)
-        dice_scores.append(dice_score)
+    thresholded_uncertainties = threshold_uncertainty(uncertainties, threshold)
+    # uncertainty_sum = np.sum(thresholded_uncertainties)
+    uncertainty_filtered_dice = um.uncertainty_filtered_dice(predictions, ground_truths, thresholded_uncertainties)
+    relaxed_uncertainty_dice = um.relaxed_uncertainty_dice(predictions, ground_truths, thresholded_uncertainties)
+    certain_missclassification2uncertainty_ratio = um.certain_missclassification2uncertainty_ratio(predictions, ground_truths, thresholded_uncertainties)
+    certain_missclassification2gt_ratio = um.certain_missclassification2gt_ratio(predictions, ground_truths, thresholded_uncertainties)
+    certain_missclassification2prediction_ratio = um.certain_missclassification2prediction_ratio(predictions, ground_truths, thresholded_uncertainties)
+    uncertainty2prediction_ratio = um.uncertainty2prediction_ratio(thresholded_uncertainties, predictions)
+    uncertainty2gt_ratio = um.uncertainty2gt_ratio(thresholded_uncertainties, ground_truths)
+    certain2prediction_ratio = um.certain2prediction_ratio(thresholded_uncertainties, predictions)
+    print("Elapsed time (evaluate_threshold): ", time.time() - start_time)
 
-    dice_scores = np.asarray(dice_scores)
-    dice_scores = np.mean(dice_scores)
-    return dice_scores
+    return {"uncertainty_filtered_dice": uncertainty_filtered_dice, "relaxed_uncertainty_dice": relaxed_uncertainty_dice,
+            "certain_missclassification2uncertainty_ratio": certain_missclassification2uncertainty_ratio, "certain_missclassification2gt_ratio": certain_missclassification2gt_ratio,
+            "certain_missclassification2prediction_ratio": certain_missclassification2prediction_ratio,
+            "uncertainty2prediction_ratio": uncertainty2prediction_ratio, "uncertainty2gt_ratio": uncertainty2gt_ratio, "certain2prediction_ratio": certain2prediction_ratio}
 
 
 def threshold_uncertainty(uncertainty, threshold):
-    uncertainty[uncertainty <= threshold] = 0
-    uncertainty[uncertainty > threshold] = 1
-    return uncertainty
-
-
-def comp_partial_confusion_matrix(prediction, ground_truth):
-    """
-    Compute normal confusion matrix. Ignore all elements with positive uncertainty.
-    :param prediction:
-    :param ground_truth:
-    :param uncertainty:
-    :return:
-    """
-    tp = ((prediction == 1) & (ground_truth == 1))
-    tn = ((prediction == 0) & (ground_truth == 0))
-    fp = ((prediction == 1) & (ground_truth == 0))
-    fn = ((prediction == 0) & (ground_truth == 1))
-    return tp, fp, tn, fn
-
-
-# def comp_uncertainty_confusion_matrix(tp, fp, tn, fn, uncertainty):
-#     """
-#     Compute normal confusion matrix. Ignore all elements with positive uncertainty.
-#     :param prediction:
-#     :param ground_truth:
-#     :param uncertainty:
-#     :return:
-#     """
-#     tp = (tp & (uncertainty == 0))
-#     tn = (tn & (uncertainty == 0))
-#     fp = (fp & (uncertainty == 0))
-#     fn = (fn & (uncertainty == 0))
-#     tp = np.sum(tp)
-#     tn = np.sum(tn)
-#     fp = np.sum(fp)
-#     fn = np.sum(fn)
-#     return tp, fp, tn, fn
-
-
-def comp_uncertainty_confusion_matrix(prediction, ground_truth, uncertainty):
-    """
-    Compute normal confusion matrix. Ignore all elements with positive uncertainty.
-    :param prediction:
-    :param ground_truth:
-    :param uncertainty:
-    :return:
-    """
-    tp = ((prediction == 1) & (ground_truth == 1) & (uncertainty == 0))
-    tn = ((prediction == 0) & (ground_truth == 0) & (uncertainty == 0))
-    fp = ((prediction == 1) & (ground_truth == 0) & (uncertainty == 0))
-    fn = ((prediction == 0) & (ground_truth == 1) & (uncertainty == 0))
-    tp = np.sum(tp)
-    tn = np.sum(tn)
-    fp = np.sum(fp)
-    fn = np.sum(fn)
-    return tp, fp, tn, fn
-
-
-def comp_dice_score(tp, fp, tn, fn):
-    if tp + fp + fn == 0:
-        return 1
-    else:
-        return (2*tp) / (2*tp + fp + fn)
+    thresholded_uncertainty = copy.deepcopy(uncertainty)
+    thresholded_uncertainty[thresholded_uncertainty <= threshold] = 0
+    thresholded_uncertainty[thresholded_uncertainty > threshold] = 1
+    thresholded_uncertainty = thresholded_uncertainty.astype(int)
+    return thresholded_uncertainty
 
 
 def remove_missing_cases(prediction_filenames, ground_truth_filenames, uncertainty_filenames):
@@ -201,7 +178,29 @@ if __name__ == '__main__':
     # uncertainty_dir = "/gris/gris-f/homelv/kgotkows/datasets/prostate/Task05_Prostate/uncertainties_tta_Tr/"
     # evaluate(prediction_dir, ground_truth_dir, uncertainty_dir, labels=(1, 2))
 
-    prediction_dir = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task086_frankfurt2/predictions_with_tta/"
-    ground_truth_dir = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task086_frankfurt2/labelsTr/"
-    uncertainty_dir = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task086_frankfurt2/uncertainties_tta/"
-    evaluate(prediction_dir, ground_truth_dir, uncertainty_dir, labels=(1,), thresholds=[2.6180339603380443])
+    data_dir = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task086_frankfurt2/"
+    prediction_dir = data_dir + "predictions_with_tta_merged/"
+    ground_truth_dir = data_dir + "labelsTr/"
+    uncertainty_dir = data_dir + "uncertainties_tta_variance/"
+    end = 0.24  # 0.003
+    step = 0.02  # 0.0002
+    thresholds = np.arange(0.0, end, step)
+    plot = False
+    if not plot:
+        evaluate(data_dir, prediction_dir, ground_truth_dir, uncertainty_dir, labels=(1,), end=end, step=step)
+    else:
+        with open(data_dir + os.path.basename(uncertainty_dir[:-1]) + "_end" + str(end) + "_step" + str(step) + ".pkl", 'rb') as handle:
+            results = pickle.load(handle)
+
+        for result in results:
+            print(result)
+
+        for key in results[0].keys():
+            plt.plot(np.arange(0.0, end, step), [result[key] for result in results], label=key)
+        plt.legend(loc="upper left")
+        plt.xlim(0, end)
+        plt.ylim(0, 2)
+        plt.savefig(data_dir + os.path.basename(uncertainty_dir[:-1]) + "_end" + str(end) + "_step" + str(step) + '.png')
+
+
+

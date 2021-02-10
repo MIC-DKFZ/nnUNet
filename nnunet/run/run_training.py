@@ -86,6 +86,7 @@ def main():
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
+    #os.environ['nnUNet_n_proc_DA'] = str(1)
     task = args.task
     fold = args.fold
     network = args.network

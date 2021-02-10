@@ -34,9 +34,10 @@ from torch import nn
 from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided
 
 
-class nnUNetTrainerV2(nnUNetTrainer):
+class nnUNetTrainerV2Guided(nnUNetTrainer):
     """
     Info for Fabian: same as internal nnUNetTrainerV2_2
     """
@@ -333,6 +334,10 @@ class nnUNetTrainerV2(nnUNetTrainer):
         for i in val_keys:
             self.dataset_val[i] = self.dataset[i]
 
+    def process_plans(self, plans):
+        super().process_plans(plans)
+        self.num_input_channels += (self.num_classes - 1)  # for seg from prev stage
+
     def setup_DA_params(self):
         """
         - we increase roation angle from [-15, 15] to [-30, 30]
@@ -382,8 +387,11 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         self.data_aug_params["scale_range"] = (0.7, 1.4)
         self.data_aug_params["do_elastic"] = False
-        self.data_aug_params['selected_seg_channels'] = [0]
         self.data_aug_params['patch_size_for_spatialtransform'] = patch_size_for_spatialtransform
+
+        self.data_aug_params['selected_seg_channels'] = [0, 1]  # New
+        self.data_aug_params['move_last_seg_chanel_to_data'] = True  # New
+        self.data_aug_params['all_segmentation_labels'] = list(range(1, self.num_classes))  # New
 
         self.data_aug_params["num_cached_per_thread"] = 2
 
@@ -439,3 +447,18 @@ class nnUNetTrainerV2(nnUNetTrainer):
         ret = super().run_training()
         self.network.do_ds = ds
         return ret
+
+    def get_basic_generators(self):
+        self.load_dataset()
+        self.do_split()
+
+        if self.threeD:
+            dl_tr = DataLoader3DGuided(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
+                                 False, oversample_foreground_percent=self.oversample_foreground_percent,
+                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
+            dl_val = DataLoader3DGuided(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+                                  oversample_foreground_percent=self.oversample_foreground_percent,
+                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
+        else:
+            raise NotImplementedError("DataLoader2D not implemented with guided training")
+        return dl_tr, dl_val

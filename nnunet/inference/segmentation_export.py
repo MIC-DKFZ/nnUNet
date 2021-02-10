@@ -31,7 +31,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
                                          resampled_npz_fname: str = None,
                                          non_postprocessed_fname: str = None, force_separate_z: bool = None,
                                          interpolation_order_z: int = 0, verbose: bool = True,
-                                         output_probabilities: bool = False):
+                                         output_probabilities: bool = False, part: int = -1):
     """
     This is a utility for writing segmentations to nifto and npz. It requires the data to have been preprocessed by
     GenericPreprocessor because it depends on the property dictionary output (dct) to know the geometry of the original
@@ -123,8 +123,13 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
 
         save_single(seg_old_spacing, shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, out_fname, seg_postprocess_args, output_probabilities)
     else:
+        #print("seg_old_spacing min: {}, max: {}".format(np.min(seg_old_spacing), np.max(seg_old_spacing)))
         for i in range(len(seg_old_spacing)):
-            save_single(seg_old_spacing[i], shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, out_fname[:-7] + "_" + str(i) + ".nii.gz", seg_postprocess_args, output_probabilities)
+            if part != -1:
+                name = out_fname[:-7] + "_" + str(i) + "_part_" + str(part) + ".nii.gz"
+            else:
+                name = out_fname[:-7] + "_" + str(i) + ".nii.gz"
+            save_single(seg_old_spacing[i], shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, name, seg_postprocess_args, output_probabilities)
 
 def save_single(seg_old_spacing, shape_original_before_cropping, seg_postprogess_fn, properties_dict, non_postprocessed_fname, out_fname, seg_postprocess_args, output_probabilities):
     bbox = properties_dict.get('crop_bbox')

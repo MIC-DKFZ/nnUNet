@@ -6,7 +6,7 @@ from nilearn.image import resample_img
 import torch
 from torch.nn import functional as F
 from scipy.ndimage import affine_transform
-import transforms3d as t3d
+# import transforms3d as t3d
 import sys
 import matplotlib.pyplot as plt
 
@@ -14,7 +14,7 @@ def load_filenames(img_dir, extensions=('.nii.gz')):
     img_filenames, mask_files = [], []
 
     for file in os.listdir(img_dir):
-        if file.endswith(extensions):
+        if extensions is None or file.endswith(extensions):
             img_filenames.append(img_dir + file)
     img_filenames = np.asarray(img_filenames)
     img_filenames = natsorted(img_filenames)
@@ -34,13 +34,16 @@ def load_nifty(filepath):
     header = img.header
     return img_np, affine, spacing, header
 
-def save_nifty(filepath, img, affine=None, spacing=None, header=None):
+def save_nifty(filepath, img, affine=None, spacing=None, header=None, is_mask=False):
+    if is_mask:
+        img = np.rint(img)
+        img = img.astype(np.uint8)
     img = nib.Nifti1Image(img, affine=affine, header=header)
     if spacing is not None:
         img.header["pixdim"][1:4] = spacing
     nib.save(img, filepath)
 
-def reorient(img, affine):
+def reorient(img, affine=None):
     reoriented = np.rot90(img, k=1)
     reoriented = np.fliplr(reoriented)
     # plt.imshow(normalize(img[:, :, 0]))
