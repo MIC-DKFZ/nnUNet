@@ -129,7 +129,7 @@ performance consistently enough to make that the default. If you really want to 
 
 1) Manually edit the plans files to increase the batch size. A larger batch size gives better (less noisy) gradients 
 and may improve your model performance if the dataset is large. Note that nnU-Net always runs for 1000 epochs with 250 
-iterations each (25000 iterations). The training time thus scales approximately linearly with the batch size 
+iterations each (250000 iterations). The training time thus scales approximately linearly with the batch size 
 (batch size 4 is going to need twice as long for training than batch size 2!)
 
 2) Manually edit the plans files to increase the patch size. This one is tricky and should only been attempted if you 
