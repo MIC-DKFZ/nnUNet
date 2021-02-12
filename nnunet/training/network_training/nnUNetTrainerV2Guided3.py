@@ -338,7 +338,7 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
 
     def process_plans(self, plans):
         super().process_plans(plans)
-        self.num_input_channels += (self.num_classes - 1)  # for seg from prev stage
+        self.num_input_channels += (self.num_classes - 2)  # for seg from prev stage
 
     def setup_DA_params(self):
         """

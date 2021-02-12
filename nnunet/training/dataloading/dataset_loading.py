@@ -773,10 +773,10 @@ class DataLoader3DGuided3(DataLoader3D):
     def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
                  oversample_foreground_percent=0.0, memmap_mode="r", pad_mode="edge", pad_kwargs_data=None,
                  pad_sides=None, train_mode=True):
-        self.train_mode = train_mode
         super(DataLoader3DGuided3, self).__init__(data, patch_size, final_patch_size, batch_size, has_prev_stage,
                  oversample_foreground_percent, memmap_mode, pad_mode, pad_kwargs_data,
                  pad_sides)
+        self.train_mode = train_mode
 
 
     def determine_shapes(self):
@@ -790,10 +790,7 @@ class DataLoader3DGuided3(DataLoader3D):
             case_all_data = np.load(self._data[k]['data_file'][:-4] + ".npy", self.memmap_mode)
         else:
             case_all_data = np.load(self._data[k]['data_file'])['data']
-        if self.train_mode:
-            num_color_channels = case_all_data.shape[0] - 2
-        else:
-            num_color_channels = case_all_data.shape[0] - 1
+        num_color_channels = case_all_data.shape[0] - 2
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
         seg_shape = (self.batch_size, num_seg, *self.patch_size)
         return data_shape, seg_shape
@@ -933,11 +930,11 @@ class DataLoader3DGuided3(DataLoader3D):
                                           valid_bbox_y_lb:valid_bbox_y_ub,
                                           valid_bbox_z_lb:valid_bbox_z_ub]
 
-            if self.train_mode:
-                data_slice = -2
-            else:
-                data_slice = -1
-            data[j] = np.pad(case_all_data[:data_slice], ((0, 0),
+            # if self.train_mode:
+            #     data_slice = -2
+            # else:
+            #     data_slice = -1
+            data[j] = np.pad(case_all_data[:-2], ((0, 0),
                                                   (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
                                                   (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
                                                   (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
@@ -960,7 +957,7 @@ class DataLoader3DGuided3(DataLoader3D):
                                                           (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                    'constant', **{'constant_values': -1})
 
-                seg[j, guiding_mask_index] = comp_slices_mask(guiding_mask.squeeze(0), 75, p=0.7)[np.newaxis, ...]
+                seg[j, guiding_mask_index] = comp_slices_mask(guiding_mask.squeeze(0), 75, p=0.7, slice_depth=1)[np.newaxis, ...]
             else:
                 seg[j, guiding_mask_index] = np.pad(case_all_data[-2:-1], ((0, 0),
                                                                            (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),

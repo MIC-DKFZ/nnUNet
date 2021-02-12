@@ -8,12 +8,12 @@ from skimage import measure
 import os
 
 
-def comp_guiding_mask(load_path, save_path, slice_length, default_size):
+def comp_guiding_mask(load_path, save_path, slice_length, default_size, slice_depth=3):
     filenames = utils.load_filenames(load_path)
     for filename in tqdm(filenames):
         mask, affine, spacing, header = utils.load_nifty(filename)
         adapted_slice_length = adapt_slice_length(mask, slice_length, default_size)
-        mask_slices = comp_slices_mask(mask, adapted_slice_length)
+        mask_slices = comp_slices_mask(mask, adapted_slice_length, slice_depth=slice_depth)
         utils.save_nifty(save_path + os.path.basename(filename), mask_slices, affine, spacing, header, is_mask=True)
 
 
@@ -21,14 +21,14 @@ def adapt_slice_length(mask, slice_length, default_size):
     return int((mask.shape[0] / default_size) * slice_length)
 
 
-def comp_slices_mask(mask, slice_length, p=None, nnunet=False):
+def comp_slices_mask(mask, slice_length, p=None, nnunet=False, slice_depth=3):
     labels = range(1, int(np.max(mask)) + 1)
     mask_slices = np.zeros_like(mask)
     for label in labels:
         mask_label = copy.deepcopy(mask)
         mask_label[mask_label != label] = 0
         mask_label[mask_label == label] = 1
-        objects_slices_label = comp_slices_label(mask_label, slice_length, p, nnunet).astype(int)
+        objects_slices_label = comp_slices_label(mask_label, slice_length, p, nnunet, slice_depth).astype(int)
         objects_slices_label[objects_slices_label == 1] = label
         mask_slices += objects_slices_label
     if nnunet:
@@ -36,29 +36,29 @@ def comp_slices_mask(mask, slice_length, p=None, nnunet=False):
     return mask_slices
 
 
-def comp_slices_label(mask, slice_length, p=None, nnunet=False):
+def comp_slices_label(mask, slice_length, p=None, nnunet=False, slice_depth=3):
     objects, ids = measure.label(mask, background=False, connectivity=2, return_num=True)
     mask_slices = np.zeros_like(mask)
     for id in range(1, ids + 1):
         object = copy.deepcopy(objects)
         object[object != id] = 0
         object[object == id] = 1
-        object_slices = comp_object_slices(object, slice_length, p, nnunet)
+        object_slices = comp_object_slices(object, slice_length, p, nnunet, slice_depth)
         mask_slices = np.logical_or(mask_slices, object_slices)
     return mask_slices
 
 
-def comp_object_slices(object, slice_length, p=None, nnunet=False):
-    object_slices, is_object_small = comp_object_slices_dim(object, 0, slice_length, p)
+def comp_object_slices(object, slice_length, p=None, nnunet=False, slice_depth=3):
+    object_slices, is_object_small = comp_object_slices_dim(object, 0, slice_length, p, slice_depth)
     if not is_object_small or nnunet:
-        object_slices_1, is_object_small = comp_object_slices_dim(object, 1, slice_length, p)
-        object_slices_2, is_object_small = comp_object_slices_dim(object, 2, slice_length, p)
+        object_slices_1, is_object_small = comp_object_slices_dim(object, 1, slice_length, p, slice_depth)
+        object_slices_2, is_object_small = comp_object_slices_dim(object, 2, slice_length, p, slice_depth)
         object_slices = np.logical_or(object_slices, object_slices_1)
         object_slices = np.logical_or(object_slices, object_slices_2)
     return object_slices
 
 
-def comp_object_slices_dim(object, dim, slice_length, p=None):
+def comp_object_slices_dim(object, dim, slice_length, p=None, slice_depth=3):
     dims = [0, 1, 2]
     dims.remove(dim)
     object_flat = np.sum(object, axis=tuple(dims))
@@ -83,9 +83,8 @@ def comp_object_slices_dim(object, dim, slice_length, p=None):
             slice_index = random.randint(slice_sectors[i-1], slice_sectors[i])
         slice_index = int(slice_index)
 
-        slice_width = 3
-        for offset in range(slice_width):
-            offset = int(((slice_width - 1) / 2) + offset)
+        for offset in range(slice_depth):
+            offset = int(((slice_depth - 1) / 2) + offset)
             if slice_index + offset < min_index or max_index < slice_index + offset:
                 continue
             if dim == 0:
@@ -110,25 +109,23 @@ def add_to_images_or_masks(image_path, guiding_mask_path, save_path, is_mask=Fal
         image = np.stack([image, guiding_mask], axis=-1)
         utils.save_nifty(save_path + os.path.basename(image_filenames[i]), image, affine, spacing, header, is_mask=is_mask)
 
-def rename_guiding_masks(load_path, save_path):
-    filenames = utils.load_filenames(load_path)
+def rename_guiding_masks(data_path):
+    filenames = utils.load_filenames(data_path)
     for i, filename in enumerate(filenames):
         basename = str(i+1).zfill(4) + "_0001.nii.gz"
-        os.rename(filename, save_path + basename)
+        os.rename(filename, data_path + basename)
 
 
 if __name__ == '__main__':
     slice_length = 75
     default_size = 1280
-    load_path = "/gris/gris-f/homelv/kgotkows/datasets/covid19/medseg/lung_ggo_consolidation/train/masks/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/covid19/medseg/lung_ggo_consolidation/train/guiding_masks/"
-    comp_guiding_mask(load_path, save_path, slice_length, default_size)
+    slice_depth = 1
+    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
+    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks_slice_depth_1/"
+    comp_guiding_mask(load_path, save_path, slice_length, default_size, slice_depth)
+    rename_guiding_masks(save_path)
 
-    image_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
-    guiding_mask_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/appended_guiding_masks/"
+    # image_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
+    # guiding_mask_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks/"
+    # save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/appended_guiding_masks/"
     # add_to_images_or_masks(image_path, guiding_mask_path, save_path, is_mask=True)
-
-    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks_renamed/"
-    # rename_guiding_masks(load_path, save_path)

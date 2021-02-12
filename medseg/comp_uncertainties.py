@@ -2,9 +2,12 @@ from medseg import utils
 import numpy as np
 import os
 from tqdm import tqdm
+import argparse
 
 
-def comp_tta_uncertainties(load_dir, save_dir, type):
+def comp_tta_uncertainties(load_dir, save_dir, type="part"):
+    load_dir = utils.fix_path(load_dir)
+    save_dir = utils.fix_path(save_dir)
     filenames = utils.load_filenames(load_dir)
     nr_cases, nr_labels, nr_parts = group_data(filenames)
     print("nr_cases: ", nr_cases)
@@ -53,5 +56,9 @@ def comp_variance_uncertainty(predictions):
 
 
 if __name__ == '__main__':
-    comp_tta_uncertainties("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task086_frankfurt2/predictions_with_ensemble/",
-                           "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task086_frankfurt2/uncertainties_ensemble_variance/", "part")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", help="Input folder", required=True)
+    parser.add_argument("-o", "--output", help="Output folder", required=True)
+    args = parser.parse_args()
+
+    comp_tta_uncertainties(args.input, args.output)

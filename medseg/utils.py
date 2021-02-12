@@ -10,12 +10,18 @@ from scipy.ndimage import affine_transform
 import sys
 import matplotlib.pyplot as plt
 
+def fix_path(path):
+    if path[-1] != "/":
+        path += "/"
+    return path
+
 def load_filenames(img_dir, extensions=('.nii.gz')):
+    _img_dir = fix_path(img_dir)
     img_filenames, mask_files = [], []
 
-    for file in os.listdir(img_dir):
+    for file in os.listdir(_img_dir):
         if extensions is None or file.endswith(extensions):
-            img_filenames.append(img_dir + file)
+            img_filenames.append(_img_dir + file)
     img_filenames = np.asarray(img_filenames)
     img_filenames = natsorted(img_filenames)
 
