@@ -82,11 +82,13 @@ def main():
     #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
     parser.add_argument("-d", "--device", help="Set the device", required=True)
     parser.add_argument("--dropout", required=False, default=False, action="store_true", help="Activate dropout")
+    parser.add_argument("--num_cpus", help="Set thnumber of max allowed cpu processes", required=False, default=-1)
 
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.device)
-    #os.environ['nnUNet_n_proc_DA'] = str(1)
+    if args.num_cpus != -1:
+        os.environ['nnUNet_n_proc_DA'] = str(args.num_cpus)
     task = args.task
     fold = args.fold
     network = args.network
