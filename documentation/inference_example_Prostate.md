@@ -75,4 +75,4 @@ a _0000 to the file name if only one input modality is required). Instructions c
    (optional!) is a file that gives nnU-Net information on how to postprocess the ensemble. These files were also 
    downloaded as part of the pretrained model weights and are located at `RESULTS_FOLDER/nnUNet/ensembles/
    Task005_Prostate/ensemble_2d__nnUNetTrainerV2__nnUNetPlansv2.1--3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json`. 
-   We will make the postprocessing files more accssible in a future (soon!) release.
+   We will make the postprocessing files more accessible in a future (soon!) release.
