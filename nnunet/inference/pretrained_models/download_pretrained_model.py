@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-from subprocess import call
+import zipfile
 from time import time
 
 import requests
@@ -257,7 +257,8 @@ def download_file(url, local_filename):
 
 
 def install_model_from_zip_file(zip_file: str):
-    call(['unzip', '-o', '-d', network_training_output_dir, zip_file])
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        zip_ref.extractall(network_training_output_dir)
 
 
 def print_license_warning():

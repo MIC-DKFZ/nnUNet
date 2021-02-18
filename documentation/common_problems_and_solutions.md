@@ -67,6 +67,12 @@ make sure to use the most recent nnU-Net version (we constantly try to improve t
 you can always download the zip file from our zenodo (https://zenodo.org/record/4003545) and use the 
 `nnUNet_install_pretrained_model_from_zip` command to install the model.
 
+## Downloading pre-trained models: `unzip: 'unzip' is not recognized as an internal or external command` OR `Command 'unzip' not found`
+
+On Windows systems and on a bare WSL2 system, the `unzip` command may not be present.
+Either install it, unzip the pre-trained model from zenodo download, or update to a newer version of nnUNet that uses the Python build in
+(https://docs.python.org/3/library/zipfile.html)
+
 ## nnU-Net training (2D U-Net): High (and increasing) system RAM usage, OOM
 
 There was a issue with mixed precision causing a system RAM memory leak. This is fixed when using cuDNN 8.0.2 or newer, 
