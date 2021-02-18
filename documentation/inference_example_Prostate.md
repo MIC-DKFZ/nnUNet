@@ -39,7 +39,7 @@ always contain the T2 image and 0001.nii.gz the ADC image. Whenever you are usin
         input modalities are 0: T2, 1: ADC. 
         Also see Medical Segmentation Decathlon, http://medicaldecathlon.com/
 6) The script we ran in 3) automatically converted the test data for us and stored them in
-`$nnUNet_raw_data_base/nnUNet_raw_data/Task005_Prostate/imagesTs`. Note that you need to to this conversion youself when 
+`$nnUNet_raw_data_base/nnUNet_raw_data/Task005_Prostate/imagesTs`. Note that you need to do this conversion youself when 
 using other than Medcial Segmentation Decathlon datasets. No worries. Doing this is easy (often as simple as appending 
 a _0000 to the file name if only one input modality is required). Instructions can be found here [here](data_format_inference.md).
 7) You can now predict the Prostate test cases with the pretrained model. We exemplarily use the 3D full resoltion U-Net here:
