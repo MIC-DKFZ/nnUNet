@@ -44,11 +44,11 @@ if __name__ == "__main__":
     train_patients = subfiles(train_folder, join=False, suffix = 'nii.gz')
     for p in train_patients:
         serial_number = int(p[3:7])
-        train_patient_name = f'{prefix}_{serial_number:03d}_0000.nii.gz'
+        train_patient_name = f'{prefix}_{serial_number:03d}.nii.gz'
         label_file = join(label_folder, f'label{p[3:]}')
         image_file = join(train_folder, p)
-        shutil.copy(image_file, join(imagestr, train_patient_name))
-        shutil.copy(label_file, join(labelstr, f"{train_patient_name[:-12]}.nii.gz"))
+        shutil.copy(image_file, join(imagestr, f'{train_patient_name[:7]}_0000.nii.gz'))
+        shutil.copy(label_file, join(labelstr, train_patient_name))
         train_patient_names.append(train_patient_name)
 
     test_patients = subfiles(test_folder, join=False, suffix=".nii.gz")
@@ -56,8 +56,8 @@ if __name__ == "__main__":
         p = p[:-7]
         image_file = join(test_folder, p + ".nii.gz")
         serial_number = int(p[3:7])
-        test_patient_name = f'{prefix}_{serial_number:03d}_0000.nii.gz'
-        shutil.copy(image_file, join(imagests, test_patient_name))
+        test_patient_name = f'{prefix}_{serial_number:03d}.nii.gz'
+        shutil.copy(image_file, join(imagests, f'{test_patient_name[:7]}_0000.nii.gz'))
         test_patient_names.append(test_patient_name)
 
     json_dict = OrderedDict()
@@ -70,25 +70,25 @@ if __name__ == "__main__":
     json_dict['modality'] = {
         "0": "CT",
     }
-    json_dict['labels'] = {
-        "0": "background",
-        "1": "spleen",
-        "2": "right kidney",
-        "3": "left kidney",
-        "4": "gallbladder",
-        "5": "esophagus",
-        "6": "liver",
-        "7": "stomach",
-        "8": "aorta",
-        "9": "inferior vena cava",
+    json_dict['labels'] = OrderedDict({
+        "00": "background",
+        "01": "spleen",
+        "02": "right kidney",
+        "03": "left kidney",
+        "04": "gallbladder",
+        "05": "esophagus",
+        "06": "liver",
+        "07": "stomach",
+        "08": "aorta",
+        "09": "inferior vena cava",
         "10": "portal vein and splenic vein",
         "11": "pancreas",
         "12": "right adrenal gland",
-        "13": "left adrenal gland"
-    }
+        "13": "left adrenal gland"}
+    )
     json_dict['numTraining'] = len(train_patient_names)
     json_dict['numTest'] = len(test_patient_names)
-    json_dict['training'] = [{'image': "./imagesTr/%s.nii.gz" % i.split("/")[-1], "label": "./labelsTr/%s.nii.gz" % i.split("/")[-1]} for i in                               train_patient_names]
-    json_dict['test'] = ["./imagesTs/%s.nii.gz" % i.split("/")[-1] for i in test_patient_names]
+    json_dict['training'] = [{'image': "./imagesTr/%s" % train_patient_name, "label": "./labelsTr/%s" % train_patient_name} for i, train_patient_name in enumerate(train_patient_names)]
+    json_dict['test'] = ["./imagesTs/%s" % test_patient_name for test_patient_name in test_patient_names]
 
     save_json(json_dict, os.path.join(out_base, "dataset.json"))
