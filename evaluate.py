@@ -2,8 +2,8 @@ from nnunet.evaluation.evaluator import evaluate_folder
 import numpy as np
 import pickle
 
-ground_truths = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task077_frankfurt3Guided/labelsTs/"
-predictions = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task077_frankfurt3Guided/imagesTs_predictions/"
+ground_truths = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task076_frankfurt3Guided/labelsTs/"
+predictions = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task076_frankfurt3Guided/predictionsTs/"
 
 labels = (0, 1, 2, 3)
 result = evaluate_folder(ground_truths, predictions, labels)

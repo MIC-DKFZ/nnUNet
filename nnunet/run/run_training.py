@@ -82,7 +82,7 @@ def main():
     #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
     parser.add_argument("-d", "--device", help="Set the device", required=True)
     parser.add_argument("--dropout", required=False, default=False, action="store_true", help="Activate dropout")
-    parser.add_argument("--num_cpus", help="Set thnumber of max allowed cpu processes", required=False, default=-1)
+    parser.add_argument("--num_cpus", help="Set the number of max allowed cpu processes", required=False, default=-1)
 
     args = parser.parse_args()
 
@@ -111,6 +111,7 @@ def main():
     # interp_order = args.interp_order
     # interp_order_z = args.interp_order_z
     # force_separate_z = args.force_separate_z
+    dropout = int(args.dropout)
 
     if not task.startswith("Task"):
         task_id = int(task)
@@ -156,7 +157,7 @@ def main():
         trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to self.best_val_eval_criterion_MA
         trainer.save_final_checkpoint = False  # whether or not to save the final checkpoint
 
-    trainer.initialize(not validation_only)
+    trainer.initialize(not validation_only, mcdo=dropout)
 
     if find_lr:
         trainer.find_lr()

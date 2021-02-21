@@ -8,27 +8,27 @@ from skimage import measure
 import os
 
 
-def comp_guiding_mask(load_path, save_path, slice_length, default_size, slice_depth=3):
+def comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth=3):
     filenames = utils.load_filenames(load_path)
     for filename in tqdm(filenames):
         mask, affine, spacing, header = utils.load_nifty(filename)
-        adapted_slice_length = adapt_slice_length(mask, slice_length, default_size)
-        mask_slices = comp_slices_mask(mask, adapted_slice_length, slice_depth=slice_depth)
+        adapted_slice_gap = adapt_slice_gap(mask, slice_gap, default_size)
+        mask_slices = comp_slices_mask(mask, adapted_slice_gap, slice_depth=slice_depth)
         utils.save_nifty(save_path + os.path.basename(filename), mask_slices, affine, spacing, header, is_mask=True)
 
 
-def adapt_slice_length(mask, slice_length, default_size):
-    return int((mask.shape[0] / default_size) * slice_length)
+def adapt_slice_gap(mask, slice_gap, default_size):
+    return int((mask.shape[0] / default_size) * slice_gap)
 
 
-def comp_slices_mask(mask, slice_length, p=None, nnunet=False, slice_depth=3):
+def comp_slices_mask(mask, slice_gap, p=None, nnunet=False, slice_depth=3):
     labels = range(1, int(np.max(mask)) + 1)
     mask_slices = np.zeros_like(mask)
     for label in labels:
         mask_label = copy.deepcopy(mask)
         mask_label[mask_label != label] = 0
         mask_label[mask_label == label] = 1
-        objects_slices_label = comp_slices_label(mask_label, slice_length, p, nnunet, slice_depth).astype(int)
+        objects_slices_label = comp_slices_label(mask_label, slice_gap, p, nnunet, slice_depth).astype(int)
         objects_slices_label[objects_slices_label == 1] = label
         mask_slices += objects_slices_label
     if nnunet:
@@ -36,29 +36,29 @@ def comp_slices_mask(mask, slice_length, p=None, nnunet=False, slice_depth=3):
     return mask_slices
 
 
-def comp_slices_label(mask, slice_length, p=None, nnunet=False, slice_depth=3):
+def comp_slices_label(mask, slice_gap, p=None, nnunet=False, slice_depth=3):
     objects, ids = measure.label(mask, background=False, connectivity=2, return_num=True)
     mask_slices = np.zeros_like(mask)
     for id in range(1, ids + 1):
         object = copy.deepcopy(objects)
         object[object != id] = 0
         object[object == id] = 1
-        object_slices = comp_object_slices(object, slice_length, p, nnunet, slice_depth)
+        object_slices = comp_object_slices(object, slice_gap, p, nnunet, slice_depth)
         mask_slices = np.logical_or(mask_slices, object_slices)
     return mask_slices
 
 
-def comp_object_slices(object, slice_length, p=None, nnunet=False, slice_depth=3):
-    object_slices, is_object_small = comp_object_slices_dim(object, 0, slice_length, p, slice_depth)
+def comp_object_slices(object, slice_gap, p=None, nnunet=False, slice_depth=3):
+    object_slices, is_object_small = comp_object_slices_dim(object, 0, slice_gap, p, slice_depth)
     if not is_object_small or nnunet:
-        object_slices_1, is_object_small = comp_object_slices_dim(object, 1, slice_length, p, slice_depth)
-        object_slices_2, is_object_small = comp_object_slices_dim(object, 2, slice_length, p, slice_depth)
+        object_slices_1, is_object_small = comp_object_slices_dim(object, 1, slice_gap, p, slice_depth)
+        object_slices_2, is_object_small = comp_object_slices_dim(object, 2, slice_gap, p, slice_depth)
         object_slices = np.logical_or(object_slices, object_slices_1)
         object_slices = np.logical_or(object_slices, object_slices_2)
     return object_slices
 
 
-def comp_object_slices_dim(object, dim, slice_length, p=None, slice_depth=3):
+def comp_object_slices_dim(object, dim, slice_gap, p=None, slice_depth=3):
     dims = [0, 1, 2]
     dims.remove(dim)
     object_flat = np.sum(object, axis=tuple(dims))
@@ -66,7 +66,7 @@ def comp_object_slices_dim(object, dim, slice_length, p=None, slice_depth=3):
     min_index = np.min(nonzero_indices)
     max_index = np.max(nonzero_indices)
     object_length = max_index - min_index
-    slice_count = math.ceil(object_length / slice_length)
+    slice_count = math.ceil(object_length / slice_gap)
     is_object_small = slice_count == 1
     slice_sectors = np.linspace(min_index, max_index, slice_count, endpoint=True).astype(int)
     if len(slice_sectors) == 1:
@@ -117,12 +117,12 @@ def rename_guiding_masks(data_path):
 
 
 if __name__ == '__main__':
-    slice_length = 75
+    slice_gap = 75
     default_size = 1280
     slice_depth = 1
-    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks_slice_depth_1/"
-    comp_guiding_mask(load_path, save_path, slice_length, default_size, slice_depth)
+    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task076_frankfurt3Guided/labelsTs/"
+    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task076_frankfurt3Guided/original_guiding_masks/"
+    comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
     rename_guiding_masks(save_path)
 
     # image_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
