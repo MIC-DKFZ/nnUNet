@@ -166,7 +166,8 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
     if not overwrite_existing:
         print("number of cases:", len(list_of_lists))
-        not_done_idx = [i for i, j in enumerate(cleaned_output_files) if not isfile(j)]
+        # if save_npz=True then we should also check for missing npz files
+        not_done_idx = [i for i, j in enumerate(cleaned_output_files) if (not isfile(j)) or (save_npz and not isfile(j[:-7] + '.npz'))]
 
         cleaned_output_files = [cleaned_output_files[i] for i in not_done_idx]
         list_of_lists = [list_of_lists[i] for i in not_done_idx]
