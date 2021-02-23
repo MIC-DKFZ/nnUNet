@@ -8,14 +8,14 @@ def round_masks(load_path, save_path):
     filenames = utils.load_filenames(load_path)
 
     for filename in tqdm(filenames):
-        round_mask(filename)
+        round_mask(filename, save_path)
 
 
-def round_mask(filename):
-    mask, affine, spacing, header = utils.load_nifty(filename)
+def round_mask(load_path, save_path):
+    mask, affine, spacing, header = utils.load_nifty(load_path)
     mask = np.rint(mask)
     mask = mask.astype(int)
-    utils.save_nifty(filename, mask, affine, spacing, header)
+    utils.save_nifty(save_path, mask, affine, spacing, header)
 
 
 if __name__ == '__main__':
