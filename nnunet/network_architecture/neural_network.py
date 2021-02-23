@@ -268,7 +268,7 @@ class SegmentationNetwork(NeuralNetwork):
         assert 0 < step_size <= 1, 'step_size must be larger than 0 and smaller or equal to 1'
 
         # our step width is patch_size*step_size at most, but can be narrower. For example if we have image size of
-        # 110, patch size of 32 and step_size of 0.5, then we want to make 4 steps starting at coordinate 0, 27, 55, 78
+        # 110, patch size of 64 and step_size of 0.5, then we want to make 3 steps starting at coordinate 0, 23, 46
         target_step_sizes_in_voxels = [i * step_size for i in patch_size]
 
         num_steps = [int(np.ceil((i - k) / j)) + 1 for i, j, k in zip(image_size, target_step_sizes_in_voxels, patch_size)]
