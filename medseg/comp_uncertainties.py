@@ -5,7 +5,7 @@ from tqdm import tqdm
 import argparse
 
 
-def comp_tta_uncertainties(load_dir, save_dir, type="part"):
+def comp_uncertainties(load_dir, save_dir, type="part"):
     load_dir = utils.fix_path(load_dir)
     save_dir = utils.fix_path(save_dir)
     filenames = utils.load_filenames(load_dir)
@@ -62,4 +62,4 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output", help="Output folder", required=True)
     args = parser.parse_args()
 
-    comp_tta_uncertainties(args.input, args.output)
+    comp_uncertainties(args.input, args.output)
