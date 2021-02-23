@@ -2,6 +2,7 @@ import numpy as np
 from medseg import utils
 from tqdm import tqdm
 import argparse
+import os
 
 
 def round_masks(load_path, save_path):
@@ -11,11 +12,11 @@ def round_masks(load_path, save_path):
         round_mask(filename, save_path)
 
 
-def round_mask(load_path, save_path):
-    mask, affine, spacing, header = utils.load_nifty(load_path)
+def round_mask(filename, save_path):
+    mask, affine, spacing, header = utils.load_nifty(filename)
     mask = np.rint(mask)
     mask = mask.astype(int)
-    utils.save_nifty(save_path, mask, affine, spacing, header)
+    utils.save_nifty(save_path + os.path.basename(filename), mask, affine, spacing, header)
 
 
 if __name__ == '__main__':
