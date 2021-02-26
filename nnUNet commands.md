@@ -1,3 +1,20 @@
+### Install uncertainty nnUNet:
+```
+git clone https://github.com/Karol-G/nnUNet.git
+cd nnUNet
+pip install -e .
+```
+Modify in nnunet/path.py the variables datasets_path and os.environ["RESULTS_FOLDER"]
+
+---
+
+### Dataset preprocessing - Dataset 079 as example:
+```
+nnUNet_plan_and_preprocess -t 079 --verify_dataset_integrity
+```
+
+---
+
 ####Normal train - Example to train all folds:
 ```
 nnUNet_train 3d_fullres nnUNetTrainerV2 Task079_frankfurt3 0 -d 0
@@ -55,6 +72,7 @@ nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predi
 ---
 
 ####Uncertainty Prediction TTA for Task079_frankfurt3 with single fold:
+WICHTIG: Entweder jeden `nnUNet_predict` Befehl nacheinander ausführen und warten bis der vorhergehende fertig ist oder wenn parallel dann verschiedene output directories über -o angeben, da sonst Datei-Konflikte entstehen können. Anschließend dann Ordner Inhalte zusammenführen.
 ```
 nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 0 -chk model_best --output_probabilities -uncertainty_tta 0
 nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 1 -chk model_best --output_probabilities -uncertainty_tta 1
@@ -71,6 +89,7 @@ nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predi
 ---
 
 ####Uncertainty Prediction MC dropout for Task079_frankfurt3 with single fold (NEED TO TRAIN WITH DROPOUT BEFORE):
+WICHTIG: Entweder jeden `nnUNet_predict` Befehl nacheinander ausführen und warten bis der vorhergehende fertig ist oder wenn parallel dann verschiedene output directories über -o angeben, da sonst Datei-Konflikte entstehen können. Anschließend dann Ordner Inhalte zusammenführen.
 ```
 nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 0 -chk model_best --output_probabilities -mcdo 0
 nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 1 -chk model_best --output_probabilities -mcdo 1
@@ -87,6 +106,7 @@ nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predi
 ---
 
 ####Uncertainty Prediction Ensemble for Task079_frankfurt3:
+WICHTIG: Entweder jeden `nnUNet_predict` Befehl nacheinander ausführen und warten bis der vorhergehende fertig ist oder wenn parallel dann verschiedene output directories über -o angeben, da sonst Datei-Konflikte entstehen können. Anschließend dann Ordner Inhalte zusammenführen.
 ```
 nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 0 -chk model_best --output_probabilities
 nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 1 -d 1 -chk model_best --output_probabilities

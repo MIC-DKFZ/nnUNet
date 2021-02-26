@@ -17,7 +17,7 @@ def fix_path(path):
 
 def load_filenames(img_dir, extensions=('.nii.gz')):
     _img_dir = fix_path(img_dir)
-    img_filenames, mask_files = [], []
+    img_filenames = []
 
     for file in os.listdir(_img_dir):
         if extensions is None or file.endswith(extensions):

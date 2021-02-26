@@ -120,8 +120,8 @@ if __name__ == '__main__':
     slice_gap = 75
     default_size = 1280
     slice_depth = 1
-    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task076_frankfurt3Guided/labelsTs/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task076_frankfurt3Guided/original_guiding_masks/"
+    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task075_frankfurt3_ggo/labelsTr/"
+    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task075_frankfurt3_ggo/guiding_masks/"
     comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
     rename_guiding_masks(save_path)
 

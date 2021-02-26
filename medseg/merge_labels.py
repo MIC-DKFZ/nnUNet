@@ -71,7 +71,7 @@ def merge_labels(load_mask, save_mask, load_label_table):
 
     utils.save_nifty(save_mask, mask, affine, spacing, header)
 
-def tmp(filename):
+def round_mask(filename):
     mask, affine, spacing, header = utils.load_nifty(filename)
     mask = np.rint(mask)
     mask = mask.astype(int)
