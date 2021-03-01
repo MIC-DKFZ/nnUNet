@@ -15,8 +15,8 @@ def round_masks(load_path, save_path):
 def round_mask(filename, save_path):
     mask, affine, spacing, header = utils.load_nifty(filename)
     mask = np.rint(mask)
-    mask = mask.astype(int)
-    utils.save_nifty(save_path + os.path.basename(filename), mask, affine, spacing, header)
+    mask = mask.astype(np.uint8)
+    utils.save_nifty(save_path + os.path.basename(filename), mask, affine, spacing, None, is_mask=True)
 
 
 if __name__ == '__main__':
