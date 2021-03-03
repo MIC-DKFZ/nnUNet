@@ -95,6 +95,11 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
             else:
                 lowres_axis = None
 
+        if lowres_axis is not None and len(lowres_axis) != 1:
+            # this happens for spacings like (0.24, 1.25, 1.25) for example. In that case we do not want to resample
+            # separately in the out of plane axis
+            do_separate_z = False
+
         if verbose: print("separate z:", do_separate_z, "lowres axis", lowres_axis)
         seg_old_spacing = resample_data_or_seg(segmentation_softmax, shape_original_after_cropping, is_seg=False,
                                                axis=lowres_axis, order=order, do_separate_z=do_separate_z, cval=0,

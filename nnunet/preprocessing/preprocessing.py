@@ -85,10 +85,11 @@ def resample_patient(data, seg, original_spacing, target_spacing, order_data=3, 
 
     if axis is not None:
         if len(axis) == 3:
-            # every axis has the spacing
-            axis = (0, )
+            # every axis has the spacing, this should never happen, why is this code here?
+            do_separate_z = False
         elif len(axis) == 2:
-            print("WARNING: axis has len 2, axis: %s, spacing: %s, target_spacing: %s" % (str(axis), original_spacing, target_spacing))
+            # this happens for spacings like (0.24, 1.25, 1.25) for example. In that case we do not want to resample
+            # separately in the out of plane axis
             do_separate_z = False
         else:
             pass
