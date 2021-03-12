@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+import os
 import json
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import subfiles
@@ -41,7 +42,7 @@ def foreground_mean(filename):
 
 def run_in_folder(folder):
     json_files = subfiles(folder, True, None, ".json", True)
-    json_files = [i for i in json_files if not i.split("/")[-1].startswith(".") and not i.endswith("_globalMean.json")] # stupid mac
+    json_files = [i for i in json_files if not os.path.basename(i).startswith(".") and not i.endswith("_globalMean.json")] # stupid mac
     for j in json_files:
         foreground_mean(j)
 

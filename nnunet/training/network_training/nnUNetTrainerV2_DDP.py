@@ -320,9 +320,6 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         we also need to make sure deep supervision in the network is enabled for training, thus the wrapper
         :return:
         """
-        if self.local_rank == 0:
-            self.save_debug_information()
-
         if not torch.cuda.is_available():
             self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (torch.cuda.is_available() is False). This can be VERY slow!")
 
@@ -494,7 +491,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         # for evaluation (which is done by local rank 0)
         for k in my_keys:
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
             if k in my_keys:
@@ -551,7 +548,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         if self.local_rank == 0:
             # evaluate raw predictions
             self.print_to_log_file("evaluation of raw predictions")
-            task = self.dataset_directory.split("/")[-1]
+            task = os.path.basename(self.dataset_directory)
             job_name = self.experiment_name
             _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                                  json_output_file=join(output_folder, "summary.json"),

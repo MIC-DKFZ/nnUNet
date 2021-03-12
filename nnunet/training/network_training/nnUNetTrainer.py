@@ -296,8 +296,7 @@ class nnUNetTrainer(NetworkTrainer):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def save_debug_information(self):
-        # saving some debug information
+    def run_training(self):
         dct = OrderedDict()
         for k in self.__dir__():
             if not k.startswith("__"):
@@ -314,8 +313,6 @@ class nnUNetTrainer(NetworkTrainer):
 
         shutil.copy(self.plans_file, join(self.output_folder_base, "plans.pkl"))
 
-    def run_training(self):
-        self.save_debug_information()
         super(nnUNetTrainer, self).run_training()
 
     def load_plans_file(self):
@@ -586,7 +583,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
@@ -639,7 +636,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         # evaluate raw predictions
         self.print_to_log_file("evaluation of raw predictions")
-        task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),

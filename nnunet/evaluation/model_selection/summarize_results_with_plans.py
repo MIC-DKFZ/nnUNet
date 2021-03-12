@@ -36,7 +36,8 @@ def write_plans_to_file(f, plans_file, stage=0, do_linebreak_at_end=True, overri
     median_patient_size_in_mm = [i * j for i, j in zip(a['plans_per_stage'][stages[stage]]['median_patient_size_in_voxels'],
                                               a['plans_per_stage'][stages[stage]]['current_spacing'])]
     if override_name is None:
-        f.write(plans_file.split("/")[-2] + "__" + plans_file.split("/")[-1])
+        split_path = os.path.normpath(plans_file).split(os.path.sep)
+        f.write(split_path[-2] + "__" + split_path[-1])
     else:
         f.write(override_name)
     f.write(";%d" % stage)

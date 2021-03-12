@@ -33,17 +33,17 @@ class ExperimentPlanner(object):
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         self.folder_with_cropped_data = folder_with_cropped_data
         self.preprocessed_output_folder = preprocessed_output_folder
-        self.list_of_cropped_npz_files = subfiles(self.folder_with_cropped_data, True, None, ".npz", True)
+        self.list_of_cropped_npz_files = subfiles(self.folder_with_cropped_data, suffix=".npz")
 
         self.preprocessor_name = "GenericPreprocessor"
 
-        assert isfile(join(self.folder_with_cropped_data, "dataset_properties.pkl")), \
+        assert isfile(os.path.join(self.folder_with_cropped_data, "dataset_properties.pkl")), \
             "folder_with_cropped_data must contain dataset_properties.pkl"
-        self.dataset_properties = load_pickle(join(self.folder_with_cropped_data, "dataset_properties.pkl"))
+        self.dataset_properties = load_pickle(os.path.join(self.folder_with_cropped_data, "dataset_properties.pkl"))
 
         self.plans_per_stage = OrderedDict()
         self.plans = OrderedDict()
-        self.plans_fname = join(self.preprocessed_output_folder, "nnUNetPlans" + "fixed_plans_3D.pkl")
+        self.plans_fname = os.path.join(self.preprocessed_output_folder, "nnUNetPlans" + "fixed_plans_3D.pkl")
         self.data_identifier = default_data_identifier
 
         self.transpose_forward = [0, 1, 2]
@@ -369,11 +369,11 @@ class ExperimentPlanner(object):
         return schemes
 
     def save_properties_of_cropped(self, case_identifier, properties):
-        with open(join(self.folder_with_cropped_data, "%s.pkl" % case_identifier), 'wb') as f:
+        with open(os.path.join(self.folder_with_cropped_data, "%s.pkl" % case_identifier), 'wb') as f:
             pickle.dump(properties, f)
 
     def load_properties_of_cropped(self, case_identifier):
-        with open(join(self.folder_with_cropped_data, "%s.pkl" % case_identifier), 'rb') as f:
+        with open(os.path.join(self.folder_with_cropped_data, "%s.pkl" % case_identifier), 'rb') as f:
             properties = pickle.load(f)
         return properties
 
@@ -420,14 +420,14 @@ class ExperimentPlanner(object):
             self.save_properties_of_cropped(case_identifier, properties)
 
     def run_preprocessing(self, num_threads):
-        if os.path.isdir(join(self.preprocessed_output_folder, "gt_segmentations")):
-            shutil.rmtree(join(self.preprocessed_output_folder, "gt_segmentations"))
-        shutil.copytree(join(self.folder_with_cropped_data, "gt_segmentations"),
-                        join(self.preprocessed_output_folder, "gt_segmentations"))
+        if os.path.isdir(os.path.join(self.preprocessed_output_folder, "gt_segmentations")):
+            shutil.rmtree(os.path.join(self.preprocessed_output_folder, "gt_segmentations"))
+        shutil.copytree(os.path.join(self.folder_with_cropped_data, "gt_segmentations"),
+                        os.path.join(self.preprocessed_output_folder, "gt_segmentations"))
         normalization_schemes = self.plans['normalization_schemes']
         use_nonzero_mask_for_normalization = self.plans['use_mask_for_norm']
         intensityproperties = self.plans['dataset_properties']['intensityproperties']
-        preprocessor_class = recursive_find_python_class([join(nnunet.__path__[0], "preprocessing")],
+        preprocessor_class = recursive_find_python_class([os.path.join(nnunet.__path__[0], "preprocessing")],
                                                          self.preprocessor_name, current_module="nnunet.preprocessing")
         assert preprocessor_class is not None
         preprocessor = preprocessor_class(normalization_schemes, use_nonzero_mask_for_normalization,
@@ -476,9 +476,9 @@ if __name__ == "__main__":
             dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)
             _ = dataset_analyzer.analyze_dataset()  # this will write output files that will be used by the ExperimentPlanner
 
-            maybe_mkdir_p(preprocessing_output_dir_this_task)
-            shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
-            shutil.copy(join(nnUNet_raw_data, t, "dataset.json"), preprocessing_output_dir_this_task)
+            os.makedirs(preprocessing_output_dir_this_task, exist_ok=True)
+            shutil.copy(os.path.join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
+            shutil.copy(os.path.join(nnUNet_raw_data, t, "dataset.json"), preprocessing_output_dir_this_task)
 
             threads = (tl, tf)
 

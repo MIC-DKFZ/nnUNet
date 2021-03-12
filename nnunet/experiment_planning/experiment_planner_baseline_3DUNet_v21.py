@@ -31,8 +31,7 @@ class ExperimentPlanner3D_v21(ExperimentPlanner):
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
         super(ExperimentPlanner3D_v21, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
         self.data_identifier = "nnUNetData_plans_v2.1"
-        self.plans_fname = join(self.preprocessed_output_folder,
-                                "nnUNetPlansv2.1_plans_3D.pkl")
+        self.plans_fname = os.path.join(self.preprocessed_output_folder, "nnUNetPlansv2.1_plans_3D.pkl")
         self.unet_base_num_features = 32
 
     def get_target_spacing(self):

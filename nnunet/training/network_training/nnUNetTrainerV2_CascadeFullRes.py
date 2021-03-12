@@ -45,8 +45,8 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                           deterministic, previous_trainer, fp16)
 
         if self.output_folder is not None:
-            task = self.output_folder.split("/")[-3]
-            plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]
+            task = os.path.normpath(self.output_folder).split(os.path.sep)[-3]
+            plans_identifier = os.path.normpath(self.output_folder).split(os.path.sep)[-2].split("__")[-1]
 
             folder_with_segs_prev_stage = join(network_training_output_dir, "3d_lowres",
                                                task, previous_trainer + "__" + plans_identifier, "pred_next_stage")
@@ -248,7 +248,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
 
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
@@ -307,7 +307,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         # evaluate raw predictions
         self.print_to_log_file("evaluation of raw predictions")
-        task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),

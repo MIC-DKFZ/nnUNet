@@ -114,7 +114,7 @@ def copy_ensembles(taskname, output_folder, valid_models=('2d', '3d_fullres', '3
 def compress_everything(output_base, num_processes=8):
     p = Pool(num_processes)
     tasks = subfolders(output_base, join=False)
-    tasknames = [i.split('/')[-1] for i in tasks]
+    tasknames = [os.path.basename(i) for i in tasks]
     args = []
     for t, tn in zip(tasks, tasknames):
         args.append((join(output_base, tn + ".zip"), join(output_base, t)))
