@@ -21,7 +21,7 @@ import numpy as np
 
 def summarize(tasks, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres'),
               output_dir=join(network_training_output_dir, "summary_jsons"), folds=(0, 1, 2, 3, 4)):
-    maybe_mkdir_p(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     if len(tasks) == 1 and tasks[0] == "all":
         tasks = list(range(999))
@@ -100,7 +100,7 @@ def summarize(tasks, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fullre
 
 def summarize2(task_ids, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres'),
                output_dir=join(network_training_output_dir, "summary_jsons"), folds=(0, 1, 2, 3, 4)):
-    maybe_mkdir_p(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     if len(task_ids) == 1 and task_ids[0] == "all":
         task_ids = list(range(999))

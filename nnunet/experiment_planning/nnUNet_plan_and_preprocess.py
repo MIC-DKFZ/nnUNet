@@ -113,7 +113,7 @@ def main():
         _ = dataset_analyzer.analyze_dataset(collect_intensityproperties)  # this will write output files that will be used by the ExperimentPlanner
 
 
-        maybe_mkdir_p(preprocessing_output_dir_this_task)
+        os.makedirs(preprocessing_output_dir_this_task, exist_ok=True)
         shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task)
         shutil.copy(join(nnUNet_raw_data, t, "dataset.json"), preprocessing_output_dir_this_task)
 

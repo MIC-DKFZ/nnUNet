@@ -158,7 +158,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
     for o in output_filenames:
         dr, f = os.path.split(o)
         if len(dr) > 0:
-            maybe_mkdir_p(dr)
+            os.makedirs(dr, exist_ok=True)
         if not f.endswith(".nii.gz"):
             f, _ = os.path.splitext(f)
             f = f + ".nii.gz"
@@ -299,7 +299,7 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
     for o in output_filenames:
         dr, f = os.path.split(o)
         if len(dr) > 0:
-            maybe_mkdir_p(dr)
+            os.makedirs(dr, exist_ok=True)
         if not f.endswith(".nii.gz"):
             f, _ = os.path.splitext(f)
             f = f + ".nii.gz"
@@ -436,7 +436,7 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
     for o in output_filenames:
         dr, f = os.path.split(o)
         if len(dr) > 0:
-            maybe_mkdir_p(dr)
+            os.makedirs(dr, exist_ok=True)
         if not f.endswith(".nii.gz"):
             f, _ = os.path.splitext(f)
             f = f + ".nii.gz"
@@ -599,7 +599,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
     :param overwrite_existing: if not None then it will be overwritten with whatever is in there. None is default (no overwrite)
     :return:
     """
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
     shutil.copy(join(model, 'plans.pkl'), output_folder)
 
     assert isfile(join(model, "plans.pkl")), "Folder with saved model weights must contain a plans.pkl file"

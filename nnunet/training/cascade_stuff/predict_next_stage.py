@@ -19,7 +19,6 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 import argparse
 from nnunet.preprocessing.preprocessing import resample_data_or_seg
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p
 import nnunet
 from nnunet.run.default_configuration import get_default_configuration
 from multiprocessing import Pool
@@ -45,7 +44,7 @@ def resample_and_save(predicted, target_shape, output_file, force_separate_z=Fal
 
 def predict_next_stage(trainer, stage_to_be_predicted_folder):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     if 'segmentation_export_params' in trainer.plans.keys():
         force_separate_z = trainer.plans['segmentation_export_params']['force_separate_z']
@@ -130,6 +129,6 @@ if __name__ == "__main__":
 
     stage_to_be_predicted_folder = join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1)
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     predict_next_stage(trainer, stage_to_be_predicted_folder)

@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
+import os
 import matplotlib
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join
+from batchgenerators.utilities.file_and_folder_operations import join
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.data_augmentation_noDA import get_no_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset, DataLoader3D, DataLoader2D
@@ -55,7 +55,7 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
         :return:
         """
 
-        maybe_mkdir_p(self.output_folder)
+        os.makedirs(self.output_folder, exist_ok=True)
 
         if force_load_plans or (self.plans is None):
             self.load_plans_file()

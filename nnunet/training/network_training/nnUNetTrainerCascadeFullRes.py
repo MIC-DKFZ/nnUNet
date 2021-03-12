@@ -178,7 +178,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
 
         if do_mirroring:
             mirror_axes = self.data_aug_params['mirror_axes']
@@ -273,7 +273,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-        maybe_mkdir_p(gt_nifti_folder)
+        os.makedirs(gt_nifti_folder, exist_ok=True)
         for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
             success = False
             attempts = 0

@@ -20,7 +20,7 @@ from collections import OrderedDict
 from multiprocessing import Pool
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, isdir, maybe_mkdir_p, subfiles, subdirs, isfile
+from batchgenerators.utilities.file_and_folder_operations import join, isdir, subfiles, subdirs, isfile
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import split_4d_nifti
@@ -56,7 +56,10 @@ def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_out
     files = []
     output_dirs = []
 
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
+    if not isdir(output_folder):
+        os.mkdir(output_folder)
+
     for subdir in ["imagesTr", "imagesTs"]:
         curr_out_dir = join(output_folder, subdir)
         if not isdir(curr_out_dir):
@@ -119,11 +122,11 @@ def get_caseIDs_from_splitted_dataset_folder(folder):
 
 def crop(task_string, override=False, num_threads=default_num_threads):
     cropped_out_dir = join(nnUNet_cropped_data, task_string)
-    maybe_mkdir_p(cropped_out_dir)
+    os.makedirs(cropped_out_dir, exist_ok=True)
 
     if override and isdir(cropped_out_dir):
         shutil.rmtree(cropped_out_dir)
-        maybe_mkdir_p(cropped_out_dir)
+        os.makedirs(cropped_out_dir, exist_ok=True)
 
     splitted_4d_output_dir_task = join(nnUNet_raw_data, task_string)
     lists, _ = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
@@ -145,7 +148,7 @@ def plan_and_preprocess(task_string, processes_lowres=default_num_threads, proce
 
     preprocessing_output_dir_this_task_train = join(preprocessing_output_dir, task_string)
     cropped_out_dir = join(nnUNet_cropped_data, task_string)
-    maybe_mkdir_p(preprocessing_output_dir_this_task_train)
+    os.makedirs(preprocessing_output_dir_this_task_train, exist_ok=True)
 
     shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task_train)
     shutil.copy(join(nnUNet_raw_data, task_string, "dataset.json"), preprocessing_output_dir_this_task_train)

@@ -158,9 +158,9 @@ def determine_postprocessing(base, gt_labels_folder, raw_subfolder_name="validat
     fnames = subfiles(join(base, raw_subfolder_name), suffix=".nii.gz", join=False)
 
     # make output and temp dir
-    maybe_mkdir_p(folder_all_classes_as_fg)
-    maybe_mkdir_p(folder_per_class)
-    maybe_mkdir_p(join(base, final_subf_name))
+    os.makedirs(folder_all_classes_as_fg, exist_ok=True)
+    os.makedirs(folder_per_class, exist_ok=True)
+    os.makedirs(join(base, final_subf_name), exist_ok=True)
 
     pp_results = {}
     pp_results['dc_per_class_raw'] = {}
@@ -409,7 +409,7 @@ def apply_postprocessing_to_folder(input_folder: str, output_folder: str, for_wh
     :param num_processes:
     :return:
     """
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
     p = Pool(num_processes)
     nii_files = subfiles(input_folder, suffix=".nii.gz", join=False)
     input_files = [join(input_folder, i) for i in nii_files]

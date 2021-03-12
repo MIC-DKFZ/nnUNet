@@ -366,7 +366,7 @@ class GenericPreprocessor(object):
         print("npz folder:", input_folder_with_cropped_npz)
         print("output_folder:", output_folder)
         list_of_cropped_npz_files = subfiles(input_folder_with_cropped_npz, True, None, ".npz", True)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         num_stages = len(target_spacings)
         if not isinstance(num_threads, (list, tuple, np.ndarray)):
             num_threads = [num_threads] * num_stages
@@ -380,7 +380,7 @@ class GenericPreprocessor(object):
         for i in range(num_stages):
             all_args = []
             output_folder_stage = os.path.join(output_folder, data_identifier + "_stage%d" % i)
-            maybe_mkdir_p(output_folder_stage)
+            os.makedirs(output_folder_stage, exist_ok=True)
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
                 case_identifier = get_case_identifier_from_npz(case)
@@ -580,7 +580,7 @@ class PreprocessorFor2D(GenericPreprocessor):
         print("output_folder:", output_folder)
         list_of_cropped_npz_files = subfiles(input_folder_with_cropped_npz, True, None, ".npz", True)
         assert len(list_of_cropped_npz_files) != 0, "set list of files first"
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         all_args = []
         num_stages = len(target_spacings)
 
@@ -590,7 +590,7 @@ class PreprocessorFor2D(GenericPreprocessor):
 
         for i in range(num_stages):
             output_folder_stage = os.path.join(output_folder, data_identifier + "_stage%d" % i)
-            maybe_mkdir_p(output_folder_stage)
+            os.makedirs(output_folder_stage, exist_ok=True)
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
                 case_identifier = get_case_identifier_from_npz(case)

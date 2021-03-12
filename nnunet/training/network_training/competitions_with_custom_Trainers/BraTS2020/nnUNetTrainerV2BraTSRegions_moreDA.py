@@ -56,7 +56,7 @@ class nnUNetTrainerV2BraTSRegions_DA3_BN(nnUNetTrainerV2_DA3_BN):
 
     def initialize(self, training=True, force_load_plans=False):
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()

@@ -67,7 +67,7 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
 
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,

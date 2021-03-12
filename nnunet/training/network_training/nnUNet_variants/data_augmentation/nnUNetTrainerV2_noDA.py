@@ -14,7 +14,8 @@
 from typing import Tuple
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
+import os
+from batchgenerators.utilities.file_and_folder_operations import join
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.data_augmentation_noDA import get_no_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset, DataLoader3D, DataLoader2D
@@ -54,7 +55,7 @@ class nnUNetTrainerV2_noDataAugmentation(nnUNetTrainerV2):
 
     def initialize(self, training=True, force_load_plans=False):
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()

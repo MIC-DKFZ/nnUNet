@@ -13,7 +13,6 @@
 #    limitations under the License.
 
 import os
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join
 
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNet"
@@ -31,10 +30,10 @@ preprocessing_output_dir = os.environ['nnUNet_preprocessed'] if "nnUNet_preproce
 network_training_output_dir_base = os.path.join(os.environ['RESULTS_FOLDER']) if "RESULTS_FOLDER" in os.environ.keys() else None
 
 if base is not None:
-    nnUNet_raw_data = join(base, "nnUNet_raw_data")
-    nnUNet_cropped_data = join(base, "nnUNet_cropped_data")
-    maybe_mkdir_p(nnUNet_raw_data)
-    maybe_mkdir_p(nnUNet_cropped_data)
+    nnUNet_raw_data = os.path.join(base, "nnUNet_raw_data")
+    nnUNet_cropped_data = os.path.join(base, "nnUNet_cropped_data")
+    os.makedirs(nnUNet_raw_data, exist_ok=True)
+    os.makedirs(nnUNet_cropped_data, exist_ok=True)
 else:
     print("nnUNet_raw_data_base is not defined and nnU-Net can only be used on data for which preprocessed files "
           "are already present on your system. nnU-Net cannot be used for experiment planning and preprocessing like "
@@ -42,15 +41,15 @@ else:
     nnUNet_cropped_data = nnUNet_raw_data = None
 
 if preprocessing_output_dir is not None:
-    maybe_mkdir_p(preprocessing_output_dir)
+    os.makedirs(preprocessing_output_dir, exist_ok=True)
 else:
     print("nnUNet_preprocessed is not defined and nnU-Net can not be used for preprocessing "
           "or training. If this is not intended, please read documentation/setting_up_paths.md for information on how to set this up.")
     preprocessing_output_dir = None
 
 if network_training_output_dir_base is not None:
-    network_training_output_dir = join(network_training_output_dir_base, my_output_identifier)
-    maybe_mkdir_p(network_training_output_dir)
+    network_training_output_dir = os.path.join(network_training_output_dir_base, my_output_identifier)
+    os.makedirs(network_training_output_dir, exist_ok=True)
 else:
     print("RESULTS_FOLDER is not defined and nnU-Net cannot be used for training or "
           "inference. If this is not intended behavior, please read documentation/setting_up_paths.md for information on how to set this "

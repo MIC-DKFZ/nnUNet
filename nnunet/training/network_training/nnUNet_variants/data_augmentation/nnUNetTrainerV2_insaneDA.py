@@ -14,7 +14,8 @@
 
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
+import os
+from batchgenerators.utilities.file_and_folder_operations import join
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.data_augmentation_insaneDA import get_insaneDA_augmentation
 from nnunet.training.data_augmentation.default_data_augmentation import default_3D_augmentation_params, \
@@ -80,7 +81,7 @@ class nnUNetTrainerV2_insaneDA(nnUNetTrainerV2):
 
     def initialize(self, training=True, force_load_plans=False):
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()

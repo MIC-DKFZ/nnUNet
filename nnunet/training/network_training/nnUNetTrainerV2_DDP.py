@@ -22,8 +22,7 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed as dist
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile, load_pickle, \
-    save_json
+from batchgenerators.utilities.file_and_folder_operations import join, subfiles, isfile, load_pickle, save_json
 from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
@@ -137,7 +136,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         :return:
         """
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()
@@ -340,7 +339,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
         self._maybe_init_amp()
 
-        maybe_mkdir_p(self.output_folder)
+        os.makedirs(self.output_folder, exist_ok=True)
         self.plot_network_architecture()
 
         if cudnn.benchmark and cudnn.deterministic:
@@ -457,7 +456,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
                          'use_sliding_window': use_sliding_window,
@@ -572,7 +571,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
             # be used later
             gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-            maybe_mkdir_p(gt_nifti_folder)
+            os.makedirs(gt_nifti_folder, exist_ok=True)
             for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
                 success = False
                 attempts = 0

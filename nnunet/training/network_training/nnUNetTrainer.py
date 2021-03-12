@@ -194,7 +194,7 @@ class nnUNetTrainer(NetworkTrainer):
         :return:
         """
 
-        maybe_mkdir_p(self.output_folder)
+        os.makedirs(self.output_folder, exist_ok=True)
 
         if force_load_plans or (self.plans is None):
             self.load_plans_file()
@@ -554,7 +554,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
                          'use_sliding_window': use_sliding_window,
@@ -660,7 +660,7 @@ class nnUNetTrainer(NetworkTrainer):
         # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-        maybe_mkdir_p(gt_nifti_folder)
+        os.makedirs(gt_nifti_folder, exist_ok=True)
         for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
             success = False
             attempts = 0

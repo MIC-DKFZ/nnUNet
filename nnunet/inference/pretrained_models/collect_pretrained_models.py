@@ -47,7 +47,7 @@ def copy_model(directory: str, output_directory: str):
     assert isfile(join(directory, "postprocessing.json")), "postprocessing.json missing"
 
     for e in expected_folders:
-        maybe_mkdir_p(join(output_directory, e))
+        os.makedirs(join(output_directory, e), exist_ok=True)
         copy_fold(join(directory, e), join(output_directory, e))
 
     shutil.copy(join(directory, "plans.pkl"), join(output_directory, "plans.pkl"))
@@ -72,7 +72,7 @@ def copy_pretrained_models_for_task(task_name: str, output_directory: str,
             else:
                 raise RuntimeError("missing folder! %s" % expected_output_folder)
         output_here = join(output_directory, m, task_name, to)
-        maybe_mkdir_p(output_here)
+        os.makedirs(output_here, exist_ok=True)
         copy_model(expected_output_folder, output_here)
 
 
@@ -104,10 +104,10 @@ def copy_ensembles(taskname, output_folder, valid_models=('2d', '3d_fullres', '3
         if v:
             valid.append(s)
     output_ensemble = join(output_folder, 'ensembles', taskname)
-    maybe_mkdir_p(output_ensemble)
+    os.makedirs(output_ensemble, exist_ok=True)
     for v in valid:
         this_output = join(output_ensemble, v)
-        maybe_mkdir_p(this_output)
+        os.makedirs(this_output, exist_ok=True)
         shutil.copy(join(ensemble_dir, v, 'postprocessing.json'), this_output)
 
 
@@ -265,7 +265,7 @@ def export_for_paper():
         taskname = convert_id_to_task_name(t)
         print(taskname)
         output_folder = join(output_base, taskname)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         copy_pretrained_models_for_task(taskname, output_folder, models)
         copy_ensembles(taskname, output_folder)
     compress_everything(output_base, 8)

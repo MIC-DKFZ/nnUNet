@@ -219,7 +219,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
             self.do_split()
 
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
                          'use_sliding_window': use_sliding_window,
@@ -331,7 +331,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-        maybe_mkdir_p(gt_nifti_folder)
+        os.makedirs(gt_nifti_folder, exist_ok=True)
         for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
             success = False
             attempts = 0
