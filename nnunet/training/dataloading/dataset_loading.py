@@ -1199,15 +1199,15 @@ class DataLoader2D(SlimDataLoaderBase):
 
 
 if __name__ == "__main__":
-    # t = "Task002_Heart"
-    # p = join(preprocessing_output_dir, t, "stage1")
-    # dataset = load_dataset(p)
-    # with open(join(join(preprocessing_output_dir, t), "plans_stage1.pkl"), 'rb') as f:
-    #     plans = pickle.load(f)
-    # unpack_dataset(p)
-    # dl = DataLoader3D(dataset, (32, 32, 32), (32, 32, 32), 2, oversample_foreground_percent=0.33)
-    # dl = DataLoader3D(dataset, np.array(plans['patch_size']).astype(int), np.array(plans['patch_size']).astype(int), 2,
-    #                   oversample_foreground_percent=0.33)
-    # dl2d = DataLoader2D(dataset, (64, 64), np.array(plans['patch_size']).astype(int)[1:], 12,
-    #                     oversample_foreground_percent=0.33)
-    delete_npy("/home/karol/Datasets/nnunet/nnUNet_preprocessed/Task079_frankfurt3/nnUNetData_plans_v2.1_stage1/")
+    t = "Task002_Heart"
+    p = join(preprocessing_output_dir, t, "stage1")
+    dataset = load_dataset(p)
+    with open(join(join(preprocessing_output_dir, t), "plans_stage1.pkl"), 'rb') as f:
+        plans = pickle.load(f)
+    unpack_dataset(p)
+    dl = DataLoader3D(dataset, (32, 32, 32), (32, 32, 32), 2, oversample_foreground_percent=0.33)
+    dl = DataLoader3D(dataset, np.array(plans['patch_size']).astype(int), np.array(plans['patch_size']).astype(int), 2,
+                      oversample_foreground_percent=0.33)
+    dl2d = DataLoader2D(dataset, (64, 64), np.array(plans['patch_size']).astype(int)[1:], 12,
+                        oversample_foreground_percent=0.33)
+    # delete_npy("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_preprocessed/Task085_MMRF_dropout/nnUNetData_plans_v2.1_stage1/")

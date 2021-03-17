@@ -111,7 +111,7 @@ def main():
     # interp_order = args.interp_order
     # interp_order_z = args.interp_order_z
     # force_separate_z = args.force_separate_z
-    dropout = int(args.dropout)
+    dropout = int(args.dropout) if args.dropout else -1
 
     if not task.startswith("Task"):
         task_id = int(task)
