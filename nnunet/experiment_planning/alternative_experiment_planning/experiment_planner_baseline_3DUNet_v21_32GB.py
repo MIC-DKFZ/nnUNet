@@ -103,7 +103,7 @@ class ExperimentPlanner3D_v21_32GB(ExperimentPlanner3D_v21):
         max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
                                   np.prod(input_patch_size, dtype=np.int64)).astype(int)
         max_batch_size = max(max_batch_size, self.unet_min_batch_size)
-        batch_size = min(batch_size, max_batch_size)
+        batch_size = max(1, min(batch_size, max_batch_size))
 
         do_dummy_2D_data_aug = (max(input_patch_size) / input_patch_size[
             0]) > self.anisotropy_threshold

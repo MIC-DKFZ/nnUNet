@@ -72,7 +72,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
         # check if batch size is too large (more than 5 % of dataset)
         max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
                                   np.prod(input_patch_size, dtype=np.int64)).astype(int)
-        batch_size = min(batch_size, max_batch_size)
+        batch_size = max(1, min(batch_size, max_batch_size))
 
         plan = {
             'batch_size': batch_size,
