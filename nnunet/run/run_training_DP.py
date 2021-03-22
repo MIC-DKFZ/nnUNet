@@ -17,6 +17,7 @@ import argparse
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.run.default_configuration import get_default_configuration
 from nnunet.paths import default_plans_identifier
+from nnunet.run.load_pretrained_weights import load_pretrained_weights
 from nnunet.training.cascade_stuff.predict_next_stage import predict_next_stage
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
@@ -85,6 +86,10 @@ def main():
     #                          "Hands off")
     # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
     #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
+    parser.add_argument('-pretrained_weights', type=str, required=False, default=None,
+                        help='path to nnU-Net checkpoint file to be used as pretrained model (use .model '
+                             'file, for example model_final_checkpoint.model). Will only be used when actually training. '
+                             'Optional. Beta. Use with caution.')
 
     args = parser.parse_args()
 
@@ -159,7 +164,14 @@ def main():
     else:
         if not validation_only:
             if args.continue_training:
+                # -c was set, continue a previous training and ignore pretrained weights
                 trainer.load_latest_checkpoint()
+            elif (not args.continue_training) and (args.pretrained_weights is not None):
+                # we start a new training. If pretrained_weights are set, use them
+                load_pretrained_weights(trainer.network, args.pretrained_weights)
+            else:
+                # new training without pretraine weights, do nothing
+                pass
             trainer.run_training()
         else:
             if valbest:

@@ -296,7 +296,8 @@ class nnUNetTrainer(NetworkTrainer):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def run_training(self):
+    def save_debug_information(self):
+        # saving some debug information
         dct = OrderedDict()
         for k in self.__dir__():
             if not k.startswith("__"):
@@ -313,6 +314,8 @@ class nnUNetTrainer(NetworkTrainer):
 
         shutil.copy(self.plans_file, join(self.output_folder_base, "plans.pkl"))
 
+    def run_training(self):
+        self.save_debug_information()
         super(nnUNetTrainer, self).run_training()
 
     def load_plans_file(self):

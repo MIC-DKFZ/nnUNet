@@ -17,6 +17,7 @@ import argparse
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.run.default_configuration import get_default_configuration
 from nnunet.paths import default_plans_identifier
+from nnunet.run.load_pretrained_weights import load_pretrained_weights
 from nnunet.training.cascade_stuff.predict_next_stage import predict_next_stage
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
@@ -62,7 +63,8 @@ def main():
     parser.add_argument("--val_folder", required=False, default="validation_raw",
                         help="name of the validation folder. No need to use this for most people")
     parser.add_argument("--disable_saving", required=False, action='store_true',
-                        help="If set nnU-Net will not save any parameter files. Useful for development when you are "
+                        help="If set nnU-Net will not save any parameter files (except a temporary checkpoint that "
+                             "will be removed at the end of the training). Useful for development when you are "
                              "only interested in the results and want to save some disk space")
     parser.add_argument("--disable_postprocessing_on_folds", required=False, action='store_true',
                         help="Running postprocessing on each fold only makes sense when developing with nnU-Net and "
@@ -79,6 +81,14 @@ def main():
     #                          "Hands off")
     # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
     #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
+    parser.add_argument('--val_disable_overwrite', action='store_false', default=True,
+                        help='Validation does not overwrite existing segmentations')
+    parser.add_argument('--disable_next_stage_pred', action='store_true', default=False,
+                        help='do not predict next stage')
+    parser.add_argument('-pretrained_weights', type=str, required=False, default=None,
+                        help='path to nnU-Net checkpoint file to be used as pretrained model (use .model '
+                             'file, for example model_final_checkpoint.model). Will only be used when actually training. '
+                             'Optional. Beta. Use with caution.')
 
     args = parser.parse_args()
 
@@ -142,12 +152,13 @@ def main():
                             batch_dice=batch_dice, stage=stage, unpack_data=decompress_data,
                             deterministic=deterministic,
                             fp16=run_mixed_precision)
-
     if args.disable_saving:
-        trainer.save_latest_only = False  # if false it will not store/overwrite _latest but separate files each
-        trainer.save_intermediate_checkpoints = False  # whether or not to save checkpoint_latest
-        trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to self.best_val_eval_criterion_MA
-        trainer.save_final_checkpoint = False  # whether or not to save the final checkpoint
+        trainer.save_final_checkpoint = False # whether or not to save the final checkpoint
+        trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to
+        # self.best_val_eval_criterion_MA
+        trainer.save_intermediate_checkpoints = True  # whether or not to save checkpoint_latest. We need that in case
+        # the training chashes
+        trainer.save_latest_only = True  # if false it will not store/overwrite _latest but separate files each
 
     trainer.initialize(not validation_only)
 
@@ -156,7 +167,15 @@ def main():
     else:
         if not validation_only:
             if args.continue_training:
+                # -c was set, continue a previous training and ignore pretrained weights
                 trainer.load_latest_checkpoint()
+            elif (not args.continue_training) and (args.pretrained_weights is not None):
+                # we start a new training. If pretrained_weights are set, use them
+                load_pretrained_weights(trainer.network, args.pretrained_weights)
+            else:
+                # new training without pretraine weights, do nothing
+                pass
+
             trainer.run_training()
         else:
             if valbest:
@@ -168,9 +187,10 @@ def main():
 
         # predict validation
         trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
-                         run_postprocessing_on_folds=not disable_postprocessing_on_folds)
+                         run_postprocessing_on_folds=not disable_postprocessing_on_folds,
+                         overwrite=args.val_disable_overwrite)
 
-        if network == '3d_lowres':
+        if network == '3d_lowres' and not args.disable_next_stage_pred:
             print("predicting segmentations for the next stage of the cascade")
             predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
 

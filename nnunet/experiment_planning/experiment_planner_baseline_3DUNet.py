@@ -226,7 +226,7 @@ class ExperimentPlanner(object):
         max_batch_size = np.round(self.batch_size_covers_max_percent_of_dataset * dataset_num_voxels /
                                   np.prod(input_patch_size, dtype=np.int64)).astype(int)
         max_batch_size = max(max_batch_size, self.unet_min_batch_size)
-        batch_size = min(batch_size, max_batch_size)
+        batch_size = max(1, min(batch_size, max_batch_size))
 
         do_dummy_2D_data_aug = (max(input_patch_size) / input_patch_size[
             0]) > self.anisotropy_threshold
@@ -290,8 +290,8 @@ class ExperimentPlanner(object):
         # if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
         #        architecture_input_voxels < HOW_MUCH_OF_A_PATIENT_MUST_THE_NETWORK_SEE_AT_STAGE0:
         architecture_input_voxels_here = np.prod(self.plans_per_stage[-1]['patch_size'], dtype=np.int64)
-        if np.prod(self.plans_per_stage[-1]['median_patient_size_in_voxels'], dtype=np.int64) / \
-                architecture_input_voxels_here < self.how_much_of_a_patient_must_the_network_see_at_stage0:
+        if np.prod(median_shape) / architecture_input_voxels_here < \
+                self.how_much_of_a_patient_must_the_network_see_at_stage0:
             more = False
         else:
             more = True
@@ -306,7 +306,7 @@ class ExperimentPlanner(object):
             # we do it the dumb way
 
             lowres_stage_spacing = deepcopy(target_spacing)
-            num_voxels = np.prod(median_shape, dtype=np.int64)
+            num_voxels = np.prod(median_shape, dtype=np.float64)
             while num_voxels > self.how_much_of_a_patient_must_the_network_see_at_stage0 * architecture_input_voxels_here:
                 max_spacing = max(lowres_stage_spacing)
                 if np.any((max_spacing / lowres_stage_spacing) > 2):
@@ -314,7 +314,7 @@ class ExperimentPlanner(object):
                         *= 1.01
                 else:
                     lowres_stage_spacing *= 1.01
-                num_voxels = np.prod(target_spacing / lowres_stage_spacing * median_shape, dtype=np.int64)
+                num_voxels = np.prod(target_spacing / lowres_stage_spacing * median_shape, dtype=np.float64)
 
                 lowres_stage_spacing_transposed = np.array(lowres_stage_spacing)[self.transpose_forward]
                 new = self.get_properties_for_stage(lowres_stage_spacing_transposed, target_spacing_transposed,

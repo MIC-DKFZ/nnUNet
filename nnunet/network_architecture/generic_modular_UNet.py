@@ -135,6 +135,7 @@ class PlainConvUNetEncoder(nn.Module):
             current_input_features = current_output_features
 
         self.stages = nn.ModuleList(self.stages)
+        self.output_features = current_output_features
 
     def forward(self, x, return_skips=None):
         """
