@@ -54,11 +54,13 @@ def get_insaneDA_augmentation2(dataloader_train, dataloader_val, patch_size, par
     if params.get("dummy_2D") is not None and params.get("dummy_2D"):
         ignore_axes = (0,)
         tr_transforms.append(Convert3DTo2DTransform())
+        patch_size_spatial = patch_size[1:]
     else:
+        patch_size_spatial = patch_size
         ignore_axes = None
 
     tr_transforms.append(SpatialTransform_2(
-        patch_size, patch_center_dist_from_border=None, do_elastic_deform=params.get("do_elastic"),
+        patch_size_spatial, patch_center_dist_from_border=None, do_elastic_deform=params.get("do_elastic"),
         deformation_scale=params.get("eldef_deformation_scale"),
         do_rotation=params.get("do_rotation"), angle_x=params.get("rotation_x"), angle_y=params.get("rotation_y"),
         angle_z=params.get("rotation_z"), do_scale=params.get("do_scaling"), scale=params.get("scale_range"),

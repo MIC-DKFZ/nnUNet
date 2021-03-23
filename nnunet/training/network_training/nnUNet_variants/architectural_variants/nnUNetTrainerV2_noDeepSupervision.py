@@ -69,18 +69,16 @@ class nnUNetTrainerV2_noDeepSupervision(nnUNetTrainerV2):
                                                              self.data_aug_params['rotation_z'],
                                                              self.data_aug_params['scale_range'])
             self.basic_generator_patch_size = np.array([self.patch_size[0]] + list(self.basic_generator_patch_size))
-            patch_size_for_spatialtransform = self.patch_size[1:]
         else:
             self.basic_generator_patch_size = get_patch_size(self.patch_size, self.data_aug_params['rotation_x'],
                                                              self.data_aug_params['rotation_y'],
                                                              self.data_aug_params['rotation_z'],
                                                              self.data_aug_params['scale_range'])
-            patch_size_for_spatialtransform = self.patch_size
 
         self.data_aug_params["scale_range"] = (0.7, 1.4)
         self.data_aug_params["do_elastic"] = False
         self.data_aug_params['selected_seg_channels'] = [0]
-        self.data_aug_params['patch_size_for_spatialtransform'] = patch_size_for_spatialtransform
+        self.data_aug_params['patch_size_for_spatialtransform'] = self.patch_size
 
     def initialize(self, training=True, force_load_plans=False):
         """

@@ -54,11 +54,13 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
     if params.get("dummy_2D") is not None and params.get("dummy_2D"):
         ignore_axes = (0,)
         tr_transforms.append(Convert3DTo2DTransform())
+        patch_size_spatial = patch_size[1:]
     else:
+        patch_size_spatial = patch_size
         ignore_axes = None
 
     tr_transforms.append(SpatialTransform(
-        patch_size, patch_center_dist_from_border=None,
+        patch_size_spatial, patch_center_dist_from_border=None,
         do_elastic_deform=params.get("do_elastic"), alpha=params.get("elastic_deform_alpha"),
         sigma=params.get("elastic_deform_sigma"),
         do_rotation=params.get("do_rotation"), angle_x=params.get("rotation_x"), angle_y=params.get("rotation_y"),

@@ -60,16 +60,14 @@ class nnUNetTrainerV2_DA3(nnUNetTrainerV2):
                                                              self.data_aug_params['rotation_z'],
                                                              self.data_aug_params['scale_range'])
             self.basic_generator_patch_size = np.array([self.patch_size[0]] + list(self.basic_generator_patch_size))
-            patch_size_for_spatialtransform = self.patch_size[1:]
         else:
             self.basic_generator_patch_size = get_patch_size(self.patch_size, self.data_aug_params['rotation_x'],
                                                              self.data_aug_params['rotation_y'],
                                                              self.data_aug_params['rotation_z'],
                                                              self.data_aug_params['scale_range'])
-            patch_size_for_spatialtransform = self.patch_size
 
         self.data_aug_params['selected_seg_channels'] = [0]
-        self.data_aug_params['patch_size_for_spatialtransform'] = patch_size_for_spatialtransform
+        self.data_aug_params['patch_size_for_spatialtransform'] = self.patch_size
 
         self.data_aug_params["p_rot"] = 0.3
 
