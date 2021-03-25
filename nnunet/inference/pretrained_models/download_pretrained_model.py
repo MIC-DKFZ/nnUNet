@@ -204,11 +204,11 @@ def get_available_models():
                            "Input modalities are 0: CT \n"
                            "See also https://covid-segmentation.grand-challenge.org/",
             'url': (
-                "",
-                "",
-                "",
-                "",
-                "",
+                "https://zenodo.org/record/4635822/files/Task115_nnUNetTrainerV2_DA3__nnUNetPlans_v2.1__3d_fullres__10folds.zip?download=1",
+                "https://zenodo.org/record/4635822/files/Task115_nnUNetTrainerV2_DA3_BN__nnUNetPlans_v2.1__3d_fullres__10folds.zip?download=1",
+                "https://zenodo.org/record/4635822/files/Task115_nnUNetTrainerV2_ResencUNet__nnUNetPlans_FabiansResUNet_v2.1__3d_fullres__10folds.zip?download=1",
+                "https://zenodo.org/record/4635822/files/Task115_nnUNetTrainerV2_ResencUNet_DA3__nnUNetPlans_FabiansResUNet_v2.1__3d_fullres__10folds.zip?download=1",
+                "https://zenodo.org/record/4635822/files/Task115_nnUNetTrainerV2_ResencUNet_DA3_BN__nnUNetPlans_FabiansResUNet_v2.1__3d_lowres__10folds.zip?download=1",
             )
         },
 
@@ -245,6 +245,7 @@ def download_and_install_from_url(url):
     assert network_training_output_dir is not None, "Cannot install model because network_training_output_dir is not " \
                                                     "set (RESULTS_FOLDER missing as environment variable, see " \
                                                     "Installation instructions)"
+    print('Downloading pretrained model from url:', url)
     import http.client
     http.client.HTTPConnection._http_vsn = 10
     http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
