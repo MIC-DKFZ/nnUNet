@@ -169,6 +169,18 @@ def get_available_models():
                            "See https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunet/dataset_conversion/Task076_Fluo_N3DH_SIM.py"
             'url': "https://zenodo.org/record/4003545/files/Task076_Fluo_N3DH_SIM.zip?download=1"
         },
+        "Task082_BraTS2020": {
+            'description': "Brain tumor segmntation challenge 2020 (BraTS)\n"
+                           "Segmentation targets are 0: background, 1: edema, 2: enhancing tumor, 3: necrosis\n"
+                           "Input modalities are 0: T1, 1: T1ce, 2: T2, 3: FLAIR (MRI images)\n"
+                           "Also see https://www.med.upenn.edu/cbica/brats2020/",
+            'url': (
+                "https://zenodo.org/record/4635763/files/Task082_nnUNetTrainerV2__nnUNetPlansv2.1_5fold.zip?download=1",
+                "https://zenodo.org/record/4635763/files/Task082_nnUNetTrainerV2BraTSRegions_DA3_BN_BD__nnUNetPlansv2.1_bs5_5fold.zip?download=1",
+                "https://zenodo.org/record/4635763/files/Task082_nnUNetTrainerV2BraTSRegions_DA4_BN__nnUNetPlansv2.1_bs5_15fold.zip?download=1",
+                "https://zenodo.org/record/4635763/files/Task082_nnUNetTrainerV2BraTSRegions_DA4_BN_BD__nnUNetPlansv2.1_bs5_5fold.zip?download=1",
+            )
+        },
         "Task089_Fluo-N2DH-SIM_thickborder_time": {
             'description': "Fluo-N2DH-SIM dataset of the cell tracking challenge. Segmentation target are nuclei of N2DH cells and cell borders in fluorescence microscopy images.\n"
                            "input modalities are 0: t minus 4, 0: t minus 3, 0: t minus 2, 0: t minus 1, 0: frame of interest\n"
@@ -206,7 +218,14 @@ def download_and_install_pretrained_model_by_name(taskname):
         raise RuntimeError("\nThe requested pretrained model ('%s') is not available." % taskname)
     if len(av_models[taskname]['url']) == 0:
         raise RuntimeError("The requested model has not been uploaded yet. Please check back in a few days")
-    download_and_install_from_url(av_models[taskname]['url'])
+    url = av_models[taskname]['url']
+    if isinstance(url, str):
+        download_and_install_from_url(url)
+    elif isinstance(url, (tuple, list)):
+        for u in url:
+            download_and_install_from_url(u)
+    else:
+        raise RuntimeError('URL for download_and_install_from_url must be either str or list/tuple of str')
 
 
 def download_and_install_from_url(url):
