@@ -31,7 +31,7 @@ Knowing the dataset we could hypothesize that a different approach might produce
 of whether a pixel belongs to 'road' or not does not depend on the large contextual information that the large 
 patch size (and U-Net architecture) offer and could instead be made with more local information. Training with
 a batch size of just 2 in a dataset with 800 training cases means that each batch contains only limited variability.
-So one possible conclusion could be that smaller patches but larger patch sizes might result in a better 
+So one possible conclusion could be that smaller patches but larger batch sizes might result in a better 
 segmentation outcome. Let's investigate (using the same GPU memory constraint, determined manually with trial 
 and error!):
 
