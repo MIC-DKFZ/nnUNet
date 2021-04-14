@@ -3,7 +3,11 @@ Trainings can take some time. A well-running training setup is essential to get 
 require any fancy hardware, just a well-balanced system. We recommend at least 32 GB of RAM, 6 CPU cores (12 threads), 
 SSD storage (this can be SATA and does not have to be PCIe. DO NOT use an external SSD connected via USB!) and a 
 2080 ti GPU. If your system has multiple GPUs, the 
-other components need to scale linearly with  the number of GPUs.
+other components need to scale linearly with the number of GPUs.
+
+(important: A100 and V100 are very fast and need more CPU workers, set the environment variable `nnUNet_n_proc_DA=XX` 
+to increase the number of data augmentation workers. Recommended: 24 for V100, 32 for A100. Datasets with many input 
+modalities (BraTS: 4) require A LOT of CPU)
 
 # Benchmark Details
 To ensure your system is running as intended, we provide some benchmark numbers against which you can compare. Here 
@@ -48,24 +52,31 @@ output as your benchmark time.
 
 # Results
 
-The following table shows the results we are getting on our servers/workstations. You should be seeing similar numbers when you 
+The following table shows the results we are getting on our servers/workstations. We are using pytorch 1.7.1 that we 
+compiled ourselves using the instrucutions found [here](https://github.com/pytorch/pytorch#from-source). The cuDNN 
+version we used is 8.1.0.77. You should be seeing similar numbers when you 
 run the benchmark on your server/workstation. Note that fluctuations of a couple of seconds are normal!
 
+Important: Compiling pytorch from source is currently mandatory for best performance! Pytorch 1.8 does not have 
+working tensorcore acceleration for 3D convolutions when installed with pip or conda!
 
-|                                   | V100 32GB SXM3 (DGX2) 350W | V100 32GB SXM2 300W | V100 32GB PCIe 250W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
-|-----------------------------------|----------------------------|---------------------|---------------------|---------------------|-----------------------|-------------------|
-| Task002_Heart 2d                  |            65.63           |        69.07        |        73.22        |        82.27        |         99.39         |       183.71      |
-| Task003_Liver 2d                  |            71.80           |        73.44        |        78.63        |        86.11        |         103.89        |       187.30      |
-| Task005_Prostate 2d               |            69.68           |        70.07        |        76.85        |        88.04        |         106.97        |       187.38      |
-| Task002_Heart 3d_fullres          |           156.13           |        166.32       |        177.91       |        142.74       |         174.60        |       499.65      |
-| Task003_Liver 3d_fullres          |           137.08           |        144.83       |        157.05       |        114.78       |         146.90        |       500.74      |
-| Task005_Prostate 3d_fullres       |           119.82           |        126.20       |        135.72       |        106.01       |         135.08        |       463.21      |
-| Task002_Heart 3d_fullres dummy    |           153.41           |        160.44       |        172.28       |        136.90       |         163.52        |       497.51      |
-| Task003_Liver 3d_fullres dummy    |           135.63           |        139.76       |        147.33       |        110.61       |         146.37        |       495.55      |
-| Task005_Prostate 3d_fullres dummy |           115.65           |        121.48       |        130.71       |        102.03       |         129.16        |       464.14      |
-| Task002_Heart 3d_fullres large    |           317.63           |        338.79       |        349.91       |        371.94       |          OOM          |        OOM        |
-| Task003_Liver 3d_fullres large    |           271.54           |        285.41       |        295.42       |        324.74       |          OOM          |        OOM        |
-| Task005_Prostate 3d_fullres large |           280.30           |        296.37       |        304.16       |        289.22       |          OOM          |        OOM        |
+
+|                                   | A100 40GB (DGX A100) 400W | V100 32GB SXM3 (DGX2) 350W | V100 32GB PCIe 250W | Quadro RTX6000 24GB 260W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
+|-----------------------------------|---------------------------|----------------------------|---------------------|--------------------------|---------------------|-----------------------|--------------------|
+| Task002_Heart 2d                  | 40.06                     | 66.03                      | 76.19               | 78.01                    | 79.78               | 98.49                 | 177.87             |
+| Task002_Heart 3d_fullres          | 51.17                     | 85.96                      | 99.29               | 110.47                   | 112.34              | 148.36                | 504.93             |
+| Task002_Heart 3d_fullres dummy    | 48.53                     | 79                         | 89.66               | 105.16                   | 105.56              | 138.4                 | 501.64             |
+| Task002_Heart 3d_fullres large    | 118.5                     | 220.45                     | 251.25              | 322.28                   | 300.96              | OOM                   | OOM                |
+|                                   |                           |                            |                     |                          |                     |                       |                    |
+| Task003_Liver 2d                  | 39.71                     | 60.69                      | 69.65               | 72.29                    | 76.17               | 92.54                 | 183.73             |
+| Task003_Liver 3d_fullres          | 44.48                     | 75.53                      | 87.19               | 85.18                    | 86.17               | 106.76                | 290.87             |
+| Task003_Liver 3d_fullres dummy    | 41.1                      | 70.96                      | 80.1                | 79.43                    | 79.43               | 101.54                | 289.03             |
+| Task003_Liver 3d_fullres large    | 115.33                    | 213.27                     | 250.09              | 261.54                   | 266.66              | OOM                   | OOM                |
+|                                   |                           |                            |                     |                          |                     |                       |                    |
+| Task005_Prostate 2d               | 42.21                     | 68.88                      | 80.46               | 83.62                    | 81.59               | 102.81                | 183.68             |
+| Task005_Prostate 3d_fullres       | 47.19                     | 76.33                      | 85.4                | 100                      | 102.05              | 132.82                | 415.45             |
+| Task005_Prostate 3d_fullres dummy | 43.87                     | 70.58                      | 81.32               | 97.48                    | 98.99               | 124.73                | 410.12             |
+| Task005_Prostate 3d_fullres large | 117.31                    | 209.12                     | 234.28              | 277.14                   | 284.35              | OOM                   | OOM                |
 
 # Troubleshooting
 Your epoch times are substantially slower than ours? That's not good! This section will help you figure out what is 
