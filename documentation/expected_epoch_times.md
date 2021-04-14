@@ -5,10 +5,6 @@ SSD storage (this can be SATA and does not have to be PCIe. DO NOT use an extern
 2080 ti GPU. If your system has multiple GPUs, the 
 other components need to scale linearly with the number of GPUs.
 
-(important: A100 and V100 are very fast and need more CPU workers, set the environment variable `nnUNet_n_proc_DA=XX` 
-to increase the number of data augmentation workers. Recommended: 24 for V100, 32 for A100. Datasets with many input 
-modalities (BraTS: 4) require A LOT of CPU)
-
 # Benchmark Details
 To ensure your system is running as intended, we provide some benchmark numbers against which you can compare. Here 
 are the details about benchmarking:
@@ -57,8 +53,13 @@ compiled ourselves using the instrucutions found [here](https://github.com/pytor
 version we used is 8.1.0.77. You should be seeing similar numbers when you 
 run the benchmark on your server/workstation. Note that fluctuations of a couple of seconds are normal!
 
-Important: Compiling pytorch from source is currently mandatory for best performance! Pytorch 1.8 does not have 
+IMPORTANT: Compiling pytorch from source is currently mandatory for best performance! Pytorch 1.8 does not have 
 working tensorcore acceleration for 3D convolutions when installed with pip or conda!
+
+IMPORTANT: A100 and V100 are very fast with the newer cuDNN versions and need more CPU workers to prevent bottlenecks,
+set the environment variable `nnUNet_n_proc_DA=XX`
+to increase the number of data augmentation workers. Recommended: 20 for V100, 32 for A100. Datasets with many input
+modalities (BraTS: 4) require A LOT of CPU and should be used with even larger values for `nnUNet_n_proc_DA`
 
 
 |                                   | A100 40GB (DGX A100) 400W | V100 32GB SXM3 (DGX2) 350W | V100 32GB PCIe 250W | Quadro RTX6000 24GB 260W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
