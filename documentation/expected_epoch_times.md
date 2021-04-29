@@ -61,6 +61,7 @@ set the environment variable `nnUNet_n_proc_DA=XX`
 to increase the number of data augmentation workers. Recommended: 20 for V100, 32 for A100. Datasets with many input
 modalities (BraTS: 4) require A LOT of CPU and should be used with even larger values for `nnUNet_n_proc_DA`
 
+## Pytorch 1.7.1 compiled with cuDNN 8.1.0.77
 
 |                                   | A100 40GB (DGX A100) 400W | V100 32GB SXM3 (DGX2) 350W | V100 32GB PCIe 250W | Quadro RTX6000 24GB 260W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
 |-----------------------------------|---------------------------|----------------------------|---------------------|--------------------------|---------------------|-----------------------|--------------------|
