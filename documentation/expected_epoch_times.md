@@ -86,26 +86,23 @@ wrong. Note that each system is unique and we cannot help you find bottlenecks b
 presented in this section!
 
 ## First step: Make sure you have the right software!
-In order to get maximum performance, you need to have pytorch compiled cuDNN 8.0.2 or newer. The easiest way to get 
-that is by using the [Nvidia pytorch Docker](https://ngc.nvidia.com/catalog/containers/nvidia:pytorch). 
+In order to get maximum performance, you need to have pytorch compiled with a recent cuDNN version (8002 or newer is a must!). 
+Unfortunately the currently provided pip/conda installable pytorch versions have a bug which causes their performance 
+to be very low (see https://github.com/pytorch/pytorch/issues/57115 and https://github.com/pytorch/pytorch/issues/50153). 
+They are about 2x-3x slower than the numbers we report in the table above. 
+You need to have a pytorch version that was compiled from source to get maximum performance as shown in the table above.  
+The easiest way to get that is by using the [Nvidia pytorch Docker](https://ngc.nvidia.com/catalog/containers/nvidia:pytorch). 
 If you cannot use docker, you will need to compile pytorch 
-yourself. For that, first download and install cuDNN 8.0.2 or newer from the [Nvidia homepage](https://developer.nvidia.com/cudnn), then follow the 
+yourself. For that, first download and install cuDNN from the [Nvidia homepage](https://developer.nvidia.com/cudnn), then follow the 
 [instructions on the pytorch website](https://github.com/pytorch/pytorch#from-source) on how to compile it.
 
-cuDNN 8.0.2 or newer is essential to get good performance from Turing GPUs. Pytorch 1.6.0 only comes with 7.6.5 which will not 
-give you tensor core acceleration for mixed precision for 3D networks. 
-If you are using Volta GPUs (V100) getting cuDNN 8.0.2 is not required to get a speed boost with mixed precision 
-training (but it will still increase your speed!). 
-Pascal GPUs will not profit from mixed precision training and should behave the same with 8.0.2 and 7.6.5. 
-
-Future releases of pytorch will be compiled with a more recent version of cuDNN. It is worth to check your
-cuDNN version before you take any action. To do that, run 
-
+If you compiled pytorch yourself, you can check for the correct cuDNN version by running:
 ```bash
 python -c 'import torch;print(torch.backends.cudnn.version())'
 ```
-
-If the output is `8002` or higher, then you are good to go. If not you may have to take action.
+If the output is `8002` or higher, then you are good to go. If not you may have to take action. IMPORTANT: this 
+only applies to pytorch that was compiled from source. pip/conda installed pytorch will report a new cuDNN version 
+but still have poor performance due to the bug linked above.
 
 ## Identifying the bottleneck
 If the software is up to date and you are still experiencing problems, this is how you can figure out what is going on:
