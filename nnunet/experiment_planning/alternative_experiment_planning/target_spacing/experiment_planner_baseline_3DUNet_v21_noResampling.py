@@ -12,13 +12,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from copy import deepcopy
-
 import numpy as np
+from nnunet.experiment_planning.alternative_experiment_planning.experiment_planner_baseline_3DUNet_v21_16GB import \
+    ExperimentPlanner3D_v21_16GB
 from nnunet.experiment_planning.experiment_planner_baseline_3DUNet_v21 import \
     ExperimentPlanner3D_v21
-from nnunet.experiment_planning.common_utils import get_pool_and_conv_props
-from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 
 
