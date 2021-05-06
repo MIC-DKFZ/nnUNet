@@ -100,6 +100,30 @@ def comp_object_slices_dim(object, dim, slice_gap, p=None, slice_depth=3):
     return object_slices, is_object_small
 
 
+def comp_slices_mask2(mask):
+    max_slices = int(mask.shape[2] / 3)
+    num_slices = random.randint(0, max_slices)
+
+    slices = np.zeros_like(mask)
+    for i in range(num_slices):
+        dim = random.randint(0, 2)
+        slice_index = random.randint(0, mask.shape[dim]-1)
+        if dim == 0:
+            slices[slice_index, :, :] = 1
+        elif dim == 1:
+            slices[:, slice_index, :] = 1
+        else:
+            slices[:, :, slice_index] = 1
+
+    mask_slices = copy.deepcopy(mask)
+    mask_slices = np.logical_and(mask_slices, slices).astype(np.float32)
+    mask_slices[mask == -1] = -1
+    # from medseg.utils import save_nifty
+    # save_nifty("/local/kgotkows/experiments/nnUNet/3d_fullres/001_mask.nii.gz", mask)
+    # save_nifty("/local/kgotkows/experiments/nnUNet/3d_fullres/001_slices.nii.gz", mask_slices)
+    return mask_slices
+
+
 def add_to_images_or_masks(image_path, guiding_mask_path, save_path, is_mask=False):
     image_filenames = utils.load_filenames(image_path)
     guiding_mask_filenames = utils.load_filenames(guiding_mask_path)
@@ -120,8 +144,8 @@ if __name__ == '__main__':
     slice_gap = 75
     default_size = 1280
     slice_depth = 1
-    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task075_frankfurt3_ggo/labelsTr/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task075_frankfurt3_ggo/guiding_masks/"
+    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/labelsTs/"
+    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/guiding_masks/"
     comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
     rename_guiding_masks(save_path)
 
