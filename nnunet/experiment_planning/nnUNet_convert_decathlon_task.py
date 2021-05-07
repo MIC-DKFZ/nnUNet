@@ -19,19 +19,13 @@ from nnunet.utilities.file_endings import remove_trailing_slash
 
 def crawl_and_remove_hidden_from_decathlon(folder):
     folder = remove_trailing_slash(folder)
-    assert folder.split('/')[-1].startswith("Task"), "This does not seem to be a decathlon folder. Please give me a " \
-                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
-                                                     "labelsTr and imagesTs"
     subf = subfolders(folder, join=False)
-    assert 'imagesTr' in subf, "This does not seem to be a decathlon folder. Please give me a " \
-                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
-                                                     "labelsTr and imagesTs"
-    assert 'imagesTs' in subf, "This does not seem to be a decathlon folder. Please give me a " \
-                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
-                                                     "labelsTr and imagesTs"
-    assert 'labelsTr' in subf, "This does not seem to be a decathlon folder. Please give me a " \
-                                                     "folder that starts with TaskXX and has the subfolders imagesTr, " \
-                                                     "labelsTr and imagesTs"
+
+    valid_folder = os.path.basename(folder).startswith("Task")
+    valid_folder &= ('imagesTr' in subf) and ('imagesTs' in subf) and ('labelsTr' in subf)
+    assert valid_folder, "This does not seem to be a decathlon folder. Please give me a folder that starts with " \
+                         "TaskXX and has the subfolders 'imagesTr', 'labelsTr' and 'imagesTs'."
+
     _ = [os.remove(i) for i in subfiles(folder, prefix=".")]
     _ = [os.remove(i) for i in subfiles(join(folder, 'imagesTr'), prefix=".")]
     _ = [os.remove(i) for i in subfiles(join(folder, 'labelsTr'), prefix=".")]

@@ -230,7 +230,7 @@ class NetworkTrainer(object):
             args = ("%s:" % dt_object, *args)
 
         if self.log_file is None:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
             timestamp = datetime.now()
             self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                                  (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
@@ -422,7 +422,7 @@ class NetworkTrainer(object):
 
         self._maybe_init_amp()
 
-        maybe_mkdir_p(self.output_folder)        
+        os.makedirs(self.output_folder, exist_ok=True)
         self.plot_network_architecture()
 
         if cudnn.benchmark and cudnn.deterministic:

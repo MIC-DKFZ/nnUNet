@@ -34,7 +34,7 @@ class ExperimentPlanner2D(ExperimentPlanner):
         super(ExperimentPlanner2D, self).__init__(folder_with_cropped_data,
                                                   preprocessed_output_folder)
         self.data_identifier = default_data_identifier + "_2D"
-        self.plans_fname = join(self.preprocessed_output_folder, "nnUNetPlans" + "_plans_2D.pkl")
+        self.plans_fname = os.path.join(self.preprocessed_output_folder, "nnUNetPlans" + "_plans_2D.pkl")
 
         self.unet_base_num_features = 30
         self.unet_max_num_filters = 512

@@ -18,7 +18,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 
 if __name__ == "__main__":
     summary_output_folder = join(network_training_output_dir, "summary_jsons_fold0_new")
-    maybe_mkdir_p(summary_output_folder)
+    os.makedirs(summary_output_folder, exist_ok=True)
     summarize2(['all'], output_dir=summary_output_folder, folds=(0,))
 
     results_csv = join(network_training_output_dir, "summary_fold0.csv")
@@ -45,7 +45,7 @@ if __name__ == "__main__":
                                             network, trainer, validation_folder, plans, results_mean, results_median))
 
     summary_output_folder = join(network_training_output_dir, "summary_jsons_new")
-    maybe_mkdir_p(summary_output_folder)
+    os.makedirs(summary_output_folder, exist_ok=True)
     summarize2(['all'], output_dir=summary_output_folder)
 
     results_csv = join(network_training_output_dir, "summary_allFolds.csv")

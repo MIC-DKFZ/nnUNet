@@ -54,12 +54,12 @@ def merge_files(files, properties_files, out_file, override, store_npz):
 
 
 def merge(folders, output_folder, threads, override=True, postprocessing_file=None, store_npz=False):
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     if postprocessing_file is not None:
         output_folder_orig = deepcopy(output_folder)
         output_folder = join(output_folder, 'not_postprocessed')
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
     else:
         output_folder_orig = None
 

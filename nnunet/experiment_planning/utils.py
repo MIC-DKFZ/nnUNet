@@ -20,12 +20,13 @@ from collections import OrderedDict
 from multiprocessing import Pool
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, isdir, maybe_mkdir_p, subfiles, subdirs, isfile
+from batchgenerators.utilities.file_and_folder_operations import join, isdir, subfiles, subdirs, isfile
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import split_4d_nifti
 from nnunet.paths import nnUNet_raw_data, nnUNet_cropped_data, preprocessing_output_dir
 from nnunet.preprocessing.cropping import ImageCropper
+from nnunet.utilities.file_endings import get_last_folder
 
 
 def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_output_id=None):
@@ -34,10 +35,7 @@ def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_out
         "The input folder must be a valid Task folder from the Medical Segmentation Decathlon with at least the " \
         "imagesTr and labelsTr subfolders and the dataset.json file"
 
-    while input_folder.endswith("/"):
-        input_folder = input_folder[:-1]
-
-    full_task_name = input_folder.split("/")[-1]
+    full_task_name = get_last_folder(input_folder)
 
     assert full_task_name.startswith("Task"), "The input folder must point to a folder that starts with TaskXX_"
 
@@ -58,7 +56,10 @@ def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_out
     files = []
     output_dirs = []
 
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
+    if not isdir(output_folder):
+        os.mkdir(output_folder)
+
     for subdir in ["imagesTr", "imagesTs"]:
         curr_out_dir = join(output_folder, subdir)
         if not isdir(curr_out_dir):
@@ -90,9 +91,9 @@ def create_lists_from_splitted_dataset(base_folder_splitted):
     for tr in training_files:
         cur_pat = []
         for mod in range(num_modalities):
-            cur_pat.append(join(base_folder_splitted, "imagesTr", tr['image'].split("/")[-1][:-7] +
+            cur_pat.append(join(base_folder_splitted, "imagesTr", os.path.basename(tr['image'])[:-7] +
                                 "_%04.0d.nii.gz" % mod))
-        cur_pat.append(join(base_folder_splitted, "labelsTr", tr['label'].split("/")[-1]))
+        cur_pat.append(join(base_folder_splitted, "labelsTr", os.path.basename(tr['label'])))
         lists.append(cur_pat)
     return lists, {int(i): d['modality'][str(i)] for i in d['modality'].keys()}
 
@@ -121,11 +122,11 @@ def get_caseIDs_from_splitted_dataset_folder(folder):
 
 def crop(task_string, override=False, num_threads=default_num_threads):
     cropped_out_dir = join(nnUNet_cropped_data, task_string)
-    maybe_mkdir_p(cropped_out_dir)
+    os.makedirs(cropped_out_dir, exist_ok=True)
 
     if override and isdir(cropped_out_dir):
         shutil.rmtree(cropped_out_dir)
-        maybe_mkdir_p(cropped_out_dir)
+        os.makedirs(cropped_out_dir, exist_ok=True)
 
     splitted_4d_output_dir_task = join(nnUNet_raw_data, task_string)
     lists, _ = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
@@ -147,7 +148,7 @@ def plan_and_preprocess(task_string, processes_lowres=default_num_threads, proce
 
     preprocessing_output_dir_this_task_train = join(preprocessing_output_dir, task_string)
     cropped_out_dir = join(nnUNet_cropped_data, task_string)
-    maybe_mkdir_p(preprocessing_output_dir_this_task_train)
+    os.makedirs(preprocessing_output_dir_this_task_train, exist_ok=True)
 
     shutil.copy(join(cropped_out_dir, "dataset_properties.pkl"), preprocessing_output_dir_this_task_train)
     shutil.copy(join(nnUNet_raw_data, task_string, "dataset.json"), preprocessing_output_dir_this_task_train)
@@ -171,9 +172,9 @@ def plan_and_preprocess(task_string, processes_lowres=default_num_threads, proce
         # if there is more than one my_data_identifier (different brnaches) then this code will run for all of them if
         # they start with the same string. not problematic, but not pretty
         stages = [i for i in subdirs(preprocessing_output_dir_this_task_train, join=True, sort=True)
-                  if i.split("/")[-1].find("stage") != -1]
+                  if os.path.basename(i).find("stage") != -1]
         for s in stages:
-            print(s.split("/")[-1])
+            print(os.path.basename(s))
             list_of_npz_files = subfiles(s, True, None, ".npz", True)
             list_of_pkl_files = [i[:-4]+".pkl" for i in list_of_npz_files]
             all_classes = []

@@ -88,7 +88,7 @@ class nnUNetTrainerV2_noDeepSupervision(nnUNetTrainerV2):
         :return:
         """
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()

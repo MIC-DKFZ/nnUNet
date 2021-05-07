@@ -194,7 +194,7 @@ class nnUNetTrainer(NetworkTrainer):
         :return:
         """
 
-        maybe_mkdir_p(self.output_folder)
+        os.makedirs(self.output_folder, exist_ok=True)
 
         if force_load_plans or (self.plans is None):
             self.load_plans_file()
@@ -296,8 +296,7 @@ class nnUNetTrainer(NetworkTrainer):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def save_debug_information(self):
-        # saving some debug information
+    def run_training(self):
         dct = OrderedDict()
         for k in self.__dir__():
             if not k.startswith("__"):
@@ -314,8 +313,6 @@ class nnUNetTrainer(NetworkTrainer):
 
         shutil.copy(self.plans_file, join(self.output_folder_base, "plans.pkl"))
 
-    def run_training(self):
-        self.save_debug_information()
         super(nnUNetTrainer, self).run_training()
 
     def load_plans_file(self):
@@ -557,7 +554,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         # predictions as they come from the network go here
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
         # this is for debug purposes
         my_input_args = {'do_mirroring': do_mirroring,
                          'use_sliding_window': use_sliding_window,
@@ -586,7 +583,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
@@ -639,7 +636,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         # evaluate raw predictions
         self.print_to_log_file("evaluation of raw predictions")
-        task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),
@@ -663,7 +660,7 @@ class nnUNetTrainer(NetworkTrainer):
         # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-        maybe_mkdir_p(gt_nifti_folder)
+        os.makedirs(gt_nifti_folder, exist_ok=True)
         for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
             success = False
             attempts = 0

@@ -44,8 +44,9 @@ def write_plans_to_file(f, plans_file):
                                                   a['plans_per_stage'][stages[stage]]['current_spacing'])]
         median_patient_size_in_mm = [i * j for i, j in zip(a['plans_per_stage'][stages[stage]]['median_patient_size_in_voxels'],
                                                   a['plans_per_stage'][stages[stage]]['current_spacing'])]
-        f.write(plans_file.split("/")[-2])
-        f.write(";%s" % plans_file.split("/")[-1])
+        split_path = os.path.normpath(plans_file).split(os.path.sep)
+        f.write(split_path[-2])
+        f.write(";%s" % split_path[-1])
         f.write(";%d" % stage)
         f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['batch_size']))
         f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['num_pool_per_axis']))

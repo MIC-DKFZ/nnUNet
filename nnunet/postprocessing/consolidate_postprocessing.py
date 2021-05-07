@@ -33,7 +33,7 @@ def collect_cv_niftis(cv_folder: str, output_folder: str, validation_folder_name
                            [i for j, i in enumerate(folds) if not exist[j]])
 
     # now copy all raw niftis into cv_niftis_raw
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
     for f in folds:
         niftis = subfiles(validation_raw_folders[f], suffix=".nii.gz")
         for n in niftis:

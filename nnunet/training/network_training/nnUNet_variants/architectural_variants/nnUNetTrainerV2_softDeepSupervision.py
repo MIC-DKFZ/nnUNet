@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import join
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 
 try:
@@ -27,6 +27,7 @@ from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from torch import nn
+import os
 import numpy as np
 
 
@@ -48,7 +49,7 @@ class nnUNetTrainerV2_softDeepSupervision(nnUNetTrainerV2):
         :return:
         """
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()

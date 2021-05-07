@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import numpy as np
+import os
 import torch
 from batchgenerators.utilities.file_and_folder_operations import join
 from nnunet.network_architecture.generic_UNet import Generic_UNet
@@ -22,7 +23,7 @@ from nnunet.training.data_augmentation.default_data_augmentation import default_
     default_2D_augmentation_params, get_patch_size
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
-from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2, maybe_mkdir_p
+from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
 
@@ -94,7 +95,7 @@ class nnUNetTrainerV2_DA3(nnUNetTrainerV2):
 
     def initialize(self, training=True, force_load_plans=False):
         if not self.was_initialized:
-            maybe_mkdir_p(self.output_folder)
+            os.makedirs(self.output_folder, exist_ok=True)
 
             if force_load_plans or (self.plans is None):
                 self.load_plans_file()

@@ -19,7 +19,6 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 import argparse
 from nnunet.preprocessing.preprocessing import resample_data_or_seg
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p
 import nnunet
 from nnunet.run.default_configuration import get_default_configuration
 from multiprocessing import Pool
@@ -45,7 +44,7 @@ def resample_and_save(predicted, target_shape, output_file, force_separate_z=Fal
 
 def predict_next_stage(trainer, stage_to_be_predicted_folder):
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     if 'segmentation_export_params' in trainer.plans.keys():
         force_separate_z = trainer.plans['segmentation_export_params']['force_separate_z']
@@ -68,11 +67,11 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
             data_preprocessed, do_mirroring=trainer.data_aug_params["do_mirror"],
             mirror_axes=trainer.data_aug_params['mirror_axes'], mixed_precision=trainer.fp16)[1]
 
-        data_file_nofolder = data_file.split("/")[-1]
+        data_file_nofolder = os.path.basename(data_file)
         data_file_nextstage = join(stage_to_be_predicted_folder, data_file_nofolder)
         data_nextstage = np.load(data_file_nextstage)['data']
         target_shp = data_nextstage.shape[1:]
-        output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
+        output_file = join(output_folder, os.path.basename(data_file_nextstage)[:-4] + "_segFromPrevStage.npz")
 
         if np.prod(predicted_probabilities.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
             np.save(output_file[:-4] + ".npy", predicted_probabilities)
@@ -130,6 +129,6 @@ if __name__ == "__main__":
 
     stage_to_be_predicted_folder = join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1)
     output_folder = join(pardir(trainer.output_folder), "pred_next_stage")
-    maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     predict_next_stage(trainer, stage_to_be_predicted_folder)

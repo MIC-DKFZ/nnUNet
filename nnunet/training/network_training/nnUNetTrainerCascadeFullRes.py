@@ -42,8 +42,8 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                           deterministic, previous_trainer, fp16)
 
         if self.output_folder is not None:
-            task = self.output_folder.split("/")[-3]
-            plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]
+            task = os.path.normpath(self.output_folder).split(os.path.sep)[-3]
+            plans_identifier = os.path.normpath(self.output_folder).split(os.path.sep)[-2].split("__")[-1]
 
             folder_with_segs_prev_stage = join(network_training_output_dir, "3d_lowres",
                                                task, previous_trainer + "__" + plans_identifier, "pred_next_stage")
@@ -178,7 +178,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
             interpolation_order_z = segmentation_export_kwargs['interpolation_order_z']
 
         output_folder = join(self.output_folder, validation_folder_name)
-        maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
 
         if do_mirroring:
             mirror_axes = self.data_aug_params['mirror_axes']
@@ -217,7 +217,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                 transpose_backward = self.plans.get('transpose_backward')
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in transpose_backward])
 
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
 
             if save_softmax:
                 softmax_fname = join(output_folder, fname + ".npz")
@@ -250,7 +250,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
 
         _ = [i.get() for i in results]
 
-        task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"), json_name=job_name,
@@ -273,7 +273,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-        maybe_mkdir_p(gt_nifti_folder)
+        os.makedirs(gt_nifti_folder, exist_ok=True)
         for f in subfiles(self.gt_niftis_folder, suffix=".nii.gz"):
             success = False
             attempts = 0

@@ -105,8 +105,11 @@ def verify_dataset_integrity(folder):
     training_cases = dataset['training']
     num_modalities = len(dataset['modality'].keys())
     test_cases = dataset['test']
-    expected_train_identifiers = [i['image'].split("/")[-1][:-7] for i in training_cases]
-    expected_test_identifiers = [i.split("/")[-1][:-7] for i in test_cases]
+    expected_train_identifiers = [os.path.basename(i['image'])[:-7] for i in training_cases]
+    expected_test_identifiers = [os.path.basename(i)[:-7] for i in test_cases]
+
+    if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)):
+        raise RuntimeError("found duplicate training cases in dataset.json")
 
     ## check training set
     nii_files_in_imagesTr = subfiles((join(folder, "imagesTr")), suffix=".nii.gz", join=False)
