@@ -62,7 +62,10 @@ def generate_dataset_json(output_file: str, imagesTr_dir: str, imagesTs_dir: str
     json_dict['labels'] = {str(i): labels[i] for i in labels.keys()}
 
     json_dict['numTraining'] = len(train_identifiers)
-    json_dict['numTest'] = []
+    if test_identifiers:  # if list is not empty
+        json_dict['numTest'] = len(test_identifiers)
+    else:  # if list is empty
+        json_dict['numTest'] = []
     json_dict['training'] = [
         {'image': "./imagesTr/%s.nii.gz" % i, "label": "./labelsTr/%s.nii.gz" % i} for i
         in
