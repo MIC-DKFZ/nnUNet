@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Union
 from skimage import io
 import SimpleITK as sitk
 import numpy as np
@@ -60,7 +60,7 @@ def convert_2d_image_to_nifti(input_filename: str, output_filename_truncated: st
             sitk.WriteImage(itk_img, output_filename_truncated + ".nii.gz")
 
 
-def convert_3d_tiff_to_nifti(filenames: List[str], output_name: str, spacing: Tuple[tuple, list], transform=None, is_seg=False) -> None:
+def convert_3d_tiff_to_nifti(filenames: List[str], output_name: str, spacing: Union[tuple, list], transform=None, is_seg=False) -> None:
     """
     filenames must be a list of strings, each pointing to a separate 3d tiff file. One file per modality. If your data
     only has one imaging modality, simply pass a list with only a single entry

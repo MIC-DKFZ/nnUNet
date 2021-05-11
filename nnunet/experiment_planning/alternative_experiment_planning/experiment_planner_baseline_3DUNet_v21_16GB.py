@@ -22,15 +22,15 @@ from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.paths import *
 
 
-class ExperimentPlanner3D_v21_32GB(ExperimentPlanner3D_v21):
+class ExperimentPlanner3D_v21_16GB(ExperimentPlanner3D_v21):
     """
-    Same as ExperimentPlanner3D_v21, but designed to fill a V100 (32GB) in fp16
+    Same as ExperimentPlanner3D_v21, but designed to fill 16GB in fp16
     """
     def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
-        super(ExperimentPlanner3D_v21_32GB, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
-        self.data_identifier = "nnUNetData_plans_v2.1_verybig"
+        super(ExperimentPlanner3D_v21_16GB, self).__init__(folder_with_cropped_data, preprocessed_output_folder)
+        self.data_identifier = "nnUNetData_plans_v2.1_16GB"
         self.plans_fname = join(self.preprocessed_output_folder,
-                                "nnUNetPlansv2.1_verybig_plans_3D.pkl")
+                                "nnUNetPlansv2.1_16GB_plans_3D.pkl")
 
     def get_properties_for_stage(self, current_spacing, original_spacing, original_shape, num_cases,
                                  num_modalities, num_classes):
@@ -61,9 +61,9 @@ class ExperimentPlanner3D_v21_32GB(ExperimentPlanner3D_v21):
                                                              self.unet_featuremap_min_edge_length,
                                                              self.unet_max_numpool)
         #     use_this_for_batch_size_computation_3D = 520000000 # 505789440
-        # typical ExperimentPlanner3D_v21 configurations use 7.5GB, but on a V100 we have 32. Allow for more space
+        # typical ExperimentPlanner3D_v21 configurations use 7.5GB, but on a 2080ti we have 11. Allow for more space
         # to be used
-        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 32 / 8
+        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 16 / 8.5
         here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
                                                             self.unet_base_num_features,
                                                             self.unet_max_num_filters, num_modalities,
@@ -94,6 +94,7 @@ class ExperimentPlanner3D_v21_32GB(ExperimentPlanner3D_v21):
                                                                 num_classes, pool_op_kernel_sizes,
                                                                 conv_per_stage=self.conv_per_stage)
             # print(new_shp)
+
         input_patch_size = new_shp
 
         batch_size = Generic_UNet.DEFAULT_BATCH_SIZE_3D  # This is what wirks with 128**3
@@ -120,3 +121,4 @@ class ExperimentPlanner3D_v21_32GB(ExperimentPlanner3D_v21):
             'conv_kernel_sizes': conv_kernel_sizes,
         }
         return plan
+

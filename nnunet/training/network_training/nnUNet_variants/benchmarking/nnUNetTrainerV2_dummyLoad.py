@@ -18,7 +18,7 @@ import torch
 from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.network_training.nnUNet_variants.architectural_variants.nnUNetTrainerV2_noDeepSupervision import \
     nnUNetTrainerV2_noDeepSupervision
-from nnunet.training.network_training.nnUNet_variants.profiling.nnUNetTrainerV2_2epochs import nnUNetTrainerV2_5epochs
+from nnunet.training.network_training.nnUNet_variants.benchmarking.nnUNetTrainerV2_2epochs import nnUNetTrainerV2_5epochs
 from torch.cuda.amp import autocast
 from torch.nn.utils import clip_grad_norm_
 import numpy as np
@@ -66,6 +66,14 @@ class nnUNetTrainerV2_5epochs_dummyLoad(nnUNetTrainerV2_5epochs):
         del target
 
         return l.detach().cpu().numpy()
+
+
+class nnUNetTrainerV2_2epochs_dummyLoad(nnUNetTrainerV2_5epochs_dummyLoad):
+    def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
+                 unpack_data=True, deterministic=True, fp16=False):
+        super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
+                         deterministic, fp16)
+        self.max_num_epochs = 2
 
 
 class nnUNetTrainerV2_5epochs_dummyLoadCEnoDS(nnUNetTrainerV2_noDeepSupervision):
