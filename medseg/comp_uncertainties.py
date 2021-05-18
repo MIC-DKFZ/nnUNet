@@ -84,7 +84,7 @@ if __name__ == '__main__':
         uncertainty_estimator = comp_variance_uncertainty
     elif method == "e":
         uncertainty_estimator = comp_entropy_uncertainty
-    elif method == "e":
+    elif method == "b":
         uncertainty_estimator = comp_bhattacharyya_uncertainty
     else:
         raise RuntimeError("Unknown uncertainty estimator.")
