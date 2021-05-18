@@ -141,11 +141,11 @@ def rename_guiding_masks(data_path):
 
 
 if __name__ == '__main__':
-    slice_gap = 75
+    slice_gap = 70  # 20
     default_size = 1280
     slice_depth = 1
-    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/labelsTs/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/guiding_masks/"
+    load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/labelsTr/"
+    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/guiding_masks/"
     comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
     rename_guiding_masks(save_path)
 

@@ -353,6 +353,7 @@ def aggregate_scores(test_ref_pairs,
     all_scores = OrderedDict()
     all_scores["all"] = []
     all_scores["mean"] = OrderedDict()
+    all_scores["median"] = OrderedDict()
 
     test = [i[0] for i in test_ref_pairs]
     ref = [i[1] for i in test_ref_pairs]
@@ -374,6 +375,12 @@ def aggregate_scores(test_ref_pairs,
                 if score not in all_scores["mean"][label]:
                     all_scores["mean"][label][score] = []
                 all_scores["mean"][label][score].append(value)
+            if label not in all_scores["median"]:
+                all_scores["median"][label] = OrderedDict()
+            for score, value in score_dict.items():
+                if score not in all_scores["median"][label]:
+                    all_scores["median"][label][score] = []
+                all_scores["median"][label][score].append(value)
 
     for label in all_scores["mean"]:
         for score in all_scores["mean"][label]:
@@ -381,6 +388,13 @@ def aggregate_scores(test_ref_pairs,
                 all_scores["mean"][label][score] = float(np.nanmean(all_scores["mean"][label][score]))
             else:
                 all_scores["mean"][label][score] = float(np.mean(all_scores["mean"][label][score]))
+
+    for label in all_scores["median"]:
+        for score in all_scores["median"][label]:
+            if nanmean:
+                all_scores["median"][label][score] = float(np.nanmedian(all_scores["median"][label][score]))
+            else:
+                all_scores["median"][label][score] = float(np.median(all_scores["median"][label][score]))
 
     # save to file if desired
     # we create a hopefully unique id by hashing the entire output dictionary

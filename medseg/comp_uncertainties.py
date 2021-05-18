@@ -3,9 +3,10 @@ import numpy as np
 import os
 from tqdm import tqdm
 import argparse
+import sys
 
 
-def comp_uncertainties(load_dir, save_dir, type="part"):
+def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, type="part"):
     load_dir = utils.fix_path(load_dir)
     save_dir = utils.fix_path(save_dir)
     filenames = utils.load_filenames(load_dir)
@@ -22,7 +23,7 @@ def comp_uncertainties(load_dir, save_dir, type="part"):
                 prediction, affine, spacing, header = utils.load_nifty(name)
                 predictions.append(prediction.astype(np.float16))
             predictions = np.stack(predictions)
-            uncertainty = comp_variance_uncertainty(predictions)
+            uncertainty = uncertainty_estimator(predictions)
             name = save_dir + str(case).zfill(4) + "_" + str(label) + ".nii.gz"
             utils.save_nifty(name, uncertainty, affine, spacing, header)
 
@@ -56,10 +57,36 @@ def comp_variance_uncertainty(predictions):
     return uncertainty
 
 
+def comp_entropy_uncertainty(predictions):
+    uncertainty = np.zeros_like(predictions)
+    for prediction in predictions:
+        uncertainty = prediction * np.log(prediction + sys.float_info.epsilon)
+    uncertainty = -1 * np.sum(uncertainty, axis=0)
+    return uncertainty
+
+
+def comp_bhattacharyya_uncertainty(predictions):
+    uncertainty = np.sqrt(np.prod(predictions, axis=0))
+    uncertainty += np.sqrt(np.prod(1 - predictions, axis=0))
+    return uncertainty
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", help="Input folder", required=True)
     parser.add_argument("-o", "--output", help="Output folder", required=True)
+    parser.add_argument("-m", "--method", help="Variance (v), entropy (e) or bhattacharyya (b)", required=True)
     args = parser.parse_args()
 
-    comp_uncertainties(args.input, args.output)
+    method = str(args.method)
+
+    if method == "v":
+        uncertainty_estimator = comp_variance_uncertainty
+    elif method == "e":
+        uncertainty_estimator = comp_entropy_uncertainty
+    elif method == "e":
+        uncertainty_estimator = comp_bhattacharyya_uncertainty
+    else:
+        raise RuntimeError("Unknown uncertainty estimator.")
+
+    comp_uncertainties(args.input, args.output, uncertainty_estimator)

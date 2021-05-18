@@ -21,7 +21,7 @@ from multiprocessing import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
-from medseg.comp_guiding_mask import comp_slices_mask
+from medseg.comp_guiding_mask import comp_slices_mask, comp_slices_mask2
 
 
 def get_case_identifiers(folder):
@@ -957,7 +957,8 @@ class DataLoader3DGuided3(DataLoader3D):
                                                           (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                    'constant', **{'constant_values': -1})
 
-                seg[j, guiding_mask_index] = comp_slices_mask(guiding_mask.squeeze(0), 75, p=0.7, slice_depth=1)[np.newaxis, ...]
+                # seg[j, guiding_mask_index] = comp_slices_mask(guiding_mask.squeeze(0), 75, p=0.7, slice_depth=1)[np.newaxis, ...]
+                seg[j, guiding_mask_index] = comp_slices_mask2(guiding_mask.squeeze(0))[np.newaxis, ...]
             else:
                 seg[j, guiding_mask_index] = np.pad(case_all_data[-2:-1], ((0, 0),
                                                                            (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),

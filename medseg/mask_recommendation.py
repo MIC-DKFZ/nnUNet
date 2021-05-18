@@ -14,6 +14,8 @@ import pickle
 import random
 import multiprocessing as mp
 from functools import partial
+import pandas as pd
+from pathlib import Path
 
 
 def recommend_slices(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size):
@@ -36,7 +38,7 @@ def recommend_slices(prediction_path, uncertainty_path, gt_path, save_path, find
         gt_slices = comp_gt_slices(gt)
         total_recommended_slices += recommended_slices
         total_gt_slices += gt_slices
-        # print("{} recommended slices: {}, gt slices: {}, ratio: {}".format(os.path.basename(uncertainty_filenames[i]), recommended_slices, gt_slices, recommended_slices / gt_slices))
+        print("name: {} recommended slices: {}, gt slices: {}, ratio: {}".format(os.path.basename(uncertainty_filenames[i]), recommended_slices, gt_slices, recommended_slices / gt_slices))
         # print("indices_dim_0: {}, indices_dim_1: {}, indices_dim_2: {}".format(indices_dim_0, indices_dim_1, indices_dim_2))
         filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
         utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
@@ -260,7 +262,40 @@ def find_best_slices_V6(prediction, uncertainty, num_slices, slice_gap):
     return indices_dim_0, indices_dim_1, indices_dim_2
 
 
-def find_best_slices_V7(prediction, uncertainty, num_slices, slice_gap):
+def find_best_slices_V7(prediction, uncertainty, num_slices, slice_gap, min_uncertainty=0.3):
+    "Like V2, but filters out all slices with less than 40% of summed uncertainty than that of the max slice"
+    uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
+    uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
+    uncertainty_dim_2 = np.sum(-1*uncertainty, axis=(0, 1))
+    indices_dim_0 = np.argsort(uncertainty_dim_0)
+    indices_dim_1 = np.argsort(uncertainty_dim_1)
+    indices_dim_2 = np.argsort(uncertainty_dim_2)
+    indices_dim_0 = filter_indices(indices_dim_0, num_slices, slice_gap)
+    indices_dim_1 = filter_indices(indices_dim_1, num_slices, slice_gap)
+    indices_dim_2 = filter_indices(indices_dim_2, num_slices, slice_gap)
+    uncertainty_dim_0 *= -1
+    uncertainty_dim_1 *= -1
+    uncertainty_dim_2 *= -1
+
+    def filter_by_required_uncertainty(uncertainty_dim, indices_dim):
+        min_required_uncertainty = uncertainty_dim[indices_dim[0]] * min_uncertainty
+        indices_dim = [index_dim for index_dim in indices_dim if uncertainty_dim[index_dim] >= min_required_uncertainty]
+        return indices_dim
+
+    indices_dim_0 = filter_by_required_uncertainty(uncertainty_dim_0, indices_dim_0)
+    indices_dim_1 = filter_by_required_uncertainty(uncertainty_dim_1, indices_dim_1)
+    indices_dim_2 = filter_by_required_uncertainty(uncertainty_dim_2, indices_dim_2)
+
+    return indices_dim_0, indices_dim_1, indices_dim_2
+
+
+def find_best_slices_V8(prediction, uncertainty, num_slices, slice_gap):
+    "Idee: V2, aber nur die slices nehmen die noch min 60% so viel uncertainty haben wie die erste slice + für jede slice den Bereich eingrenzen der 70% der Uncertainty umfasst"
+    "Neue metriken dafür machen: selektierte anzahl pixel / gesamt anzahl pixel ; selektierte anzahl infected pixel / gesamt anzahl infected pixel ; Absolute anzahl von selektieren patches"
+    pass
+
+
+def find_best_slices_V9(prediction, uncertainty, num_slices, slice_gap):
     """Idee für V5: V2 aber uncertainties 5 Grad drehen, resamplen V2 ausführen, das ganze 360/5=72 mal"""
     pass
 
@@ -321,7 +356,7 @@ def copy_masks_for_inference(load_dir, save_dir):
     filenames0 = filenames[:quarter]
     filenames1 = filenames[quarter:quarter*2]
     filenames2 = filenames[quarter*2:quarter*3]
-    filenames3 = filenames[-quarter:]
+    filenames3 = filenames[quarter*3:]
     save_dir0 = save_dir[:-1] + "_temp0/"
     save_dir1 = save_dir[:-1] + "_temp1/"
     save_dir2 = save_dir[:-1] + "_temp2/"
@@ -337,9 +372,12 @@ def copy_masks_for_inference(load_dir, save_dir):
         copyfile(filename, save_dir3 + os.path.basename(filename))
 
 def inference(available_devices, gt_path):
-    input_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/imagesTs_temp"
-    output_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/Task072_allGuided_ggo_predictionsTs"
-    filenames = utils.load_filenames(output_path, extensions=None)
+    input_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/imagesTs_temp"
+    # output_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/Task072_allGuided_ggo_predictionsTs"
+    start_time = time.time()
+    filenames = utils.load_filenames(refined_prediction_save_path, extensions=None)
+    print("load_filenames: ", time.time() - start_time)
+    start_time = time.time()
     for filename in filenames:
         os.remove(filename)
     parts_to_process = [0, 1, 2, 3]
@@ -348,6 +386,8 @@ def inference(available_devices, gt_path):
     wait_time = 5
     start_inference_time = time.time()
 
+    print("remove: ", time.time() - start_time)
+    print("Starting inference...")
     while parts_to_process:
         if available_devices:
             device = available_devices[0]
@@ -356,7 +396,7 @@ def inference(available_devices, gt_path):
             parts_to_process = parts_to_process[1:]
             print("Processing part {} on device {}...".format(part, device))
             command = 'nnUNet_predict -i ' + str(input_path) + str(
-                part) + ' -o ' + str(output_path) + ' -tr nnUNetTrainerV2Guided3 -t 72 -m 3d_fullres -f 0 -d ' + str(
+                part) + ' -o ' + str(refined_prediction_save_path) + ' -tr nnUNetTrainerV2Guided3 -t ' + task + ' -m 3d_fullres -f 0 -d ' + str(
                 device) + ' -chk model_best --disable_tta --num_threads_preprocessing 1 --num_threads_nifti_save 1'
             p = subprocess.Popen(command, shell=True, stdout=subprocess.DEVNULL, preexec_fn=os.setsid)
             waiting.append([part, device, p, time.time()])
@@ -371,8 +411,9 @@ def inference(available_devices, gt_path):
             time.sleep(wait_time)
     print("All parts are being processed.")
 
-    def check_all_predictions_exist(nr_predictions=20):
-        filenames = utils.load_filenames(output_path)
+    def check_all_predictions_exist():
+        filenames = utils.load_filenames(refined_prediction_save_path)
+        nr_predictions = len(utils.load_filenames(prediction_path))
         counter = 0
         for filename in filenames:
             if ".nii.gz" in filename:
@@ -381,14 +422,16 @@ def inference(available_devices, gt_path):
 
     while waiting and len(finished) < 4 and not check_all_predictions_exist():
         time.sleep(wait_time)
+    print("All predictions finished.")
     time.sleep(30)
+    print("Cleaning up threads")
     # [os.killpg(os.getpgid(p.pid), signal.SIGTERM) for p in finished]
     [os.killpg(os.getpgid(p[2].pid), signal.SIGTERM) for p in waiting]
-    os.remove(output_path + "/plans.pkl")
+    os.remove(refined_prediction_save_path + "/plans.pkl")
     print("Total inference time {}s.".format(time.time() - start_inference_time))
     print("All parts finished processing.")
-    dice_score = evaluate(gt_path, output_path, (0, 1))
-    return dice_score
+    mean_dice_score, median_dice_score = evaluate(gt_path, refined_prediction_save_path, (0, 1))
+    return mean_dice_score, median_dice_score
 
 
 def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size, devices, parallel):
@@ -404,20 +447,36 @@ def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size
                 total_ratio = recommend_slices(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
             else:
                 total_ratio = recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+            start_time = time.time()
             copy_masks_for_inference(save_path, inference_path)
-            dice_score = inference(devices, gt_path)
-            results.append({"slice_gap": slice_gap, "num_slices": num_slices, "total_ratio": total_ratio, "dice_score": dice_score})
+            print("copy_masks_for_inference: ", time.time() - start_time)
+            mean_dice_score, median_dice_score = inference(devices, gt_path)
+            results.append({"slice_gap": slice_gap, "num_slices": num_slices, "total_ratio": total_ratio, "mean_dice_score": mean_dice_score, "median_dice_score": median_dice_score})
             with open(save_dir + "grid_search_results_" + version + ".pkl", 'wb') as handle:
                 pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print(results)
 
+def pkl2csv(filename):
+    with open(filename, 'rb') as handle:
+        results = pickle.load(handle)
+
+    index = np.sort(np.unique([result["slice_gap"] for result in results]))
+    columns = np.sort(np.unique([result["num_slices"] for result in results]))
+    df = pd.DataFrame(index=index, columns=columns)
+    # slice_gap, num_slices
+    for result in results:
+        df.at[result["slice_gap"], result["num_slices"]] = [result["total_ratio"], result["dice_score"]]
+    print(df)
+    df.to_csv(filename[:-4] + ".csv")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--task", help="Set the task name", required=True)
     parser.add_argument("-v", "--version", help="Set the version", required=True)
     parser.add_argument("--parallel", action="store_true", default=False, help="Set the version", required=False)
     args = parser.parse_args()
-    devices = [0, 4, 5]
+    devices = [3, 4, 5, 6]
 
     version = str(args.version)
 
@@ -433,6 +492,8 @@ if __name__ == '__main__':
         find_best_slices_func = find_best_slices_V5
     elif version == "V6":
         find_best_slices_func = find_best_slices_V6
+    elif version == "V7":
+        find_best_slices_func = find_best_slices_V7
     elif version == "BV1":
         find_best_slices_func = find_best_slices_baseline_V1
     elif version == "BV2":
@@ -440,11 +501,16 @@ if __name__ == '__main__':
     else:
         raise RuntimeError("find_best_slices_func unknown")
 
-    prediction_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/Task073_all_ggo_predictionsTs/"
-    uncertainty_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/imagesTsUncertainties"
-    gt_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/labelsTs/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/recommended_masks/" + version + "/"
-    inference_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/imagesTs/"
+    task = args.task  # "Task072_allGuided_ggo"
+    prediction_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/basic_predictions/"
+    uncertainty_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/imagesTsUncertainties"
+    gt_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/labelsTs/"
+    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/recommended_masks/" + version + "/"
+    inference_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/imagesTs/"
+    refined_prediction_save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refined_predictions"
+    grid_search_save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/GridSearchResults/"
+
+    Path(save_path).mkdir(parents=True, exist_ok=True)
 
     # Good results: (20, 1280, 10), (20, 1280, 20), (20, 1280, 12)
 
@@ -457,6 +523,8 @@ if __name__ == '__main__':
     # copy_masks_for_inference(save_path, inference_path)
     # inference(devices, gt_path)
 
-    slice_gap = [20, 25]
-    num_slices = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
-    grid_search("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/GridSearchResults/", version, slice_gap, num_slices, 1280, devices, args.parallel)
+    slice_gap = [20]  # [20, 25]
+    num_slices = [12]
+    grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel)
+
+    # pkl2csv("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/GridSearchResults/grid_search_results_V6.pkl")
