@@ -219,13 +219,13 @@ def main():
         num_classes = len([i for i in all_results[best_model].keys() if i != 'mean'])
         with open(join(summary_folder, "summary.csv"), 'w') as f:
             f.write("model")
-            for c in range(1, num_classes):
+            for c in range(1, num_classes + 1):
                 f.write(",class%d" % c)
             f.write(",average")
             f.write("\n")
             for m in all_results.keys():
                 f.write(m)
-                for c in range(1, num_classes):
+                for c in range(1, num_classes + 1):
                     f.write(",%01.4f" % all_results[m][str(c)]["Dice"])
                 f.write(",%01.4f" % all_results[m]['mean']["Dice"])
                 f.write("\n")
