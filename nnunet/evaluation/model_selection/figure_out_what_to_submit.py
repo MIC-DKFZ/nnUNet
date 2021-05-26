@@ -56,11 +56,11 @@ def main():
     parser.add_argument("-t", '--task_ids', nargs="+", required=True)
 
     parser.add_argument("-tr", type=str, required=False, default=default_trainer,
-                           help="nnUNetTrainer class. Default: %s" % default_trainer)
+                        help="nnUNetTrainer class. Default: %s" % default_trainer)
     parser.add_argument("-ctr", type=str, required=False, default=default_cascade_trainer,
-                           help="nnUNetTrainer class for cascade model. Default: %s" % default_cascade_trainer)
+                        help="nnUNetTrainer class for cascade model. Default: %s" % default_cascade_trainer)
     parser.add_argument("-pl", type=str, required=False, default=default_plans_identifier,
-                           help="plans name, Default: %s" % default_plans_identifier)
+                        help="plans name, Default: %s" % default_plans_identifier)
     parser.add_argument('-f', '--folds', nargs='+', default=(0, 1, 2, 3, 4), help="Use this if you have non-standard "
                                                                                   "folds. Experienced users only.")
     parser.add_argument('--disable_ensembling', required=False, default=False, action='store_true',
@@ -119,9 +119,9 @@ def main():
                     niftis_cv = subfiles(cv_niftis_folder, suffix='.nii.gz', join=False)
                     if not all([i in niftis_gt for i in niftis_cv]):
                         raise AssertionError("It does not seem like you trained all the folds! Train " \
-                                                             "all folds first! There are %d gt niftis in %s but only " \
-                                                             "%d predicted niftis in %s" % (len(niftis_gt), niftis_gt,
-                                                                                            len(niftis_cv), niftis_cv))
+                                             "all folds first! There are %d gt niftis in %s but only " \
+                                             "%d predicted niftis in %s" % (len(niftis_gt), niftis_gt,
+                                                                            len(niftis_cv), niftis_cv))
 
                     # load a summary file so that we can know what class labels to expect
                     summary_fold0 = load_json(join(output_folder, "fold_%d" % folds[0], validation_folder,
@@ -216,7 +216,7 @@ def main():
         with open(join(summary_folder, "prediction_commands.txt"), 'w') as f:
             f.write(predict_str)
 
-        num_classes = len([i for i in all_results[best_model].keys() if i != 'mean'])
+        num_classes = len([i for i in all_results[best_model].keys() if i != 'mean' and i != '0'])
         with open(join(summary_folder, "summary.csv"), 'w') as f:
             f.write("model")
             for c in range(1, num_classes + 1):
