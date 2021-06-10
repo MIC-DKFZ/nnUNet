@@ -27,10 +27,10 @@ from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-net", "--network", default='3d_fullres')
-    parser.add_argument("-nt", "--network_trainer", default='nnUNetTrainerV2')
-    parser.add_argument("-task", "--task", default='Task004_Hippocampus', help="can be task name or task id")
-    parser.add_argument("-f", "--fold", default='all', help='0, 1, ..., 5 or \'all\'')
+    parser.add_argument("network")
+    parser.add_argument("network_trainer")
+    parser.add_argument("task", help="can be task name or task id")
+    parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
                         action="store_true")
     parser.add_argument("-c", "--continue_training", help="use this if you want to continue a training",
