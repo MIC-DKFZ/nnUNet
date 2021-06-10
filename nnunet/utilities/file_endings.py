@@ -20,8 +20,9 @@ def remove_trailing_slash(filename: str):
     return os.path.normpath(filename)
 
 
-def get_last_folder(filename: str):
-    return os.path.basename(remove_trailing_slash(filename))
+def get_last_folder(foldername: str):
+    assert os.path.isdir(foldername), "Provided argument 'foldername' is not a folder!"
+    return os.path.basename(remove_trailing_slash(foldername))
 
 
 def maybe_add_0000_to_all_niigz(folder):
