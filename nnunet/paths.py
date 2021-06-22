@@ -20,6 +20,11 @@ os.environ["nnUNet_raw_data_base"] = datasets_path + "nnUNet_raw_data"
 os.environ["nnUNet_preprocessed"] = datasets_path + "nnUNet_preprocessed"
 os.environ["RESULTS_FOLDER"] = "/gris/gris-f/homelv/kgotkows/experiments"
 
+# datasets_path = "/local/kgotkows/datasets/nnUnet_datasets/"
+# os.environ["nnUNet_raw_data_base"] = datasets_path + "nnUNet_raw_data"
+# os.environ["nnUNet_preprocessed"] = datasets_path + "nnUNet_preprocessed"
+# os.environ["RESULTS_FOLDER"] = "/local/kgotkows/experiments"
+
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNet"
 default_plans_identifier = "nnUNetPlansv2.1"

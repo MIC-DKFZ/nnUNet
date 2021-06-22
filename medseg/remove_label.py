@@ -19,5 +19,5 @@ def remove_label(load_path, save_path, labels_to_remove):
 
 
 if __name__ == '__main__':
-    remove_label("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task075_frankfurt3_ggo/labelsTr/",
-                 "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task075_frankfurt3_ggo/labelsTr/", labels_to_remove=(2, 3))
+    remove_label("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/predictions_frankfurt3/",
+                 "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/predictions_frankfurt32/", labels_to_remove=(2, 3))

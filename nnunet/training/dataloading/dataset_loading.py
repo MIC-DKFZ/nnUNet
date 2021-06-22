@@ -22,6 +22,8 @@ from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
 from medseg.comp_guiding_mask import comp_slices_mask, comp_slices_mask2
+import GeodisTK
+from medseg.utils import save_nifty
 
 
 def get_case_identifiers(folder):
@@ -934,18 +936,22 @@ class DataLoader3DGuided3(DataLoader3D):
             #     data_slice = -2
             # else:
             #     data_slice = -1
+
+            # Input data
             data[j] = np.pad(case_all_data[:-2], ((0, 0),
                                                   (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
                                                   (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
                                                   (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                              self.pad_mode, **self.pad_kwargs_data)
 
+            # Ground truth
             seg[j, 0] = np.pad(case_all_data[-1:], ((0, 0),
                                                     (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
                                                     (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
                                                     (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                'constant', **{'constant_values': -1})
 
+            # Guiding mask
             guiding_mask_index = 1
             if seg_from_previous_stage is not None:
                 guiding_mask_index = 2
@@ -957,8 +963,16 @@ class DataLoader3DGuided3(DataLoader3D):
                                                           (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                    'constant', **{'constant_values': -1})
 
+                # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/tmp/{}_1_guiding_mask.nii.gz".format(i), guiding_mask.squeeze())
                 # seg[j, guiding_mask_index] = comp_slices_mask(guiding_mask.squeeze(0), 75, p=0.7, slice_depth=1)[np.newaxis, ...]
+
                 seg[j, guiding_mask_index] = comp_slices_mask2(guiding_mask.squeeze(0))[np.newaxis, ...]
+
+                # # DeepIGeos
+                # seg[j, guiding_mask_index] = comp_slices_mask2(guiding_mask.squeeze(0))[np.newaxis, ...]
+                # geodisc_map = seg[j, guiding_mask_index].astype(np.uint8)
+                # geodisc_map[geodisc_map < 0] = 0
+                # seg[j, guiding_mask_index] = GeodisTK.geodesic3d_raster_scan(data[j].astype(np.float32).squeeze(0), geodisc_map, properties["spacing_after_resampling"].astype(np.float32), 0.0, 1)
             else:
                 seg[j, guiding_mask_index] = np.pad(case_all_data[-2:-1], ((0, 0),
                                                                            (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
@@ -966,6 +980,8 @@ class DataLoader3DGuided3(DataLoader3D):
                                                                            (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                                     'constant', **{'constant_values': -1})
 
+
+            # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/tmp/{}_{}_2_guiding_mask.nii.gz".format(i, np.sum(geodisc_map)), seg[j, guiding_mask_index])
             # from medseg.utils import save_nifty
             # import random
             # name = random.randint(0, 1000)
@@ -982,6 +998,7 @@ class DataLoader3DGuided3(DataLoader3D):
                                                               max(bbox_z_ub - shape[2], 0))),
                                    'constant', **{'constant_values': 0})
 
+        # print("test")
         return {'data': data, 'seg': seg, 'properties': case_properties, 'keys': selected_keys}
 
 

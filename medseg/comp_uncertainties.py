@@ -4,6 +4,7 @@ import os
 from tqdm import tqdm
 import argparse
 import sys
+from scipy.special import softmax
 
 
 def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, type="part"):
@@ -49,44 +50,63 @@ def group_data(filenames):
 
 
 def comp_variance_uncertainty(predictions):
-    predictive_posterior_mean = np.mean(predictions, axis=0)
-    uncertainty = np.zeros_like(predictive_posterior_mean)
+    mean = np.mean(predictions, axis=0)
+    uncertainty = np.zeros_like(mean)
     for prediction in predictions:
-        uncertainty += (prediction - predictive_posterior_mean) ** 2
+        uncertainty += (prediction - mean) ** 2
     uncertainty /= len(predictions)
     return uncertainty
 
 
 def comp_entropy_uncertainty(predictions):
-    uncertainty = np.zeros_like(predictions)
+    predictions = predictions.transpose(1, 2, 3, 0)
+    predictions = softmax(predictions, axis=3)
+    predictions = predictions.transpose(3, 0, 1, 2)
+    uncertainty = np.zeros(predictions.shape[1:])
     for prediction in predictions:
-        uncertainty = prediction * np.log(prediction + sys.float_info.epsilon)
-    uncertainty = -1 * np.sum(uncertainty, axis=0)
+        uncertainty += prediction * np.log2(prediction + sys.float_info.epsilon)
+    uncertainty = -1 * uncertainty / np.log2(predictions.shape[0])
+    uncertainty = 1 - uncertainty
     return uncertainty
 
 
 def comp_bhattacharyya_uncertainty(predictions):
-    uncertainty = np.sqrt(np.prod(predictions, axis=0))
-    uncertainty += np.sqrt(np.prod(1 - predictions, axis=0))
+    uncertainty = np.power(np.prod(predictions, axis=0), 1.0/float(predictions.shape[0]))
+    uncertainty += np.power(np.prod(1 - predictions, axis=0), 1.0/float(predictions.shape[0]))
+    uncertainty = 1 - uncertainty
     return uncertainty
 
 
+def preprocess_uncertainty_files(data_dir):
+    data_dir = utils.fix_path(data_dir)
+    filenames = utils.load_filenames(data_dir)
+
+    for filename in tqdm(filenames):
+        if filename[-9:] == "_0.nii.gz":
+            os.remove(filename)
+        else:
+            os.rename(filename, filename[:-9] + ".nii.gz")
+
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", help="Input folder", required=True)
-    parser.add_argument("-o", "--output", help="Output folder", required=True)
-    parser.add_argument("-m", "--method", help="Variance (v), entropy (e) or bhattacharyya (b)", required=True)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-i", "--input", help="Input folder", required=True)
+    # parser.add_argument("-o", "--output", help="Output folder", required=True)
+    # parser.add_argument("-m", "--method", help="Variance (v), entropy (e) or bhattacharyya (b)", required=True)
+    # args = parser.parse_args()
+    #
+    # method = str(args.method)
+    #
+    # if method == "v":
+    #     uncertainty_estimator = comp_variance_uncertainty
+    # elif method == "e":
+    #     uncertainty_estimator = comp_entropy_uncertainty
+    # elif method == "b":
+    #     uncertainty_estimator = comp_bhattacharyya_uncertainty
+    # else:
+    #     raise RuntimeError("Unknown uncertainty estimator.")
+    #
+    # comp_uncertainties(args.input, args.output, uncertainty_estimator)
 
-    method = str(args.method)
-
-    if method == "v":
-        uncertainty_estimator = comp_variance_uncertainty
-    elif method == "e":
-        uncertainty_estimator = comp_entropy_uncertainty
-    elif method == "b":
-        uncertainty_estimator = comp_bhattacharyya_uncertainty
-    else:
-        raise RuntimeError("Unknown uncertainty estimator.")
-
-    comp_uncertainties(args.input, args.output, uncertainty_estimator)
+    preprocess_uncertainty_files("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/uncertainties/mcdo/bhattacharyya_coefficient")

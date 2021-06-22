@@ -16,38 +16,51 @@ import multiprocessing as mp
 from functools import partial
 import pandas as pd
 from pathlib import Path
+import GeodisTK
 
 
-def recommend_slices(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size):
-    prediction_filenames = utils.load_filenames(prediction_path)
-    uncertainty_filenames = utils.load_filenames(uncertainty_path)
-    gt_filenames = utils.load_filenames(gt_path)
-    total_recommended_slices = 0
-    total_gt_slices = 0
+# def recommend_slices(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size, deepigeos=0):
+#     image_filenames = utils.load_filenames(image_path)
+#     prediction_filenames = utils.load_filenames(prediction_path)
+#     uncertainty_filenames = utils.load_filenames(uncertainty_path)
+#     gt_filenames = utils.load_filenames(gt_path)
+#     total_recommended_slices = 0
+#     total_gt_slices = 0
+#
+#     for i in tqdm(range(len(uncertainty_filenames))):
+#         uncertainty, affine, spacing, header = utils.load_nifty(uncertainty_filenames[i])
+#         prediction, _, _, _ = utils.load_nifty(prediction_filenames[i])
+#         gt, _, _, _ = utils.load_nifty(gt_filenames[i])
+#         if deepigeos != 0:
+#             image, _, _, _ = utils.load_nifty(image_filenames[i])
+#         adapted_slice_gap = adapt_slice_gap(uncertainty, slice_gap, default_size)
+#         # indices_dim_0: Sagittal
+#         # indices_dim_1: Coronal
+#         # indices_dim_2: Axial
+#         indices_dim_0, indices_dim_1, indices_dim_2 = find_best_slices_func(prediction, uncertainty, num_slices, adapted_slice_gap)
+#         recommended_slices = len(indices_dim_0) + len(indices_dim_1) + len(indices_dim_2)
+#         gt_slices = comp_infected_slices(gt)
+#         total_recommended_slices += recommended_slices
+#         total_gt_slices += gt_slices
+#         print("name: {} recommended slices: {}, gt slices: {}, ratio: {}".format(os.path.basename(uncertainty_filenames[i]), recommended_slices, gt_slices, recommended_slices / gt_slices))
+#         # print("indices_dim_0: {}, indices_dim_1: {}, indices_dim_2: {}".format(indices_dim_0, indices_dim_1, indices_dim_2))
+#         filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
+#         if deepigeos != 0:
+#             if deepigeos == 1:
+#                 geodisc_lambda = 0.99
+#             else:
+#                 geodisc_lambda = 0.0
+#             geodisc_map = filtered_mask.astype(np.uint8)
+#             geodisc_map[geodisc_map < 0] = 0
+#             filtered_mask = GeodisTK.geodesic3d_raster_scan(image.astype(np.float32).squeeze(0), geodisc_map, spacing.astype(np.float32), geodisc_lambda, 1)
+#         utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
+#     total_ratio = total_recommended_slices / total_gt_slices
+#     print("total recommended slices: {}, total gt slices: {}, total ratio: {}".format(total_recommended_slices, total_gt_slices, total_ratio))
+#     return total_ratio
 
-    for i in tqdm(range(len(uncertainty_filenames))):
-        uncertainty, affine, spacing, header = utils.load_nifty(uncertainty_filenames[i])
-        prediction, _, _, _ = utils.load_nifty(prediction_filenames[i])
-        gt, _, _, _ = utils.load_nifty(gt_filenames[i])
-        adapted_slice_gap = adapt_slice_gap(uncertainty, slice_gap, default_size)
-        # indices_dim_0: Sagittal
-        # indices_dim_1: Coronal
-        # indices_dim_2: Axial
-        indices_dim_0, indices_dim_1, indices_dim_2 = find_best_slices_func(prediction, uncertainty, num_slices, adapted_slice_gap)
-        recommended_slices = len(indices_dim_0) + len(indices_dim_1) + len(indices_dim_2)
-        gt_slices = comp_gt_slices(gt)
-        total_recommended_slices += recommended_slices
-        total_gt_slices += gt_slices
-        print("name: {} recommended slices: {}, gt slices: {}, ratio: {}".format(os.path.basename(uncertainty_filenames[i]), recommended_slices, gt_slices, recommended_slices / gt_slices))
-        # print("indices_dim_0: {}, indices_dim_1: {}, indices_dim_2: {}".format(indices_dim_0, indices_dim_1, indices_dim_2))
-        filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
-        utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
-    total_ratio = total_recommended_slices / total_gt_slices
-    print("total recommended slices: {}, total gt slices: {}, total ratio: {}".format(total_recommended_slices, total_gt_slices, total_ratio))
-    return total_ratio
 
-
-def recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size):
+def recommend_slices_parallel(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size, deepigeos=0):
+    image_filenames = utils.load_filenames(image_path)
     prediction_filenames = utils.load_filenames(prediction_path)
     uncertainty_filenames = utils.load_filenames(uncertainty_path)
     gt_filenames = utils.load_filenames(gt_path)
@@ -55,8 +68,8 @@ def recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_p
 
     start_time = time.time()
     results = pool.map(partial(recommend_slices_single_case,
-                                                   prediction_filenames=prediction_filenames, uncertainty_filenames=uncertainty_filenames, gt_filenames=gt_filenames,
-                                                   save_path=save_path, find_best_slices_func=find_best_slices_func, num_slices=num_slices, slice_gap=slice_gap, default_size=default_size),
+                                                   image_filenames=image_filenames, prediction_filenames=prediction_filenames, uncertainty_filenames=uncertainty_filenames, gt_filenames=gt_filenames,
+                                                   save_path=save_path, find_best_slices_func=find_best_slices_func, num_slices=num_slices, slice_gap=slice_gap, default_size=default_size, deepigeos=deepigeos),
                                            range(len(uncertainty_filenames)))
     print("Recommend slices elapsed time: ", time.time() - start_time)
     results = np.asarray(results)
@@ -70,23 +83,38 @@ def recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_p
     return total_ratio
 
 
-def recommend_slices_single_case(i, prediction_filenames, uncertainty_filenames, gt_filenames, save_path, find_best_slices_func, num_slices, slice_gap, default_size):
+def recommend_slices_single_case(i, image_filenames, prediction_filenames, uncertainty_filenames, gt_filenames, save_path, find_best_slices_func, num_slices, slice_gap, default_size, deepigeos=0):
     uncertainty, affine, spacing, header = utils.load_nifty(uncertainty_filenames[i])
     prediction, _, _, _ = utils.load_nifty(prediction_filenames[i])
     gt, _, _, _ = utils.load_nifty(gt_filenames[i])
+    if deepigeos != 0:
+        image, _, _, _ = utils.load_nifty(image_filenames[i])
     adapted_slice_gap = adapt_slice_gap(uncertainty, slice_gap, default_size)
     # indices_dim_0: Sagittal
     # indices_dim_1: Coronal
     # indices_dim_2: Axial
     indices_dim_0, indices_dim_1, indices_dim_2 = find_best_slices_func(prediction, uncertainty, num_slices, adapted_slice_gap)
     recommended_slices = len(indices_dim_0) + len(indices_dim_1) + len(indices_dim_2)
-    gt_slices = comp_gt_slices(gt)
+    gt_slices = comp_infected_slices(gt)
+    prediction_slices = comp_infected_slices(prediction)
+    print("name: {} recommended slices: {}, gt slices: {}, prediction slices: {}, ratio: {}".format(os.path.basename(uncertainty_filenames[i]), recommended_slices, gt_slices, prediction_slices, recommended_slices / gt_slices))
     # total_recommended_slices += recommended_slices
     # total_gt_slices += gt_slices
     # print("{} recommended slices: {}, gt slices: {}, ratio: {}".format(os.path.basename(uncertainty_filenames[i]), recommended_slices, gt_slices, recommended_slices / gt_slices))
     # print("indices_dim_0: {}, indices_dim_1: {}, indices_dim_2: {}".format(indices_dim_0, indices_dim_1, indices_dim_2))
     filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
-    utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
+    if deepigeos != 0:
+        if deepigeos == 1:
+            geodisc_lambda = 0.99
+        else:
+            geodisc_lambda = 0.0
+        geodisc_map = filtered_mask.astype(np.uint8)
+        geodisc_map[geodisc_map < 0] = 0
+        filtered_mask = GeodisTK.geodesic3d_raster_scan(image.astype(np.float32), geodisc_map, spacing.astype(np.float32), geodisc_lambda, 1)
+        # filtered_mask[geodisc_map == 1] = 0
+        utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=False)
+    else:
+        utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
     return recommended_slices, gt_slices
 
 
@@ -262,7 +290,7 @@ def find_best_slices_V6(prediction, uncertainty, num_slices, slice_gap):
     return indices_dim_0, indices_dim_1, indices_dim_2
 
 
-def find_best_slices_V7(prediction, uncertainty, num_slices, slice_gap, min_uncertainty=0.3):
+def find_best_slices_V7(prediction, uncertainty, num_slices, slice_gap, min_uncertainty=0.15, max_slices_based_on_infected_slices=0.20):
     "Like V2, but filters out all slices with less than 40% of summed uncertainty than that of the max slice"
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -285,6 +313,14 @@ def find_best_slices_V7(prediction, uncertainty, num_slices, slice_gap, min_unce
     indices_dim_0 = filter_by_required_uncertainty(uncertainty_dim_0, indices_dim_0)
     indices_dim_1 = filter_by_required_uncertainty(uncertainty_dim_1, indices_dim_1)
     indices_dim_2 = filter_by_required_uncertainty(uncertainty_dim_2, indices_dim_2)
+
+    num_infected_slices = comp_infected_slices(prediction)
+    num_infected_slices = int((num_infected_slices * max_slices_based_on_infected_slices) / 3)
+    if num_infected_slices == 0:
+        num_infected_slices = 1
+    indices_dim_0 = indices_dim_0[:num_infected_slices]
+    indices_dim_1 = indices_dim_1[:num_infected_slices]
+    indices_dim_2 = indices_dim_2[:num_infected_slices]
 
     return indices_dim_0, indices_dim_1, indices_dim_2
 
@@ -344,23 +380,23 @@ def filter_mask(mask, indices_dim_0, indices_dim_1, indices_dim_2):
     return filtered_mask
 
 
-def comp_gt_slices(gt):
-    gt_slices = np.sum(gt, axis=(0, 1))
-    gt_slices = np.count_nonzero(gt_slices)
-    return gt_slices
+def comp_infected_slices(mask):
+    mask_slices = np.sum(mask, axis=(0, 1))
+    mask_slices = np.count_nonzero(mask_slices)
+    return mask_slices
 
 
-def copy_masks_for_inference(load_dir, save_dir):
+def copy_masks_for_inference(load_dir):
     filenames = utils.load_filenames(load_dir)
     quarter = int(len(filenames) / 4)
     filenames0 = filenames[:quarter]
     filenames1 = filenames[quarter:quarter*2]
     filenames2 = filenames[quarter*2:quarter*3]
     filenames3 = filenames[quarter*3:]
-    save_dir0 = save_dir[:-1] + "_temp0/"
-    save_dir1 = save_dir[:-1] + "_temp1/"
-    save_dir2 = save_dir[:-1] + "_temp2/"
-    save_dir3 = save_dir[:-1] + "_temp3/"
+    save_dir0 = refinement_inference_tmp + "0/"
+    save_dir1 = refinement_inference_tmp + "1/"
+    save_dir2 = refinement_inference_tmp + "2/"
+    save_dir3 = refinement_inference_tmp + "3/"
 
     for filename in filenames0:
         copyfile(filename, save_dir0 + os.path.basename(filename))
@@ -372,8 +408,6 @@ def copy_masks_for_inference(load_dir, save_dir):
         copyfile(filename, save_dir3 + os.path.basename(filename))
 
 def inference(available_devices, gt_path):
-    input_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/imagesTs_temp"
-    # output_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/Task072_allGuided_ggo_predictionsTs"
     start_time = time.time()
     filenames = utils.load_filenames(refined_prediction_save_path, extensions=None)
     print("load_filenames: ", time.time() - start_time)
@@ -395,8 +429,8 @@ def inference(available_devices, gt_path):
             part = parts_to_process[0]
             parts_to_process = parts_to_process[1:]
             print("Processing part {} on device {}...".format(part, device))
-            command = 'nnUNet_predict -i ' + str(input_path) + str(
-                part) + ' -o ' + str(refined_prediction_save_path) + ' -tr nnUNetTrainerV2Guided3 -t ' + task + ' -m 3d_fullres -f 0 -d ' + str(
+            command = 'nnUNet_predict -i ' + str(refinement_inference_tmp) + str(
+                part) + ' -o ' + str(refined_prediction_save_path) + ' -tr nnUNetTrainerV2Guided3 -t ' + model + ' -m 3d_fullres -f 0 -d ' + str(
                 device) + ' -chk model_best --disable_tta --num_threads_preprocessing 1 --num_threads_nifti_save 1'
             p = subprocess.Popen(command, shell=True, stdout=subprocess.DEVNULL, preexec_fn=os.setsid)
             waiting.append([part, device, p, time.time()])
@@ -434,7 +468,7 @@ def inference(available_devices, gt_path):
     return mean_dice_score, median_dice_score
 
 
-def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size, devices, parallel):
+def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size, devices, parallel, deepigeos=0):
     results = []
     if os.path.isfile(save_dir + "grid_search_results_" + version + ".pkl"):
         with open(save_dir + "grid_search_results_" + version + ".pkl", 'rb') as handle:
@@ -444,11 +478,12 @@ def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size
         for num_slices in num_slices_list:
             print("slice_gap: {}, default_size: {}, num_slices: {}".format(slice_gap, default_size, num_slices))
             if not parallel:
-                total_ratio = recommend_slices(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+                # total_ratio = recommend_slices(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+                pass
             else:
-                total_ratio = recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+                total_ratio = recommend_slices_parallel(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size, deepigeos)
             start_time = time.time()
-            copy_masks_for_inference(save_path, inference_path)
+            copy_masks_for_inference(save_path)
             print("copy_masks_for_inference: ", time.time() - start_time)
             mean_dice_score, median_dice_score = inference(devices, gt_path)
             results.append({"slice_gap": slice_gap, "num_slices": num_slices, "total_ratio": total_ratio, "mean_dice_score": mean_dice_score, "median_dice_score": median_dice_score})
@@ -473,12 +508,19 @@ def pkl2csv(filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task", help="Set the task name", required=True)
+    parser.add_argument("-m", "--model", help="Set the model name", required=True)
+    parser.add_argument("-s", "--set", help="val/test", required=True)
     parser.add_argument("-v", "--version", help="Set the version", required=True)
+    parser.add_argument("-uq", "--uncertainty_quantification", help="Set the type of uncertainty quantification method to use", required=True)
+    parser.add_argument("-um", "--uncertainty_measure", help="Set the type of uncertainty measure to use", required=True)
     parser.add_argument("--parallel", action="store_true", default=False, help="Set the version", required=False)
+    parser.add_argument("-dig", "--deepigeos", help="Set DeepIGeos ID", required=True)
     args = parser.parse_args()
-    devices = [3, 4, 5, 6]
+    devices = [0, 5, 6, 7]
 
     version = str(args.version)
+    uncertainty_quantification = str(args.uncertainty_quantification)
+    uncertainty_measure = str(args.uncertainty_measure)
 
     if version == "V1":
         find_best_slices_func = find_best_slices_V1
@@ -501,30 +543,42 @@ if __name__ == '__main__':
     else:
         raise RuntimeError("find_best_slices_func unknown")
 
+    if uncertainty_quantification == "e":
+        uncertainty_quantification = "ensemble"
+    elif uncertainty_quantification == "t":
+        uncertainty_quantification = "tta"
+    elif uncertainty_quantification == "m":
+        uncertainty_quantification = "mcdo"
+    else:
+        raise RuntimeError("uncertainty_quantification unknown")
+
+    if uncertainty_measure == "b":
+        uncertainty_measure = "bhattacharyya_coefficient"
+    elif uncertainty_measure == "e":
+        uncertainty_measure = "predictive_entropy"
+    elif uncertainty_measure == "v":
+        uncertainty_measure = "predictive_variance"
+    else:
+        raise RuntimeError("uncertainty_measure unknown")
+
     task = args.task  # "Task072_allGuided_ggo"
-    prediction_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/basic_predictions/"
-    uncertainty_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/imagesTsUncertainties"
-    gt_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/labelsTs/"
-    save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/recommended_masks/" + version + "/"
-    inference_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/imagesTs/"
-    refined_prediction_save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refined_predictions"
-    grid_search_save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/GridSearchResults/"
+    model = args.model
+    set = args.set  # "val"
+    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_" + set + "/"
+    image_path = base_path + "/images/"
+    prediction_path = base_path + "/basic_predictions/"
+    uncertainty_path = base_path + "/uncertainties/" + uncertainty_quantification + "/" + uncertainty_measure + "/"
+    gt_path = base_path + "/labels/"
+    save_path = base_path + "/recommended_masks/" + version + "/"
+    refined_prediction_save_path = base_path + "/refined_predictions"
+    grid_search_save_path = base_path + "/GridSearchResults/"
+    refinement_inference_tmp = base_path + "/refinement_inference_tmp/part"
+    deepigeos = int(args.deepigeos)
 
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    # Good results: (20, 1280, 10), (20, 1280, 20), (20, 1280, 12)
-
-    # slice_gap = 20  # 75
-    # default_size = 1280
-    # num_slices = 40  # 10
-    #
-    # print("slice_gap: {}, default_size: {}, num_slices: {}".format(slice_gap, default_size, num_slices))
-    # recommend_slices(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
-    # copy_masks_for_inference(save_path, inference_path)
-    # inference(devices, gt_path)
-
     slice_gap = [20]  # [20, 25]
     num_slices = [12]
-    grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel)
+    grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel, deepigeos)
 
     # pkl2csv("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/GridSearchResults/grid_search_results_V6.pkl")

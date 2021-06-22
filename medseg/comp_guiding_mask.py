@@ -6,6 +6,7 @@ import random
 import copy
 from skimage import measure
 import os
+import GeodisTK
 
 
 def comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth=3):
@@ -133,11 +134,23 @@ def add_to_images_or_masks(image_path, guiding_mask_path, save_path, is_mask=Fal
         image = np.stack([image, guiding_mask], axis=-1)
         utils.save_nifty(save_path + os.path.basename(image_filenames[i]), image, affine, spacing, header, is_mask=is_mask)
 
+
 def rename_guiding_masks(data_path):
     filenames = utils.load_filenames(data_path)
     for i, filename in enumerate(filenames):
         basename = str(i+1).zfill(4) + "_0001.nii.gz"
         os.rename(filename, data_path + basename)
+
+
+def guiding2geodistk(data_path, lamb=0.99, iterations=4):
+    filenames = utils.load_filenames(data_path)
+    for i in tqdm(range(0, len(filenames), 2)):
+        image, affine, spacing, header = utils.load_nifty(filenames[i])
+        guiding_mask, _, _, _ = utils.load_nifty(filenames[i+1])
+
+        geodesic_distance_map = GeodisTK.geodesic3d_raster_scan(image.astype(np.float32), guiding_mask.astype(np.uint8), spacing, lamb, iterations)
+        # geodesic_distance_map = GeodisTK.geodesic3d_fast_marching(image.astype(np.float32), guiding_mask.astype(np.uint8), lamb)
+        utils.save_nifty(filenames[i+1], geodesic_distance_map, affine, spacing, header, is_mask=False)
 
 
 if __name__ == '__main__':
@@ -146,8 +159,9 @@ if __name__ == '__main__':
     slice_depth = 1
     load_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/labelsTr/"
     save_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/guiding_masks/"
-    comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
-    rename_guiding_masks(save_path)
+    # comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
+    # rename_guiding_masks(save_path)
+    guiding2geodistk("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/imagesTr/", lamb=0.99, iterations=1)
 
     # image_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
     # guiding_mask_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks/"
