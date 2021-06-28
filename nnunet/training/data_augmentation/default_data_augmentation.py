@@ -66,7 +66,7 @@ default_3D_augmentation_params = {
     "mirror_axes": (0, 1, 2),
 
     "dummy_2D": False,
-    "mask_was_used_for_normalization": False,
+    "mask_was_used_for_normalization": None,
     "border_mode_data": "constant",
 
     "all_segmentation_labels": None,  # used for cascade
