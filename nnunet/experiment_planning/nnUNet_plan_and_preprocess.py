@@ -52,6 +52,27 @@ def main():
     parser.add_argument("--verify_dataset_integrity", required=False, default=False, action="store_true",
                         help="set this flag to check the dataset integrity. This is useful and should be done once for "
                              "each dataset!")
+    parser.add_argument("-overwrite_plans", type=str, default=None, required=False,
+                        help="Use this to specify a plans file that should be used instead of whatever nnU-Net would "
+                             "configure automatically. This will overwrite everything: intensity normalization, "
+                             "network architecture, target spacing etc. Using this is useful for using pretrained "
+                             "model weights as this will guarantee that the network architecture on the target "
+                             "dataset is the same as on the source dataset and the weights can therefore be transferred.\n"
+                             "Pro tip: If you want to pretrain on Hepaticvessel and apply the result to LiTS then use "
+                             "the LiTS plans to run the preprocessing of the HepaticVessel task.\n"
+                             "Make sure to only use plans files that were "
+                             "generated with the same number of modalities as the target dataset (LiTS -> BCV or "
+                             "LiTS -> Task008_HepaticVessel is OK. BraTS -> LiTS is not (BraTS has 4 input modalities, "
+                             "LiTS has just one)). Also only do things that make sense. This functionality is beta with"
+                             "no support given.\n"
+                             "Note that this will first print the old plans (which are going to be overwritten) and "
+                             "then the new ones (provided that -no_pp was NOT set).")
+    parser.add_argument("-overwrite_plans_identifier", type=str, default=None, required=False,
+                        help="If you set overwrite_plans you need to provide a unique identifier so that nnUNet knows "
+                             "where to look for the correct plans and data. Assume your identifier is called "
+                             "IDENTIFIER, the correct training command would be:\n"
+                             "'nnUNet_train CONFIG TRAINER TASKID FOLD -p nnUNetPlans_pretrained_IDENTIFIER "
+                             "-pretrained_weights FILENAME'")
 
     args = parser.parse_args()
     task_ids = args.task_ids
@@ -65,6 +86,13 @@ def main():
         planner_name3d = None
     if planner_name2d == "None":
         planner_name2d = None
+
+    if args.overwrite_plans is not None:
+        if planner_name2d is not None:
+            print("Overwriting plans only works for the 3d planner. I am setting '--planner2d' to None. This will "
+                  "skip 2d planning and preprocessing.")
+        assert planner_name3d == 'ExperimentPlanner3D_v21_Pretrained', "When using --overwrite_plans you need to use " \
+                                                                       "'-pl3d ExperimentPlanner3D_v21_Pretrained'"
 
     # we need raw data
     tasks = []
@@ -122,7 +150,12 @@ def main():
         print("number of threads: ", threads, "\n")
 
         if planner_3d is not None:
-            exp_planner = planner_3d(cropped_out_dir, preprocessing_output_dir_this_task)
+            if args.overwrite_plans is not None:
+                assert args.overwrite_plans_identifier is not None, "You need to specify -overwrite_plans_identifier"
+                exp_planner = planner_3d(cropped_out_dir, preprocessing_output_dir_this_task, args.overwrite_plans,
+                                         args.overwrite_plans_identifier)
+            else:
+                exp_planner = planner_3d(cropped_out_dir, preprocessing_output_dir_this_task)
             exp_planner.plan_experiment()
             if not dont_run_preprocessing:  # double negative, yooo
                 exp_planner.run_preprocessing(threads)
