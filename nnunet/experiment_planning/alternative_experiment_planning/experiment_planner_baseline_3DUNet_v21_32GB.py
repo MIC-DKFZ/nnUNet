@@ -61,9 +61,9 @@ class ExperimentPlanner3D_v21_32GB(ExperimentPlanner3D_v21):
                                                              self.unet_featuremap_min_edge_length,
                                                              self.unet_max_numpool)
         #     use_this_for_batch_size_computation_3D = 520000000 # 505789440
-        # typical ExperimentPlanner3D_v21 configurations use 7.5GB, but on a V100 we have 32. Allow for more space
+        # typical ExperimentPlanner3D_v21 configurations use ~8.5GB, but on a V100 we have 32. Allow for more space
         # to be used
-        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 32 / 8
+        ref = Generic_UNet.use_this_for_batch_size_computation_3D * 32 / 8  # 8 instead of 8.5 because YOLO
         here = Generic_UNet.compute_approx_vram_consumption(new_shp, network_num_pool_per_axis,
                                                             self.unet_base_num_features,
                                                             self.unet_max_num_filters, num_modalities,
