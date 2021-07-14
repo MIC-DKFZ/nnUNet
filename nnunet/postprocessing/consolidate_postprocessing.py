@@ -72,7 +72,7 @@ def consolidate_folds(output_folder_base, validation_folder_name: str = 'validat
         'mean']
     classes = [int(i) for i in summary_fold0.keys()]
     niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
-    test_pred_pairs = [(join(output_folder_gt, i), join(output_folder_raw, i)) for i in niftis]
+    test_pred_pairs = [(join(output_folder_raw, i), join(output_folder_gt, i)) for i in niftis]
 
     # determine_postprocessing needs a summary.json file in the folder where the raw predictions are. We could compute
     # that from the summary files of the five folds but I am feeling lazy today
