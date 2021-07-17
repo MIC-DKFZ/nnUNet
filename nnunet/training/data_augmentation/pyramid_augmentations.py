@@ -92,6 +92,32 @@ class MoveSegAsOneHotToData(AbstractTransform):
         return data_dict
 
 
+class MoveSegToData(AbstractTransform):
+    def __init__(self, channel_id, all_seg_labels, key_origin="seg", key_target="data", remove_from_origin=True):
+        self.remove_from_origin = remove_from_origin
+        self.all_seg_labels = all_seg_labels
+        self.key_target = key_target
+        self.key_origin = key_origin
+        self.channel_id = channel_id
+
+    def __call__(self, **data_dict):
+        origin = data_dict.get(self.key_origin)
+        target = data_dict.get(self.key_target)
+        seg = origin[:, self.channel_id:self.channel_id+1]
+        # seg_onehot = np.zeros((seg.shape[0], len(self.all_seg_labels), *seg.shape[2:]), dtype=seg.dtype)
+        # for i, l in enumerate(self.all_seg_labels):
+        #     seg_onehot[:, i][seg[:, 0] == l] = 1
+        # target = np.concatenate((target, seg_onehot), 1)
+        target = np.concatenate((target, seg), 1)
+        data_dict[self.key_target] = target
+
+        if self.remove_from_origin:
+            remaining_channels = [i for i in range(origin.shape[1]) if i != self.channel_id]
+            origin = origin[:, remaining_channels]
+            data_dict[self.key_origin] = origin
+        return data_dict
+
+
 class ApplyRandomBinaryOperatorTransform(AbstractTransform):
     def __init__(self, channel_idx, p_per_sample=0.3, any_of_these=(binary_dilation, binary_erosion, binary_closing,
                                                                     binary_opening),

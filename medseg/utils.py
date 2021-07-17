@@ -43,7 +43,7 @@ def load_nifty(filepath):
 def save_nifty(filepath, img, affine=None, spacing=None, header=None, is_mask=False):
     if is_mask:
         img = np.rint(img)
-        img = img.astype(np.uint8)
+        img = img.astype(np.int)
     img = nib.Nifti1Image(img, affine=affine, header=header)
     if spacing is not None:
         img.header["pixdim"][1:4] = spacing
@@ -59,8 +59,17 @@ def reorient(img, affine=None):
     # sys.exit(0)
     return reoriented
 
-def normalize(x):
-    return (x - np.min(x)) / (np.max(x) - np.min(x))
+def normalize(x, x_min=None, x_max=None):
+    if x_min is None:
+        x_min = x.min()
+
+    if x_max is None:
+        x_max = x.max()
+
+    if x_min == x_max:
+        return x * 0
+    else:
+        return (x - x.min()) / (x.max() - x.min())
 
 def normalize_list(x):
     min_value = np.min(x)

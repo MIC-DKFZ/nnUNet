@@ -255,7 +255,7 @@ class GenericPreprocessor(object):
             if self.normalization_scheme_per_modality[key] == "GuidingMask":
                 # Move GuidingMask channel from data to seg before resampling
                 guiding_mask_index = key
-                seg = np.stack([seg, data[guiding_mask_index][np.newaxis, ...]], axis=1).squeeze(0)
+                seg = np.concatenate([seg, data[guiding_mask_index][np.newaxis, ...]], axis=0)
                 data = np.delete(data, guiding_mask_index, axis=0)
 
         data, seg = resample_patient(data, seg, np.array(original_spacing_transposed), target_spacing, 3, 1,
@@ -264,8 +264,8 @@ class GenericPreprocessor(object):
 
         if guiding_mask_index is not None:
             # Move GuidingMask channel from seg to data after resampling
-            data = np.stack([data, seg[guiding_mask_index][np.newaxis, ...]], axis=1).squeeze(0)
-            seg = np.delete(seg, guiding_mask_index, axis=0)
+            data = np.concatenate([data, seg[-1][np.newaxis, ...]], axis=0)
+            seg = np.delete(seg, -1, axis=0)
 
         after = {
             'spacing': target_spacing,

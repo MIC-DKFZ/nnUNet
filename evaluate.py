@@ -1,9 +1,11 @@
 from nnunet.evaluation.evaluator import evaluate_folder
 import numpy as np
 import pickle
+from medseg import utils
 
 
-def evaluate(ground_truths, predictions, labels):
+def evaluate(ground_truths, predictions):
+    labels = get_labels(ground_truths)
     result = evaluate_folder(ground_truths, predictions, labels)
 
     case_dice_scores = []
@@ -25,9 +27,19 @@ def evaluate(ground_truths, predictions, labels):
     return result["mean"]["1"]["Dice"], result["median"]["1"]["Dice"]
 
 
-if __name__ == '__main__':
-    ground_truths = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_test/labels/"
-    predictions = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_test/basic_predictions/"
-    labels = (0, 1)
+def get_labels(gt_path):
+    labels = []
+    gt_filenames = utils.load_filenames(gt_path)
+    for gt_filename in gt_filenames:
+        gt, _, _, _ = utils.load_nifty(gt_filename)
+        unique = np.unique(gt)
+        labels.append(unique)
+    labels = np.unique(labels)
+    return labels
 
-    evaluate(ground_truths, predictions, labels)
+
+if __name__ == '__main__':
+    ground_truths = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task002_BrainTumour_guided/refinement_test/labels/"
+    predictions = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task002_BrainTumour_guided/refinement_test/basic_predictions/"
+
+    evaluate(ground_truths, predictions)

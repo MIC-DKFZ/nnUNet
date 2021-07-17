@@ -38,13 +38,13 @@ from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided3
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData
 
 
-class nnUNetTrainerV2Guided3(nnUNetTrainer):
+class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
     """
     Info for Fabian: same as internal nnUNetTrainerV2_2
     """
 
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, deep_i_geos_value=0.99):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 1500
@@ -53,6 +53,7 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
         self.ds_loss_weights = None
 
         self.pin_memory = True
+        self.deep_i_geos_value = deep_i_geos_value
 
     def initialize(self, training=True, force_load_plans=False, mcdo=-1):
         """
@@ -111,7 +112,8 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
                     self.data_aug_params,
                     deep_supervision_scales=self.deep_supervision_scales,
                     pin_memory=self.pin_memory,
-                    use_nondetMultiThreadedAugmenter=False
+                    use_nondetMultiThreadedAugmenter=False,
+                    deep_i_geos=True
                 )
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                        also_print_to_console=False)
@@ -253,13 +255,12 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
 
         if self.fp16:
             with autocast():
+                # print(data.shape)
+                # print("min: {}, max: {}".format(data.min(), data.max()))
                 # from medseg import utils
                 # import random
-                # # name = random.randint(0, 1000)
-                # if data_dict['name']:
-                #     utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_4_guiding_mask.nii.gz".format(data_dict['name'][0]), data[0, 4, ...].squeeze().detach().cpu().numpy())
-                #     utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_5_guiding_mask.nii.gz".format(data_dict['name'][0]), data[0, 5, ...].squeeze().detach().cpu().numpy())
-                #     utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_6_guiding_mask.nii.gz".format(data_dict['name'][0]), data[0, 6, ...].squeeze().detach().cpu().numpy())
+                # name = random.randint(0, 1000)
+                # utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/{}guiding_mask.nii.gz".format(name), data[0, 4, ...].squeeze().detach().cpu().numpy())
                 output = self.network(data)
                 del data
                 l = self.loss(output, target)
@@ -343,9 +344,9 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
         for i in val_keys:
             self.dataset_val[i] = self.dataset[i]
 
-    def process_plans(self, plans):
-        super().process_plans(plans)
-        self.num_input_channels += (self.num_classes - 2)  # for seg from prev stage
+    # def process_plans(self, plans):
+    #     super().process_plans(plans)
+    #     self.num_input_channels += (self.num_classes - 2)  # for seg from prev stage
 
     def setup_DA_params(self):
         """
@@ -464,10 +465,10 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
         if self.threeD:
             dl_tr = DataLoader3DGuided3(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
                                  False, oversample_foreground_percent=self.oversample_foreground_percent,
-                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True)
+                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True, deep_i_geos=True, deep_i_geos_value=self.deep_i_geos_value)
             dl_val = DataLoader3DGuided3(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False)
+                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False, deep_i_geos=True, deep_i_geos_value=self.deep_i_geos_value)
         else:
             raise NotImplementedError("DataLoader2D not implemented with guided training")
         return dl_tr, dl_val

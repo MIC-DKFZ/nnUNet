@@ -25,6 +25,7 @@ from batchgenerators.augmentations.utils import create_zero_centered_coordinate_
     elastic_deform_coordinates_2
 from batchgenerators.augmentations.crop_and_pad_augmentations import random_crop as random_crop_aug
 from batchgenerators.augmentations.crop_and_pad_augmentations import center_crop as center_crop_aug
+import time
 
 
 def augment_rot90(sample_data, sample_seg, num_rot=(1, 2, 3), axes=(0, 1, 2)):
@@ -193,10 +194,11 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
                     do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
                     border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, p_el_per_sample=1,
                     p_scale_per_sample=1, p_rot_per_sample=1, independent_scale_for_each_axis=False,
-                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1):
-    # # DeepIGeos
-    # data = np.concatenate((data, seg[:, 1, ...][:, np.newaxis, ...]), axis=1)
-    # seg = seg[:, 0, ...][:, np.newaxis, ...]
+                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1, deep_i_geos: bool = True):
+    if deep_i_geos:
+        # DeepIGeos
+        data = np.concatenate((data, seg[:, 1, ...][:, np.newaxis, ...]), axis=1)
+        seg = seg[:, 0, ...][:, np.newaxis, ...]
 
     dim = len(patch_size)
     seg_result = None
@@ -297,11 +299,16 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
             if seg is not None:
                 seg_result[sample_id] = s[0]
 
-    # # DeepIGeos
-    # seg = np.concatenate((seg, data[:, 1, ...][:, np.newaxis, ...]), axis=1)
-    # data = data[:, 0, ...][:, np.newaxis, ...]
-    # seg_result = np.concatenate((seg_result, data_result[:, 1, ...][:, np.newaxis, ...]), axis=1)
-    # data_result = data_result[:, 0, ...][:, np.newaxis, ...]
+    if deep_i_geos:
+        # DeepIGeos
+        seg = np.concatenate((seg, data[:, -1, ...][:, np.newaxis, ...]), axis=1)
+        # data = data[:, :-1, ...][:, np.newaxis, ...]
+        data = data[:, :-1, ...]
+        seg_result = np.concatenate((seg_result, data_result[:, -1, ...][:, np.newaxis, ...]), axis=1)
+        # data_result = data_result[:, :-1, ...][:, np.newaxis, ...]
+        data_result = data_result[:, :-1, ...]
+        # print("data_result shape: ", data_result.shape)
+        # print("HAHAHHAHAHHAHHAHAAHHAHAHHAHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
     return data_result, seg_result
 
 
