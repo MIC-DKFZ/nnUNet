@@ -60,7 +60,7 @@ nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predi
 
 ####Normal predict for Task079_frankfurt3 ensemble:
 ```
-nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_fullres -p nnUNetPlansv2.1 -t Task079_frankfurt3 -d 0 --disable_tta
+nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_fullres -p nnUNetPlansv2.1 -t Task079_frankfurt3 -d 0 --disable_tta  -chk model_best
 ```
 ```
 -i: Absolute input data path
@@ -108,11 +108,11 @@ nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predi
 ####Uncertainty Prediction Ensemble for Task079_frankfurt3:
 WICHTIG: Entweder jeden `nnUNet_predict` Befehl nacheinander ausführen und warten bis der vorhergehende fertig ist oder wenn parallel dann verschiedene output directories über -o angeben, da sonst Datei-Konflikte entstehen können. Anschließend dann Ordner Inhalte zusammenführen.
 ```
-nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 0 -chk model_best --output_probabilities
-nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 1 -d 1 -chk model_best --output_probabilities
-nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 2 -d 2 -chk model_best --output_probabilities
-nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 3 -d 3 -chk model_best --output_probabilities
-nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 4 -d 4 -chk model_best --output_probabilities
+nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 0 -d 0 -chk model_best --output_probabilities --disable_tta
+nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 1 -d 1 -chk model_best --output_probabilities --disable_tta
+nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 2 -d 2 -chk model_best --output_probabilities --disable_tta
+nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 3 -d 3 -chk model_best --output_probabilities --disable_tta
+nnUNet_predict -i /absolute/path/to/imagesTs -o /absolute/path/to/imagesTs_predicted -t Task079_frankfurt3 -m 3d_fullres -f 4 -d 4 -chk model_best --output_probabilities --disable_tta
 ```
 (Need to do this from 0 to 4 for all 5 ensemble predictions)
 ```

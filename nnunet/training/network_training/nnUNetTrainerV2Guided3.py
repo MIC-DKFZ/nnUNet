@@ -118,7 +118,7 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
                                        also_print_to_console=False)
             else:
-                self.move_seg_as_one_hot_to_data = MoveSegAsOneHotToData(1, self.data_aug_params['all_segmentation_labels'], 'data_old', 'data_new')
+                self.move_seg_as_one_hot_to_data = MoveSegAsOneHotToData(self.plans['num_modalities']-1, self.data_aug_params['all_segmentation_labels'], 'data_old', 'data_new')
 
             self.initialize_network(mcdo)
             self.initialize_optimizer_and_scheduler()
@@ -216,7 +216,10 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        data = self.move_seg_as_one_hot_to_data(data_old=data[np.newaxis, ...], data_new=data[0][np.newaxis, np.newaxis, ...])['data_new'][0]
+        tmp = data[:-1][np.newaxis, ...]
+        if len(tmp.shape) == 4:
+            tmp = tmp[np.newaxis, ...]
+        data = self.move_seg_as_one_hot_to_data(data_old=data[np.newaxis, ...], data_new=tmp)['data_new'][0]
         ret = super().predict_preprocessed_data_return_seg_and_softmax(data,
                                                                        do_mirroring=do_mirroring,
                                                                        mirror_axes=mirror_axes,

@@ -9,7 +9,7 @@ import os
 import GeodisTK
 
 
-def comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth=3):
+def comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth=1):
     filenames = utils.load_filenames(load_path)
     for filename in tqdm(filenames):
         mask, affine, spacing, header = utils.load_nifty(filename)
@@ -22,16 +22,31 @@ def adapt_slice_gap(mask, slice_gap, default_size):
     return int((mask.shape[0] / default_size) * slice_gap)
 
 
-def comp_slices_mask_validation(mask, slice_gap, p=None, nnunet=False, slice_depth=3):
-    labels = range(1, int(np.max(mask)) + 1)
+# def comp_slices_mask_validation(mask, slice_gap, p=None, nnunet=False, slice_depth=3):
+#     labels = range(1, int(np.max(mask)) + 1)
+#     mask_slices = np.zeros_like(mask)
+#     for label in labels:
+#         mask_label = copy.deepcopy(mask)
+#         mask_label[mask_label != label] = 0
+#         mask_label[mask_label == label] = 1
+#         objects_slices_label = comp_slices_label(mask_label, slice_gap, p, nnunet, slice_depth).astype(int)
+#         objects_slices_label[objects_slices_label == 1] = label
+#         mask_slices += objects_slices_label
+#     if nnunet:
+#         mask_slices[mask == -1] = -1
+#     return mask_slices
+
+
+def comp_slices_mask_validation(mask, slice_gap, p=None, nnunet=False, slice_depth=1):
+    binarized_mask = copy.deepcopy(mask)
+    binarized_mask[binarized_mask > 0] = 1
+    slices = comp_slices_label(binarized_mask, slice_gap, p, nnunet, slice_depth).astype(int)
+    unique = np.unique(mask)
+    # unique = unique[unique != -1]
     mask_slices = np.zeros_like(mask)
-    for label in labels:
-        mask_label = copy.deepcopy(mask)
-        mask_label[mask_label != label] = 0
-        mask_label[mask_label == label] = 1
-        objects_slices_label = comp_slices_label(mask_label, slice_gap, p, nnunet, slice_depth).astype(int)
-        objects_slices_label[objects_slices_label == 1] = label
-        mask_slices += objects_slices_label
+    for label in unique:
+        mask_slices[(slices == 1) & (mask == label)] = label
+    mask_slices = np.rint(mask_slices)
     if nnunet:
         mask_slices[mask == -1] = -1
     return mask_slices
@@ -168,13 +183,13 @@ if __name__ == '__main__':
     slice_gap = 70  # COVID-19: 70, BrainTumor: 70
     default_size = 1280
     slice_depth = 1
-    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/"
+    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task002_BrainTumour_guided/"
     load_path = base_path + "labelsTr/"
-    save_path = base_path + "guided_masks/"
+    save_path = base_path + "guiding_masks/"
     # comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
-    # rename_guiding_masks(save_path, 1)
+    rename_guiding_masks(save_path, 4)
     # 0.0, 0.99
-    guiding2geodistk("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task003_BrainTumour_guided_DeepIGeos1/imagesTr/", lamb=0.99, iterations=1, modality=4)
+    # guiding2geodistk("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task003_BrainTumour_guided_DeepIGeos1/imagesTr/", lamb=0.99, iterations=1, modality=4)
 
     # image_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/labelsTr/"
     # guiding_mask_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task79_frankfurt3/guiding_masks/"

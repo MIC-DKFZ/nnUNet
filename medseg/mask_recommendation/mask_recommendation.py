@@ -112,7 +112,7 @@ def recommend_slices_single_case(i, prediction_filenames, uncertainty_filenames,
         recommended_slices / gt_slices,
         recommended_patch_area / size,
         recommended_patch_area / infection_size))
-    utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_0001.nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
+    utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_" + str(modality).zfill(4) + ".nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
     return recommended_slices, gt_slices
 
 
@@ -487,7 +487,10 @@ def filter_mask(mask, indices_dim_0, indices_dim_1, indices_dim_2):
 
     # filtered_mask = copy.deepcopy(mask)
     # filtered_mask = np.logical_and(filtered_mask, slices)
-    filtered_mask = np.ones_like(mask) * -1
+    if method == "my_method" or method == "DeepIGeos1" or method == "DeepIGeos2":
+        filtered_mask = np.zeros_like(mask)
+    else:
+        filtered_mask = np.ones_like(mask) * -1
     unique = np.unique(mask)
     for label in unique:
         filtered_mask[(slices == 1) & (mask == label)] = label
@@ -568,9 +571,10 @@ if __name__ == '__main__':
     parser.add_argument("-um", "--uncertainty_measure", help="Set the type of uncertainty measure to use", required=True)
     parser.add_argument("--parallel", action="store_true", default=False, help="Set the version", required=False)
     parser.add_argument("-method", help="Set the method", required=True)
+    parser.add_argument("-modality", help="Set the modality number", required=True)
     parser.add_argument("--reuse", action="store_true", default=False, help="Reuse recommended masks from last run", required=False)
     args = parser.parse_args()
-    devices = [5, 6, 7]
+    devices = [2, 4, 5, 6]
 
     version = str(args.version)
     uncertainty_quantification = str(args.uncertainty_quantification)
@@ -630,6 +634,7 @@ if __name__ == '__main__':
     grid_search_save_path = base_path + "/GridSearchResults/"
     refinement_inference_tmp = base_path + "/refinement_inference_tmp/part"
     method = args.method
+    modality = args.modality
     reuse = args.reuse
 
     Path(save_path).mkdir(parents=True, exist_ok=True)

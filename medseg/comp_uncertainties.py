@@ -7,7 +7,7 @@ import sys
 from scipy.special import softmax
 
 
-def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None, cases=None, nr_labels=None, nr_parts=None, zfill=4, count_start=None, type="part", merge_uncertainties=False, class_dices=None):
+def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None, cases=None, nr_labels=None, nr_parts=None, zfill=4, count_start=None, type="part", merge_uncertainties=True, class_dices=None):
     load_dir = utils.fix_path(load_dir)
     save_dir = utils.fix_path(save_dir)
     filenames = utils.load_filenames(load_dir)
@@ -131,12 +131,12 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--method", help="Variance (v), entropy (e) or bhattacharyya (b)", required=True)
 
     # Stupid arguments
-    parser.add_argument("-nr_c", "--nr_cases", default=None, help="Number of cases", required=False)
-    parser.add_argument("-nr_l", "--nr_labels", default=None, help="Number of labels", required=False)
-    parser.add_argument("-nr_p", "--nr_parts", default=None, help="Number of parts", required=False)
-    parser.add_argument("-basename", default=None, help="Basename", required=False)
-    parser.add_argument("-zfill", default=4, help="Number of leading zeros for case numeration", required=False)
-    parser.add_argument("-count_start", default=None, help="Case counter starting point", required=False)
+    parser.add_argument("-nr_c", "--nr_cases", default=None, help="Number of cases", required=False)  # 50
+    parser.add_argument("-nr_l", "--nr_labels", default=None, help="Number of labels", required=False)  # 4
+    parser.add_argument("-nr_p", "--nr_parts", default=None, help="Number of parts", required=False)  # 5
+    parser.add_argument("-basename", default=None, help="Basename", required=False)  # BRATS
+    parser.add_argument("-zfill", default=4, help="Number of leading zeros for case numeration", required=False)  # 3
+    parser.add_argument("-count_start", default=None, help="Case counter starting point", required=False)  # 101
     args = parser.parse_args()
 
     method = str(args.method)

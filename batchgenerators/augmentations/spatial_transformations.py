@@ -194,7 +194,7 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
                     do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
                     border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, p_el_per_sample=1,
                     p_scale_per_sample=1, p_rot_per_sample=1, independent_scale_for_each_axis=False,
-                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1, deep_i_geos: bool = True):
+                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1, deep_i_geos: bool = False):
     if deep_i_geos:
         # DeepIGeos
         data = np.concatenate((data, seg[:, 1, ...][:, np.newaxis, ...]), axis=1)
