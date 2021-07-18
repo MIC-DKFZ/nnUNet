@@ -42,7 +42,7 @@ def comp_slices_mask_validation(mask, slice_gap, p=None, nnunet=False, slice_dep
     binarized_mask[binarized_mask > 0] = 1
     slices = comp_slices_label(binarized_mask, slice_gap, p, nnunet, slice_depth).astype(int)
     unique = np.unique(mask)
-    # unique = unique[unique != -1]
+    unique = unique[unique > 0]
     mask_slices = np.zeros_like(mask)
     for label in unique:
         mask_slices[(slices == 1) & (mask == label)] = label
@@ -117,6 +117,7 @@ def comp_object_slices_dim(object, dim, slice_gap, p=None, slice_depth=3):
 
 
 def comp_slices_mask_training(mask):
+    # print("Unique: ", np.unique(mask))
     max_slices = int(mask.shape[2] / 3)
     num_slices = random.randint(0, max_slices)
 
@@ -135,11 +136,11 @@ def comp_slices_mask_training(mask):
     # mask_slices = np.logical_and(mask_slices, slices).astype(np.float32)
     # mask_slices = np.logical_and(mask, slices).astype(np.float32)
     mask_slices = np.zeros_like(mask)
-    mask2 = mask + 1
-    unique = np.unique(mask2)
-    # unique = unique[unique != -1]
+    # mask2 = mask + 1
+    unique = np.unique(mask)
+    unique = unique[unique > 0]
     for label in unique:
-        mask_slices[(slices == 1) & (mask2 == label)] = label
+        mask_slices[(slices == 1) & (mask == label)] = label
     # mask_slices[mask == -1] = -1
     mask_slices = np.rint(mask_slices)
     # name = random.randint(0, 1000)
