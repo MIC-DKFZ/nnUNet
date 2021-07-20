@@ -296,6 +296,8 @@ class GenericPreprocessor(object):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == 'noNorm':
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0
@@ -469,6 +471,8 @@ class Preprocessor3DDifferentResampling(GenericPreprocessor):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == 'noNorm':
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0
@@ -563,6 +567,8 @@ class Preprocessor3DBetterResampling(GenericPreprocessor):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == 'noNorm':
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0
@@ -663,6 +669,8 @@ class PreprocessorFor2D(GenericPreprocessor):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == 'noNorm':
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0
@@ -749,6 +757,8 @@ class PreprocessorFor3D_LeaveOriginalZSpacing(GenericPreprocessor):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == 'noNorm':
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0
@@ -836,6 +846,8 @@ class PreprocessorFor3D_NoResampling(GenericPreprocessor):
                 data[c] = (data[c] - mn) / sd
                 if use_nonzero_mask[c]:
                     data[c][seg[-1] < 0] = 0
+            elif scheme == 'noNorm':
+                pass
             else:
                 if use_nonzero_mask[c]:
                     mask = seg[-1] >= 0

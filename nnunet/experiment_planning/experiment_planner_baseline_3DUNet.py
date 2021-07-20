@@ -364,6 +364,8 @@ class ExperimentPlanner(object):
         for i in range(num_modalities):
             if modalities[i] == "CT" or modalities[i] == 'ct':
                 schemes[i] = "CT"
+            elif modalities[i] == 'noNorm':
+                schemes[i] = "noNorm"
             else:
                 schemes[i] = "nonCT"
         return schemes
