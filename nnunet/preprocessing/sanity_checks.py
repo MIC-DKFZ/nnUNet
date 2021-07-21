@@ -104,6 +104,7 @@ def verify_dataset_integrity(folder):
     dataset = load_json(join(folder, "dataset.json"))
     training_cases = dataset['training']
     num_modalities = len(dataset['modality'].keys())
+    modalities = dataset['modality']
     test_cases = dataset['test']
     expected_train_identifiers = [i['image'].split("/")[-1][:-7] for i in training_cases]
     expected_test_identifiers = [i.split("/")[-1][:-7] for i in test_cases]
@@ -117,7 +118,8 @@ def verify_dataset_integrity(folder):
     has_nan = False
 
     # check all cases
-    if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)): raise RuntimeError("found duplicate training cases in dataset.json")
+    if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)):
+        raise RuntimeError("found duplicate training cases in dataset.json")
 
     print("Verifying training set")
     for c in expected_train_identifiers:
@@ -125,7 +127,7 @@ def verify_dataset_integrity(folder):
         # check if all files are present
         expected_label_file = join(folder, "labelsTr", c + ".nii.gz")
         label_files.append(expected_label_file)
-        expected_image_files = [join(folder, "imagesTr", c + "_%04.0d.nii.gz" % i) for i in range(num_modalities)]
+        expected_image_files = [join(folder, "imagesTr", f"{c}_{int(i):04d}.nii.gz") for i in modalities]
         assert isfile(expected_label_file), "could not find label file for case %s. Expected file: \n%s" % (
             c, expected_label_file)
         assert all([isfile(i) for i in
@@ -199,7 +201,7 @@ def verify_dataset_integrity(folder):
 
         for c in expected_test_identifiers:
             # check if all files are present
-            expected_image_files = [join(folder, "imagesTs", c + "_%04.0d.nii.gz" % i) for i in range(num_modalities)]
+            expected_image_files = [join(folder, "imagesTs", f"{c}_{int(i):04d}.nii.gz") for i in modalities]
             assert all([isfile(i) for i in
                         expected_image_files]), "some image files are missing for case %s. Expected files:\n %s" % (
                 c, expected_image_files)

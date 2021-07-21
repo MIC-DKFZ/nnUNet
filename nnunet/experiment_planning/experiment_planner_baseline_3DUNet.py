@@ -361,10 +361,10 @@ class ExperimentPlanner(object):
         modalities = self.dataset_properties['modalities']
         num_modalities = len(list(modalities.keys()))
 
-        for i in range(num_modalities):
-            if modalities[i] == "CT" or modalities[i] == 'ct':
+        for i, mod in modalities.items():
+            if mod == "CT" or mod == 'ct':
                 schemes[i] = "CT"
-            elif modalities[i] == 'noNorm':
+            elif mod == 'noNorm':
                 schemes[i] = "noNorm"
             else:
                 schemes[i] = "nonCT"
@@ -387,8 +387,8 @@ class ExperimentPlanner(object):
         num_modalities = len(list(modalities.keys()))
         use_nonzero_mask_for_norm = OrderedDict()
 
-        for i in range(num_modalities):
-            if "CT" in modalities[i]:
+        for i, mod in modalities.items():
+            if "CT" in mod:
                 use_nonzero_mask_for_norm[i] = False
             else:
                 all_size_reductions = []

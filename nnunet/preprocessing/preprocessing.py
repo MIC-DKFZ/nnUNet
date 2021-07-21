@@ -271,35 +271,35 @@ class GenericPreprocessor(object):
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
-        for c in range(len(data)):
-            scheme = self.normalization_scheme_per_modality[c]
+        for c, mod_id in enumerate(self.normalization_scheme_per_modality):
+            scheme = self.normalization_scheme_per_modality[mod_id]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                mean_intensity = self.intensityproperties[c]['mean']
-                std_intensity = self.intensityproperties[c]['sd']
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                mean_intensity = self.intensityproperties[mod_id]['mean']
+                std_intensity = self.intensityproperties[mod_id]['sd']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 data[c] = (data[c] - mean_intensity) / std_intensity
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 mn = data[c][mask].mean()
                 sd = data[c][mask].std()
                 data[c] = (data[c] - mn) / sd
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == 'noNorm':
                 pass
             else:
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     mask = seg[-1] >= 0
                     data[c][mask] = (data[c][mask] - data[c][mask].mean()) / (data[c][mask].std() + 1e-8)
                     data[c][mask == 0] = 0
@@ -446,35 +446,35 @@ class Preprocessor3DDifferentResampling(GenericPreprocessor):
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
-        for c in range(len(data)):
-            scheme = self.normalization_scheme_per_modality[c]
+        for c, mod_id in enumerate(self.normalization_scheme_per_modality):
+            scheme = self.normalization_scheme_per_modality[mod_id]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                mean_intensity = self.intensityproperties[c]['mean']
-                std_intensity = self.intensityproperties[c]['sd']
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                mean_intensity = self.intensityproperties[mod_id]['mean']
+                std_intensity = self.intensityproperties[mod_id]['sd']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 data[c] = (data[c] - mean_intensity) / std_intensity
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 mn = data[c][mask].mean()
                 sd = data[c][mask].std()
                 data[c] = (data[c] - mn) / sd
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == 'noNorm':
                 pass
             else:
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     mask = seg[-1] >= 0
                 else:
                     mask = np.ones(seg.shape[1:], dtype=bool)
@@ -542,35 +542,35 @@ class Preprocessor3DBetterResampling(GenericPreprocessor):
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
-        for c in range(len(data)):
-            scheme = self.normalization_scheme_per_modality[c]
+        for c, mod_id in enumerate(self.normalization_scheme_per_modality):
+            scheme = self.normalization_scheme_per_modality[mod_id]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                mean_intensity = self.intensityproperties[c]['mean']
-                std_intensity = self.intensityproperties[c]['sd']
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                mean_intensity = self.intensityproperties[mod_id]['mean']
+                std_intensity = self.intensityproperties[mod_id]['sd']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 data[c] = (data[c] - mean_intensity) / std_intensity
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 mn = data[c][mask].mean()
                 sd = data[c][mask].std()
                 data[c] = (data[c] - mn) / sd
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == 'noNorm':
                 pass
             else:
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     mask = seg[-1] >= 0
                 else:
                     mask = np.ones(seg.shape[1:], dtype=bool)
@@ -644,35 +644,35 @@ class PreprocessorFor2D(GenericPreprocessor):
 
         print("normalization...")
 
-        for c in range(len(data)):
-            scheme = self.normalization_scheme_per_modality[c]
+        for c, mod_id in enumerate(self.normalization_scheme_per_modality):
+            scheme = self.normalization_scheme_per_modality[mod_id]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                mean_intensity = self.intensityproperties[c]['mean']
-                std_intensity = self.intensityproperties[c]['sd']
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                mean_intensity = self.intensityproperties[mod_id]['mean']
+                std_intensity = self.intensityproperties[mod_id]['sd']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 data[c] = (data[c] - mean_intensity) / std_intensity
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 mn = data[c][mask].mean()
                 sd = data[c][mask].std()
                 data[c] = (data[c] - mn) / sd
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == 'noNorm':
                 pass
             else:
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     mask = seg[-1] >= 0
                 else:
                     mask = np.ones(seg.shape[1:], dtype=bool)
@@ -732,35 +732,35 @@ class PreprocessorFor3D_LeaveOriginalZSpacing(GenericPreprocessor):
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
-        for c in range(len(data)):
-            scheme = self.normalization_scheme_per_modality[c]
+        for c, mod_id in enumerate(self.normalization_scheme_per_modality):
+            scheme = self.normalization_scheme_per_modality[mod_id]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                mean_intensity = self.intensityproperties[c]['mean']
-                std_intensity = self.intensityproperties[c]['sd']
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                mean_intensity = self.intensityproperties[mod_id]['mean']
+                std_intensity = self.intensityproperties[mod_id]['sd']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 data[c] = (data[c] - mean_intensity) / std_intensity
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 mn = data[c][mask].mean()
                 sd = data[c][mask].std()
                 data[c] = (data[c] - mn) / sd
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == 'noNorm':
                 pass
             else:
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     mask = seg[-1] >= 0
                 else:
                     mask = np.ones(seg.shape[1:], dtype=bool)
@@ -821,35 +821,35 @@ class PreprocessorFor3D_NoResampling(GenericPreprocessor):
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
-        for c in range(len(data)):
-            scheme = self.normalization_scheme_per_modality[c]
+        for c, mod_id in enumerate(self.normalization_scheme_per_modality):
+            scheme = self.normalization_scheme_per_modality[mod_id]
             if scheme == "CT":
                 # clip to lb and ub from train data foreground and use foreground mn and sd from training data
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                mean_intensity = self.intensityproperties[c]['mean']
-                std_intensity = self.intensityproperties[c]['sd']
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                mean_intensity = self.intensityproperties[mod_id]['mean']
+                std_intensity = self.intensityproperties[mod_id]['sd']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 data[c] = (data[c] - mean_intensity) / std_intensity
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == "CT2":
                 # clip to lb and ub from train data foreground, use mn and sd form each case for normalization
                 assert self.intensityproperties is not None, "ERROR: if there is a CT then we need intensity properties"
-                lower_bound = self.intensityproperties[c]['percentile_00_5']
-                upper_bound = self.intensityproperties[c]['percentile_99_5']
+                lower_bound = self.intensityproperties[mod_id]['percentile_00_5']
+                upper_bound = self.intensityproperties[mod_id]['percentile_99_5']
                 mask = (data[c] > lower_bound) & (data[c] < upper_bound)
                 data[c] = np.clip(data[c], lower_bound, upper_bound)
                 mn = data[c][mask].mean()
                 sd = data[c][mask].std()
                 data[c] = (data[c] - mn) / sd
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     data[c][seg[-1] < 0] = 0
             elif scheme == 'noNorm':
                 pass
             else:
-                if use_nonzero_mask[c]:
+                if use_nonzero_mask[mod_id]:
                     mask = seg[-1] >= 0
                 else:
                     mask = np.ones(seg.shape[1:], dtype=bool)
