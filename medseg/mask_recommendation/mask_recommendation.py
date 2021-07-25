@@ -17,6 +17,7 @@ from functools import partial
 import pandas as pd
 from pathlib import Path
 import GeodisTK
+import shutil
 import medseg.mask_recommendation.my_method as my_method
 import medseg.mask_recommendation.deep_i_geos as deep_i_geos
 import medseg.mask_recommendation.graph_cut as graph_cut
@@ -65,62 +66,71 @@ from scipy.ndimage.measurements import center_of_mass
 #     return total_ratio
 
 
-def recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size):
+def recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, params):
     prediction_filenames = utils.load_filenames(prediction_path)
     uncertainty_filenames = utils.load_filenames(uncertainty_path)
     gt_filenames = utils.load_filenames(gt_path)
-    pool = mp.Pool(processes=8)
 
-    start_time = time.time()
+    # start_time = time.time()
+    print("Starting slice recommendation...")
     results = pool.map(partial(recommend_slices_single_case,
                                                    prediction_filenames=prediction_filenames, uncertainty_filenames=uncertainty_filenames, gt_filenames=gt_filenames,
-                                                   save_path=save_path, find_best_slices_func=find_best_slices_func, num_slices=num_slices, slice_gap=slice_gap, default_size=default_size),
+                                                   save_path=save_path, find_best_slices_func=find_best_slices_func, params=params),
                                            range(len(uncertainty_filenames)))
-    print("Recommend slices elapsed time: ", time.time() - start_time)
-    results = np.asarray(results)
-    total_recommended_slices = results[:, 0]
-    total_gt_slices = results[:, 1]
-    total_recommended_slices = np.sum(total_recommended_slices)
-    total_gt_slices = np.sum(total_gt_slices)
+    print("Finished slice recommendation.")
+    # print("Recommend slices elapsed time: ", time.time() - start_time)
+    # results = np.asarray(results)
+    # total_recommended_slices = results[:, 0]
+    # total_gt_slices = results[:, 1]
+    # total_recommended_slices = np.sum(total_recommended_slices)
+    # total_gt_slices = np.sum(total_gt_slices)
+    # total_ratio = total_recommended_slices / total_gt_slices
+    # print("total recommended slices: {}, total gt slices: {}, total ratio: {}".format(total_recommended_slices, total_gt_slices, total_ratio))
+    return results
 
-    total_ratio = total_recommended_slices / total_gt_slices
-    print("total recommended slices: {}, total gt slices: {}, total ratio: {}".format(total_recommended_slices, total_gt_slices, total_ratio))
-    return total_ratio
 
-
-def recommend_slices_single_case(i, prediction_filenames, uncertainty_filenames, gt_filenames, save_path, find_best_slices_func, num_slices, slice_gap, default_size):
+def recommend_slices_single_case(i, prediction_filenames, uncertainty_filenames, gt_filenames, save_path, find_best_slices_func, params, debug=False):
     uncertainty, affine, spacing, header = utils.load_nifty(uncertainty_filenames[i])
     prediction, _, _, _ = utils.load_nifty(prediction_filenames[i])
     gt, _, _, _ = utils.load_nifty(gt_filenames[i])
-    adapted_slice_gap = adapt_slice_gap(uncertainty, slice_gap, default_size)
+    params["slice_gap"] = adapt_slice_gap(uncertainty, params["slice_gap"], params["default_size"])
     # indices_dim_0: Sagittal
     # indices_dim_1: Coronal
     # indices_dim_2: Axial
-    filtered_mask, recommended_slices, recommended_patch_area = find_best_slices_func(prediction, gt, uncertainty, num_slices, adapted_slice_gap)
+    filtered_mask, recommended_slices, recommended_patch_area = find_best_slices_func(prediction, gt, uncertainty, params)
     slices = gt.shape[2]
-    size = np.prod(gt.shape)
-    infection_size = np.sum(gt)
     gt_slices = comp_infected_slices(gt)
+    size = np.prod(gt.shape)
+    infection_size = gt_slices * np.prod(gt.shape[:2])
     prediction_slices = comp_infected_slices(prediction)
-    print("name: {}, slices: {}, gt inf slices: {}, pred inf slices: {}, rec slices: {}, rec slice ratio: {}, rec slice inf ratio: {}, patch ratio: {}, patch inf ratio: {}".format(
-        os.path.basename(uncertainty_filenames[i]),
-        slices,
-        gt_slices,
-        prediction_slices,
-        recommended_slices,
-        recommended_slices / slices,
-        recommended_slices / gt_slices,
-        recommended_patch_area / size,
-        recommended_patch_area / infection_size))
+    if debug:
+        print("name: {}, slices: {}, gt inf slices: {}, pred inf slices: {}, rec slices: {}, rec slice ratio: {}, rec slice inf ratio: {}, patch ratio: {}, patch inf ratio: {}".format(
+            os.path.basename(uncertainty_filenames[i]),
+            slices,
+            gt_slices,
+            prediction_slices,
+            recommended_slices,
+            recommended_slices / slices,
+            recommended_slices / gt_slices,
+            recommended_patch_area / size,
+            recommended_patch_area / infection_size))
     utils.save_nifty(save_path + os.path.basename(uncertainty_filenames[i])[:-7] + "_" + str(modality).zfill(4) + ".nii.gz", filtered_mask, affine, spacing, header, is_mask=True)
-    return recommended_slices, gt_slices
+    results = {}
+    results["total_slices"] = slices
+    results["gt_infected_slices"] = gt_slices
+    results["pred_infected_slices"] = prediction_slices
+    results["recommended_slices"] = recommended_slices
+    results["size"] = size
+    results["infection_size"] = infection_size
+    results["recommended_patch_area"] = recommended_patch_area
+    return results
 
 
 def adapt_slice_gap(mask, slice_gap, default_size):
     return int((mask.shape[0] / default_size) * slice_gap)
 
 
-def find_best_slices_baseline_V1(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_baseline_V1(prediction, gt, uncertainty, params):
     "Find random slices in every dimension without a min slice gap."
     indices_dim_0 = random.sample(range(uncertainty.shape[0]), num_slices)
     indices_dim_1 = random.sample(range(uncertainty.shape[1]), num_slices)
@@ -131,7 +141,7 @@ def find_best_slices_baseline_V1(prediction, gt, uncertainty, num_slices, slice_
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_baseline_V2(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_baseline_V2(prediction, gt, uncertainty, params):
     "Find random slices in every dimension within equidistant distances."
     def get_indices(axis):
         slice_sectors = np.linspace(0, uncertainty.shape[axis], num_slices, endpoint=True).astype(int)
@@ -147,7 +157,7 @@ def find_best_slices_baseline_V2(prediction, gt, uncertainty, num_slices, slice_
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V1(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_V1(prediction, gt, uncertainty, params):
     "Find best slices based on maximum 2D plane uncertainty in every dimension without a min slice gap."
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -164,7 +174,7 @@ def find_best_slices_V1(prediction, gt, uncertainty, num_slices, slice_gap):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V2(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_V2(prediction, gt, uncertainty, params):
     "Find best slices based on maximum 2D plane uncertainty in every dimension with a min slice gap."
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -184,7 +194,7 @@ def find_best_slices_V2(prediction, gt, uncertainty, num_slices, slice_gap):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V3(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_V3(prediction, gt, uncertainty, params):
     # Threshold uncertainty values
     # Find and partition blobs
     # For each blob:
@@ -237,7 +247,7 @@ def find_best_slices_V3(prediction, gt, uncertainty, num_slices, slice_gap):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V4(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_V4(prediction, gt, uncertainty, params):
     indices_dim_0_V2, indices_dim_1_V2, indices_dim_2_V2 = find_best_slices_V2(prediction, uncertainty, num_slices, slice_gap)
     indices_dim_0_V3, indices_dim_1_V3, indices_dim_2_V3 = find_best_slices_V3(prediction, uncertainty, num_slices, slice_gap)
     indices_dim_0 = np.concatenate((indices_dim_0_V2, indices_dim_0_V3), axis=0)
@@ -249,7 +259,7 @@ def find_best_slices_V4(prediction, gt, uncertainty, num_slices, slice_gap):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V5(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_V5(prediction, gt, uncertainty, params):
     "Find best slices based on maximum 2D plane uncertainty in every dimension with a min slice gap. Take merge indices from every dim and take only the best ignoring the dims."
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -286,7 +296,7 @@ def find_best_slices_V5(prediction, gt, uncertainty, num_slices, slice_gap):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V6(prediction, gt, uncertainty, num_slices, slice_gap):
+def find_best_slices_V6(prediction, gt, uncertainty, params):
     "Find best slices based on maximum 2D plane uncertainty in every dimension with a min slice gap. Weight uncertainty based on slice prediction sum."
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -312,7 +322,7 @@ def find_best_slices_V6(prediction, gt, uncertainty, num_slices, slice_gap):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V7(prediction, gt, uncertainty, num_slices, slice_gap, min_uncertainty=0.15, max_slices_based_on_infected_slices=0.20):
+def find_best_slices_V7(prediction, gt, uncertainty, params, min_uncertainty=0.15, max_slices_based_on_infected_slices=0.20):
     "Like V2, but filters out all slices with less than 40% of summed uncertainty than that of the max slice"
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -320,15 +330,15 @@ def find_best_slices_V7(prediction, gt, uncertainty, num_slices, slice_gap, min_
     indices_dim_0 = np.argsort(uncertainty_dim_0)
     indices_dim_1 = np.argsort(uncertainty_dim_1)
     indices_dim_2 = np.argsort(uncertainty_dim_2)
-    indices_dim_0 = filter_indices(indices_dim_0, num_slices, slice_gap)
-    indices_dim_1 = filter_indices(indices_dim_1, num_slices, slice_gap)
-    indices_dim_2 = filter_indices(indices_dim_2, num_slices, slice_gap)
+    indices_dim_0 = filter_indices(indices_dim_0, params["num_slices"], params["slice_gap"])
+    indices_dim_1 = filter_indices(indices_dim_1, params["num_slices"], params["slice_gap"])
+    indices_dim_2 = filter_indices(indices_dim_2, params["num_slices"], params["slice_gap"])
     uncertainty_dim_0 *= -1
     uncertainty_dim_1 *= -1
     uncertainty_dim_2 *= -1
 
     def filter_by_required_uncertainty(uncertainty_dim, indices_dim):
-        min_required_uncertainty = uncertainty_dim[indices_dim[0]] * min_uncertainty
+        min_required_uncertainty = uncertainty_dim[indices_dim[0]] * params["min_uncertainty"]
         indices_dim = [index_dim for index_dim in indices_dim if uncertainty_dim[index_dim] >= min_required_uncertainty]
         return indices_dim
 
@@ -337,7 +347,7 @@ def find_best_slices_V7(prediction, gt, uncertainty, num_slices, slice_gap, min_
     indices_dim_2 = filter_by_required_uncertainty(uncertainty_dim_2, indices_dim_2)
 
     num_infected_slices = comp_infected_slices(prediction)
-    num_infected_slices = int((num_infected_slices * max_slices_based_on_infected_slices) / 3)
+    num_infected_slices = int((num_infected_slices * params["max_slices_based_on_infected_slices"]) / 3)
     if num_infected_slices == 0:
         num_infected_slices = 1
     indices_dim_0 = indices_dim_0[:num_infected_slices]
@@ -346,11 +356,11 @@ def find_best_slices_V7(prediction, gt, uncertainty, num_slices, slice_gap, min_
 
     recommended_slices = len(indices_dim_0) + len(indices_dim_1) + len(indices_dim_2)
     filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
-    recommended_patch_area = np.prod(filtered_mask[:, :, 0])
+    recommended_patch_area = np.prod(filtered_mask[:, :, 0].shape)
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V8(prediction, gt, uncertainty, num_slices, slice_gap, min_uncertainty=0.15, max_slices_based_on_infected_slices=0.20, roi_uncertainty=0.95):
+def find_best_slices_V8(prediction, gt, uncertainty, params, min_uncertainty=0.15, max_slices_based_on_infected_slices=0.20, roi_uncertainty=0.95):
     "Like V2, but filters out all slices with less than 40% of summed uncertainty than that of the max slice, and computes ROIs that capture 95% of uncertainty"
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -358,9 +368,9 @@ def find_best_slices_V8(prediction, gt, uncertainty, num_slices, slice_gap, min_
     indices_dim_0 = np.argsort(uncertainty_dim_0)
     indices_dim_1 = np.argsort(uncertainty_dim_1)
     indices_dim_2 = np.argsort(uncertainty_dim_2)
-    indices_dim_0 = filter_indices(indices_dim_0, num_slices, slice_gap)
-    indices_dim_1 = filter_indices(indices_dim_1, num_slices, slice_gap)
-    indices_dim_2 = filter_indices(indices_dim_2, num_slices, slice_gap)
+    indices_dim_0 = filter_indices(indices_dim_0, params["num_slices"], params["slice_gap"])
+    indices_dim_1 = filter_indices(indices_dim_1, params["num_slices"], params["slice_gap"])
+    indices_dim_2 = filter_indices(indices_dim_2, params["num_slices"], params["slice_gap"])
     uncertainty_dim_0 *= -1
     uncertainty_dim_1 *= -1
     uncertainty_dim_2 *= -1
@@ -389,7 +399,10 @@ def find_best_slices_V8(prediction, gt, uncertainty, num_slices, slice_gap, min_
         # Find objects based on uncertainty
         # Crop objects
         # for each object: patch_mask[object] = filtered_mask[object]
-        patch_mask = np.ones_like(filtered_mask) * -1
+        if method == "my_method" or method == "DeepIGeos1" or method == "DeepIGeos2":
+            patch_mask = np.zeros_like(filtered_mask)
+        else:
+            patch_mask = np.ones_like(filtered_mask) * -1
         recommended_patch_area = 0
         indices_dim_all = [indices_dim_0, indices_dim_1, indices_dim_2]
 
@@ -436,13 +449,13 @@ def find_best_slices_V8(prediction, gt, uncertainty, num_slices, slice_gap, min_
     return patch_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V9(prediction, uncertainty, num_slices, slice_gap):
+def find_best_slices_V9(prediction, uncertainty, slice_gap, params):
     "Idee: V2, aber nur die slices nehmen die noch min 60% so viel uncertainty haben wie die erste slice + für jede slice den Bereich eingrenzen der 70% der Uncertainty umfasst"
     "Neue metriken dafür machen: selektierte anzahl pixel / gesamt anzahl pixel ; selektierte anzahl infected pixel / gesamt anzahl infected pixel ; Absolute anzahl von selektieren patches"
     pass
 
 
-def find_best_slices_V10(prediction, uncertainty, num_slices, slice_gap):
+def find_best_slices_V10(prediction, uncertainty, slice_gap, params):
     """Idee für V5: V2 aber uncertainties 5 Grad drehen, resamplen V2 ausführen, das ganze 360/5=72 mal"""
     pass
 
@@ -504,47 +517,91 @@ def comp_infected_slices(mask):
     return mask_slices
 
 
-def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size, devices, parallel):
-    results = []
-    if os.path.isfile(save_dir + "grid_search_results_" + version + ".pkl"):
-        with open(save_dir + "grid_search_results_" + version + ".pkl", 'rb') as handle:
-            results = pickle.load(handle)
-    print(results)
-    for slice_gap in slice_gap_list:
-        for num_slices in num_slices_list:
-            print("slice_gap: {}, default_size: {}, num_slices: {}".format(slice_gap, default_size, num_slices))
-            if not parallel and not reuse:
-                # total_ratio = recommend_slices(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
-                pass
-            elif not reuse:
-                total_ratio = recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
-            else:
-                total_ratio = -1
-            mean_dice_score, median_dice_score = compute_predictions()
-            results.append({"slice_gap": slice_gap, "num_slices": num_slices, "total_ratio": total_ratio, "mean_dice_score": mean_dice_score, "median_dice_score": median_dice_score})
-            with open(save_dir + "grid_search_results_" + version + ".pkl", 'wb') as handle:
-                pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    print(results)
+def eval_all_hyperparameters(save_dir, version, method, default_params, params, devices, parallel):
+    result_params = {}
+    pbar = tqdm(total=sum([len(params[param_key]) for param_key in params.keys()]))
+    for param_key in params.keys():
+        result_param_values = {}
+        for param_value in params[param_key]:
+            current_params = copy.deepcopy(default_params)
+            current_params[param_key] = param_value
+            result = eval_single_hyperparameters(current_params, parallel)
+            result_param_values[param_value] = result
+            pbar.update(1)
+            with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + ".pkl", 'wb') as handle:
+                pickle.dump(result_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print("Results saved.")
+        result_params[param_key] = result_param_values
+    pbar.close()
+    print("Saving hyperparam evaluation...")
+    with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + ".pkl", 'wb') as handle:
+        pickle.dump(result_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    print("Hyperparam evaluation finished.")
+
+
+def eval_single_hyperparameters(params, parallel, debug=False):
+    print("Starting hyperparam evaluation...")
+    print(params)
+    shutil.rmtree(recommended_masks_path, ignore_errors=True)
+    Path(recommended_masks_path).mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(refined_prediction_save_path, ignore_errors=True)
+    Path(refined_prediction_save_path).mkdir(parents=True, exist_ok=True)
+    if not parallel and not reuse:
+        # total_ratio = recommend_slices(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+        recommended_result = None
+    elif not reuse:
+        recommended_result = recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, recommended_masks_path, find_best_slices_func, params)
+    else:
+        recommended_result = None
+    prediction_result = compute_predictions()
+    # prediction_result = None
+    if debug:
+        print("inf slice ratio: {}, inf patch ratio: {}".format(np.sum([r["recommended_slices"] for r in recommended_result]) / np.sum([r["gt_infected_slices"] for r in recommended_result]),
+                                                                np.sum([r["recommended_patch_area"] for r in recommended_result]) / np.sum([r["infection_size"] for r in recommended_result])))
+    return {"recommended_result": recommended_result, "prediction_result": prediction_result}
+
+
+# def grid_search(save_dir, version, slice_gap_list, num_slices_list, default_size, devices, parallel):
+#     results = []
+#     if os.path.isfile(save_dir + "grid_search_results_" + version + ".pkl"):
+#         with open(save_dir + "grid_search_results_" + version + ".pkl", 'rb') as handle:
+#             results = pickle.load(handle)
+#     print(results)
+#     for slice_gap in slice_gap_list:
+#         for num_slices in num_slices_list:
+#             print("slice_gap: {}, default_size: {}, num_slices: {}".format(slice_gap, default_size, num_slices))
+#             if not parallel and not reuse:
+#                 # total_ratio = recommend_slices(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+#                 pass
+#             elif not reuse:
+#                 total_ratio = recommend_slices_parallel(prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size)
+#             else:
+#                 total_ratio = -1
+#             mean_dice_score, median_dice_score = compute_predictions()
+#             results.append({"slice_gap": slice_gap, "num_slices": num_slices, "total_ratio": total_ratio, "mean_dice_score": mean_dice_score, "median_dice_score": median_dice_score})
+#             with open(save_dir + "grid_search_results_" + version + ".pkl", 'wb') as handle:
+#                 pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+#     print(results)
 
 
 def compute_predictions():
     if method == "my_method":
-        mean_dice_score, median_dice_score = my_method.compute_predictions(devices, save_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model)
+        recommended_result = my_method.compute_predictions(devices, recommended_masks_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model)
     elif method == "DeepIGeos1":
-        mean_dice_score, median_dice_score = deep_i_geos.compute_predictions(devices, save_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, 0.99)
+        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, 0.99)
     elif method == "DeepIGeos2":
-        mean_dice_score, median_dice_score = deep_i_geos.compute_predictions(devices, save_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, 0.00)
+        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, 0.00)
     elif method == "GraphCut1":
-        mean_dice_score, median_dice_score = graph_cut.compute_predictions(image_path, save_path, gt_path, refined_prediction_save_path + "/", method)
+        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality)
     elif method == "GraphCut2":
-        mean_dice_score, median_dice_score = graph_cut.compute_predictions(image_path, save_path, gt_path, refined_prediction_save_path + "/", method)
+        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality)
     elif method == "GraphCut3":
-        mean_dice_score, median_dice_score = graph_cut.compute_predictions(image_path, save_path, gt_path, refined_prediction_save_path + "/", method)
+        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality)
     elif method == "random_walker":
-        mean_dice_score, median_dice_score = random_walker.compute_predictions(image_path, save_path, gt_path, refined_prediction_save_path + "/")
+        recommended_result = random_walker.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", modality)
     elif method == "watershed":
-        mean_dice_score, median_dice_score = watershed.compute_predictions(image_path, save_path, gt_path, refined_prediction_save_path + "/")
-    return mean_dice_score, median_dice_score
+        recommended_result = watershed.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", modality)
+    return recommended_result
 
 
 def pkl2csv(filename):
@@ -574,7 +631,7 @@ if __name__ == '__main__':
     parser.add_argument("-modality", help="Set the modality number", required=True)
     parser.add_argument("--reuse", action="store_true", default=False, help="Reuse recommended masks from last run", required=False)
     args = parser.parse_args()
-    devices = [2, 4, 5, 6]
+    devices = [3, 4, 5, 6]
 
     version = str(args.version)
     uncertainty_quantification = str(args.uncertainty_quantification)
@@ -624,23 +681,42 @@ if __name__ == '__main__':
     task = args.task  # "Task072_allGuided_ggo"
     model = args.model
     set = args.set  # "val"
+    method = args.method
     base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_" + set + "/"
     image_path = base_path + "/images/"
     prediction_path = base_path + "/basic_predictions/"
     uncertainty_path = base_path + "/uncertainties/" + uncertainty_quantification + "/" + uncertainty_measure + "/"
     gt_path = base_path + "/labels/"
-    save_path = base_path + "/recommended_masks/" + version + "/"
-    refined_prediction_save_path = base_path + "/refined_predictions"
+    recommended_masks_path = base_path + "/recommended_masks/" + version + "/" + method + "/"
+    refined_prediction_save_path = base_path + "/refined_predictions/" + method
     grid_search_save_path = base_path + "/GridSearchResults/"
     refinement_inference_tmp = base_path + "/refinement_inference_tmp/part"
-    method = args.method
-    modality = args.modality
+    modality = int(args.modality)
     reuse = args.reuse
 
-    Path(save_path).mkdir(parents=True, exist_ok=True)
+    pool = mp.Pool(processes=8)
+    shutil.rmtree(recommended_masks_path, ignore_errors=True)
+    Path(recommended_masks_path).mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(refined_prediction_save_path, ignore_errors=True)
+    Path(refined_prediction_save_path).mkdir(parents=True, exist_ok=True)
 
-    slice_gap = [20]  # [20, 25]
-    num_slices = [12]
-    grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel)
+    # slice_gap = [20]  # [20, 25]
+    # num_slices = [12]
+    # grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel)
+
+    default_params = {}
+    default_params["slice_gap"] = 20
+    default_params["num_slices"] = 12
+    default_params["min_uncertainty"] = 0.15
+    default_params["max_slices_based_on_infected_slices"] = 0.2
+    default_params["default_size"] = 1280
+
+    params = {}
+    params["slice_gap"] = [10, 15, 20, 25, 30, 40, 50, 70]
+    params["num_slices"] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25]
+    params["max_slices_based_on_infected_slices"] = [0.1, 0.15, 0.2, 0.25, 0.3]
+
+    eval_all_hyperparameters(grid_search_save_path, version, method, default_params, params, devices, args.parallel)
 
     # pkl2csv("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/GridSearchResults/grid_search_results_V6.pkl")

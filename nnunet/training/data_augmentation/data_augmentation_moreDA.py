@@ -39,7 +39,7 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
                             seeds_train=None, seeds_val=None, order_seg=1, order_data=3, deep_supervision_scales=None,
                             soft_ds=False,
                             classes=None, pin_memory=True, regions=None,
-                            use_nondetMultiThreadedAugmenter: bool = False, deep_i_geos=False):
+                            use_nondetMultiThreadedAugmenter: bool = False, deep_i_geos=False, channel_range=(1, 2)):
     assert params.get('mirror') is None, "old version of params, use new keyword do_mirror"
 
     tr_transforms = []
@@ -114,7 +114,7 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
         if not deep_i_geos:
             tr_transforms.append(MoveSegAsOneHotToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
         else:
-            tr_transforms.append(MoveSegToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
+            tr_transforms.append(MoveSegToData(channel_range, params.get("all_segmentation_labels"), 'seg', 'data'))
         if params.get("cascade_do_cascade_augmentations") is not None and params.get(
                 "cascade_do_cascade_augmentations"):
             if params.get("cascade_random_binary_transform_p") > 0:
@@ -174,7 +174,7 @@ def get_moreDA_augmentation(dataloader_train, dataloader_val, patch_size, params
         if not deep_i_geos:
             val_transforms.append(MoveSegAsOneHotToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
         else:
-            val_transforms.append(MoveSegToData(1, params.get("all_segmentation_labels"), 'seg', 'data'))
+            val_transforms.append(MoveSegToData(channel_range, params.get("all_segmentation_labels"), 'seg', 'data'))
 
     val_transforms.append(RenameTransform('seg', 'target', True))
 

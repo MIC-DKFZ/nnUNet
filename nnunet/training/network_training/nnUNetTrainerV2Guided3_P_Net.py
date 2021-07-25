@@ -14,6 +14,7 @@
 
 
 import numpy as np
+from typing import Tuple
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.P_Net import P_Net
 from nnunet.network_architecture.generic_UNet import Generic_UNet
@@ -30,6 +31,7 @@ from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided3
 from torch import nn
 import torch
+from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData
 
 
 class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
@@ -175,6 +177,33 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
         if torch.cuda.is_available():
             self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
+
+    def predict_preprocessed_data_return_seg_and_softmax(self, data: np.ndarray, do_mirroring: bool = True,
+                                                         mirror_axes: Tuple[int] = None,
+                                                         use_sliding_window: bool = True, step_size: float = 0.5,
+                                                         use_gaussian: bool = True, pad_border_mode: str = 'constant',
+                                                         pad_kwargs: dict = None, all_in_gpu: bool = False,
+                                                         verbose: bool = True, mixed_precision=True, tta: int = -1, mcdo: int = -1) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        We need to wrap this because we need to enforce self.network.do_ds = False for prediction
+        """
+        ds = self.network.do_ds
+        self.network.do_ds = False
+        # tmp = data[:-1][np.newaxis, ...]
+        # if len(tmp.shape) == 4:
+        #     tmp = tmp[np.newaxis, ...]
+        # data = self.move_seg_as_one_hot_to_data(data_old=data[np.newaxis, ...], data_new=tmp)['data_new'][0]
+        ret = super().predict_preprocessed_data_return_seg_and_softmax(data,
+                                                                       do_mirroring=do_mirroring,
+                                                                       mirror_axes=mirror_axes,
+                                                                       use_sliding_window=use_sliding_window,
+                                                                       step_size=step_size, use_gaussian=use_gaussian,
+                                                                       pad_border_mode=pad_border_mode,
+                                                                       pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu,
+                                                                       verbose=verbose,
+                                                                       mixed_precision=mixed_precision, tta=tta, mcdo=mcdo)
+        self.network.do_ds = ds
+        return ret
 
     def run_online_evaluation(self, output, target):
         return nnUNetTrainer.run_online_evaluation(self, output, target)

@@ -87,5 +87,6 @@ def compute_predictions(available_devices, save_path, prediction_path, gt_path, 
     os.remove(refined_prediction_save_path + "/plans.pkl")
     print("Total inference time {}s.".format(time.time() - start_inference_time))
     print("All parts finished processing.")
-    mean_dice_score, median_dice_score = evaluate(gt_path, refined_prediction_save_path)
-    return mean_dice_score, median_dice_score
+    results = evaluate(gt_path, refined_prediction_save_path)
+    print("Evaluation finished.")
+    return results

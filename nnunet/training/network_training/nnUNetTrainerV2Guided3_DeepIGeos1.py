@@ -34,17 +34,18 @@ from torch import nn
 from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided3
-from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData
+from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided3_DeepIGeos
+from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegToData
 
 
-class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
+class nnUNetTrainerV2Guided3_DeepIGeos1(nnUNetTrainer):
     """
     Info for Fabian: same as internal nnUNetTrainerV2_2
     """
 
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False, deep_i_geos_value=0.99):
+        self.deep_i_geos_value = deep_i_geos_value
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 1500
@@ -53,7 +54,6 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
         self.ds_loss_weights = None
 
         self.pin_memory = True
-        self.deep_i_geos_value = deep_i_geos_value
 
     def initialize(self, training=True, force_load_plans=False, mcdo=-1):
         """
@@ -113,14 +113,16 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
                     deep_supervision_scales=self.deep_supervision_scales,
                     pin_memory=self.pin_memory,
                     use_nondetMultiThreadedAugmenter=False,
-                    deep_i_geos=True
+                    deep_i_geos=True,
+                    channel_range=[1, self.num_classes]
                 )
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                        also_print_to_console=False)
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
                                        also_print_to_console=False)
             else:
-                self.move_seg_as_one_hot_to_data = MoveSegAsOneHotToData(1, self.data_aug_params['all_segmentation_labels'], 'data_old', 'data_new')
+                # self.move_seg_to_data = MoveSegToData(self.plans['num_modalities']-1, self.data_aug_params['all_segmentation_labels'], 'data_old', 'data_new')
+                pass
 
             self.initialize_network(mcdo)
             self.initialize_optimizer_and_scheduler()
@@ -218,7 +220,10 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
         """
         ds = self.network.do_ds
         self.network.do_ds = False
-        data = self.move_seg_as_one_hot_to_data(data_old=data[np.newaxis, ...], data_new=data[0][np.newaxis, np.newaxis, ...])['data_new'][0]
+        # tmp = data[:-1][np.newaxis, ...]
+        # if len(tmp.shape) == 4:
+        #     tmp = tmp[np.newaxis, ...]
+        # data = self.move_seg_to_data(data_old=data[np.newaxis, ...], data_new=tmp)['data_new'][0]
         ret = super().predict_preprocessed_data_return_seg_and_softmax(data,
                                                                        do_mirroring=do_mirroring,
                                                                        mirror_axes=mirror_axes,
@@ -231,7 +236,7 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
         self.network.do_ds = ds
         return ret
 
-    def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False):
+    def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False, debug=False):
         """
         gradient clipping improves training stability
 
@@ -255,12 +260,16 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
 
         if self.fp16:
             with autocast():
-                # print(data.shape)
-                # print("min: {}, max: {}".format(data.min(), data.max()))
-                # from medseg import utils
-                # import random
-                # name = random.randint(0, 1000)
-                # utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/{}guiding_mask.nii.gz".format(name), data[0, 4, ...].squeeze().detach().cpu().numpy())
+                # if debug:
+                #     from medseg import utils
+                #     import random
+                #     name = random.randint(0, 1000)
+                #     for i in range(7):
+                #         path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_data.nii.gz".format(name, i)
+                #         utils.save_nifty(path, data[0, i, ...].squeeze().detach().cpu().numpy())
+                #     for i in range(5):
+                #         path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_target.nii.gz".format(name, i)
+                #         utils.save_nifty(path, target[i][0, 0, ...].squeeze().detach().cpu().numpy())
                 output = self.network(data)
                 del data
                 l = self.loss(output, target)
@@ -344,9 +353,9 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
         for i in val_keys:
             self.dataset_val[i] = self.dataset[i]
 
-    # def process_plans(self, plans):
-    #     super().process_plans(plans)
-    #     self.num_input_channels += (self.num_classes - 2)  # for seg from prev stage
+    def process_plans(self, plans):
+        super().process_plans(plans)
+        self.num_input_channels += (self.num_classes - 2)  # for seg from prev stage
 
     def setup_DA_params(self):
         """
@@ -399,7 +408,7 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
         self.data_aug_params["do_elastic"] = False
         self.data_aug_params['patch_size_for_spatialtransform'] = patch_size_for_spatialtransform
 
-        self.data_aug_params['selected_seg_channels'] = [0, 1]  # New
+        self.data_aug_params['selected_seg_channels'] = list(range(self.num_classes))  # New
         self.data_aug_params['move_last_seg_chanel_to_data'] = True  # New
         self.data_aug_params['all_segmentation_labels'] = list(range(1, self.num_classes))  # New
 
@@ -463,12 +472,12 @@ class nnUNetTrainerV2Guided3_DeepIGeos(nnUNetTrainer):
         self.do_split()
 
         if self.threeD:
-            dl_tr = DataLoader3DGuided3(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
+            dl_tr = DataLoader3DGuided3_DeepIGeos(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size, self.num_input_channels, self.num_classes,
                                  False, oversample_foreground_percent=self.oversample_foreground_percent,
-                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True, deep_i_geos=True, deep_i_geos_value=self.deep_i_geos_value)
-            dl_val = DataLoader3DGuided3(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True, deep_i_geos_value=self.deep_i_geos_value)
+            dl_val = DataLoader3DGuided3_DeepIGeos(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, self.num_input_channels, self.num_classes, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False, deep_i_geos=True, deep_i_geos_value=self.deep_i_geos_value)
+                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False, deep_i_geos_value=self.deep_i_geos_value)
         else:
             raise NotImplementedError("DataLoader2D not implemented with guided training")
         return dl_tr, dl_val

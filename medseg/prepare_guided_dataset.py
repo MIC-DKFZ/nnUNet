@@ -4,9 +4,9 @@ from shutil import copyfile
 import os
 from tqdm import tqdm
 
-path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task002_BrainTumour_guided/"
-cases_split = 50
-modalities = 4
+path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/"
+cases_split = 36
+modalities = 1
 
 
 

@@ -7,7 +7,7 @@ import sys
 from scipy.special import softmax
 
 
-def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None, cases=None, nr_labels=None, nr_parts=None, zfill=4, count_start=None, type="part", merge_uncertainties=True, class_dices=None):
+def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None, cases=None, nr_labels=None, nr_parts=None, zfill=4, count_start=None, type="part", merge_uncertainties=False, class_dices=None):
     load_dir = utils.fix_path(load_dir)
     save_dir = utils.fix_path(save_dir)
     filenames = utils.load_filenames(load_dir)
@@ -18,6 +18,11 @@ def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None,
     print("nr_cases: ", len(cases))
     print("nr_labels: ", nr_labels)
     print("nr_parts: ", nr_parts)
+
+    if class_dices is not None:
+        weights = [1 - dice for dice in class_dices]
+        weights = softmax(weights)
+        print("weights: ", weights)
 
     for case in tqdm(cases):
         uncertainty_classes = []
@@ -39,12 +44,12 @@ def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None,
                 uncertainty_classes.append(uncertainty)
         if merge_uncertainties:
             uncertainty_classes = uncertainty_classes[1:]  # Remove background uncertainty
-            if not class_dices:
+            if class_dices is None:
                 uncertainty_classes = np.mean(uncertainty_classes, axis=0)
             else:
-                weights = [1 - dice for dice in class_dices]
-                weights = softmax(weights)
-                uncertainty_classes = np.sum(np.asarray(uncertainty_classes) * np.asarray(weights))
+                uncertainty_classes = np.asarray(uncertainty_classes)
+                uncertainty_classes = [uncertainty_classes[i] * weights[i] for i in range(len(uncertainty_classes))]
+                uncertainty_classes = np.sum(uncertainty_classes, axis=0)
             name = create_name(save_dir, basename, case, None, zfill, True)
             utils.save_nifty(name, uncertainty_classes, affine, spacing, header)
 
@@ -137,7 +142,14 @@ if __name__ == '__main__':
     parser.add_argument("-basename", default=None, help="Basename", required=False)  # BRATS
     parser.add_argument("-zfill", default=4, help="Number of leading zeros for case numeration", required=False)  # 3
     parser.add_argument("-count_start", default=None, help="Case counter starting point", required=False)  # 101
+    parser.add_argument("--class_dices", action="store_true", default=False, help="Use class dices?", required=True)
     args = parser.parse_args()
+
+    merge_uncertainties = True
+    if args.class_dices:
+        class_dices = (0.83, 0.59, 0.73)
+    else:
+        class_dices = None
 
     method = str(args.method)
     cases = int(args.nr_cases)
@@ -156,6 +168,6 @@ if __name__ == '__main__':
     else:
         raise RuntimeError("Unknown uncertainty estimator.")
 
-    comp_uncertainties(args.input, args.output, uncertainty_estimator, basename, cases, nr_labels, nr_parts, zfill, count_start)
+    comp_uncertainties(args.input, args.output, uncertainty_estimator, basename, cases, nr_labels, nr_parts, zfill, count_start,merge_uncertainties=merge_uncertainties, class_dices=class_dices)
 
     # preprocess_uncertainty_files("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task004_BrainTumour_guided/uncertainties/ensemble/predictive_entropy")

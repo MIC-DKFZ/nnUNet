@@ -194,11 +194,21 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
                     do_scale=True, scale=(0.75, 1.25), border_mode_data='nearest', border_cval_data=0, order_data=3,
                     border_mode_seg='constant', border_cval_seg=0, order_seg=0, random_crop=True, p_el_per_sample=1,
                     p_scale_per_sample=1, p_rot_per_sample=1, independent_scale_for_each_axis=False,
-                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1, deep_i_geos: bool = False):
+                    p_rot_per_axis: float = 1, p_independent_scale_per_axis: int = 1, deep_i_geos: bool = False, n_classes=1):
     if deep_i_geos:
         # DeepIGeos
-        data = np.concatenate((data, seg[:, 1, ...][:, np.newaxis, ...]), axis=1)
-        seg = seg[:, 0, ...][:, np.newaxis, ...]
+        if len(data.shape) == 5:
+            tmp = seg[:, 1:, ...]
+            if len(tmp.shape) == 4:
+                tmp = tmp[:, np.newaxis, ...]
+            moved_channels = tmp.shape[1]
+            data = np.concatenate((data, tmp), axis=1)
+            seg = seg[:, 0, ...][:, np.newaxis, ...]
+        else:
+            moved_channels = int(seg.shape[1] / (1+n_classes*2))
+            org_data_channels = int(data.shape[1])
+            data = np.concatenate((data, seg[:, moved_channels:, ...]), axis=1)
+            seg = seg[:, :moved_channels, ...]
 
     dim = len(patch_size)
     seg_result = None
@@ -301,14 +311,26 @@ def augment_spatial(data, seg, patch_size, patch_center_dist_from_border=30,
 
     if deep_i_geos:
         # DeepIGeos
-        seg = np.concatenate((seg, data[:, -1, ...][:, np.newaxis, ...]), axis=1)
-        # data = data[:, :-1, ...][:, np.newaxis, ...]
-        data = data[:, :-1, ...]
-        seg_result = np.concatenate((seg_result, data_result[:, -1, ...][:, np.newaxis, ...]), axis=1)
-        # data_result = data_result[:, :-1, ...][:, np.newaxis, ...]
-        data_result = data_result[:, :-1, ...]
-        # print("data_result shape: ", data_result.shape)
-        # print("HAHAHHAHAHHAHHAHAAHHAHAHHAHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        if len(data.shape) == 5:
+            tmp = data[:, -moved_channels:, ...]
+            if len(tmp.shape) == 4:
+                tmp = tmp[:, np.newaxis, ...]
+            seg = np.concatenate((seg, tmp), axis=1)
+            # data = data[:, :-1, ...][:, np.newaxis, ...]
+            data = data[:, :-moved_channels, ...]
+
+            tmp = data_result[:, -moved_channels:, ...]
+            if len(tmp.shape) == 4:
+                tmp = tmp[:, np.newaxis, ...]
+            seg_result = np.concatenate((seg_result, tmp), axis=1)
+            # data_result = data_result[:, :-1, ...][:, np.newaxis, ...]
+            data_result = data_result[:, :-moved_channels, ...]
+        else:
+            seg = np.concatenate((seg, data[:, org_data_channels:, ...]), axis=1)
+            data = data[:, :org_data_channels, ...]
+            seg_result = np.concatenate((seg_result, data_result[:, org_data_channels:, ...]), axis=1)
+            data_result = data_result[:, :org_data_channels, ...]
+
     return data_result, seg_result
 
 

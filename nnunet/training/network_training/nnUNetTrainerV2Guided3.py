@@ -232,7 +232,7 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
         self.network.do_ds = ds
         return ret
 
-    def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False):
+    def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False, debug=False):
         """
         gradient clipping improves training stability
 
@@ -256,13 +256,16 @@ class nnUNetTrainerV2Guided3(nnUNetTrainer):
 
         if self.fp16:
             with autocast():
-                # from medseg import utils
-                # import random
-                # # name = random.randint(0, 1000)
-                # if data_dict['name']:
-                #     utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_4_guiding_mask.nii.gz".format(data_dict['name'][0]), data[0, 4, ...].squeeze().detach().cpu().numpy())
-                #     utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_5_guiding_mask.nii.gz".format(data_dict['name'][0]), data[0, 5, ...].squeeze().detach().cpu().numpy())
-                #     utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_6_guiding_mask.nii.gz".format(data_dict['name'][0]), data[0, 6, ...].squeeze().detach().cpu().numpy())
+                # if debug:
+                #     from medseg import utils
+                #     import random
+                #     name = random.randint(0, 1000)
+                #     for i in range(7):
+                #         path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_data.nii.gz".format(name, i)
+                #         utils.save_nifty(path, data[0, i, ...].squeeze().detach().cpu().numpy())
+                #     for i in range(5):
+                #         path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_target.nii.gz".format(name, i)
+                #         utils.save_nifty(path, target[i][0, 0, ...].squeeze().detach().cpu().numpy())
                 output = self.network(data)
                 del data
                 l = self.loss(output, target)

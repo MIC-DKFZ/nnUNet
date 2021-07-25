@@ -6,8 +6,8 @@ from imcut.pycut import ImageGraphCut
 from tqdm import tqdm
 import copy
 
-def compute_predictions(image_path, mask_path, gt_path, save_path, version):
-    image_filenames = utils.load_filenames(image_path)
+def compute_predictions(image_path, mask_path, gt_path, save_path, version, nr_modalities):
+    image_filenames = utils.load_filenames(image_path)[::nr_modalities]
     mask_filenames = utils.load_filenames(mask_path)
 
     segparams = {
@@ -23,7 +23,9 @@ def compute_predictions(image_path, mask_path, gt_path, save_path, version):
         multi_label_mask, _, _, _ = utils.load_nifty(mask_filenames[i])
         target_multi_label_mask = np.zeros_like(multi_label_mask)
         labels = np.unique(multi_label_mask)
-        for label in range(1, len(labels) - 1):
+        labels = labels[labels > 0]
+        labels = [1]
+        for label in range(len(labels)):
             mask = copy.deepcopy(multi_label_mask)
             mask[mask == label] = -2  # Save foreground
 
@@ -47,6 +49,6 @@ def compute_predictions(image_path, mask_path, gt_path, save_path, version):
             # mask[mask == 1] = 0  # Background
             # mask[mask == -1] = label  # Restore foreground
             target_multi_label_mask[mask == 0] = label  # 0 is foreground
-        utils.save_nifty(save_path + os.path.basename(mask_filenames[i]), target_multi_label_mask, affine, spacing, header, is_mask=True)
+        utils.save_nifty(save_path + os.path.basename(mask_filenames[i][:-12] + ".nii.gz"), target_multi_label_mask, affine, spacing, header, is_mask=True)
     mean_dice_score, median_dice_score = evaluate(gt_path, save_path)
     return mean_dice_score, median_dice_score

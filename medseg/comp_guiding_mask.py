@@ -184,11 +184,11 @@ if __name__ == '__main__':
     slice_gap = 70  # COVID-19: 70, BrainTumor: 70
     default_size = 1280
     slice_depth = 1
-    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task002_BrainTumour_guided/"
+    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/"
     load_path = base_path + "labelsTr/"
     save_path = base_path + "guiding_masks/"
     # comp_guiding_mask(load_path, save_path, slice_gap, default_size, slice_depth)
-    rename_guiding_masks(save_path, 4)
+    rename_guiding_masks(save_path, 1)
     # 0.0, 0.99
     # guiding2geodistk("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task003_BrainTumour_guided_DeepIGeos1/imagesTr/", lamb=0.99, iterations=1, modality=4)
 

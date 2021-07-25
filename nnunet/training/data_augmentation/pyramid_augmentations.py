@@ -78,7 +78,8 @@ class MoveSegAsOneHotToData(AbstractTransform):
     def __call__(self, **data_dict):
         origin = data_dict.get(self.key_origin)
         target = data_dict.get(self.key_target)
-        seg = origin[:, self.channel_id:self.channel_id+1]
+        seg = origin[:, self.channel_id:self.channel_id + 1]
+        # seg = np.rint(origin[:, self.channel_id:self.channel_id+1]).astype(np.int)
         seg_onehot = np.zeros((seg.shape[0], len(self.all_seg_labels), *seg.shape[2:]), dtype=seg.dtype)
         for i, l in enumerate(self.all_seg_labels):
             seg_onehot[:, i][seg[:, 0] == l] = 1
@@ -103,7 +104,7 @@ class MoveSegToData(AbstractTransform):
     def __call__(self, **data_dict):
         origin = data_dict.get(self.key_origin)
         target = data_dict.get(self.key_target)
-        seg = origin[:, self.channel_id:self.channel_id+1]
+        seg = origin[:, self.channel_id[0]:self.channel_id[1]]
         # seg_onehot = np.zeros((seg.shape[0], len(self.all_seg_labels), *seg.shape[2:]), dtype=seg.dtype)
         # for i, l in enumerate(self.all_seg_labels):
         #     seg_onehot[:, i][seg[:, 0] == l] = 1
@@ -112,7 +113,8 @@ class MoveSegToData(AbstractTransform):
         data_dict[self.key_target] = target
 
         if self.remove_from_origin:
-            remaining_channels = [i for i in range(origin.shape[1]) if i != self.channel_id]
+            moved_channels = list(range(self.channel_id[0], self.channel_id[1]))
+            remaining_channels = [i for i in range(origin.shape[1]) if i not in moved_channels]
             origin = origin[:, remaining_channels]
             data_dict[self.key_origin] = origin
         return data_dict
