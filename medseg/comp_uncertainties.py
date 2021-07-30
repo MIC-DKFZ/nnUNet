@@ -15,6 +15,7 @@ def comp_uncertainties(load_dir, save_dir, uncertainty_estimator, basename=None,
         cases, nr_labels, nr_parts = group_data(filenames)
     else:
         cases = list(range(count_start, cases+count_start, 1))
+    print(cases)
     print("nr_cases: ", len(cases))
     print("nr_labels: ", nr_labels)
     print("nr_parts: ", nr_parts)
@@ -134,6 +135,7 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", help="Input folder", required=True)
     parser.add_argument("-o", "--output", help="Output folder", required=True)
     parser.add_argument("-m", "--method", help="Variance (v), entropy (e) or bhattacharyya (b)", required=True)
+    parser.add_argument("--class_dices", action="store_true", default=False, help="Use class dices?", required=True)
 
     # Stupid arguments
     parser.add_argument("-nr_c", "--nr_cases", default=None, help="Number of cases", required=False)  # 50
@@ -142,22 +144,31 @@ if __name__ == '__main__':
     parser.add_argument("-basename", default=None, help="Basename", required=False)  # BRATS
     parser.add_argument("-zfill", default=4, help="Number of leading zeros for case numeration", required=False)  # 3
     parser.add_argument("-count_start", default=None, help="Case counter starting point", required=False)  # 101
-    parser.add_argument("--class_dices", action="store_true", default=False, help="Use class dices?", required=True)
     args = parser.parse_args()
 
     merge_uncertainties = True
     if args.class_dices:
-        class_dices = (0.83, 0.59, 0.73)
+        # class_dices = (0.83, 0.59, 0.73)
+        # class_dices = (0.78, 0.57, 0.79)  # Task002_BrainTumour_guided test
+        class_dices = (0.75, 0.28)  # Task008_Pancreas_guided val
     else:
         class_dices = None
 
     method = str(args.method)
-    cases = int(args.nr_cases)
-    nr_labels = int(args.nr_labels)
-    nr_parts = int(args.nr_parts)
-    basename = args.basename
-    zfill = int(args.zfill)
-    count_start = int(args.count_start)
+    if args.nr_cases is not None:
+        cases = int(args.nr_cases)
+        nr_labels = int(args.nr_labels)
+        nr_parts = int(args.nr_parts)
+        basename = args.basename
+        zfill = int(args.zfill)
+        count_start = int(args.count_start)
+    else:
+        cases = None
+        nr_labels = None
+        nr_parts = None
+        basename = None
+        zfill = 4
+        count_start = None
 
     if method == "v":
         uncertainty_estimator = comp_variance_uncertainty

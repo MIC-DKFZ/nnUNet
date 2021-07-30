@@ -116,9 +116,9 @@ def comp_object_slices_dim(object, dim, slice_gap, p=None, slice_depth=3):
     return object_slices, is_object_small
 
 
-def comp_slices_mask_training(mask):
+def comp_slices_mask_training(mask, delta=1/3):
     # print("Unique: ", np.unique(mask))
-    max_slices = int(mask.shape[2] / 3)
+    max_slices = int(mask.shape[2] * delta)
     num_slices = random.randint(0, max_slices)
 
     slices = np.zeros_like(mask)
@@ -141,7 +141,7 @@ def comp_slices_mask_training(mask):
     unique = unique[unique > 0]
     for label in unique:
         mask_slices[(slices == 1) & (mask == label)] = label
-    # mask_slices[mask == -1] = -1
+    # mask_slices[mask == -1] = -1  # NEW
     mask_slices = np.rint(mask_slices)
     # name = random.randint(0, 1000)
     # utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_slices.nii.gz".format(name), slices)

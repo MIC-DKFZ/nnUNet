@@ -216,7 +216,7 @@ def plot_results_combined(load_dir):
     uncertainty_measures = ["bhattacharyya_coefficient", "predictive_entropy", "predictive_variance"]
 
     def load(uncertainty_quantification, uncertainty_measure):
-        with open(load_dir + 'uncertainty_evaluation_{}_{}.pkl'.format(uncertainty_quantification, uncertainty_measure), 'rb') as handle:
+        with open(load_dir + '{}_{}.pkl'.format(uncertainty_quantification, uncertainty_measure), 'rb') as handle:
             results = pickle.load(handle)
             return {"MCM": results["MCM"], "TCM": results["TCM"], "h-Index-depth": results["h-Index-depth"], "Thresholds": results["Thresholds"]}
 
@@ -238,7 +238,7 @@ def plot_results_combined(load_dir):
     ax.legend([legend_ensemble, legend_mcdo, legend_tta, legend_mcm, legend_tcm], ["Ensemble", "MC-Dropout", "TTA", "MCM", "TCM"], bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylim(0, 1)
     plt.title("MCM and TCM comparision (Bhattacharyya coefficient)")
-    plt.savefig(load_dir + "uncertainty_evaluation_bhattacharyya_coefficient.png", bbox_inches='tight')
+    plt.savefig(load_dir + "bhattacharyya_coefficient.png", bbox_inches='tight')
     plt.clf()
     fig, ax = plt.subplots()
     results = load("ensemble", "bhattacharyya_coefficient")
@@ -250,7 +250,7 @@ def plot_results_combined(load_dir):
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylim(0, 10)
     plt.title("h-Index-depth comparision (Bhattacharyya coefficient)")
-    plt.savefig(load_dir + "uncertainty_evaluation_bhattacharyya_coefficient_hindex.png", bbox_inches='tight')
+    plt.savefig(load_dir + "bhattacharyya_coefficient_hindex.png", bbox_inches='tight')
     plt.clf()
 
     fig, ax = plt.subplots()
@@ -271,7 +271,7 @@ def plot_results_combined(load_dir):
     ax.legend([legend_ensemble, legend_mcdo, legend_tta, legend_mcm, legend_tcm], ["Ensemble", "MC-Dropout", "TTA", "MCM", "TCM"], bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylim(0, 1)
     plt.title("MCM and TCM comparision (Predictive entropy)")
-    plt.savefig(load_dir + "uncertainty_evaluation_predictive_entropy.png", bbox_inches='tight')
+    plt.savefig(load_dir + "predictive_entropy.png", bbox_inches='tight')
     plt.clf()
     fig, ax = plt.subplots()
     results = load("ensemble", "predictive_entropy")
@@ -283,7 +283,7 @@ def plot_results_combined(load_dir):
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylim(0, 10)
     plt.title("h-Index-depth comparision (Predictive entropy)")
-    plt.savefig(load_dir + "uncertainty_evaluation_predictive_entropy_hindex.png", bbox_inches='tight')
+    plt.savefig(load_dir + "predictive_entropy_hindex.png", bbox_inches='tight')
     plt.clf()
 
     fig, ax = plt.subplots()
@@ -304,7 +304,7 @@ def plot_results_combined(load_dir):
     ax.legend([legend_ensemble, legend_mcdo, legend_tta, legend_mcm, legend_tcm], ["Ensemble", "MC-Dropout", "TTA", "MCM", "TCM"], bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylim(0, 1)
     plt.title("MCM and TCM comparision (Predictive variance)")
-    plt.savefig(load_dir + "uncertainty_evaluation_predictive_variance.png", bbox_inches='tight')
+    plt.savefig(load_dir + "predictive_variance.png", bbox_inches='tight')
     plt.clf()
     fig, ax = plt.subplots()
     results = load("ensemble", "predictive_variance")
@@ -316,7 +316,7 @@ def plot_results_combined(load_dir):
     plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     plt.ylim(0, 10)
     plt.title("h-Index-depth comparision (Predictive variance)")
-    plt.savefig(load_dir + "uncertainty_evaluation_predictive_variance_hindex.png", bbox_inches='tight')
+    plt.savefig(load_dir + "predictive_variance_hindex.png", bbox_inches='tight')
     plt.clf()
 
 
@@ -349,17 +349,17 @@ def comp_TCM_80(load_dir):
 #
 #     # b
 #     thresholds1 = np.arange(0.0, 0.2, 0.005)
-#     thresholds2 = np.arange(0.2, 0.3, 0.01)
+#     thresholds2 = np.arange(0.2, 0.7, 0.01)
 #     thresholds_b = np.concatenate([thresholds1, thresholds2], axis=0)
 #
 #     # e
 #     thresholds1 = np.arange(0.0, 0.02, 0.0005)
-#     thresholds2 = np.arange(0.02, 0.05, 0.01)
+#     thresholds2 = np.arange(0.02, 0.07, 0.01)
 #     thresholds_e = np.concatenate([thresholds1, thresholds2], axis=0)
 #
 #     # v
 #     thresholds1 = np.arange(0.0, 0.02, 0.0005)
-#     thresholds2 = np.arange(0.02, 0.1, 0.01)
+#     thresholds2 = np.arange(0.02, 0.3, 0.01)
 #     thresholds_v = np.concatenate([thresholds1, thresholds2], axis=0)
 #
 #     uncertainty_quantification_args = ["e", "t", "m"]
@@ -398,7 +398,7 @@ def comp_TCM_80(load_dir):
 #             prediction_dir = base_path + "refinement_" + args.set + "/basic_predictions/"
 #             gt_dir = base_path + "refinement_" + args.set + "/labels/"
 #             save_dir = base_path + "refinement_" + args.set + "/"
-#             name = save_dir + "uncertainty_evaluation_" + uncertainty_quantification + "_" + uncertainty_measure
+#             name = save_dir + "uncertainty_evaluation/" + uncertainty_quantification + "_" + uncertainty_measure
 #
 #             # bhattacharyya_coefficient: normalize = False, thresholds = np.arange(0.0, 0.2, 0.01)
 #             # predictive_entropy:
@@ -421,6 +421,6 @@ def comp_TCM_80(load_dir):
 
 
 if __name__ == '__main__':
-    # plot_results_combined("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/")
+    # plot_results_combined("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/uncertainty_evaluation/")
     comp_TCM_80("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/")
 

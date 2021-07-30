@@ -28,7 +28,7 @@ from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.nd_softmax import softmax_helper
-from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided3
+from nnunet.training.dataloading.dataset_loading import DataLoader3DGuided3_P_Net, DataLoader3DGuided3_DeepIGeos, DataLoader3DGuided3
 from torch import nn
 import torch
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData
@@ -36,7 +36,7 @@ from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOne
 
 class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False, deep_i_geos_value=0.99):
+                 unpack_data=True, deterministic=True, fp16=False, deep_i_geos_value=0.0):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 1500
@@ -88,9 +88,12 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
         self.data_aug_params["do_elastic"] = False
         self.data_aug_params['patch_size_for_spatialtransform'] = patch_size_for_spatialtransform
 
+        # self.data_aug_params['selected_seg_channels'] = list(range(self.num_classes))  # New
         self.data_aug_params['selected_seg_channels'] = [0, 1]  # New
         self.data_aug_params['move_last_seg_chanel_to_data'] = True  # New
         self.data_aug_params['all_segmentation_labels'] = list(range(1, self.num_classes))  # New
+
+        self.data_aug_params["num_cached_per_thread"] = 2
 
     def initialize(self, training=True, force_load_plans=False, mcdo=False):
         """
@@ -121,13 +124,23 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
                         "will wait all winter for your model to finish!")
 
                 assert self.deep_supervision_scales is None
-                self.tr_gen, self.val_gen = get_moreDA_augmentation(self.dl_tr, self.dl_val,
-                                                                    self.data_aug_params[
-                                                                        'patch_size_for_spatialtransform'],
-                                                                    self.data_aug_params,
-                                                                    deep_supervision_scales=self.deep_supervision_scales,
-                                                                    classes=None,
-                                                                    pin_memory=self.pin_memory, deep_i_geos=True)
+                # self.tr_gen, self.val_gen = get_moreDA_augmentation(self.dl_tr, self.dl_val,
+                #                                                     self.data_aug_params[
+                #                                                         'patch_size_for_spatialtransform'],
+                #                                                     self.data_aug_params,
+                #                                                     deep_supervision_scales=self.deep_supervision_scales,
+                #                                                     classes=None,
+                #                                                     pin_memory=self.pin_memory, deep_i_geos=True,
+                #                                                     channel_range=[1, self.num_classes])
+                self.tr_gen, self.val_gen = get_moreDA_augmentation(
+                    self.dl_tr, self.dl_val,
+                    self.data_aug_params[
+                        'patch_size_for_spatialtransform'],
+                    self.data_aug_params,
+                    deep_supervision_scales=self.deep_supervision_scales,
+                    pin_memory=self.pin_memory,
+                    use_nondetMultiThreadedAugmenter=False
+                )
 
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
                                        also_print_to_console=False)
@@ -163,7 +176,7 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
         dropout_op_kwargs = {'p': 0, 'inplace': True}
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
-        self.network = P_Net(in_channels=self.num_input_channels, num_classes=self.num_classes)
+        self.network = P_Net(patch_size=self.patch_size, in_channels=self.num_input_channels, num_classes=self.num_classes)
         # self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
         #                             len(self.net_num_pool_op_kernel_sizes),
         #                             self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
@@ -208,17 +221,27 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
     def run_online_evaluation(self, output, target):
         return nnUNetTrainer.run_online_evaluation(self, output, target)
 
+    def process_plans(self, plans):
+        super().process_plans(plans)
+        self.num_input_channels += (self.num_classes - 2)  # for seg from prev stage
+
     def get_basic_generators(self):
         self.load_dataset()
         self.do_split()
 
         if self.threeD:
+            # dl_tr = DataLoader3DGuided3_DeepIGeos(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size, self.num_input_channels, self.num_classes,
+            #                      False, oversample_foreground_percent=self.oversample_foreground_percent,
+            #                      pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True, deep_i_geos_value=self.deep_i_geos_value)
+            # dl_val = DataLoader3DGuided3_DeepIGeos(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, self.num_input_channels, self.num_classes, False,
+            #                       oversample_foreground_percent=self.oversample_foreground_percent,
+            #                       pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False, deep_i_geos_value=self.deep_i_geos_value)
             dl_tr = DataLoader3DGuided3(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
                                  False, oversample_foreground_percent=self.oversample_foreground_percent,
-                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True, deep_i_geos=True, deep_i_geos_value=self.deep_i_geos_value)
+                                 pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=True)
             dl_val = DataLoader3DGuided3(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False, deep_i_geos=True, deep_i_geos_value=self.deep_i_geos_value)
+                                  pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r', train_mode=False)
         else:
             raise NotImplementedError("DataLoader2D not implemented with guided training")
         return dl_tr, dl_val

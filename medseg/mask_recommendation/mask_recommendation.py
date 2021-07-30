@@ -18,12 +18,14 @@ import pandas as pd
 from pathlib import Path
 import GeodisTK
 import shutil
+import json
 import medseg.mask_recommendation.my_method as my_method
 import medseg.mask_recommendation.deep_i_geos as deep_i_geos
 import medseg.mask_recommendation.graph_cut as graph_cut
 import medseg.mask_recommendation.random_walker as random_walker
 import medseg.mask_recommendation.watershed as watershed
 from scipy.ndimage.measurements import center_of_mass
+import pandas as pd
 
 
 # def recommend_slices(image_path, prediction_path, uncertainty_path, gt_path, save_path, find_best_slices_func, num_slices, slice_gap, default_size, deepigeos=0):
@@ -386,6 +388,7 @@ def find_best_slices_V8(prediction, gt, uncertainty, params, min_uncertainty=0.1
 
     num_infected_slices = comp_infected_slices(prediction)
     num_infected_slices = int((num_infected_slices * max_slices_based_on_infected_slices) / 3)
+    # num_infected_slices = int(num_infected_slices * max_slices_based_on_infected_slices)
     if num_infected_slices == 0:
         num_infected_slices = 1
     indices_dim_0 = indices_dim_0[:num_infected_slices]
@@ -519,6 +522,7 @@ def comp_infected_slices(mask):
 
 def eval_all_hyperparameters(save_dir, version, method, default_params, params, devices, parallel):
     result_params = {}
+    key_name = str(list(params.keys()))
     pbar = tqdm(total=sum([len(params[param_key]) for param_key in params.keys()]))
     for param_key in params.keys():
         result_param_values = {}
@@ -528,15 +532,24 @@ def eval_all_hyperparameters(save_dir, version, method, default_params, params, 
             result = eval_single_hyperparameters(current_params, parallel)
             result_param_values[param_value] = result
             pbar.update(1)
-            with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + ".pkl", 'wb') as handle:
+            #print("Results saved.")
+            result_params[param_key] = result_param_values
+            with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + "_" + key_name + ".pkl", 'wb') as handle:
                 pickle.dump(result_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            print("Results saved.")
         result_params[param_key] = result_param_values
+        with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + "_" + key_name + ".pkl", 'wb') as handle:
+            pickle.dump(result_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
     pbar.close()
-    print("Saving hyperparam evaluation...")
-    with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + ".pkl", 'wb') as handle:
-        pickle.dump(result_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    # print("Saving hyperparam evaluation...")
+    # with open(save_dir + "hyperparam_eval_results_" + version + "_" + method + ".pkl", 'wb') as handle:
+    #     pickle.dump(result_params, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("Hyperparam evaluation finished.")
+
+
+def eval_test_set(save_dir, version, method, params, parallel):
+    result = eval_single_hyperparameters(params, parallel)
+    with open(save_dir + version + "_" + method + ".pkl", 'wb') as handle:
+        pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def eval_single_hyperparameters(params, parallel, debug=False):
@@ -586,21 +599,21 @@ def eval_single_hyperparameters(params, parallel, debug=False):
 
 def compute_predictions():
     if method == "my_method":
-        recommended_result = my_method.compute_predictions(devices, recommended_masks_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model)
+        recommended_result = my_method.compute_predictions(devices, recommended_masks_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels)
     elif method == "DeepIGeos1":
-        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, 0.99)
+        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.99)
     elif method == "DeepIGeos2":
-        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, 0.00)
+        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.00)
     elif method == "GraphCut1":
-        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality)
+        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality, class_labels)
     elif method == "GraphCut2":
-        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality)
+        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality, class_labels)
     elif method == "GraphCut3":
-        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality)
+        recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality, class_labels)
     elif method == "random_walker":
-        recommended_result = random_walker.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", modality)
+        recommended_result = random_walker.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", modality, class_labels)
     elif method == "watershed":
-        recommended_result = watershed.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", modality)
+        recommended_result = watershed.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", modality, class_labels)
     return recommended_result
 
 
@@ -682,7 +695,8 @@ if __name__ == '__main__':
     model = args.model
     set = args.set  # "val"
     method = args.method
-    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_" + set + "/"
+    task_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/"
+    base_path = task_path + "refinement_" + set + "/"
     image_path = base_path + "/images/"
     prediction_path = base_path + "/basic_predictions/"
     uncertainty_path = base_path + "/uncertainties/" + uncertainty_quantification + "/" + uncertainty_measure + "/"
@@ -690,6 +704,7 @@ if __name__ == '__main__':
     recommended_masks_path = base_path + "/recommended_masks/" + version + "/" + method + "/"
     refined_prediction_save_path = base_path + "/refined_predictions/" + method
     grid_search_save_path = base_path + "/GridSearchResults/"
+    test_set_save_path = base_path + "/eval_results/raw/"
     refinement_inference_tmp = base_path + "/refinement_inference_tmp/part"
     modality = int(args.modality)
     reuse = args.reuse
@@ -700,23 +715,36 @@ if __name__ == '__main__':
     shutil.rmtree(refined_prediction_save_path, ignore_errors=True)
     Path(refined_prediction_save_path).mkdir(parents=True, exist_ok=True)
 
+    with open(task_path + "dataset.json") as f:
+        class_labels = json.load(f)
+    class_labels = np.asarray(list(class_labels["labels"].keys())).astype(int)
+
     # slice_gap = [20]  # [20, 25]
     # num_slices = [12]
     # grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel)
 
     default_params = {}
-    default_params["slice_gap"] = 20
+    default_params["slice_gap"] = 20  # 20
     default_params["num_slices"] = 12
-    default_params["min_uncertainty"] = 0.15
-    default_params["max_slices_based_on_infected_slices"] = 0.2
+    default_params["max_slices_based_on_infected_slices"] = 0.5  # 0.5, 0.2
+    default_params["min_uncertainty"] = 0.15  # 0.0
     default_params["default_size"] = 1280
 
     params = {}
-    params["slice_gap"] = [10, 15, 20, 25, 30, 40, 50, 70]
-    params["num_slices"] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25]
-    params["max_slices_based_on_infected_slices"] = [0.1, 0.15, 0.2, 0.25, 0.3]
+    # # params["slice_gap"] = [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]
+    # # params["num_slices"] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    # params["max_slices_based_on_infected_slices"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+    params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
 
-    eval_all_hyperparameters(grid_search_save_path, version, method, default_params, params, devices, args.parallel)
+    test_set_params = {}
+    test_set_params["slice_gap"] = 20
+    test_set_params["num_slices"] = 12
+    test_set_params["max_slices_based_on_infected_slices"] = 0.2
+    test_set_params["min_uncertainty"] = 0.15
+    test_set_params["default_size"] = 1280
+
+    # eval_all_hyperparameters(grid_search_save_path, version, method, default_params, params, devices, args.parallel)
+
+    eval_test_set(test_set_save_path, version, method, test_set_params, args.parallel)
 
     # pkl2csv("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/GridSearchResults/grid_search_results_V6.pkl")

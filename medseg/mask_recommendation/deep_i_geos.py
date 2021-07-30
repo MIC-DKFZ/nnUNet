@@ -46,7 +46,7 @@ def copy_masks_for_inference(mask_path, refinement_inference_tmp):
         copyfile(filename, save_dir3 + os.path.basename(filename))
 
 
-def compute_predictions(available_devices, save_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, geodisc_lambda):
+def compute_predictions(available_devices, save_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, geodisc_lambda):
     convert_save_path = "deep_i_geos_tmp/"
     Path(convert_save_path).mkdir(parents=True, exist_ok=True)
     convert(image_path, save_path, convert_save_path, geodisc_lambda)
@@ -108,5 +108,5 @@ def compute_predictions(available_devices, save_path, image_path, prediction_pat
     os.remove(refined_prediction_save_path + "/plans.pkl")
     print("Total inference time {}s.".format(time.time() - start_inference_time))
     print("All parts finished processing.")
-    mean_dice_score, median_dice_score = evaluate(gt_path, refined_prediction_save_path)
-    return mean_dice_score, median_dice_score
+    results = evaluate(gt_path, refined_prediction_save_path, class_labels)
+    return results

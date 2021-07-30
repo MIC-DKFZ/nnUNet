@@ -29,7 +29,7 @@ def copy_masks_for_inference(load_dir, refinement_inference_tmp):
         copyfile(filename, save_dir3 + os.path.basename(filename))
 
 
-def compute_predictions(available_devices, save_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model):
+def compute_predictions(available_devices, save_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels):
     copy_masks_for_inference(save_path, refinement_inference_tmp)
     start_time = time.time()
     filenames = utils.load_filenames(refined_prediction_save_path, extensions=None)
@@ -87,6 +87,6 @@ def compute_predictions(available_devices, save_path, prediction_path, gt_path, 
     os.remove(refined_prediction_save_path + "/plans.pkl")
     print("Total inference time {}s.".format(time.time() - start_inference_time))
     print("All parts finished processing.")
-    results = evaluate(gt_path, refined_prediction_save_path)
+    results = evaluate(gt_path, refined_prediction_save_path, class_labels)
     print("Evaluation finished.")
     return results

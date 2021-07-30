@@ -6,7 +6,7 @@ from imcut.pycut import ImageGraphCut
 from tqdm import tqdm
 import copy
 
-def compute_predictions(image_path, mask_path, gt_path, save_path, version, nr_modalities):
+def compute_predictions(image_path, mask_path, gt_path, save_path, version, nr_modalities, class_labels):
     image_filenames = utils.load_filenames(image_path)[::nr_modalities]
     mask_filenames = utils.load_filenames(mask_path)
 
@@ -23,15 +23,15 @@ def compute_predictions(image_path, mask_path, gt_path, save_path, version, nr_m
         multi_label_mask, _, _, _ = utils.load_nifty(mask_filenames[i])
         target_multi_label_mask = np.zeros_like(multi_label_mask)
         labels = np.unique(multi_label_mask)
-        labels = labels[labels > 0]
-        labels = [1]
-        for label in range(len(labels)):
+        labels = labels[labels > 0].astype(int)
+        print("labels: ", labels)
+        for label in labels:
             mask = copy.deepcopy(multi_label_mask)
             mask[mask == label] = -2  # Save foreground
-
             mask[mask >= 0] = 2  # Background
             mask[mask == -2] = 1  # Restore foreground
             mask[mask == -1] = 0  # Unknown
+            # utils.save_nifty(save_path + os.path.basename(mask_filenames[i][:-12] + "_tmp1.nii.gz"), mask, affine, spacing, header, is_mask=True)
             mask = mask.astype(np.uint8)
             if version == "GraphCut1":
                 segparams.update({"method": "graphcut"})
@@ -48,7 +48,8 @@ def compute_predictions(image_path, mask_path, gt_path, save_path, version, nr_m
             # mask[mask == 0] = -1  # Save foreground
             # mask[mask == 1] = 0  # Background
             # mask[mask == -1] = label  # Restore foreground
+            # utils.save_nifty(save_path + os.path.basename(mask_filenames[i][:-12] + "_tmp2.nii.gz"), mask, affine, spacing, header, is_mask=True)
             target_multi_label_mask[mask == 0] = label  # 0 is foreground
         utils.save_nifty(save_path + os.path.basename(mask_filenames[i][:-12] + ".nii.gz"), target_multi_label_mask, affine, spacing, header, is_mask=True)
-    mean_dice_score, median_dice_score = evaluate(gt_path, save_path)
-    return mean_dice_score, median_dice_score
+    results = evaluate(gt_path, save_path, class_labels)
+    return results
