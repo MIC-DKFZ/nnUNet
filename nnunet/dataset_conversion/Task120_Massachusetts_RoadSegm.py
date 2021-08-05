@@ -95,7 +95,7 @@ if __name__ == '__main__':
     
     (where fold is again 0, 1, 2, 3 and 4 - 5-fold cross validation)
     
-    there is no need to run nnUNet_find_best_configuration because there is only one model to shoose from.
+    there is no need to run nnUNet_find_best_configuration because there is only one model to choose from.
     Note that without running nnUNet_find_best_configuration, nnU-Net will not have determined a postprocessing
     for the whole cross-validation. Spoiler: it will determine not to run postprocessing anyways. If you are using
     a different 2D dataset, you can make nnU-Net determine the postprocessing by using the
