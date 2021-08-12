@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     # finally we can call the utility for generating a dataset.json
     generate_dataset_json(join(target_base, 'dataset.json'), target_imagesTr, target_imagesTs, ('Red', 'Green', 'Blue'),
-                          labels={1: 'street'}, dataset_name=task_name, license='hands off!')
+                          labels={0: 'background', 1: 'street'}, dataset_name=task_name, license='hands off!')
 
     """
     once this is completed, you can use the dataset like any other nnU-Net dataset. Note that since this is a 2D
