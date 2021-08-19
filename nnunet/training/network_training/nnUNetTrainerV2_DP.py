@@ -28,7 +28,6 @@ from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
 from torch.cuda.amp import autocast
 from torch.nn.parallel.data_parallel import DataParallel
-from torch.nn.utils import clip_grad_norm_
 
 
 class nnUNetTrainerV2_DP(nnUNetTrainerV2):

@@ -15,7 +15,7 @@
 
 import torch
 from batchgenerators.augmentations.utils import convert_seg_image_to_one_hot_encoding_batched, resize_segmentation
-from batchgenerators.transforms import AbstractTransform
+from batchgenerators.transforms.abstract_transforms import AbstractTransform
 from torch.nn.functional import avg_pool2d, avg_pool3d
 import numpy as np
 
