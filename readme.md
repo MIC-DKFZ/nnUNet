@@ -465,4 +465,8 @@ Click [here](documentation/expected_epoch_times.md).
 We have collected solutions to common [questions](documentation/common_questions.md) and 
 [problems](documentation/common_problems_and_solutions.md). Please consult these documents before you open a new issue.
 
+--------------------
+
 <img src="HIP_Logo.png" width="512px" />
+
+nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of the [Helmholtz Imaging Platform](http://helmholtz-imaging.de).
