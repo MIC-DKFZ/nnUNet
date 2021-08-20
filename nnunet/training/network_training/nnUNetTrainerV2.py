@@ -250,6 +250,17 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         if self.fp16:
             with autocast():
+                # from medseg import utils
+                # import random
+                # name = random.randint(0, 1000)
+                # for i in range(2):
+                #     path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_data.nii.gz".format(name, i)
+                #     utils.save_nifty(path, data[0, i, ...].squeeze().detach().cpu().numpy())
+                # # for i in range(5):
+                # #     path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_target.nii.gz".format(name, i)
+                # #     utils.save_nifty(path, target[i][0, 0, ...].squeeze().detach().cpu().numpy())
+                # path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_{}_target.nii.gz".format(name, i)
+                # utils.save_nifty(path, target[0, 0, ...].squeeze().detach().cpu().numpy())
                 output = self.network(data)
                 del data
                 l = self.loss(output, target)

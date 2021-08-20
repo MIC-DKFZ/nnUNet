@@ -43,7 +43,10 @@ def get_labels(gt_path):
 
 
 if __name__ == '__main__':
-    ground_truths = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/refinement_test/labels/"
-    predictions = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/refinement_test/basic_predictions/"
+    ground_truths = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/refinement_test/labels2/"
+    predictions = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/refinement_test/refined_predictions/GraphCut1/"
 
-    evaluate(ground_truths, predictions, labels=[0, 1, 2])
+    result = evaluate(ground_truths, predictions, labels=[0, 1, 2])
+    result = {"recommended_result": [], "prediction_result": result}
+    with open("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task008_Pancreas_guided/refinement_test/eval_results/raw/V7_GraphCut1.pkl", 'wb') as handle:
+        pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)

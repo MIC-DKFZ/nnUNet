@@ -134,6 +134,8 @@ def adapt_slice_gap(mask, slice_gap, default_size):
 
 def find_best_slices_baseline_V1(prediction, gt, uncertainty, params):
     "Find random slices in every dimension without a min slice gap."
+    _, recommended_slices, _ = find_best_slices_V7(prediction, gt, uncertainty, params)
+    num_slices = int(recommended_slices / 3)
     indices_dim_0 = random.sample(range(uncertainty.shape[0]), num_slices)
     indices_dim_1 = random.sample(range(uncertainty.shape[1]), num_slices)
     indices_dim_2 = random.sample(range(uncertainty.shape[2]), num_slices)
@@ -145,6 +147,8 @@ def find_best_slices_baseline_V1(prediction, gt, uncertainty, params):
 
 def find_best_slices_baseline_V2(prediction, gt, uncertainty, params):
     "Find random slices in every dimension within equidistant distances."
+    _, recommended_slices, _ = find_best_slices_V7(prediction, gt, uncertainty, params)
+    num_slices = int(recommended_slices / 3)
     def get_indices(axis):
         slice_sectors = np.linspace(0, uncertainty.shape[axis], num_slices, endpoint=True).astype(int)
         indices = [random.randint(slice_sectors[i-1], slice_sectors[i]) for i in range(1, len(slice_sectors)-1)]
@@ -155,7 +159,7 @@ def find_best_slices_baseline_V2(prediction, gt, uncertainty, params):
     indices_dim_2 = get_indices(2)
     recommended_slices = len(indices_dim_0) + len(indices_dim_1) + len(indices_dim_2)
     filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
-    recommended_patch_area = np.prod(filtered_mask[:, :, 0])
+    recommended_patch_area = np.prod(filtered_mask[:, :, 0].shape)
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
@@ -164,15 +168,16 @@ def find_best_slices_V1(prediction, gt, uncertainty, params):
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
     uncertainty_dim_2 = np.sum(-1*uncertainty, axis=(0, 1))
-    indices_dim_0 = np.argsort(uncertainty_dim_0)[:num_slices]
-    indices_dim_1 = np.argsort(uncertainty_dim_1)[:num_slices]
-    indices_dim_2 = np.argsort(uncertainty_dim_2)[:num_slices]
+    indices_dim_0 = np.argsort(uncertainty_dim_0)[:params["num_slices"]]
+    indices_dim_1 = np.argsort(uncertainty_dim_1)[:params["num_slices"]]
+    indices_dim_2 = np.argsort(uncertainty_dim_2)[:params["num_slices"]]
     # dim_0 = uncertainty_dim_0[indices_dim_0]*-1
     # dim_1 = uncertainty_dim_1[indices_dim_1]*-1
     # dim_2 = uncertainty_dim_2[indices_dim_2]*-1
+
     recommended_slices = len(indices_dim_0) + len(indices_dim_1) + len(indices_dim_2)
     filtered_mask = filter_mask(gt, indices_dim_0, indices_dim_1, indices_dim_2)
-    recommended_patch_area = np.prod(filtered_mask[:, :, 0])
+    recommended_patch_area = np.prod(filtered_mask[:, :, 0].shape)
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
@@ -324,7 +329,7 @@ def find_best_slices_V6(prediction, gt, uncertainty, params):
     return filtered_mask, recommended_slices, recommended_patch_area
 
 
-def find_best_slices_V7(prediction, gt, uncertainty, params, min_uncertainty=0.15, max_slices_based_on_infected_slices=0.20):
+def find_best_slices_V7(prediction, gt, uncertainty, params):
     "Like V2, but filters out all slices with less than 40% of summed uncertainty than that of the max slice"
     uncertainty_dim_0 = np.sum(-1*uncertainty, axis=(1, 2))
     uncertainty_dim_1 = np.sum(-1*uncertainty, axis=(0, 2))
@@ -503,7 +508,7 @@ def filter_mask(mask, indices_dim_0, indices_dim_1, indices_dim_2):
 
     # filtered_mask = copy.deepcopy(mask)
     # filtered_mask = np.logical_and(filtered_mask, slices)
-    if method == "my_method" or method == "DeepIGeos1" or method == "DeepIGeos2":
+    if method == "my_method" or method == "DeepIGeos1" or method == "DeepIGeos2" or method == "P_Net_BrainTumor" or method == "P_Net_Pancreas":
         filtered_mask = np.zeros_like(mask)
     else:
         filtered_mask = np.ones_like(mask) * -1
@@ -550,13 +555,15 @@ def eval_test_set(save_dir, version, method, params, parallel):
     result = eval_single_hyperparameters(params, parallel)
     with open(save_dir + version + "_" + method + ".pkl", 'wb') as handle:
         pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    return
 
 
 def eval_single_hyperparameters(params, parallel, debug=False):
     print("Starting hyperparam evaluation...")
     print(params)
-    shutil.rmtree(recommended_masks_path, ignore_errors=True)
-    Path(recommended_masks_path).mkdir(parents=True, exist_ok=True)
+    if not reuse:
+        shutil.rmtree(recommended_masks_path, ignore_errors=True)
+        Path(recommended_masks_path).mkdir(parents=True, exist_ok=True)
     shutil.rmtree(refined_prediction_save_path, ignore_errors=True)
     Path(refined_prediction_save_path).mkdir(parents=True, exist_ok=True)
     if not parallel and not reuse:
@@ -598,12 +605,12 @@ def eval_single_hyperparameters(params, parallel, debug=False):
 
 
 def compute_predictions():
-    if method == "my_method":
-        recommended_result = my_method.compute_predictions(devices, recommended_masks_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels)
-    elif method == "DeepIGeos1":
-        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.99)
-    elif method == "DeepIGeos2":
-        recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.00)
+    if method == "my_method" or method == "P_Net_BrainTumor" or method == "P_Net_Pancreas":
+        recommended_result = my_method.compute_predictions(devices, recommended_masks_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, method)
+    # elif method == "DeepIGeos1":
+    #     recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.99)
+    # elif method == "DeepIGeos2":
+    #     recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.00)
     elif method == "GraphCut1":
         recommended_result = graph_cut.compute_predictions(image_path, recommended_masks_path, gt_path, refined_prediction_save_path + "/", method, modality, class_labels)
     elif method == "GraphCut2":
@@ -643,8 +650,9 @@ if __name__ == '__main__':
     parser.add_argument("-method", help="Set the method", required=True)
     parser.add_argument("-modality", help="Set the modality number", required=True)
     parser.add_argument("--reuse", action="store_true", default=False, help="Reuse recommended masks from last run", required=False)
+    parser.add_argument("-a", "--apply", help="Apply for inference (infer) or hyperparameter evaluation (eval)", required=True)
     args = parser.parse_args()
-    devices = [3, 4, 5, 6]
+    devices = [4, 5, 6, 7]
 
     version = str(args.version)
     uncertainty_quantification = str(args.uncertainty_quantification)
@@ -709,9 +717,10 @@ if __name__ == '__main__':
     modality = int(args.modality)
     reuse = args.reuse
 
-    pool = mp.Pool(processes=8)
-    shutil.rmtree(recommended_masks_path, ignore_errors=True)
-    Path(recommended_masks_path).mkdir(parents=True, exist_ok=True)
+    pool = mp.Pool(processes=8)  # 8
+    if not reuse:
+        shutil.rmtree(recommended_masks_path, ignore_errors=True)
+        Path(recommended_masks_path).mkdir(parents=True, exist_ok=True)
     shutil.rmtree(refined_prediction_save_path, ignore_errors=True)
     Path(refined_prediction_save_path).mkdir(parents=True, exist_ok=True)
 
@@ -723,28 +732,42 @@ if __name__ == '__main__':
     # num_slices = [12]
     # grid_search(grid_search_save_path, version, slice_gap, num_slices, 1280, devices, args.parallel)
 
-    default_params = {}
-    default_params["slice_gap"] = 20  # 20
-    default_params["num_slices"] = 12
-    default_params["max_slices_based_on_infected_slices"] = 0.5  # 0.5, 0.2
-    default_params["min_uncertainty"] = 0.15  # 0.0
-    default_params["default_size"] = 1280
+    if args.apply == "eval":
 
-    params = {}
-    # # params["slice_gap"] = [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]
-    # # params["num_slices"] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-    # params["max_slices_based_on_infected_slices"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
-    params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+        default_params = {}
+        default_params["slice_gap"] = 20  # 20
+        default_params["num_slices"] = 12
+        default_params["max_slices_based_on_infected_slices"] = 0.5  # 0.5, 0.2
+        default_params["min_uncertainty"] = 0.0  # 0.0, 0.15
+        default_params["default_size"] = 1280
 
-    test_set_params = {}
-    test_set_params["slice_gap"] = 20
-    test_set_params["num_slices"] = 12
-    test_set_params["max_slices_based_on_infected_slices"] = 0.2
-    test_set_params["min_uncertainty"] = 0.15
-    test_set_params["default_size"] = 1280
+        # params = {}
+        # params["slice_gap"] = [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]
+        # params["num_slices"] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        # params["max_slices_based_on_infected_slices"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+        # params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+        # params_list = [params]
 
-    # eval_all_hyperparameters(grid_search_save_path, version, method, default_params, params, devices, args.parallel)
+        params_list = [{"slice_gap": [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]},
+                       {"num_slices": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+                       {"max_slices_based_on_infected_slices": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]},
+                       {"min_uncertainty": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]}]
 
-    eval_test_set(test_set_save_path, version, method, test_set_params, args.parallel)
+        for params in params_list:
+            eval_all_hyperparameters(grid_search_save_path, version, method, default_params, params, devices, args.parallel)
 
-    # pkl2csv("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task072_allGuided_ggo/GridSearchResults/grid_search_results_V6.pkl")
+    elif args.apply == "infer":
+        test_set_params = {}
+        test_set_params["slice_gap"] = 20
+        test_set_params["num_slices"] = 12
+        test_set_params["max_slices_based_on_infected_slices"] = 0.23
+        test_set_params["min_uncertainty"] = 0.10
+        test_set_params["default_size"] = 1280
+
+        eval_test_set(test_set_save_path, version, method, test_set_params, args.parallel)
+    else:
+        raise RuntimeError("Apply unknown.")
+
+    pool.close()
+    pool.join()
+    print("Test")

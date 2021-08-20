@@ -29,7 +29,7 @@ def copy_masks_for_inference(load_dir, refinement_inference_tmp):
         copyfile(filename, save_dir3 + os.path.basename(filename))
 
 
-def compute_predictions(available_devices, save_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels):
+def compute_predictions(available_devices, save_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, method):
     copy_masks_for_inference(save_path, refinement_inference_tmp)
     start_time = time.time()
     filenames = utils.load_filenames(refined_prediction_save_path, extensions=None)
@@ -43,6 +43,12 @@ def compute_predictions(available_devices, save_path, prediction_path, gt_path, 
     wait_time = 5
     start_inference_time = time.time()
 
+    trainer = "nnUNetTrainerV2Guided3"
+    if method == "P_Net_BrainTumor":
+        trainer = "nnUNetTrainerV2Guided3_P_Net"
+    elif method == "P_Net_Pancreas":
+        trainer = "nnUNetTrainerV2Guided3_P_Net_Pancreas"
+
     print("remove: ", time.time() - start_time)
     print("Starting inference...")
     while parts_to_process:
@@ -53,7 +59,7 @@ def compute_predictions(available_devices, save_path, prediction_path, gt_path, 
             parts_to_process = parts_to_process[1:]
             print("Processing part {} on device {}...".format(part, device))
             command = 'nnUNet_predict -i ' + str(refinement_inference_tmp) + str(
-                part) + ' -o ' + str(refined_prediction_save_path) + ' -tr nnUNetTrainerV2Guided3 -t ' + model + ' -m 3d_fullres -f 0 -d ' + str(
+                part) + ' -o ' + str(refined_prediction_save_path) + ' -tr ' + trainer + ' -t ' + model + ' -m 3d_fullres -f 0 -d ' + str(
                 device) + ' -chk model_best --disable_tta --num_threads_preprocessing 1 --num_threads_nifti_save 1'
             p = subprocess.Popen(command, shell=True, stdout=subprocess.DEVNULL, preexec_fn=os.setsid)
             waiting.append([part, device, p, time.time()])

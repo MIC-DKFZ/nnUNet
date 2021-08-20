@@ -15,7 +15,7 @@ def fix_path(path):
         path += "/"
     return path
 
-def load_filenames(img_dir, extensions=('.nii.gz')):
+def load_filenames(img_dir, extensions=None):  # '.nii.gz'
     _img_dir = fix_path(img_dir)
     img_filenames = []
 
@@ -26,6 +26,17 @@ def load_filenames(img_dir, extensions=('.nii.gz')):
     img_filenames = natsorted(img_filenames)
 
     return img_filenames
+
+def load_npy(filepath):
+    img = np.load(filepath, allow_pickle=True)
+    return img["img"], img["affine"], img["spacing"], img["header"]
+
+def save_npy(filepath, img, affine=None, spacing=None, header=None, is_mask=False):
+    if is_mask:
+        img = np.rint(img)
+        img = img.astype(np.int)
+    # img = {"img": img, "affine": affine, "spacing": spacing, "header": header}
+    np.savez_compressed(filepath, img=img, affine=affine, spacing=spacing, header=header)
 
 def load_nifty(filepath):
     img = nib.load(filepath)

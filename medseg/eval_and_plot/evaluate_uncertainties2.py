@@ -53,6 +53,7 @@ def evaluate(uncertainty_dir, prediction_dir, gt_dir, save_dir, normalize, thres
     # break
 
     results = metrices_meter.compute()
+    metrices_meter.close()
     print("Computed results")
 
     return results
@@ -97,6 +98,11 @@ class MetricesMeter:
         for metric in metrices:
             results[metric] = [self.metrices_results[threshold][metric] for threshold in self.thresholds]
         return results
+
+    def close(self):
+        if self.parallel:
+            self.pool.close()
+            self.pool.join()
 
 
 def comp_metrics(threshold, _uncertainty, _prediction, _ground_truth):
@@ -164,6 +170,10 @@ def true_confident_prediction2correct_prediction_ratio(uncertainty, prediction, 
     confident_prediction = np.zeros_like(prediction)
     confident_prediction[(correct_prediction == 1) & (uncertainty == 0)] = 1
     return np.sum(confident_prediction) / np.sum(correct_prediction)
+
+def tmp(false_and_uncertain, true_but_uncertain):
+    return false_and_uncertain / true_but_uncertain
+
 
 def h5_index_depth(uncertainty):
     euclidean_distance_map = np.ones_like(uncertainty) - uncertainty
@@ -340,87 +350,78 @@ def comp_TCM_80(load_dir):
 
 
 
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("-s", "--set", help="val/test", required=True)
-#     parser.add_argument("-uq", "--uncertainty_quantification", help="Set the type of uncertainty quantification method to use", required=True)
-#     parser.add_argument("-um", "--uncertainty_measure", help="Set the type of uncertainty measure to use", required=True)
-#     args = parser.parse_args()
-#
-#     # b
-#     thresholds1 = np.arange(0.0, 0.2, 0.005)
-#     thresholds2 = np.arange(0.2, 0.7, 0.01)
-#     thresholds_b = np.concatenate([thresholds1, thresholds2], axis=0)
-#
-#     # e
-#     thresholds1 = np.arange(0.0, 0.02, 0.0005)
-#     thresholds2 = np.arange(0.02, 0.07, 0.01)
-#     thresholds_e = np.concatenate([thresholds1, thresholds2], axis=0)
-#
-#     # v
-#     thresholds1 = np.arange(0.0, 0.02, 0.0005)
-#     thresholds2 = np.arange(0.02, 0.3, 0.01)
-#     thresholds_v = np.concatenate([thresholds1, thresholds2], axis=0)
-#
-#     uncertainty_quantification_args = ["e", "t", "m"]
-#     uncertainty_measure_args = ["b", "e", "v"]
-#     uncertainty_measure_thresholds = {"b": thresholds_b, "e": thresholds_e, "v": thresholds_v}
-#
-#     for uncertainty_quantification_arg in uncertainty_quantification_args:
-#         for uncertainty_measure_arg in uncertainty_measure_args:
-#             args.uncertainty_quantification = uncertainty_quantification_arg
-#             args.uncertainty_measure = uncertainty_measure_arg
-#
-#             uncertainty_quantification = str(args.uncertainty_quantification)
-#             uncertainty_measure = str(args.uncertainty_measure)
-#             name = "uncertainty_evaluation_ " + uncertainty_quantification + "_" + uncertainty_measure
-#
-#             if uncertainty_quantification == "e":
-#                 uncertainty_quantification = "ensemble"
-#             elif uncertainty_quantification == "t":
-#                 uncertainty_quantification = "tta"
-#             elif uncertainty_quantification == "m":
-#                 uncertainty_quantification = "mcdo"
-#             else:
-#                 raise RuntimeError("uncertainty_quantification unknown")
-#
-#             if uncertainty_measure == "b":
-#                 uncertainty_measure = "bhattacharyya_coefficient"
-#             elif uncertainty_measure == "e":
-#                 uncertainty_measure = "predictive_entropy"
-#             elif uncertainty_measure == "v":
-#                 uncertainty_measure = "predictive_variance"
-#             else:
-#                 raise RuntimeError("uncertainty_measure unknown")
-#
-#             base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/"
-#             uncertainty_dir = base_path + "refinement_" + args.set + "/uncertainties/" + uncertainty_quantification + "/" + uncertainty_measure + "/"
-#             prediction_dir = base_path + "refinement_" + args.set + "/basic_predictions/"
-#             gt_dir = base_path + "refinement_" + args.set + "/labels/"
-#             save_dir = base_path + "refinement_" + args.set + "/"
-#             name = save_dir + "uncertainty_evaluation/" + uncertainty_quantification + "_" + uncertainty_measure
-#
-#             # bhattacharyya_coefficient: normalize = False, thresholds = np.arange(0.0, 0.2, 0.01)
-#             # predictive_entropy:
-#             # predictive_variance:
-#
-#             normalize = False
-#             parallel = True
-#
-#             results = evaluate(uncertainty_dir, prediction_dir, gt_dir, save_dir, normalize, uncertainty_measure_thresholds[str(args.uncertainty_measure)], parallel)
-#
-#             with open(name + ".pkl", 'wb') as handle:
-#                 pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-#
-#             # with open(save_dir + 'uncertainty_evaluation.pkl', 'rb') as handle:
-#             #     results = pickle.load(handle)
-#             #
-#             plot_results(results, name)
-#
-#     plot_results_combined("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/")
-
-
 if __name__ == '__main__':
-    # plot_results_combined("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/uncertainty_evaluation/")
-    comp_TCM_80("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--task", help="Task", required=True)
+    parser.add_argument("-s", "--set", help="val/test", required=True)
+    # parser.add_argument("-uq", "--uncertainty_quantification", help="Set the type of uncertainty quantification method to use", required=True)
+    # parser.add_argument("-um", "--uncertainty_measure", help="Set the type of uncertainty measure to use", required=True)
+    args = parser.parse_args()
+
+    thresholds_b = np.arange(0.0, 1.0, 0.03)
+    thresholds_e = np.arange(0.0, 1.0, 0.03)
+    thresholds_v = np.arange(0.0, 1.0, 0.03)
+
+    uncertainty_quantification_args = ["e", "t", "m"]
+    uncertainty_measure_args = ["b", "e", "v"]
+    uncertainty_measure_thresholds = {"b": thresholds_b, "e": thresholds_e, "v": thresholds_v}
+    task = args.task
+
+    for uncertainty_quantification_arg in uncertainty_quantification_args:
+        for uncertainty_measure_arg in uncertainty_measure_args:
+            args.uncertainty_quantification = uncertainty_quantification_arg
+            args.uncertainty_measure = uncertainty_measure_arg
+
+            uncertainty_quantification = str(args.uncertainty_quantification)
+            uncertainty_measure = str(args.uncertainty_measure)
+            name = "uncertainty_evaluation_ " + uncertainty_quantification + "_" + uncertainty_measure
+
+            if uncertainty_quantification == "e":
+                uncertainty_quantification = "ensemble"
+            elif uncertainty_quantification == "t":
+                uncertainty_quantification = "tta"
+            elif uncertainty_quantification == "m":
+                uncertainty_quantification = "mcdo"
+            else:
+                raise RuntimeError("uncertainty_quantification unknown")
+
+            if uncertainty_measure == "b":
+                uncertainty_measure = "bhattacharyya_coefficient"
+            elif uncertainty_measure == "e":
+                uncertainty_measure = "predictive_entropy"
+            elif uncertainty_measure == "v":
+                uncertainty_measure = "predictive_variance"
+            else:
+                raise RuntimeError("uncertainty_measure unknown")
+
+            base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/"
+            uncertainty_dir = base_path + "refinement_" + args.set + "/uncertainties/" + uncertainty_quantification + "/" + uncertainty_measure + "/"
+            prediction_dir = base_path + "refinement_" + args.set + "/basic_predictions/"
+            gt_dir = base_path + "refinement_" + args.set + "/labels/"
+            save_dir = base_path + "refinement_" + args.set + "/"
+            name = save_dir + "uncertainty_evaluation/" + uncertainty_quantification + "_" + uncertainty_measure
+
+            # bhattacharyya_coefficient: normalize = False, thresholds = np.arange(0.0, 0.2, 0.01)
+            # predictive_entropy:
+            # predictive_variance:
+
+            normalize = False
+            parallel = True
+
+            results = evaluate(uncertainty_dir, prediction_dir, gt_dir, save_dir, normalize, uncertainty_measure_thresholds[str(args.uncertainty_measure)], parallel)
+
+            with open(name + ".pkl", 'wb') as handle:
+                pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+            # with open(save_dir + 'uncertainty_evaluation.pkl', 'rb') as handle:
+            #     results = pickle.load(handle)
+            #
+            # plot_results(results, name)
+
+    plot_results_combined("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_" + args.set + "/uncertainty_evaluation/")
+
+
+# if __name__ == '__main__':
+#     plot_results_combined("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/uncertainty_evaluation/")
+#     # comp_TCM_80("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Task070_guided_all_public_ggo/refinement_val/")
 

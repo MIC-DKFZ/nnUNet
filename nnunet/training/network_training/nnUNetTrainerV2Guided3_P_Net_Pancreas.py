@@ -16,7 +16,7 @@
 import numpy as np
 from typing import Tuple
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunet.network_architecture.P_Net import P_Net
+from nnunet.network_architecture.P_Net import P_Net2
 from nnunet.network_architecture.P_Net_Pancreas import P_Net_Pancreas
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
@@ -35,7 +35,7 @@ import torch
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData
 
 
-class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
+class nnUNetTrainerV2Guided3_P_Net_Pancreas(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False, deep_i_geos_value=0.99):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
@@ -133,6 +133,7 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
                 #                                                     classes=None,
                 #                                                     pin_memory=self.pin_memory, deep_i_geos=True,
                 #                                                     channel_range=[1, self.num_classes])
+                # self.data_aug_params['patch_size_for_spatialtransform'] = np.asarray([128, 224, 224])
                 self.tr_gen, self.val_gen = get_moreDA_augmentation(
                     self.dl_tr, self.dl_val,
                     self.data_aug_params[
@@ -177,7 +178,7 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
         dropout_op_kwargs = {'p': 0, 'inplace': True}
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
-        self.network = P_Net(patch_size=self.patch_size, in_channels=self.num_input_channels, num_classes=self.num_classes, conv_op=conv_op)
+        self.network = P_Net_Pancreas(patch_size=self.patch_size, in_channels=self.num_input_channels, num_classes=self.num_classes, conv_op=conv_op)
         # self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
         #                             len(self.net_num_pool_op_kernel_sizes),
         #                             self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
@@ -229,6 +230,8 @@ class nnUNetTrainerV2Guided3_P_Net(nnUNetTrainerV2):
     def get_basic_generators(self):
         self.load_dataset()
         self.do_split()
+        # self.patch_size = np.asarray([128, 224, 224])
+        print("PATCH SIZE: ", self.patch_size)
 
         if self.threeD:
             # dl_tr = DataLoader3DGuided3_DeepIGeos(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size, self.num_input_channels, self.num_classes,
