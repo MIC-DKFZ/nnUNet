@@ -737,21 +737,21 @@ if __name__ == '__main__':
         default_params = {}
         default_params["slice_gap"] = 20  # 20
         default_params["num_slices"] = 12
-        default_params["max_slices_based_on_infected_slices"] = 0.5  # 0.5, 0.2
+        default_params["max_slices_based_on_infected_slices"] = 0.28  # 0.5, 0.23
         default_params["min_uncertainty"] = 0.0  # 0.0, 0.15
         default_params["default_size"] = 1280
 
-        # params = {}
+        params = {}
         # params["slice_gap"] = [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]
         # params["num_slices"] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         # params["max_slices_based_on_infected_slices"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
-        # params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
-        # params_list = [params]
+        params["min_uncertainty"] = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+        params_list = [params]
 
-        params_list = [{"slice_gap": [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]},
-                       {"num_slices": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
-                       {"max_slices_based_on_infected_slices": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]},
-                       {"min_uncertainty": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]}]
+        # params_list = [{"slice_gap": [10, 15, 20, 25, 30, 40, 50, 70, 80, 90, 100, 110, 120, 130]},
+        #                {"num_slices": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+        #                {"max_slices_based_on_infected_slices": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]},
+        #                {"min_uncertainty": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]}]
 
         for params in params_list:
             eval_all_hyperparameters(grid_search_save_path, version, method, default_params, params, devices, args.parallel)

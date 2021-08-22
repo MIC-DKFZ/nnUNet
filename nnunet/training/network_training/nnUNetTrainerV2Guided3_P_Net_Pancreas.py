@@ -17,7 +17,7 @@ import numpy as np
 from typing import Tuple
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.P_Net import P_Net2
-from nnunet.network_architecture.P_Net_Pancreas import P_Net_Pancreas
+from nnunet.network_architecture.P_Net_Pancreas2 import P_Net_Pancreas2
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
@@ -41,7 +41,7 @@ class nnUNetTrainerV2Guided3_P_Net_Pancreas(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 1500
-        self.initial_lr = 1e-2
+        self.initial_lr = 1e-4
         self.loss = DC_and_CE_loss({'batch_dice': self.batch_dice, 'smooth': 1e-5, 'do_bg': False}, {})
         self.deep_i_geos_value = deep_i_geos_value
 
@@ -178,7 +178,7 @@ class nnUNetTrainerV2Guided3_P_Net_Pancreas(nnUNetTrainerV2):
         dropout_op_kwargs = {'p': 0, 'inplace': True}
         net_nonlin = nn.LeakyReLU
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
-        self.network = P_Net_Pancreas(patch_size=self.patch_size, in_channels=self.num_input_channels, num_classes=self.num_classes, conv_op=conv_op)
+        self.network = P_Net_Pancreas2(patch_size=self.patch_size, in_channels=self.num_input_channels, num_classes=self.num_classes, conv_op=conv_op)
         # self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes,
         #                             len(self.net_num_pool_op_kernel_sizes),
         #                             self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,

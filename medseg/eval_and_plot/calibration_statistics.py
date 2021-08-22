@@ -124,7 +124,7 @@ if __name__ == '__main__':
     uqs = ["ensemble", "mcdo", "tta"]
     uqs_names = ["Ensemble", "MC Dropout", "TTA"]
     ums = ["confidence", "bhattacharyya_coefficient", "predictive_entropy", "predictive_variance"]
-    um_names = ["Max Class Softmax", "BC", "Entropy", "Variance"]
+    um_names = ["Simple Confidence", "BC", "Entropy", "Variance"]
     n_bins = 20
     load = True
 

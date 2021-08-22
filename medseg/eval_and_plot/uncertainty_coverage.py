@@ -62,7 +62,7 @@ from matplotlib.lines import Line2D
 #     return {"UC": UC, "UC_threshold": UC_threshold, "Thresholds": thresholds}
 
 
-def comp_uncertainty_coverage(uncertainty_dir, prediction_dir, gt_dir, thresholds, parallel=True, resize=False, target_shape=(256, 256, 50)):
+def comp_uncertainty_coverage(uncertainty_dir, prediction_dir, gt_dir, thresholds, parallel=True, resize=True, target_shape=(256, 256, 50)):
     uncertainty_dir = utils.fix_path(uncertainty_dir)
     prediction_dir = utils.fix_path(prediction_dir)
     gt_dir = utils.fix_path(gt_dir)
@@ -84,6 +84,8 @@ def comp_uncertainty_coverage(uncertainty_dir, prediction_dir, gt_dir, threshold
     results = np.asarray(results)
     U_t_threshold = results[:, 0]
     U_f_threshold = results[:, 1]
+    M = results[:, 2, 0]
+    M = np.sum(M)
     for i in range(len(uncertainty_filenames)):
         for j, threshold in enumerate(thresholds):
             U_threshold[threshold]["U_t"] += U_t_threshold[i][j]
@@ -93,12 +95,14 @@ def comp_uncertainty_coverage(uncertainty_dir, prediction_dir, gt_dir, threshold
         pool.close()
         pool.join()
 
-    U_t = 0
+    U_t, U_f = 0, 0
     UC_threshold = []
     for threshold in thresholds:
         U_t += U_threshold[threshold]["U_t"]
+        U_f += U_threshold[threshold]["U_f"]
     for threshold in thresholds:
-        UC_threshold.append((U_threshold[threshold]["U_t"]**2) / (U_threshold[threshold]["U_f"] * U_t))
+        # UC_threshold.append((U_threshold[threshold]["U_t"]**2) / (U_threshold[threshold]["U_f"] * U_t))
+        UC_threshold.append((U_threshold[threshold]["U_t"] / U_threshold[threshold]["U_f"]) / (U_threshold[threshold]["U_t"] / M))
     UC = np.sum(UC_threshold)
     return {"UC": UC, "UC_threshold": UC_threshold, "Thresholds": thresholds}
 
@@ -116,6 +120,7 @@ def comp_uncertainty_coverage_single(i, uncertainty_filenames, prediction_filena
     ground_truth = np.rint(ground_truth).flatten().astype(int)
     prediction, ground_truth = guard_input(prediction, ground_truth)
     missclassification = comp_missclassification(prediction, ground_truth)
+    M = np.sum(missclassification)
     # U_threshold = defaultdict(lambda: defaultdict(int))
     U_t_threshold, U_f_threshold = [], []
     for threshold in thresholds:
@@ -125,7 +130,7 @@ def comp_uncertainty_coverage_single(i, uncertainty_filenames, prediction_filena
         U_t_threshold.append(U_t)
         U_f_threshold.append(U_f)
     #print("finished")
-    return U_t_threshold, U_f_threshold
+    return U_t_threshold, U_f_threshold, [M]*len(thresholds)
 
 
 
@@ -236,7 +241,7 @@ def plot_results_combined2(load_dir):
     plt.plot(results["Thresholds"], results["UC_threshold"], linestyle="-", color="b", label="UC")
     legend_variance = Line2D([0, 1], [0, 1], linestyle='-', color="b")
     ax.legend([legend_BC, legend_entropy, legend_variance], ["BC", "Entropy", "Variance"], bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-    plt.ylim(0, 0.1)
+    #plt.ylim(0, 0.1)
     plt.title("Uncertainty coverage")
     plt.savefig(load_dir + "UC.png", bbox_inches='tight')
     plt.clf()
@@ -282,20 +287,20 @@ if __name__ == '__main__':
     ums = ["bhattacharyya_coefficient", "predictive_entropy", "predictive_variance"]
     task = args.task
 
-    # for uq in uqs:
-    #     for um in ums:
-    #         base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/"
-    #         uncertainty_dir = base_path + "refinement_" + args.set + "/uncertainties/" + uq + "/" + um + "/"
-    #         prediction_dir = base_path + "refinement_" + args.set + "/basic_predictions/"
-    #         gt_dir = base_path + "refinement_" + args.set + "/labels/"
-    #         save_dir = base_path + "refinement_" + args.set + "/"
-    #         name = save_dir + "uncertainty_evaluation/UC_" + uq + "_" + um
-    #
-    #         results = comp_uncertainty_coverage(uncertainty_dir, prediction_dir, gt_dir, thresholds)
-    #         print("UQ: {}, UM: {}, UC: {}".format(uq, um, results["UC"]))
-    #
-    #         with open(name + ".pkl", 'wb') as handle:
-    #             pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    for uq in uqs:
+        for um in ums:
+            base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/"
+            uncertainty_dir = base_path + "refinement_" + args.set + "/uncertainties/" + uq + "/" + um + "/"
+            prediction_dir = base_path + "refinement_" + args.set + "/basic_predictions/"
+            gt_dir = base_path + "refinement_" + args.set + "/labels/"
+            save_dir = base_path + "refinement_" + args.set + "/"
+            name = save_dir + "uncertainty_evaluation/UC_" + uq + "_" + um
+
+            results = comp_uncertainty_coverage(uncertainty_dir, prediction_dir, gt_dir, thresholds)
+            print("UQ: {}, UM: {}, UC: {}".format(uq, um, results["UC"]))
+
+            with open(name + ".pkl", 'wb') as handle:
+                pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     plot_results_combined2("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_" + args.set + "/uncertainty_evaluation/")
 

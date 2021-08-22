@@ -11,7 +11,7 @@ import pickle
 # plt.show()
 
 base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/"
-task = "Task002_BrainTumour_guided"
+task = "Task008_Pancreas_guided"
 set = "val"
 class_label = 1
 basenames = ["hyperparam_eval_results_V7_my_method_['slice_gap'].pkl",
