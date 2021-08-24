@@ -17,7 +17,7 @@ import shutil
 from collections import OrderedDict
 from multiprocessing import Pool
 from time import sleep
-from typing import Tuple
+from typing import Tuple, List
 
 import matplotlib
 import numpy as np
