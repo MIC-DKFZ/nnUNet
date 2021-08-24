@@ -211,7 +211,15 @@ def get_available_models():
                 "https://zenodo.org/record/4635822/files/Task115_nnUNetTrainerV2_ResencUNet_DA3_BN__nnUNetPlans_FabiansResUNet_v2.1__3d_lowres__10folds.zip?download=1",
             )
         },
-
+       "Task135_KiTS2021": {
+           'description': "Kidney and kidney tumor segmentation in CT images. Data originates from KiTS2021 challenge.\n"
+                          "Predicted labels are 0: background, 1: kidney, 2: tumor, 3: cyst \n"
+                          "Input modalities are 0: CT \n"
+                          "See also https://kits21.kits-challenge.org/",
+           'url': (
+               "https://zenodo.org/record/5126443/files/Task135_KiTS2021.zip?download=1",
+           )
+       },
     }
     return available_models
 
