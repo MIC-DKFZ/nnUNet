@@ -1,6 +1,6 @@
 # Example: inference with pretrained nnU-Net models
 
-This is a step-by-step example on how to run inference with pretrained nnU-Net models on the Prostate dataset of the 
+This is a step-by-step example of how to run inference with pretrained nnU-Net models on the Prostate dataset of the 
 Medical Segemtnation Decathlon.
 
 1) Install nnU-Net by following the instructions [here](../readme.md#installation). Make sure to set all relevant paths, 
@@ -32,7 +32,7 @@ always contain the T2 image and 0001.nii.gz the ADC image. Whenever you are usin
     ```bash
     nnUNet_print_pretrained_model_info Task005_Prostate
     ```
-   to obtain information on which modality needs to get which number. The outpput for Prostate is the following:
+   to obtain information on which modality needs to get which number. The output for Prostate is the following:
     
         Prostate Segmentation. 
         Segmentation targets are peripheral and central zone, 
@@ -49,7 +49,7 @@ a _0000 to the file name if only one input modality is required). Instructions c
     Note that `-t 5` specifies the task with id 5 (which corresponds to the Prostate dataset). You can also give the full 
     task name `Task005_Prostate`. `OUTPUT_DIRECTORY` is where the resulting segmentations are saved.
     
-    Predictions should be quite fast and you should be donw within a couple of minutes. If you would like to speed it 
+    Predictions should be quite fast and you should be done within a couple of minutes. If you would like to speed it 
     up (at the expense of a slightly lower segmentation quality) you can disable test time data augmentation by 
     setting the `--disable_tta` flag (8x speedup). If this is still too slow for you, you can consider using only a 
     single model instead of the ensemble by specifying `-f 0`. This will use only the model trained on fold 0 of the 
