@@ -38,7 +38,7 @@ def resample_and_save(predicted, target_shape, output_file, force_separate_z=Fal
         os.remove(del_file)
 
     predicted_new_shape = resample_data_or_seg(predicted, target_shape, False, order=interpolation_order,
-                                               do_separate_z=force_separate_z, cval=0, order_z=interpolation_order_z)
+                                               do_separate_z=force_separate_z, order_z=interpolation_order_z)
     seg_new_shape = predicted_new_shape.argmax(0)
     np.savez_compressed(output_file, data=seg_new_shape.astype(np.uint8))
 

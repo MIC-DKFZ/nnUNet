@@ -144,7 +144,7 @@ def get_insaneDA_augmentation2(dataloader_train, dataloader_val, patch_size, par
             assert classes is not None
             tr_transforms.append(DownsampleSegForDSTransform3(deep_supervision_scales, 'target', 'target', classes))
         else:
-            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, 0, input_key='target',
+            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
                                                               output_key='target'))
 
     tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
@@ -175,7 +175,7 @@ def get_insaneDA_augmentation2(dataloader_train, dataloader_val, patch_size, par
             assert classes is not None
             val_transforms.append(DownsampleSegForDSTransform3(deep_supervision_scales, 'target', 'target', classes))
         else:
-            val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, 0, input_key='target',
+            val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
                                                                output_key='target'))
 
     val_transforms.append(NumpyToTensor(['data', 'target'], 'float'))

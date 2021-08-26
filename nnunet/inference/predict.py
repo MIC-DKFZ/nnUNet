@@ -57,7 +57,7 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
                                                                                  "shape! image: %s, seg_prev: %s" % \
                                                                                  (l[0], segs_from_prev_stage[i])
                 seg_prev = seg_prev.transpose(transpose_forward)
-                seg_reshaped = resize_segmentation(seg_prev, d.shape[1:], order=1, cval=0)
+                seg_reshaped = resize_segmentation(seg_prev, d.shape[1:], order=1)
                 seg_reshaped = to_one_hot(seg_reshaped, classes)
                 d = np.vstack((d, seg_reshaped)).astype(np.float32)
             """There is a problem with python process communication that prevents us from communicating obejcts 
