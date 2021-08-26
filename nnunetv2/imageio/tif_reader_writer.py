@@ -1,0 +1,71 @@
+#    Copyright 2021 HIP Applied Computer Vision Lab, Division of Medical Image Computing, German Cancer Research Center
+#    (DKFZ), Heidelberg, Germany
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+from typing import Tuple, Union, List
+import numpy as np
+from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
+import tifffile
+from batchgenerators.utilities.file_and_folder_operations import isfile, load_json
+
+class Tiff3DIO(BaseReaderWriter):
+    """
+    reads and writes 3D tif(f) images. Uses tifffile package. Ignores metadata (for now)!
+
+    If you have 2D tiffs, use NaturalImage2DIO
+
+    Supports the use of auxiliary files for spacing information. If used, the auxiliary files are expected to end
+    with .json and omit the modality identifier. So, for example, the corresponding of image image1_0000.tif is
+    expected to be image1.json)!
+    """
+    supported_file_endings = [
+        '.tif',
+        '.tiff',
+    ]
+
+    def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
+        # figure out file ending used here
+        ending = '.' + image_fnames[0].split('.')[-1]
+        ending = self.supported_file_endings[self.supported_file_endings.index(ending)]
+        ending_length = len(ending)
+        truncate_length = ending_length + 5 # 5 comes from len(_0000)
+
+        images = []
+        for f in image_fnames:
+            image = tifffile.imread(f)
+            if len(image.shape) != 3:
+                raise RuntimeError("Only 3D images are supported! File: %s" % f)
+            images.append(image[None])
+
+        # see if aux file can be found
+        expected_aux_file = image_fnames[0][:-truncate_length] + '.json'
+        if isfile(expected_aux_file):
+            spacing = load_json(expected_aux_file)['spacing']
+            assert len(spacing) == 3, 'spacing must have 3 entries, one for each dimension of the image. File: %s' % expected_aux_file
+        else:
+            spacing = (1, 1, 1)
+
+        if not self._check_all_same([i.shape for i in images]):
+            print('ERROR! Not all input images have the same shape!')
+            print('Shapes:')
+            print([i.shape for i in images])
+            print('Image files:')
+            print(image_fnames)
+            raise RuntimeError()
+
+        return np.vstack(images).astype(np.float32), {'spacing': spacing}
+
+    def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
+        # not ideal but I really have no clue how to set spacing/resolution information properly in tif files haha
+        tifffile.imsave(output_fname, data=seg.astype(np.uint8))
