@@ -122,18 +122,18 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     assert isfile(join(folder, "dataset.json")), "There needs to be a dataset.json file in folder, folder=%s" % folder
     assert isdir(join(folder, "imagesTr")), "There needs to be a imagesTr subfolder in folder, folder=%s" % folder
     assert isdir(join(folder, "labelsTr")), "There needs to be a labelsTr subfolder in folder, folder=%s" % folder
-    dataset = load_json(join(folder, "dataset.json"))
+    dataset_json = load_json(join(folder, "dataset.json"))
 
     # make sure all required keys are there
-    dataset_keys = list(dataset.keys())
+    dataset_keys = list(dataset_json.keys())
     required_keys = ['labels', "modality", "numTraining", "file_ending"]
     assert all([i in dataset_keys] for i in required_keys), 'not all required keys are present in dataset.json.' \
                                                             '\nRequired: %s\nPresent: %s' % (str(required_keys),
                                                                                              str(dataset_keys))
 
-    expected_num_training = dataset['numTraining']
-    num_modalities = len(dataset['modality'].keys())
-    file_suffix = dataset['file_ending']
+    expected_num_training = dataset_json['numTraining']
+    num_modalities = len(dataset_json['modality'].keys())
+    file_suffix = dataset_json['file_ending']
 
     training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(folder, 'imagesTr'), suffix=file_suffix)
 
@@ -151,12 +151,12 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
 
     # check if labels are consecutive
-    expected_labels = list(int(i) for i in dataset['labels'].keys())
+    expected_labels = list(int(i) for i in dataset_json['labels'].keys())
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1
     assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
 
     # determine reader/writer class
-    reader_writer_class = determine_reader_writer(dataset, join(folder, 'imagesTr', training_identifiers[0] + '_0000' + file_suffix))
+    reader_writer_class = determine_reader_writer(dataset_json, join(folder, 'imagesTr', training_identifiers[0] + '_0000' + file_suffix))
 
     # check whether only the desired labels are present
     p = Pool(num_processes)

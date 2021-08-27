@@ -1,6 +1,7 @@
-from nnunetv2.preprocessing.normalization.default_normalization_schemes import CTNormalization, NoNormalization, \
-    ZScoreNormalization, RescaleTo01Normalization, RGBTo01Normalization
+from typing import Type
 
+from nnunetv2.preprocessing.normalization.default_normalization_schemes import CTNormalization, NoNormalization, \
+    ZScoreNormalization, RescaleTo01Normalization, RGBTo01Normalization, ImageNormalization
 
 modality_to_normalization_mapping = {
     'CT': CTNormalization,
@@ -11,7 +12,7 @@ modality_to_normalization_mapping = {
 }
 
 
-def get_normalization_scheme(modality_name: str):
+def get_normalization_scheme(modality_name: str) -> Type[ImageNormalization]:
     """
     If we find the modality_name in modality_to_normalization_mapping return the corresponding normalization. If it is
     not found, use the default (ZScoreNormalization)

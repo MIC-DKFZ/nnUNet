@@ -18,7 +18,6 @@ from multiprocessing.pool import Pool
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_threads, ANISO_THRESHOLD
-from nnunetv2.preprocessing.resampling.default_resampling import resample_patient
 
 
 """

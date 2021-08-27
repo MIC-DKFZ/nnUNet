@@ -7,7 +7,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
-from nnunetv2.preprocessing.cropping import crop_to_nonzero
+from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
 
 
@@ -79,13 +79,13 @@ class DatasetFingerprintExtractor(object):
             DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
                                                                        num_samples=num_samples)
 
-        shape = data_cropped.shape[1:]
+        shape_after_crop = data_cropped.shape[1:]
         spacing = properties_images['spacing']
 
         shape_before_crop = images.shape[1:]
         shape_after_crop = data_cropped.shape[1:]
         relative_size_after_cropping = np.prod(shape_after_crop) / np.prod(shape_before_crop)
-        return shape, spacing, foreground_intensities_by_modality, foreground_intensity_stats_by_modality, \
+        return shape_after_crop, spacing, foreground_intensities_by_modality, foreground_intensity_stats_by_modality, \
             relative_size_after_cropping
 
     def run(self, overwrite_existing: bool = False) -> None:
@@ -122,12 +122,12 @@ class DatasetFingerprintExtractor(object):
             pool.close()
             pool.join()
 
-            shapes = [r[0] for r in results]
+            shapes_after_crop = [r[0] for r in results]
             spacings = [r[1] for r in results]
             foreground_intensities_by_modality = [np.concatenate([r[2][i] for r in results]) for i in range(len(results[0][2]))]
             # we drop this so that the json file is somewhat human readable
-            # foreground_intensity_stats_by_modality = [r[3] for r in results]
-            relative_size_after_cropping = np.mean([r[4] for r in results], 0)
+            # foreground_intensity_stats_by_case_and_modality = [r[3] for r in results]
+            median_relative_size_after_cropping = np.median([r[4] for r in results], 0)
 
             num_modalities = len(self.dataset_json['modality'].keys())
             intensity_statistics_by_modality = {}
@@ -145,9 +145,9 @@ class DatasetFingerprintExtractor(object):
             try:
                 save_json({
                     "spacings": spacings,
-                    "shapes": shapes,
+                    "shapes_after_crop": shapes_after_crop,
                     'foreground_intensity_properties_by_modality': intensity_statistics_by_modality,
-                    "relative_size_after_cropping": relative_size_after_cropping
+                    "median_relative_size_after_cropping": median_relative_size_after_cropping
                 }, properties_file)
             except Exception as e:
                 if isfile(properties_file):

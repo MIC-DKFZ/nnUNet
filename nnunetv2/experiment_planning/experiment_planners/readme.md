@@ -22,3 +22,17 @@ without further explanations. These notes also include new features):
     - regions class order, if applicable
     - resampling function to be used
     - the image reader writer class that should be used
+
+
+dataset.json
+mandatory:
+- numTraining
+- labels (value 'ignore' has special meaning. Cannot have more than one ignore_label)
+- modalities
+- file_ending
+
+optional
+- overwrite_image_reader_writer (if absent, auto)
+- regions
+- region_class_order
+- 

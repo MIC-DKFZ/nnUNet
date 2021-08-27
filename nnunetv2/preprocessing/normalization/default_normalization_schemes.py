@@ -24,8 +24,8 @@ class ZScoreNormalization(ImageNormalization):
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         image = image.astype(self.target_dtype)
         if self.use_mask_for_norm is not None and self.use_mask_for_norm:
-            # negative values in the segmentation encode the 'outside' region (think zero values areound that brain as
-            # in BraTS. We want to run the normalization only in the brain region, so we need to mask the image.
+            # negative values in the segmentation encode the 'outside' region (think zero values around the brain as
+            # in BraTS). We want to run the normalization only in the brain region, so we need to mask the image.
             # The default nnU-net sets use_mask_for_norm to True ifcropping to the nonzero region substantially
             # reduced the image size.
             mask = seg >= 0
@@ -50,10 +50,7 @@ class CTNormalization(ImageNormalization):
         lower_bound = self.intensityproperties['percentile_00_5']
         upper_bound = self.intensityproperties['percentile_99_5']
         image = np.clip(image, lower_bound, upper_bound)
-        image = (image - mean_intensity) / np.max(std_intensity, 1e-8)
-        if self.use_mask_for_norm is not None and self.use_mask_for_norm:
-            assert seg is not None, "if use_mask_for_norm is True we need the segmentation!"
-            image[seg < 0] = 0
+        image = (image - mean_intensity) / max(std_intensity, 1e-8)
         return image
 
 
