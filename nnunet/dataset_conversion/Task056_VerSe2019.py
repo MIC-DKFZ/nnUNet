@@ -22,7 +22,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 from medpy import metric
 import numpy as np
-from nnunet.utilities.image_reorientation import reorient_all_images_in_folder_to_ras, revert_orientation_on_all_images_in_folder
+from nnunet.utilities.image_reorientation import reorient_all_images_in_folder_to_ras
 
 
 def check_if_all_in_good_orientation(imagesTr_folder: str, labelsTr_folder: str, output_folder: str) -> None:
