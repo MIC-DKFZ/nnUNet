@@ -605,7 +605,7 @@ def eval_single_hyperparameters(params, parallel, debug=False):
 
 
 def compute_predictions():
-    if method == "my_method" or method == "P_Net_BrainTumor" or method == "P_Net_Pancreas":
+    if method == "my_method" or method == "P_Net_BrainTumor" or method == "P_Net_Pancreas" or method == "P_Net_Covid":
         recommended_result = my_method.compute_predictions(devices, recommended_masks_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, method)
     # elif method == "DeepIGeos1":
     #     recommended_result = deep_i_geos.compute_predictions(devices, recommended_masks_path, image_path, prediction_path, gt_path, refined_prediction_save_path, refinement_inference_tmp, model, class_labels, 0.99)
@@ -652,7 +652,7 @@ if __name__ == '__main__':
     parser.add_argument("--reuse", action="store_true", default=False, help="Reuse recommended masks from last run", required=False)
     parser.add_argument("-a", "--apply", help="Apply for inference (infer) or hyperparameter evaluation (eval)", required=True)
     args = parser.parse_args()
-    devices = [3, 4, 6, 7]
+    devices = [1, 2, 3, 4]
 
     version = str(args.version)
     uncertainty_quantification = str(args.uncertainty_quantification)
@@ -759,7 +759,7 @@ if __name__ == '__main__':
     elif args.apply == "infer":
         test_set_params = {}
         test_set_params["slice_gap"] = 20
-        test_set_params["num_slices"] = 6  # 12
+        test_set_params["num_slices"] = 12  # 12
         test_set_params["max_slices_based_on_infected_slices"] = 0.23
         test_set_params["min_uncertainty"] = 0.10
         test_set_params["default_size"] = 1280

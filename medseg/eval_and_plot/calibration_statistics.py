@@ -65,6 +65,7 @@ def reliability_diagram(uncertainty, prediction, gt, n_bins, labels):
             bin_confidence = np.mean(bin_confidence)
             bin_accuracy = np.mean(bin_accuracy)
             # ece += (bin_samples/total_samples) * np.abs(bin_accuracy - bin_confidence)
+            print("bin_accuracy: {}, bin_confidence: {}".format(bin_accuracy, bin_confidence))
             bce += (1 / n_bins) * np.abs(bin_accuracy - bin_confidence)
             # print("ECE: ", ece)
             # mce.append(np.abs(bin_accuracy - bin_confidence))
@@ -125,17 +126,20 @@ if __name__ == '__main__':
     task_names = ["Brain Tumor", "Pancreas", "COVID-19"]
     set = "val"
     uqs = ["ensemble", "mcdo", "tta"]
-    uqs_names = ["Ensemble", "MC Dropout", "TTA"]
+    uqs_names = ["Deep Ensemble", "MC-Dropout", "TTA"]
     ums = ["confidence", "bhattacharyya_coefficient", "predictive_entropy", "predictive_variance"]
     um_names = ["Simple Confidence", "BC", "Entropy", "Variance"]
+    gridspec_indices = [[slice(0, 2), slice(0, 2)], [slice(0, 2), slice(2, 4)], [slice(2, 4), slice(1, 3)]]
     n_bins = 20
-    load = False
+    load = True
 
     for k, task in enumerate(tasks):
+        fig = plt.figure(constrained_layout=True, figsize=(12, 7))
+        gs = fig.add_gridspec(4, 4)
         print("Task: ", task)
         for i, uq in enumerate(uqs):
             if load:
-                with open(base_path + task_names[k] + "_" + uq + ".pkl", 'rb') as handle:
+                with open(base_path + "Evaluation/Uncertainty Evaluation/" + task_names[k] + "_" + uq + ".pkl", 'rb') as handle:
                     uq_results = pickle.load(handle)
             else:
                 prediction_path = base_path + task + "/refinement_" + set + "/basic_predictions/"
@@ -147,19 +151,22 @@ if __name__ == '__main__':
                     uncertainties = load_uncertainty(uncertainty_path)
                     x, y, samples_per_bin, bce = reliability_diagram(uncertainties, predictions, gts, n_bins, labels)
                     uq_results[ums[j]] = {"x": x, "y": y, "samples_per_bin": samples_per_bin, "bce": bce}
-                with open(base_path + task_names[k] + "_" + uq + ".pkl", 'wb') as handle:
+                with open(base_path + "Evaluation/Uncertainty Evaluation/" + task_names[k] + "_" + uq + ".pkl", 'wb') as handle:
                     pickle.dump(uq_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            ax = fig.add_subplot(gs[gridspec_indices[i][0], gridspec_indices[i][1]])
             for j, key in enumerate(uq_results.keys()):
                 x, y, samples_per_bin, bce = uq_results[key]["x"], uq_results[key]["y"], uq_results[key]["samples_per_bin"], uq_results[key]["bce"]
-                print("UQ: {}, um: {}, BCE: {}".format(uq, key, bce))
-                plt.plot(x, y, label=um_names[j])
+                print("UQ: {}, um: {}, BCE: {}".format(uq, key, round(bce, 4)))
+                # x, y, samples_per_bin = uq_results[key]["x"], uq_results[key]["y"], uq_results[key]["samples_per_bin"]
+                ax.plot(x, y, label=um_names[j])
             x_y_ideal = np.arange(0.0, 1.1, 0.1)
-            plt.title("Reliability Diagram ({})".format(uqs_names[i]))
-            plt.plot(x_y_ideal, x_y_ideal, label="Ideal", linestyle="--")
-            plt.ylim(0, 1)
-            plt.xlim(0, 1)
-            plt.xlabel("Confidence")
-            plt.ylabel("Accuracy")
-            plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-            plt.savefig(base_path + task_names[k] + "_" + uq + ".png", bbox_inches='tight')
-            plt.clf()
+            ax.set_title(uqs_names[i])
+            ax.plot(x_y_ideal, x_y_ideal, label="Ideal", linestyle="--")
+            ax.set_ylim(0, 1)
+            ax.set_xlim(0, 1)
+            ax.set_xlabel("Confidence")
+            ax.set_ylabel("Accuracy")
+        plt.suptitle("Balanced Reliability Curve ({})".format(task_names[k]), fontsize=16)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        plt.savefig(base_path + "Evaluation/Uncertainty Evaluation/" + task_names[k] + ".png", bbox_inches='tight')
+        plt.clf()

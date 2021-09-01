@@ -48,6 +48,8 @@ def compute_predictions(available_devices, save_path, prediction_path, gt_path, 
         trainer = "nnUNetTrainerV2Guided3_P_Net"
     elif method == "P_Net_Pancreas":
         trainer = "nnUNetTrainerV2Guided3_P_Net_Pancreas"
+    elif method == "P_Net_Covid":
+        trainer = "nnUNetTrainerV2Guided3_P_Net_Covid"
 
     print("remove: ", time.time() - start_time)
     print("Starting inference...")

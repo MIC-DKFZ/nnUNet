@@ -9,7 +9,7 @@ from collections import defaultdict
 
 
 def comp_h_index_depth(uncertainty_path, thresholds):
-    uncertainty_filenames = utils.load_filenames(uncertainty_path)[:3]
+    uncertainty_filenames = utils.load_filenames(uncertainty_path)
 
     dictionaries = defaultdict(list)
     for i in tqdm(range(len(uncertainty_filenames))):
@@ -50,11 +50,8 @@ def h_index_depth_counts(uncertainty, threshold):
     euclidean_distance_map = np.ones_like(euclidean_distance_map) - euclidean_distance_map
     euclidean_distance_map = euclidean_distance_map.astype(np.float32)
     euclidean_distance_map = GeodisTK.geodesic3d_raster_scan(np.zeros_like(uncertainty).astype(np.float32), euclidean_distance_map.astype(np.uint8), np.asarray([1.0, 1.0, 1.0], dtype=np.float32), 0.0, 4)
+    euclidean_distance_map = np.rint(euclidean_distance_map)
     uniques, counts = np.unique(euclidean_distance_map, return_counts=True)
-    uniques_rounded = np.rint(uniques)
-    uniques = defaultdict(int)
-    for i in range(len(uniques_rounded)):
-        uniques[uniques_rounded[i]] += counts[i]
     dictionary = dict(zip(uniques, counts))
     dictionary = collections.Counter(dictionary)
     return dictionary
@@ -64,8 +61,10 @@ def h_index_depth_result(dictionaries):
     dictionary = collections.Counter()
     for d in dictionaries:
         dictionary += d
-    print("dictionary: ", dictionary)
-    counts = list(dictionary.values())
+    uniques = np.asarray(list(dictionary.keys()))
+    counts = np.asarray(list(dictionary.values()))
+    indices = np.argsort(uniques)
+    counts = counts[indices]
     counts = np.flip(counts)
     h_index_depth = 0
 
@@ -98,12 +97,12 @@ if __name__ == '__main__':
         ax = fig.add_subplot(gs[gridspec_indices[k][0], gridspec_indices[k][1]])
         for i, uq in enumerate(uqs):
             if load:
-                with open(base_path + task_names[k] + "_" + uq + ".pkl", 'rb') as handle:
+                with open(base_path + "Evaluation/h-index-depth/" + task_names[k] + "_" + uq + ".pkl", 'rb') as handle:
                     h_index_depth = pickle.load(handle)
             else:
                 uncertainty_path = base_path + task + "/refinement_" + set + "/uncertainties/" + uq + "/" + um + "/"
                 h_index_depth = comp_h_index_depth(uncertainty_path, thresholds)
-                with open(base_path + task_names[k] + "_" + uq + ".pkl", 'wb') as handle:
+                with open(base_path + "Evaluation/h-index-depth/" + task_names[k] + "_" + uq + ".pkl", 'wb') as handle:
                     pickle.dump(h_index_depth, handle, protocol=pickle.HIGHEST_PROTOCOL)
             x = list(thresholds)
             y = list(h_index_depth.values())
