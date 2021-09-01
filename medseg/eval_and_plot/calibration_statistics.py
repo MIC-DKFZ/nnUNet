@@ -39,9 +39,11 @@ def reliability_diagram(uncertainty, prediction, gt, n_bins, labels):
 
     confidence = 1 - uncertainty
 
-    ece = 0
-    mce = []
+    bce = 0
+    # mce = []
     accuracy = np.zeros_like(gt)
+    labels = labels[1:]
+    # print("Labels: ", labels)
     for label in labels:
         accuracy = (accuracy == 1) | ((prediction == label) & (gt == label))
     total_samples = np.sum((prediction > 0) | (gt > 0))
@@ -62,14 +64,15 @@ def reliability_diagram(uncertainty, prediction, gt, n_bins, labels):
             bin_accuracy = accuracy[bin_mask]
             bin_confidence = np.mean(bin_confidence)
             bin_accuracy = np.mean(bin_accuracy)
-            ece += (bin_samples/total_samples) * np.abs(bin_accuracy - bin_confidence)
+            # ece += (bin_samples/total_samples) * np.abs(bin_accuracy - bin_confidence)
+            bce += (1 / n_bins) * np.abs(bin_accuracy - bin_confidence)
             # print("ECE: ", ece)
-            mce.append(np.abs(bin_accuracy - bin_confidence))
+            # mce.append(np.abs(bin_accuracy - bin_confidence))
             # print("MCE: ", mce)
             x.append(bin_upper)
             y.append(bin_accuracy)
-    mce = np.max(mce)
-    return x, y, samples_per_bin, ece, mce
+    # mce = np.max(mce)
+    return x, y, samples_per_bin, bce
 
 
 # if __name__ == '__main__':
@@ -118,44 +121,45 @@ def reliability_diagram(uncertainty, prediction, gt, n_bins, labels):
 
 if __name__ == '__main__':
     base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/"
-    task = "Task070_guided_all_public_ggo"
-    task_name = "COVID-19"
+    tasks = ["Task002_BrainTumour_guided", "Task008_Pancreas_guided", "Task070_guided_all_public_ggo"]
+    task_names = ["Brain Tumor", "Pancreas", "COVID-19"]
     set = "val"
     uqs = ["ensemble", "mcdo", "tta"]
     uqs_names = ["Ensemble", "MC Dropout", "TTA"]
     ums = ["confidence", "bhattacharyya_coefficient", "predictive_entropy", "predictive_variance"]
     um_names = ["Simple Confidence", "BC", "Entropy", "Variance"]
     n_bins = 20
-    load = True
+    load = False
 
-
-    for i, uq in enumerate(uqs):
-        if load:
-            with open(base_path + uq + ".pkl", 'rb') as handle:
-                uq_results = pickle.load(handle)
-        else:
-            prediction_path = base_path + task + "/refinement_" + set + "/basic_predictions/"
-            gt_path = base_path + task + "/refinement_" + set + "/labels/"
-            predictions, gts, labels = load_pred_and_gt(prediction_path, gt_path)
-            uq_results = {}
-            for j in range(len(ums)):
-                uncertainty_path = base_path + task + "/refinement_" + set + "/uncertainties/" + uq + "/" + ums[j] + "/"
-                uncertainties = load_uncertainty(uncertainty_path)
-                x, y, samples_per_bin, ece, mce = reliability_diagram(uncertainties, predictions, gts, n_bins, labels)
-                uq_results[ums[j]] = {"x": x, "y": y, "samples_per_bin": samples_per_bin, "ece": ece, "mce": mce}
-            with open(base_path + uq + ".pkl", 'wb') as handle:
-                pickle.dump(uq_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        for j, key in enumerate(uq_results.keys()):
-            x, y, samples_per_bin, ece, mce = uq_results[key]["x"], uq_results[key]["y"], uq_results[key]["samples_per_bin"], uq_results[key]["ece"], uq_results[key]["mce"]
-            print("UQ: {}, um: {}, ECE: {}, MCE: {}".format(uq, key, ece, mce))
-            plt.plot(x, y, label=um_names[j])
-        x_y_ideal = np.arange(0.0, 1.1, 0.1)
-        plt.title("Reliability Diagram ({})".format(uqs_names[i]))
-        plt.plot(x_y_ideal, x_y_ideal, label="Ideal", linestyle="--")
-        plt.ylim(0, 1)
-        plt.xlim(0, 1)
-        plt.xlabel("Confidence")
-        plt.ylabel("Accuracy")
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-        plt.savefig(base_path + uq + ".png", bbox_inches='tight')
-        plt.clf()
+    for k, task in enumerate(tasks):
+        print("Task: ", task)
+        for i, uq in enumerate(uqs):
+            if load:
+                with open(base_path + task_names[k] + "_" + uq + ".pkl", 'rb') as handle:
+                    uq_results = pickle.load(handle)
+            else:
+                prediction_path = base_path + task + "/refinement_" + set + "/basic_predictions/"
+                gt_path = base_path + task + "/refinement_" + set + "/labels/"
+                predictions, gts, labels = load_pred_and_gt(prediction_path, gt_path)
+                uq_results = {}
+                for j in range(len(ums)):
+                    uncertainty_path = base_path + task + "/refinement_" + set + "/uncertainties/" + uq + "/" + ums[j] + "/"
+                    uncertainties = load_uncertainty(uncertainty_path)
+                    x, y, samples_per_bin, bce = reliability_diagram(uncertainties, predictions, gts, n_bins, labels)
+                    uq_results[ums[j]] = {"x": x, "y": y, "samples_per_bin": samples_per_bin, "bce": bce}
+                with open(base_path + task_names[k] + "_" + uq + ".pkl", 'wb') as handle:
+                    pickle.dump(uq_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            for j, key in enumerate(uq_results.keys()):
+                x, y, samples_per_bin, bce = uq_results[key]["x"], uq_results[key]["y"], uq_results[key]["samples_per_bin"], uq_results[key]["bce"]
+                print("UQ: {}, um: {}, BCE: {}".format(uq, key, bce))
+                plt.plot(x, y, label=um_names[j])
+            x_y_ideal = np.arange(0.0, 1.1, 0.1)
+            plt.title("Reliability Diagram ({})".format(uqs_names[i]))
+            plt.plot(x_y_ideal, x_y_ideal, label="Ideal", linestyle="--")
+            plt.ylim(0, 1)
+            plt.xlim(0, 1)
+            plt.xlabel("Confidence")
+            plt.ylabel("Accuracy")
+            plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+            plt.savefig(base_path + task_names[k] + "_" + uq + ".png", bbox_inches='tight')
+            plt.clf()

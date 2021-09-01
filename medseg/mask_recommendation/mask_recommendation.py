@@ -652,7 +652,7 @@ if __name__ == '__main__':
     parser.add_argument("--reuse", action="store_true", default=False, help="Reuse recommended masks from last run", required=False)
     parser.add_argument("-a", "--apply", help="Apply for inference (infer) or hyperparameter evaluation (eval)", required=True)
     args = parser.parse_args()
-    devices = [4, 5, 6, 7]
+    devices = [3, 4, 6, 7]
 
     version = str(args.version)
     uncertainty_quantification = str(args.uncertainty_quantification)
@@ -759,7 +759,7 @@ if __name__ == '__main__':
     elif args.apply == "infer":
         test_set_params = {}
         test_set_params["slice_gap"] = 20
-        test_set_params["num_slices"] = 12
+        test_set_params["num_slices"] = 6  # 12
         test_set_params["max_slices_based_on_infected_slices"] = 0.23
         test_set_params["min_uncertainty"] = 0.10
         test_set_params["default_size"] = 1280
