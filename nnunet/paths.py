@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 import os
+from os.path import join
 
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNet"
