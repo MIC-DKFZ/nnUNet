@@ -18,7 +18,6 @@ import argparse
 from copy import deepcopy
 from typing import Tuple, Union, List
 
-import sys
 import numpy as np
 from batchgenerators.augmentations.utils import resize_segmentation
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax, save_segmentation_nifti
