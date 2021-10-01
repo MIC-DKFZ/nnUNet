@@ -185,7 +185,7 @@ tracking challenge with nnU-Net (see our Nature Methods paper) and we have also 
 histopathological segmentation problems. 
 Working with 2D data in nnU-Net requires a small workaround in the creation of the dataset. Essentially, all images 
 must be converted to pseudo 3D images (so an image with shape (X, Y) needs to be converted to an image with shape 
-(1, X, Y). The resulting image must be saved in nifti format. Hereby it is important to set the spacing of the 
+(X, Y, 1). The resulting image must be saved in nifti format. Hereby it is important to set the spacing of the 
 first axis (the one with shape 1) to a value larger than the others. If you are working with niftis anyways, then 
 doing this should be easy for you. This example here is intended for demonstrating how nnU-Net can be used with 
 'regular' 2D images. We selected the massachusetts road segmentation dataset for this because it can be obtained 
