@@ -272,7 +272,7 @@ class DataLoader3D(SlimDataLoaderBase):
             # (above) documentation of the day. Nice. Even myself coming back 1 months later I have not friggin idea
             # what's going on. I keep the above documentation just for fun but attempt to make things clearer now
 
-            need_to_pad = self.need_to_pad
+            need_to_pad = self.need_to_pad.copy()
             for d in range(3):
                 # if case_all_data.shape + need_to_pad is still < patch size we need to pad more! We pad on both sides
                 # always
@@ -530,7 +530,7 @@ class DataLoader2D(SlimDataLoaderBase):
             # we can now choose the bbox from -need_to_pad // 2 to shape - patch_size + need_to_pad // 2. Here we
             # define what the upper and lower bound can be to then sample form them with np.random.randint
 
-            need_to_pad = self.need_to_pad
+            need_to_pad = self.need_to_pad.copy()
             for d in range(2):
                 # if case_all_data.shape + need_to_pad is still < patch size we need to pad more! We pad on both sides
                 # always
