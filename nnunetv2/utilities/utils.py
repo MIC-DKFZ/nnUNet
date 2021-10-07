@@ -18,7 +18,7 @@ import numpy as np
 import re
 
 
-def get_caseIDs_from_splitted_dataset_folder(folder, suffix):
+def get_caseIDs_from_splitted_dataset_folder(folder: str, suffix: str):
     files = subfiles(folder, suffix=suffix, join=False)
     # all files must be .nii.gz and have 4 digit modality index
     crop = len(suffix) + 5
@@ -28,16 +28,15 @@ def get_caseIDs_from_splitted_dataset_folder(folder, suffix):
     return files
 
 
-def create_lists_from_splitted_dataset_folder(folder, suffix):
+def create_lists_from_splitted_dataset_folder(folder: str, suffix: str, case_ids: List[str] = None) -> List[List[str]]:
     """
     does not rely on dataset.json
-    :param folder:
-    :return:
     """
-    caseIDs = get_caseIDs_from_splitted_dataset_folder(folder, suffix)
+    if case_ids is None:
+        case_ids = get_caseIDs_from_splitted_dataset_folder(folder, suffix)
     files = subfiles(folder, suffix=suffix, join=False, sort=True)
     list_of_lists = []
-    for f in caseIDs:
+    for f in case_ids:
         p = re.compile(f + "_\d\d\d\d" + suffix)
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists

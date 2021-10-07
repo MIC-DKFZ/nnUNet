@@ -23,7 +23,7 @@ def compute_new_shape(old_shape: Union[Tuple[int, ...], List[int], np.ndarray],
                       new_spacing: Union[Tuple[float, ...], List[float], np.ndarray]) -> np.ndarray:
     assert len(old_spacing) == len(old_shape)
     assert len(old_shape) == len(new_spacing)
-    new_shape = np.array([int(round(i / j * k)) for i, j, k in zip(old_spacing, new_spacing, old_shape[1:])])
+    new_shape = np.array([int(round(i / j * k)) for i, j, k in zip(old_spacing, new_spacing, old_shape)])
     return new_shape
 
 
@@ -66,7 +66,7 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
         assert len(data.shape) == 4, "data must be c x y z"
 
     shape = np.array(data[0].shape)
-    new_shape = compute_new_shape(shape, current_spacing, new_spacing)
+    new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
 
     data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
     return data_reshaped

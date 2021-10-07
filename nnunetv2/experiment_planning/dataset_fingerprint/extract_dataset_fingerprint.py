@@ -1,18 +1,20 @@
 import os
 from multiprocessing import Pool
-from typing import List, Type
+from typing import List, Type, Union
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.paths import nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
+from nnunetv2.utilities.task_name_id_conversion import convert_id_to_task_name
 
 
 class DatasetFingerprintExtractor(object):
-    def __init__(self, input_folder: str, num_processes: int = 8):
+    def __init__(self, task_name_or_id: Union[str, int], num_processes: int = 8):
         """
         extracts the dataset fingerprint used for experiment planning. The dataset fingerprint will be saved as a
         json file in the input_folder
@@ -20,9 +22,14 @@ class DatasetFingerprintExtractor(object):
         Philosophy here is to do only what we really need. Don't store stuff that we can easily read from somewhere
         else. Don't compute stuff we don't need (except for intensity_statistics_by_modality)
         """
-        self.input_folder = input_folder
+        if isinstance(task_name_or_id, int):
+            task_name = convert_id_to_task_name(task_name_or_id)
+        else:
+            task_name = task_name_or_id
+
+        self.input_folder = join(nnUNet_raw, task_name)
         self.num_processes = num_processes
-        self.dataset_json = load_json(join(input_folder, 'dataset.json'))
+        self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
 
         # We don't want to use all foreground voxels because that can accumulate a lot of data (out of memory). It is
         # also not critically important to get all pixels as long as there are enough. Let's use 10e7 voxels in total
@@ -79,7 +86,6 @@ class DatasetFingerprintExtractor(object):
             DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
                                                                        num_samples=num_samples)
 
-        shape_after_crop = data_cropped.shape[1:]
         spacing = properties_images['spacing']
 
         shape_before_crop = images.shape[1:]
@@ -156,6 +162,5 @@ class DatasetFingerprintExtractor(object):
 
 
 if __name__ == '__main__':
-    dfe = DatasetFingerprintExtractor('/media/fabian/data/raw_datasets/nnUNet_data/nnUNet_raw_data/Task056_VerSe',
-                                      10)
-    dfe.run()
+    dfe = DatasetFingerprintExtractor(2, 10)
+    dfe.run(overwrite_existing=True)

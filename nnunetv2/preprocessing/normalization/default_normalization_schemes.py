@@ -22,18 +22,20 @@ class ImageNormalization(ABC):
 
 class ZScoreNormalization(ImageNormalization):
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        """
+        here seg is used to store the zero valued region. The value for that region in the segmentation is -1 by
+        default.
+        """
         image = image.astype(self.target_dtype)
         if self.use_mask_for_norm is not None and self.use_mask_for_norm:
             # negative values in the segmentation encode the 'outside' region (think zero values around the brain as
             # in BraTS). We want to run the normalization only in the brain region, so we need to mask the image.
-            # The default nnU-net sets use_mask_for_norm to True ifcropping to the nonzero region substantially
+            # The default nnU-net sets use_mask_for_norm to True if cropping to the nonzero region substantially
             # reduced the image size.
             mask = seg >= 0
             mean = image[mask].mean()
             std = image[mask].std()
             image[mask] = (image[mask] - mean) / (np.max(std, 1e-8))
-            # this is not really necessary but let's be safe
-            image[~mask] = 0
         else:
             mean = image.mean()
             std = image.std()
@@ -63,7 +65,7 @@ class RescaleTo01Normalization(ImageNormalization):
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         image = image.astype(self.target_dtype)
         image = image - image.min()
-        image = image / image.max()
+        image = image / max(image.max(), 1e-8)
         return image
 
 
@@ -74,6 +76,6 @@ class RGBTo01Normalization(ImageNormalization):
         assert image.max() <= 255, "RGB images are uint 8, for whatever reason I found pixel values greater than 255" \
                                    ". Your images do not seem to be RGB images"
         image = image.astype(self.target_dtype)
-        image = image / 255
+        image = image / 255.
         return image
 

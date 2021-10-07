@@ -43,7 +43,7 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
     current_spacing = deepcopy(list(spacing))
     current_size = deepcopy(list(patch_size))
 
-    pool_op_kernel_sizes = []
+    pool_op_kernel_sizes = [[1] * len(spacing)]
     conv_kernel_sizes = []
 
     num_pool_per_axis = [0] * dim
