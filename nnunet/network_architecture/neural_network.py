@@ -349,7 +349,7 @@ class SegmentationNetwork(NeuralNetwork):
 
                 add_for_nb_of_preds = gaussian_importance_map
             else:
-                add_for_nb_of_preds = torch.ones(data.shape[1:], device=self.get_device())
+                add_for_nb_of_preds = torch.ones(patch_size, device=self.get_device())
 
             if verbose: print("initializing result array (on GPU)")
             aggregated_results = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
@@ -366,7 +366,7 @@ class SegmentationNetwork(NeuralNetwork):
             if use_gaussian and num_tiles > 1:
                 add_for_nb_of_preds = self._gaussian_3d
             else:
-                add_for_nb_of_preds = np.ones(data.shape[1:], dtype=np.float32)
+                add_for_nb_of_preds = np.ones(patch_size, dtype=np.float32)
             aggregated_results = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
             aggregated_nb_of_predictions = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
 
@@ -676,7 +676,7 @@ class SegmentationNetwork(NeuralNetwork):
 
                 add_for_nb_of_preds = gaussian_importance_map
             else:
-                add_for_nb_of_preds = torch.ones(data.shape[1:], device=self.get_device())
+                add_for_nb_of_preds = torch.ones(patch_size, device=self.get_device())
 
             if verbose: print("initializing result array (on GPU)")
             aggregated_results = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
@@ -692,7 +692,7 @@ class SegmentationNetwork(NeuralNetwork):
             if use_gaussian and num_tiles > 1:
                 add_for_nb_of_preds = self._gaussian_2d
             else:
-                add_for_nb_of_preds = np.ones(data.shape[1:], dtype=np.float32)
+                add_for_nb_of_preds = np.ones(patch_size, dtype=np.float32)
             aggregated_results = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
             aggregated_nb_of_predictions = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
 
