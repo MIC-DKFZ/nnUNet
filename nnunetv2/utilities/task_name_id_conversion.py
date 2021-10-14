@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from typing import Union
 
 from nnunet.paths import nnUNet_raw_data, preprocessing_output_dir, nnUNet_cropped_data, network_training_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -65,3 +65,16 @@ def convert_task_name_to_id(task_name: str):
     assert task_name.startswith("Task")
     task_id = int(task_name[4:7])
     return task_id
+
+
+def maybe_convert_to_task_name(task_name_or_id: Union[int, str]) -> str:
+    if isinstance(task_name_or_id, str) and task_name_or_id.startswith("Task"):
+        return task_name_or_id
+    if isinstance(task_name_or_id, str):
+        try:
+            task_name_or_id = int(task_name_or_id)
+        except ValueError:
+            raise ValueError("task_name_or_id was a string and did not start with 'Task' so we tried to "
+                             "convert it to a task ID (int). That failed, however. Please give an integer number "
+                             "('1', '2', etc) or a correct tast name. Your input: %s" % task_name_or_id)
+    return convert_id_to_task_name(task_name_or_id)

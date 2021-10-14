@@ -15,7 +15,7 @@
 import os
 
 # do not modify these unless you know what you are doing
-default_plans_identifier = "nnUNetPlansv2.1"
+default_plans_identifier = "nnUNetPlans"
 default_trainer = "nnUNetTrainerV2"
 default_cascade_trainer = "nnUNetTrainerV2CascadeFullRes"
 

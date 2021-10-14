@@ -35,11 +35,11 @@ class ZScoreNormalization(ImageNormalization):
             mask = seg >= 0
             mean = image[mask].mean()
             std = image[mask].std()
-            image[mask] = (image[mask] - mean) / (np.max(std, 1e-8))
+            image[mask] = (image[mask] - mean) / (max(std, 1e-8))
         else:
             mean = image.mean()
             std = image.std()
-            image = (image - mean) / (np.max(std, 1e-8))
+            image = (image - mean) / (max(std, 1e-8))
         return image
 
 

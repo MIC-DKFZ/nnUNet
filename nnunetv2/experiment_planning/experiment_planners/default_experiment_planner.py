@@ -1,5 +1,6 @@
+import shutil
 from copy import deepcopy
-from typing import List, Union, Tuple, Type
+from typing import List, Union, Tuple
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
@@ -13,9 +14,9 @@ from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.normalization.map_modality_to_normalization import get_normalization_scheme
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_spacing, \
     resample_data_or_seg_to_shape, compute_new_shape
-from nnunetv2.utilities.task_name_id_conversion import convert_id_to_task_name
+from nnunetv2.utilities.json_export import recursive_fix_for_json_export
+from nnunetv2.utilities.task_name_id_conversion import maybe_convert_to_task_name
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
-import yaml
 
 
 class ExperimentPlanner(object):
@@ -28,26 +29,26 @@ class ExperimentPlanner(object):
         overwrite_target_spacing only affects 3d_fullres! (but by extension 3d_lowres which starts with fullres may
         also be affected
         """
-        if isinstance(task_name_or_id, int):
-            task_name_or_id = convert_id_to_task_name(task_name_or_id)
 
-        self.task_name = task_name_or_id
+        self.task_name = maybe_convert_to_task_name(task_name_or_id)
         self.suppress_transpose = suppress_transpose
         self.raw_dataset_folder = join(nnUNet_raw, self.task_name)
         self.dataset_json = load_json(join(self.raw_dataset_folder, 'dataset.json'))
 
         # load dataset fingerprint
-        if not isfile(join(self.raw_dataset_folder, 'dataset_properties.json')):
+        if not isfile(join(self.raw_dataset_folder, 'dataset_fingerprint.json')):
             raise RuntimeError('Fingerprint missing for this task. Please run nnUNet_extract_dataset_fingerprint')
 
-        self.dataset_fingerprint = load_json(join(self.raw_dataset_folder, 'dataset_properties.json'))
+        self.dataset_fingerprint = load_json(join(self.raw_dataset_folder, 'dataset_fingerprint.json'))
 
         self.anisotropy_threshold = ANISO_THRESHOLD
 
         self.UNet_base_num_features = 32
         self.UNet_class = PlainConvUNet
-        self.UNet_reference_val_3d = 550000000 # 455600128
-        self.UNet_reference_val_2d = 83252480
+        # the following two numbers are really arbitrary and were set to reproduce nnU-Net V1's configurations as
+        # much as possible
+        self.UNet_reference_val_3d = 550000000  # 455600128
+        self.UNet_reference_val_2d = 85000000  # 83252480
         self.UNet_reference_com_nfeatures = 32
         self.UNet_reference_val_corresp_GB = 8
         self.UNet_reference_val_corresp_bs_2d = 12
@@ -70,7 +71,7 @@ class ExperimentPlanner(object):
 
     def determine_reader_writer(self):
         training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(self.raw_dataset_folder, 'imagesTr'),
-                                                                             self.dataset_json['file_ending'])
+                                                                        self.dataset_json['file_ending'])
         return determine_reader_writer(self.dataset_json, join(self.raw_dataset_folder, 'imagesTr',
                                                                training_identifiers[0] + '_0000' +
                                                                self.dataset_json['file_ending']))
@@ -102,14 +103,14 @@ class ExperimentPlanner(object):
         determine_resampling is called within get_plans_for_configuration to allow for different functions for each
         configuration
         """
-        resampling_data = resample_data_or_seg_to_spacing
+        resampling_data = resample_data_or_seg_to_shape
         resampling_data_kwargs = {
             "is_seg": False,
             "order": 3,
             "order_z": 0,
             "force_separate_z": None,
         }
-        resampling_seg = resample_data_or_seg_to_spacing
+        resampling_seg = resample_data_or_seg_to_shape
         resampling_seg_kwargs = {
             "is_seg": True,
             "order": 1,
@@ -181,7 +182,7 @@ class ExperimentPlanner(object):
 
     def determine_normalization_scheme(self) -> List[str]:
         modalities = self.dataset_json['modality']
-        normalization_schemes = [get_normalization_scheme(m).__name__ for m in modalities]
+        normalization_schemes = [get_normalization_scheme(m).__name__ for m in modalities.values()]
         return normalization_schemes
 
     def determine_whether_to_use_mask_for_norm(self) -> bool:
@@ -214,17 +215,27 @@ class ExperimentPlanner(object):
                                     median_shape: Union[np.ndarray, Tuple[int, ...], List[int]],
                                     data_identifier: str,
                                     approximate_n_voxels_dataset: float):
+        print(spacing, median_shape, approximate_n_voxels_dataset)
         # find an initial patch size
         # we first use the spacing to get an aspect ratio
         tmp = 1 / np.array(spacing)
 
         # we then upscale it so that it initially is certainly larger than what we need (rescale to have the same
         # volume as a patch of size 256 ** 3)
-        initial_patch_size = [round(i) for i in tmp * (256 ** 3 / np.prod(tmp)) ** (1 / 3)]
+        # this may need to be adapted when using absurdly large GPU memory targets. Increasing this now would not be
+        # ideal because large initial patch sizes increase computation time because more iterations in the while loop
+        # further down may be required.
+        if len(spacing) == 3:
+            initial_patch_size = [round(i) for i in tmp * (256 ** 3 / np.prod(tmp)) ** (1 / 3)]
+        elif len(spacing) == 2:
+            initial_patch_size = [round(i) for i in tmp * (2048 ** 2 / np.prod(tmp)) ** (1 / 2)]
+        else:
+            raise RuntimeError()
 
-        # clip initial patch size to median_shape. It makes little sense to have it be larger than that
+        # clip initial patch size to median_shape. It makes little sense to have it be larger than that. Note that
+        # this is different from how nnU-Net V1 does it!
+        # todo patch size can still get too large because we pad the patch size to a multiple of 2**n
         initial_patch_size = np.array([min(i, j) for i, j in zip(initial_patch_size, median_shape[:len(spacing)])])
-        if len(spacing) == 2: import IPython;IPython.embed()
 
         # use that to get the network topology. Note that this changes the patch_size depending on the number of
         # pooling operations (must be divisible by 2**num_pool in each axis)
@@ -332,7 +343,8 @@ class ExperimentPlanner(object):
         new_median_shape = np.median(new_shapes, 0)
         new_median_shape_transposed = new_median_shape[transpose_forward]
 
-        approximate_n_voxels_dataset = float(np.prod(new_shapes, dtype=np.float64))
+        approximate_n_voxels_dataset = float(np.prod(new_median_shape_transposed, dtype=np.float64) *
+                                             self.dataset_json['numTraining'])
         # only run 3d if this is a 3d dataset
         if new_median_shape_transposed.shape[0] != 1:
             plan_3d_fullres = self.get_plans_for_configuration(fullres_spacing_transposed,
@@ -347,16 +359,19 @@ class ExperimentPlanner(object):
             plan_3d_lowres = None
             lowres_spacing = deepcopy(plan_3d_fullres['spacing'])
 
+            spacing_increase_factor = 1.03 # used to be 1.01 but that is slow with new GPU memory estimation!
+
             while num_voxels_in_patch / median_num_voxels < self.lowres_creation_threshold:
                 # we incrementally increase the target spacing. We start with the anisotropic axis/axes until it/they
                 # is/are similar (factor 2) to the other ax(i/e)s.
                 max_spacing = max(lowres_spacing)
                 if np.any((max_spacing / lowres_spacing) > 2):
-                    lowres_spacing[(max_spacing / lowres_spacing) > 2] *= 1.01
+                    lowres_spacing[(max_spacing / lowres_spacing) > 2] *= spacing_increase_factor
                 else:
-                    lowres_spacing *= 1.01
+                    lowres_spacing *= spacing_increase_factor
                 median_num_voxels = np.prod(plan_3d_fullres['spacing'] / lowres_spacing * new_median_shape_transposed,
                                             dtype=np.float64)
+                print(lowres_spacing)
                 plan_3d_lowres = self.get_plans_for_configuration(lowres_spacing,
                                                                   [round(i) for i in plan_3d_fullres['spacing'] /
                                                                    lowres_spacing * new_median_shape_transposed],
@@ -382,31 +397,30 @@ class ExperimentPlanner(object):
         median_shape = np.median(self.dataset_fingerprint['shapes_after_crop'], 0)[transpose_forward]
 
         # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
-        plans = {'dataset_fingerprint': self.dataset_fingerprint,
-                 'original_median_spacing_after_transp': [int(i) for i in median_spacing],
-                 'original_median_shape_after_transp': [int(i) for i in median_shape],
-                 'preprocessor_name': self.preprocessor_name,
-                 'dataset_json': self.dataset_json,
-                 'image_reader_writer': self.determine_reader_writer().__name__,
-                 'transpose_forward': [int(i) for i in transpose_forward],
-                 'transpose_backward': [int(i) for i in transpose_backward],
-                 '2d': plan_2d,
-                 'experiment_planner_used': self.__class__.__name__}
+        plans = {
+            'dataset_fingerprint': self.dataset_fingerprint,
+            'original_median_spacing_after_transp': [int(i) for i in median_spacing],
+            'original_median_shape_after_transp': [int(i) for i in median_shape],
+            'preprocessor_name': self.preprocessor_name,
+            'dataset_json': self.dataset_json,
+            'image_reader_writer': self.determine_reader_writer().__name__,
+            'transpose_forward': [int(i) for i in transpose_forward],
+            'transpose_backward': [int(i) for i in transpose_backward],
+            'configurations': {'2d': plan_2d},
+            'experiment_planner_used': self.__class__.__name__}
 
         if plan_3d_lowres is not None:
-            plans['3d_lowres'] = plan_3d_lowres
+            plans['configurations']['3d_lowres'] = plan_3d_lowres
             print('3D lowres U-Net configuration:')
             print(plan_3d_lowres)
             print()
         if plan_3d_fullres is not None:
-            plans['3d_fullres'] = plan_3d_fullres
+            plans['configurations']['3d_fullres'] = plan_3d_fullres
             print('3D fullres U-Net configuration:')
             print(plan_3d_fullres)
             print()
 
         recursive_fix_for_json_export(plans)
-        #with open(join(nnUNet_preprocessed, self.task_name, self.plans_name + '.yaml'), 'w') as f:
-        #    yaml.dump(plans, f)
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.task_name))
         save_json(plans, join(nnUNet_preprocessed, self.task_name, self.plans_name + '.json'))
@@ -417,36 +431,5 @@ class ExperimentPlanner(object):
         self.plans = load_json(fname)
 
 
-def recursive_fix_for_json_export(my_dict: dict):
-    for k in my_dict.keys():
-        if isinstance(my_dict[k], dict):
-            recursive_fix_for_json_export(my_dict[k])
-        elif isinstance(my_dict[k], np.ndarray):
-            assert len(my_dict[k].shape) == 1, 'only 1d arrays are supported'
-            my_dict[k] = fix_types_iterable(my_dict[k], output_type=list)
-        elif isinstance(my_dict[k], (np.bool_, )):
-            my_dict[k] = bool(my_dict[k])
-        elif isinstance(my_dict[k], (np.int64, np.int32, np.int8, np.uint8)):
-            my_dict[k] = int(my_dict[k])
-        elif isinstance(my_dict[k], (np.float32, np.float64, np.float16)):
-            my_dict[k] = float(my_dict[k])
-        elif isinstance(my_dict[k], (list, tuple)):
-            my_dict[k] = fix_types_iterable(my_dict[k], output_type=type(my_dict[k]))
-
-
-def fix_types_iterable(iterable, output_type):
-    out = []
-    for i in iterable:
-        if type(i) in (np.int64, np.int32, np.int8, np.uint8):
-            out.append(int(i))
-        elif type(i) in (np.float32, np.float64, np.float16):
-            out.append(float(i))
-        elif type(i) in (np.bool_, ):
-            out.append(bool(i))
-        else:
-            out.append(i)
-    return output_type(out)
-
-
 if __name__ == '__main__':
-    ExperimentPlanner(2, 8).plan_experiment()
+    ExperimentPlanner(3, 8).plan_experiment()

@@ -10,7 +10,7 @@ from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
-from nnunetv2.utilities.task_name_id_conversion import convert_id_to_task_name
+from nnunetv2.utilities.task_name_id_conversion import convert_id_to_task_name, maybe_convert_to_task_name
 
 
 class DatasetFingerprintExtractor(object):
@@ -22,10 +22,7 @@ class DatasetFingerprintExtractor(object):
         Philosophy here is to do only what we really need. Don't store stuff that we can easily read from somewhere
         else. Don't compute stuff we don't need (except for intensity_statistics_by_modality)
         """
-        if isinstance(task_name_or_id, int):
-            task_name = convert_id_to_task_name(task_name_or_id)
-        else:
-            task_name = task_name_or_id
+        task_name = maybe_convert_to_task_name(task_name_or_id)
 
         self.input_folder = join(nnUNet_raw, task_name)
         self.num_processes = num_processes
@@ -95,7 +92,7 @@ class DatasetFingerprintExtractor(object):
             relative_size_after_cropping
 
     def run(self, overwrite_existing: bool = False) -> None:
-        properties_file = join(self.input_folder, 'dataset_properties.json')
+        properties_file = join(self.input_folder, 'dataset_fingerprint.json')
         if not isfile(properties_file) or overwrite_existing:
             file_suffix = self.dataset_json['file_ending']
             training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),
@@ -111,11 +108,6 @@ class DatasetFingerprintExtractor(object):
             # determine how many foreground voxels we need to sample per training case
             num_foreground_samples_per_case = int(self.num_foreground_voxels_for_intensitystats //
                                                   len(training_identifiers))
-
-            # DatasetFingerprintExtractor.analyze_case(*list(zip(training_images_per_case, training_labels_per_case,
-            #                      [reader_writer_class] * len(training_identifiers),
-            #                      [num_foreground_samples_per_case] * len(training_identifiers))
-            #                  )[0])
 
             pool = Pool(self.num_processes)
             results = \
@@ -162,5 +154,5 @@ class DatasetFingerprintExtractor(object):
 
 
 if __name__ == '__main__':
-    dfe = DatasetFingerprintExtractor(2, 10)
+    dfe = DatasetFingerprintExtractor(3, 6)
     dfe.run(overwrite_existing=True)
