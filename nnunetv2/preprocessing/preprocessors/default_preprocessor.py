@@ -98,8 +98,7 @@ class DefaultPreprocessor(object):
                       plans: dict, configuration_name: str):
         data, seg, properties = self.run_case(image_files, seg_file, plans, configuration_name)
         # print('dtypes', data.dtype, seg.dtype)
-        np.savez_compressed(output_filename_truncated + '.npz', data=data)
-        np.savez_compressed(output_filename_truncated + '_seg.npz', seg=seg)
+        np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
