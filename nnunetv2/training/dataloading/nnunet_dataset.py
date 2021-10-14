@@ -1,16 +1,13 @@
 import shutil
-import shutil
-import sys
 
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle
 from nnunetv2.training.dataloading.utils import get_case_identifiers
 
 
-class nnUNetDataset(dict):
-    def __init__(self, folder: str, num_cases_properties_loading_threshold: int = 1000):
+class nnUNetDataset(object):
+    def __init__(self, folder: str, num_cases_properties_loading_threshold: int = 1000,
+                 folder_with_segs_from_previous_stage: str = None):
         """
-        Make no mistake. This is not a torchvision dataset. It's just a dict, bro
-
         This does not actually load the dataset. It merely creates a dictionary where the keys are training case names and
         the values are again dictionaries containing the relevant information for that case.
         dataset[training_case] -> info
@@ -24,6 +21,11 @@ class nnUNetDataset(dict):
         case is it better to load on the fly.
         If properties are loaded into the RAM, the info dicts each will have an additional entry:
         - properties -> dict
+
+        IMPORTANT! THIS CLASS ITSELF IS READ-ONLY. YOU CANNOT ADD KEY:VALUE PAIRS WITH
+        nnUNetDataset[key] = value
+        USE THIS INSTEAD:
+        nnUNetDataset.dataset[key] = value
         """
         super().__init__()
         print('loading dataset')
@@ -31,21 +33,39 @@ class nnUNetDataset(dict):
         case_identifiers.sort()
         # we ned to use super().__getitem__ so that we don't end up in a recursion problem because of our custom
         # implementation of __getitem__
+        self.dataset = {}
         for c in case_identifiers:
-            self[c] = {}
-            super().__getitem__(c)['data_file'] = join(folder, "%s.npz" % c)
-            super().__getitem__(c)['properties_file'] = join(folder, "%s.pkl" % c)
+            self.dataset[c] = {}
+            self.dataset[c]['data_file'] = join(folder, "%s.npz" % c)
+            self.dataset[c]['properties_file'] = join(folder, "%s.pkl" % c)
+            if folder_with_segs_from_previous_stage is not None:
+                self.dataset[c]['seg_from_prev_stage_file'] = join(folder, "%s.npz" % c)
 
         if len(case_identifiers) <= num_cases_properties_loading_threshold:
             print('loading all case properties')
-            for i in self.keys():
-                super().__getitem__(i)['properties'] = load_pickle(super().__getitem__(i)['properties_file'])
+            for i in self.dataset.keys():
+                self.dataset[i]['properties'] = load_pickle(self.dataset[i]['properties_file'])
 
     def __getitem__(self, item):
-        ret = {**super().__getitem__(item)}
+        ret = {**self.dataset[item]}
         if 'properties' not in ret.keys():
             ret['properties'] = load_pickle(ret['properties_file'])
         return ret
+
+    def __setitem__(self, key, value):
+        return self.dataset.__setitem__(key, value)
+
+    def keys(self):
+        return self.dataset.keys()
+
+    def __len__(self):
+        return self.dataset.__len__()
+
+    def items(self):
+        return self.dataset.items()
+
+    def values(self):
+        return self.dataset.values()
 
 
 if __name__ == '__main__':
@@ -53,9 +73,6 @@ if __name__ == '__main__':
 
     folder = '/media/fabian/data/nnUNet_preprocessed/Task003_Liver/3d_lowres'
     ds = nnUNetDataset(folder, 0) # this should not load the properties!
-    # this should NOT have the properties
-    ks = super(nnUNetDataset, ds).__getitem__('liver_0').keys()
-    assert 'properties' not in ks
     # this SHOULD HAVE the properties
     ks = ds['liver_0'].keys()
     assert 'properties' in ks

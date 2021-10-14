@@ -8,7 +8,7 @@ from nnunetv2.configuration import default_num_processes
 
 
 def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_existing: bool = False) -> None:
-    a = np.load(npz_file)  # inexpensive, no compression is done here
+    a = np.load(npz_file)  # inexpensive, no compression is done here. This just reads metadata
     if overwrite_existing or not isfile(npz_file[:-3] + "npy"):
         np.save(npz_file[:-3] + "npy", a['data'])
     if unpack_segmentation and (overwrite_existing or not isfile(npz_file[:-4] + "_seg.npy")):
