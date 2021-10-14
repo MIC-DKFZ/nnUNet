@@ -1,6 +1,7 @@
+import numpy as np
 import shutil
 
-from batchgenerators.utilities.file_and_folder_operations import join, load_pickle
+from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile
 from nnunetv2.training.dataloading.utils import get_case_identifiers
 
 
@@ -66,6 +67,24 @@ class nnUNetDataset(object):
 
     def values(self):
         return self.dataset.values()
+
+    def load_case(self, key):
+        entry = self[key]
+        if isfile(entry['data_file'][:-4] + ".npy"):
+            data = np.load(entry['data_file'][:-4] + ".npy", 'r')
+        else:
+            data = np.load(entry['data_file'])['data']
+        if isfile(entry['data_file'][:-4] + "_seg.npy"):
+            seg = np.load(entry['data_file'][:-4] + "_seg.npy", 'r')
+        else:
+            seg = np.load(entry['data_file'])['seg']
+        if 'seg_from_prev_stage_file' in entry.keys():
+            if isfile(entry['seg_from_prev_stage_file'][:-4] + ".npy"):
+                seg_prev = np.load(entry['seg_from_prev_stage_file'][:-4] + ".npy", 'r')
+            else:
+                seg_prev = np.load(entry['seg_from_prev_stage_file'])['seg']
+            seg = np.vstack((seg, seg_prev))
+        return data, seg, entry['properties']
 
 
 if __name__ == '__main__':
