@@ -48,6 +48,8 @@ class nnUNetDataLoaderBase(DataLoader):
         return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: dict):
+        # in dataloader 2d we need to select the slice prior to this and also modify the class_locations to only have
+        # locations for the given slice
         need_to_pad = self.need_to_pad.copy()
         dim = len(data_shape)
 
