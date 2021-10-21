@@ -184,6 +184,8 @@ also on 2D segmentation tasks nnU-Net cam perform extremely well! We have, for e
 tracking challenge with nnU-Net (see our Nature Methods paper) and we have also successfully applied nnU-Net to 
 histopathological segmentation problems. 
 
+Working with 2D data in nnU-Net requires a small workaround in the creation of the dataset. 
+Essentially, all images must be converted to pseudo 3D images (so an image with shape (X, Y).
 When working with 2D images it is important to follow the correct axis ordering. When loading the images with SimpleITK, 
 the resulting numpy array shape should be (1, x, y). We recommend you save your images with SimpleITK so that the
 correct shape is guaranteed. If you prefer to save your images with nibabel, please save them as (y, x, 1) 
