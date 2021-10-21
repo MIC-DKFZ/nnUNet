@@ -47,7 +47,8 @@ class nnUNetDataLoaderBase(DataLoader):
         seg_shape = (self.batch_size, seg.shape[0], *self.patch_size)
         return data_shape, seg_shape
 
-    def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: dict):
+    def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: dict,
+                 overwrite_class: Union[int, Tuple[int, ...]] = None):
         # in dataloader 2d we need to select the slice prior to this and also modify the class_locations to only have
         # locations for the given slice
         need_to_pad = self.need_to_pad.copy()
@@ -79,14 +80,15 @@ class nnUNetDataLoaderBase(DataLoader):
                 voxels_of_that_class = None
                 # print('case does not contain any foreground classes', i)
             else:
-                selected_class = np.random.choice(foreground_classes)
+                selected_class = np.random.choice(foreground_classes) if overwrite_class is None else overwrite_class
                 voxels_of_that_class = class_locations[selected_class]
 
             if voxels_of_that_class is not None:
                 selected_voxel = voxels_of_that_class[np.random.choice(len(voxels_of_that_class))]
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
                 # Make sure it is within the bounds of lb and ub
-                bbox_lbs = [max(lbs[i], selected_voxel[i] - self.patch_size[i] // 2) for i in range(dim)]
+                # i + 1 because we have first dimension 0!
+                bbox_lbs = [max(lbs[i], selected_voxel[i + 1] - self.patch_size[i] // 2) for i in range(dim)]
             else:
                 # If the image does not contain any foreground classes, we fall back to random cropping
                 bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]

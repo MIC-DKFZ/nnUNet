@@ -70,12 +70,18 @@ class DefaultPreprocessor(object):
         data_properites['shape_before_cropping'] = shape_before_cropping
         # this command will generate a segmentation. This is important because of the nonzero mask which we may need
         data, seg, bbox = crop_to_nonzero(data, seg)
+        print(data.shape, seg.shape)
         data_properites['shape_after_cropping_and_before_resampling'] = data.shape[1:]
 
         # resample
         fn_data = recursive_find_resampling_nf_by_name(configuration['resampling_fn_data'])
         fn_seg = recursive_find_resampling_nf_by_name(configuration['resampling_fn_seg'])
         target_spacing = configuration['spacing']  # this should already be transposed
+
+        if len(target_spacing) < len(data.shape[1:]):
+            # target spacing for 2d has 2 entries but the data and original_spacing have three because everything is 3d
+            # in 3d we do not change the spacing between slices
+            target_spacing = [original_spacing[0]] + target_spacing
         new_shape = compute_new_shape(data.shape[1:], original_spacing, target_spacing)
 
         data = fn_data(data, new_shape, original_spacing, target_spacing,
@@ -186,4 +192,4 @@ class DefaultPreprocessor(object):
 
 if __name__ == '__main__':
     pp = DefaultPreprocessor()
-    pp.run(3, default_plans_identifier, '3d_lowres', 3)
+    pp.run(2, default_plans_identifier, '3d_fullres', 8)

@@ -3,7 +3,7 @@ from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 
 
-class nnUNetDataLoader3D(nnUNetDataLoaderBase):
+class nnUNetDataLoader2D(nnUNetDataLoaderBase):
     def generate_train_batch(self):
         selected_keys = self.get_indices()
         # preallocate memory for data and seg
@@ -12,18 +12,35 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
         seg_all = np.zeros(self.seg_shape, dtype=np.int8)
         case_properties = []
 
-        for j, i in enumerate(selected_keys):
+        for j, current_key in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
             # (Lung for example)
             force_fg = self.get_do_oversample(j)
-            data, seg, properties = self._data.load_case(i)
+            data, seg, properties = self._data.load_case(current_key)
 
-            # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
-            # self._data.load_case(i) (see nnUNetDataset.load_case)
+            # select a class first, then a slice where this class is present, then crop to that area
+            available_classes = [i for i in properties['class_locations'].keys() if
+                                 len(properties['class_locations'][i]) > 0]
+            selected_class = np.random.choice(available_classes) if len(available_classes) > 0 else None
+            if force_fg and selected_class is not None:
+                selected_slice = np.random.choice(properties['class_locations'][selected_class][:, 1])
+            else:
+                selected_slice = np.random.choice(len(data[0]))
+
+            data = data[:, selected_slice]
+            seg = seg[:, selected_slice]
+
+            # the line of death lol
+            properties['class_locations'] = {
+                i: properties['class_locations'][i][properties['class_locations'][i][:, 1] == selected_slice][:, (0, 2, 3)]
+                for i in properties['class_locations'].keys()
+            }
+
+            # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
-
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'],
+                                               overwrite_class=selected_class)
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
             # valid_bbox is just the coord that lied within the data cube. It will be padded to match the patch size
@@ -49,7 +66,7 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
 
 
 if __name__ == '__main__':
-    folder = '/media/fabian/data/nnUNet_preprocessed/Task002_Heart/3d_fullres'
+    folder = '/media/fabian/data/nnUNet_preprocessed/Task002_Heart/2d'
     ds = nnUNetDataset(folder, 0)  # this should not load the properties!
-    dl = nnUNetDataLoader3D(ds, 5, (16, 16, 16), (16, 16, 16), 0.33, None, None)
+    dl = nnUNetDataLoader2D(ds, 5, (128, 128), (128, 128), 0.33, None, None)
     a = next(dl)
