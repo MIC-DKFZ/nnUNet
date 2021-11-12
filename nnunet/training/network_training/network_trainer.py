@@ -74,6 +74,7 @@ class NetworkTrainer(object):
         self.network: Tuple[SegmentationNetwork, nn.DataParallel] = None
         self.optimizer = None
         self.lr_scheduler = None
+        self.lr_divider = 1.0
         self.tr_gen = self.val_gen = None
         self.was_initialized = False
 
@@ -88,7 +89,7 @@ class NetworkTrainer(object):
         self.dataset_tr = self.dataset_val = None  # do not need to be used, they just appear if you are using the suggested load_dataset_and_do_split
 
         ################# THESE DO NOT NECESSARILY NEED TO BE MODIFIED #####################
-        self.patience = 50
+        self.patience = 25 # NOTE: (Nghia) default 50
         self.val_eval_criterion_alpha = 0.9  # alpha * old + (1-alpha) * new
         self.val_eval_criterion_MA_eps = 5e-4 # new MA must be at least this much better (greater)
         # if this is too low then the moving average will be too noisy and the training may terminate early. If it is
@@ -591,8 +592,7 @@ class NetworkTrainer(object):
                 self.print_to_log_file("saving best epoch checkpoint...")
                 if self.save_best_checkpoint: self.save_checkpoint(join(self.output_folder, "model_best.model"))
 
-            # Now see if the MA of the valdiation metric has improved. If yes then reset patience, else increase patience
-            if self.val_eval_criterion_MA > self.best_val_eval_criterion_MA + self.val_eval_criterion_MA_eps:
+            if self.val_eval_criterion_MA > self.best_MA_val_eval_criterion_for_patience + self.val_eval_criterion_MA_eps:
                 self.best_MA_val_eval_criterion_for_patience = self.val_eval_criterion_MA
                 self.best_epoch_based_on_MA_val_eval_criterion = self.epoch
 
@@ -612,9 +612,17 @@ class NetworkTrainer(object):
                 if self.optimizer.param_groups[0]['lr'] > self.lr_threshold:
                     self.print_to_log_file("My patience ended, but I believe I need more time (lr > 1e-6)")
                     self.best_epoch_based_on_MA_val_eval_criterion = self.epoch - self.patience // 2
+                    self.lr_divider *= 2.0
                 else:
                     self.print_to_log_file("My patience ended")
                     continue_training = False
+                # self.print_to_log_file("My patience ended")
+                # continue_training = False
+            elif self.epoch > self.best_epoch_based_on_MA_val_eval_criterion:
+                self.print_to_log_file(f"No improvement on val_eval_criterion_MA: \n\
+                    current {self.val_eval_criterion_MA}\n\
+                    best {self.best_MA_val_eval_criterion_for_patience}\n\
+                    patience {self.epoch - self.best_epoch_based_on_MA_val_eval_criterion}")
 
         return continue_training
 
@@ -629,7 +637,6 @@ class NetworkTrainer(object):
         self.maybe_save_checkpoint()
 
         self.update_eval_criterion_MA()
-
         continue_training = self.manage_patience()
         return continue_training
 

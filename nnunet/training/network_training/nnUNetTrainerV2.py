@@ -402,16 +402,16 @@ class nnUNetTrainerV2(nnUNetTrainer):
             ep = self.epoch + 1
         else:
             ep = epoch
-        self.optimizer.param_groups[0]['lr'] = poly_lr(ep, self.max_num_epochs, self.initial_lr, 0.9)
+        self.optimizer.param_groups[0]['lr'] = poly_lr(ep, self.max_num_epochs, self.initial_lr, 0.9)/self.lr_divider
         self.print_to_log_file("lr:", np.round(self.optimizer.param_groups[0]['lr'], decimals=6))
 
     def on_epoch_end(self):
         """
-        overwrite patient-based early stopping. Always run to 1000 epochs
+        Modified for early stopping
         :return:
         """
-        super().on_epoch_end()
-        continue_training = self.epoch < self.max_num_epochs
+        continue_training = super().on_epoch_end()
+        # continue_training = self.epoch < self.max_num_epochs
 
         # it can rarely happen that the momentum of nnUNetTrainerV2 is too high for some dataset. If at epoch 100 the
         # estimated validation Dice is still 0 then we reduce the momentum from 0.99 to 0.95
