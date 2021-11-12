@@ -562,14 +562,9 @@ class NetworkTrainer(object):
         # update patience
         continue_training = True
         if self.patience is not None:
-            # if best_MA_tr_loss_for_patience and best_epoch_based_on_MA_tr_loss were not yet initialized,
+            # if best_MA_val_eval_criterion_for_patience and 
+            # best_epoch_based_on_MA_val_eval_criterion were not yet initialized,
             # initialize them
-            # if self.best_MA_tr_loss_for_patience is None:
-            #     self.best_MA_tr_loss_for_patience = self.train_loss_MA
-
-            # if self.best_epoch_based_on_MA_tr_loss is None:
-            #     self.best_epoch_based_on_MA_tr_loss = self.epoch
-
             if self.best_MA_val_eval_criterion_for_patience is None:
                 self.best_MA_val_eval_criterion_for_patience = self.val_eval_criterion_MA
 
@@ -579,35 +574,21 @@ class NetworkTrainer(object):
             if self.best_val_eval_criterion_MA is None:
                 self.best_val_eval_criterion_MA = self.val_eval_criterion_MA
 
-            
-
             # check if the current epoch is the best one according to moving average of validation criterion. If so
             # then save 'best' model
-            # Do not use this for validation. This is intended for test set prediction only.
-            #self.print_to_log_file("current best_val_eval_criterion_MA is %.4f0" % self.best_val_eval_criterion_MA)
-            #self.print_to_log_file("current val_eval_criterion_MA is %.4f" % self.val_eval_criterion_MA)
-
+            self.print_to_log_file(f"val critetion MA: {self.val_eval_criterion_MA:.6f}")
             if self.val_eval_criterion_MA > self.best_val_eval_criterion_MA:
                 self.best_val_eval_criterion_MA = self.val_eval_criterion_MA
                 self.print_to_log_file("saving best epoch checkpoint...")
                 if self.save_best_checkpoint: self.save_checkpoint(join(self.output_folder, "model_best.model"))
-
+            
+            # Now see if the moving average of the validation criterion has improved
             if self.val_eval_criterion_MA > self.best_MA_val_eval_criterion_for_patience + self.val_eval_criterion_MA_eps:
                 self.best_MA_val_eval_criterion_for_patience = self.val_eval_criterion_MA
                 self.best_epoch_based_on_MA_val_eval_criterion = self.epoch
 
-            # # Now see if the moving average of the train loss has improved. If yes then reset patience, else
-            # # increase patience
-            # if self.train_loss_MA + self.train_loss_MA_eps < self.best_MA_tr_loss_for_patience:
-            #     self.best_MA_tr_loss_for_patience = self.train_loss_MA
-            #     self.best_epoch_based_on_MA_tr_loss = self.epoch
-            #     #self.print_to_log_file("New best epoch (train loss MA): %03.4f" % self.best_MA_tr_loss_for_patience)
-            # else:
-            #     pass
-            #     #self.print_to_log_file("No improvement: current train MA %03.4f, best: %03.4f, eps is %03.4f" %
-            #     #                       (self.train_loss_MA, self.best_MA_tr_loss_for_patience, self.train_loss_MA_eps))
-
             # if patience has reached its maximum then finish training (provided lr is low enough)
+            # if lr is still high, divide lr by 2
             if self.epoch - self.best_epoch_based_on_MA_val_eval_criterion > self.patience:
                 if self.optimizer.param_groups[0]['lr'] > self.lr_threshold:
                     self.print_to_log_file("My patience ended, but I believe I need more time (lr > 1e-6)")
@@ -616,8 +597,6 @@ class NetworkTrainer(object):
                 else:
                     self.print_to_log_file("My patience ended")
                     continue_training = False
-                # self.print_to_log_file("My patience ended")
-                # continue_training = False
             elif self.epoch > self.best_epoch_based_on_MA_val_eval_criterion:
                 self.print_to_log_file(f"No improvement on val_eval_criterion_MA: \n\
                     current {self.val_eval_criterion_MA}\n\
