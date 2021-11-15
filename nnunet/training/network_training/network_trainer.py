@@ -89,7 +89,7 @@ class NetworkTrainer(object):
         self.dataset_tr = self.dataset_val = None  # do not need to be used, they just appear if you are using the suggested load_dataset_and_do_split
 
         ################# THESE DO NOT NECESSARILY NEED TO BE MODIFIED #####################
-        self.patience = 25 # NOTE: (Nghia) default 50
+        self.patience = 50
         self.val_eval_criterion_alpha = 0.9  # alpha * old + (1-alpha) * new
         self.val_eval_criterion_MA_eps = 5e-4 # new MA must be at least this much better (greater)
         # if this is too low then the moving average will be too noisy and the training may terminate early. If it is
