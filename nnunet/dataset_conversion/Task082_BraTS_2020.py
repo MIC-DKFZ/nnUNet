@@ -11,27 +11,22 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import shutil
+from collections import OrderedDict
 from copy import deepcopy
 from multiprocessing.pool import Pool
+from typing import Tuple
 
+import SimpleITK as sitk
 import numpy as np
-from collections import OrderedDict
-
-from batchgenerators.utilities.file_and_folder_operations import *
-from meddec.paper_plot.nature_methods.challenge_visualization_stuff.own_implementation.ranking import \
-    rank_then_aggregate
 import scipy.stats as ss
-
+from batchgenerators.utilities.file_and_folder_operations import *
+from medpy.metric import dc, hd95
 from nnunet.dataset_conversion.Task032_BraTS_2018 import convert_labels_back_to_BraTS_2018_2019_convention
 from nnunet.dataset_conversion.Task043_BraTS_2019 import copy_BraTS_segmentation_and_convert_labels
 from nnunet.evaluation.region_based_evaluation import get_brats_regions, evaluate_regions
 from nnunet.paths import nnUNet_raw_data
-import SimpleITK as sitk
-import shutil
-from medpy.metric import dc, hd95
-
 from nnunet.postprocessing.consolidate_postprocessing import collect_cv_niftis
-from typing import Tuple
 
 
 def apply_brats_threshold(fname, out_dir, threshold, replace_with):
