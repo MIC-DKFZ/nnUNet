@@ -32,16 +32,16 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
                                          non_postprocessed_fname: str = None, force_separate_z: bool = None,
                                          interpolation_order_z: int = 0, verbose: bool = True):
     """
-    This is a utility for writing segmentations to nifto and npz. It requires the data to have been preprocessed by
+    This is a utility for writing segmentations to nifty and npz. It requires the data to have been preprocessed by
     GenericPreprocessor because it depends on the property dictionary output (dct) to know the geometry of the original
     data. segmentation_softmax does not have to have the same size in pixels as the original data, it will be
     resampled to match that. This is generally useful because the spacings our networks operate on are most of the time
     not the native spacings of the image data.
     If seg_postprogess_fn is not None then seg_postprogess_fnseg_postprogess_fn(segmentation, *seg_postprocess_args)
-    will be called before nifto export
-    There is a problem with python process communication that prevents us from communicating obejcts
+    will be called before nifty export
+    There is a problem with python process communication that prevents us from communicating objects
     larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-    communicated by the multiprocessing.Pipe object then the placeholder (\%i I think) does not allow for long
+    communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
     enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
     patching system python code.) We circumvent that problem here by saving softmax_pred to a npy file that will
     then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
