@@ -21,11 +21,11 @@ from multiprocessing import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
-from medseg.comp_guiding_mask import comp_slices_mask_validation, comp_slices_mask_training
+from i3Deep.comp_guiding_mask import comp_slices_mask_validation, comp_slices_mask_training
 import GeodisTK
-from medseg.utils import save_nifty
+from i3Deep.utils import save_nifty
 import time
-from medseg import utils
+from i3Deep import utils
 
 
 def get_case_identifiers(folder):
@@ -559,7 +559,7 @@ class DataLoader3DGuided(DataLoader3D):
                                                       (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                                'constant', **{'constant_values': -1})
 
-            # from medseg.utils import save_nifty
+            # from i3Deep.utils import save_nifty
             # import random
             # name = random.randint(0, 1000)
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp/{}_guiding_mask.nii.gz".format(name), seg[j, guiding_mask_index])
@@ -754,7 +754,7 @@ class DataLoader3DGuided2(DataLoader3D):
 
             seg[j, guiding_mask_index] = comp_slices_mask_validation(guiding_mask.squeeze(0), 75, p=0.7)[np.newaxis, ...]
 
-            # from medseg.utils import save_nifty
+            # from i3Deep.utils import save_nifty
             # import random
             # name = random.randint(0, 1000)
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_guiding_mask.nii.gz".format(name), seg[j, guiding_mask_index])
@@ -995,7 +995,7 @@ class DataLoader3DGuided3(DataLoader3D):
                 if not self.deep_i_geos:
                     guiding_mask[guiding_mask == -1] = 0
                 seg[j, guiding_mask_index] = guiding_mask
-                # from medseg import utils
+                # from i3Deep import utils
                 # import random
                 # name = random.randint(0, 1000)
                 # utils.save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/tmp/{}_val.nii.gz".format(name), seg[j, guiding_mask_index])
@@ -1003,7 +1003,7 @@ class DataLoader3DGuided3(DataLoader3D):
 
 
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/tmp/{}_{}_2_guiding_mask.nii.gz".format(i, np.sum(geodesic_map)), seg[j, guiding_mask_index])
-            # from medseg.utils import save_nifty
+            # from i3Deep.utils import save_nifty
             # import random
             # name = random.randint(0, 1000)
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_guiding_mask.nii.gz".format(name), seg[j, guiding_mask_index])
@@ -1021,7 +1021,7 @@ class DataLoader3DGuided3(DataLoader3D):
 
             # debug = True
             # if debug:
-            #     from medseg import utils
+            #     from i3Deep import utils
             #     import random
             #     name = random.randint(0, 1000)
             #     for i in range(4):
@@ -1259,7 +1259,7 @@ class DataLoader3DGuided3_DeepIGeos(DataLoader3D):
 
 
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/tmp/{}_{}_2_guiding_mask.nii.gz".format(i, np.sum(geodesic_map)), seg[j, guiding_mask_index])
-            # from medseg.utils import save_nifty
+            # from i3Deep.utils import save_nifty
             # import random
             # name = random.randint(0, 1000)
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_guiding_mask.nii.gz".format(name), seg[j, guiding_mask_index])
@@ -1277,7 +1277,7 @@ class DataLoader3DGuided3_DeepIGeos(DataLoader3D):
 
             # debug = True
             # if debug:
-            #     from medseg import utils
+            #     from i3Deep import utils
             #     import random
             #     name = random.randint(0, 1000)
             #     for i in range(4):
@@ -1528,7 +1528,7 @@ class DataLoader3DGuided3_P_Net(DataLoader3D):
 
 
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/tmp/{}_{}_2_guiding_mask.nii.gz".format(i, np.sum(geodesic_map)), seg[j, guiding_mask_index])
-            # from medseg.utils import save_nifty
+            # from i3Deep.utils import save_nifty
             # import random
             # name = random.randint(0, 1000)
             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_guiding_mask.nii.gz".format(name), seg[j, guiding_mask_index])
@@ -1547,7 +1547,7 @@ class DataLoader3DGuided3_P_Net(DataLoader3D):
 
             # debug = True
             # if debug:
-            #     from medseg import utils
+            #     from i3Deep import utils
             #     import random
             #     name = random.randint(0, 1000)
             #     for i in range(4):
@@ -1774,7 +1774,7 @@ class DataLoader3DGuided3_P_Net(DataLoader3D):
 #
 #
 #             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/tmp/{}_{}_2_guiding_mask.nii.gz".format(i, np.sum(geodisc_map)), seg[j, guiding_mask_index])
-#             # from medseg.utils import save_nifty
+#             # from i3Deep.utils import save_nifty
 #             # import random
 #             # name = random.randint(0, 1000)
 #             # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_guiding_mask.nii.gz".format(name), seg[j, guiding_mask_index])

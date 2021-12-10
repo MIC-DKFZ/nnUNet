@@ -246,7 +246,7 @@ class GenericPreprocessor(object):
         # remove nans
         data[np.isnan(data)] = 0
 
-        # from medseg.utils import save_nifty
+        # from i3Deep.utils import save_nifty
         # import random
         # name = random.randint(0, 1000)
         # save_nifty("/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/Task77_frankfurt3Guided/tmp2/{}_before.nii.gz".format(name), data[-1])

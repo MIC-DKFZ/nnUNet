@@ -493,7 +493,7 @@ def uncrop(data, crinfo, orig_shape, resize=False, outside_mode="constant", cval
             start = np.round(crinfo[ax][0]).astype(int)
             slices = [slice(None), slice(None), slice(None)]
             slices[ax] = start
-            repeated_slice = np.expand_dims(data_out[slices], ax)
+            repeated_slice = np.expand_dims(data_out[tuple(slices)], ax)
             append_sz = start
             if append_sz > 0:
                 tile0 = np.repeat(repeated_slice, append_sz, axis=ax)
@@ -508,14 +508,14 @@ def uncrop(data, crinfo, orig_shape, resize=False, outside_mode="constant", cval
             start = np.round(crinfo[ax][0]).astype(int)
             slices = [slice(None), slice(None), slice(None)]
             slices[ax] = start + data.shape[ax] - 1
-            repeated_slice = np.expand_dims(data_out[slices], ax)
+            repeated_slice = np.expand_dims(data_out[tuple(slices)], ax)
             append_sz = data_out.shape[ax] - (start + data.shape[ax])
             if append_sz > 0:
                 tile0 = np.repeat(repeated_slice, append_sz, axis=ax)
                 slices = [slice(None), slice(None), slice(None)]
                 slices[ax] = slice(start + data.shape[ax], None)
                 # data_out[start + data.shape[ax] : , :, :] = tile0
-                data_out[slices] = tile0
+                data_out[tuple(slices)] = tile0
                 # plt.imshow(np.squeeze(repeated_slice))
                 # plt.show()
 

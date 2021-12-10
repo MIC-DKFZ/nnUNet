@@ -1,7 +1,7 @@
 from nnunet.evaluation.evaluator import evaluate_folder
 import numpy as np
 import pickle
-from medseg import utils
+from i3Deep import utils
 
 
 def evaluate(ground_truths, predictions, labels):

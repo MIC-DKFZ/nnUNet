@@ -250,7 +250,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         if self.fp16:
             with autocast():
-                # from medseg import utils
+                # from i3Deep import utils
                 # import random
                 # name = random.randint(0, 1000)
                 # for i in range(2):

@@ -706,16 +706,16 @@ class MultiscaleArray(object):
 
     def set_block_lowres(self, index, val):
         self._prepare_cache_slice(index)
-        self.msinds[self.cache_slice] = val
+        self.msinds[tuple(self.cache_slice)] = val
 
     def set_block_higres(self, index, val):
         self._prepare_cache_slice(index)
-        self.msinds[self.cache_slice] = np.asarray(val).reshape(self.block_shape)
+        self.msinds[tuple(self.cache_slice)] = np.asarray(val).reshape(self.block_shape)
 
     def mul_block(self, index, val):
         """Multiply values in block"""
         self._prepare_cache_slice(index)
-        self.msinds[self.cache_slice] *= val
+        self.msinds[tuple(self.cache_slice)] *= val
 
 
 # def relabel(arr, forward_indexes=None):

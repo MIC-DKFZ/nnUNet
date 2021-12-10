@@ -261,7 +261,7 @@ class nnUNetTrainerV2Guided3_DeepIGeos1(nnUNetTrainer):
         if self.fp16:
             with autocast():
                 # if debug:
-                #     from medseg import utils
+                #     from i3Deep import utils
                 #     import random
                 #     name = random.randint(0, 1000)
                 #     for i in range(7):
