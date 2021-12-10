@@ -101,6 +101,8 @@ def reliability_diagram_ece(uncertainty, prediction, gt, n_bins, labels):
             samples_per_bin.append(bin_samples/total_samples)
             bin_confidence = confidence[bin_mask]
             bin_accuracy = accuracy[bin_mask]
+            print("bin_confidence.shape: ", bin_confidence.shape)
+            print("bin_accuracy.shape: ", bin_accuracy.shape)
             bin_confidence = np.mean(bin_confidence)
             bin_accuracy = np.mean(bin_accuracy)
             ece += (bin_samples/total_samples) * np.abs(bin_accuracy - bin_confidence)
@@ -111,7 +113,7 @@ def reliability_diagram_ece(uncertainty, prediction, gt, n_bins, labels):
 
 
 if __name__ == '__main__':
-    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/"
+    base_path = "/home/k539i/Documents/datasets/preprocessed/nnUNet/nnUNet_raw_data/nnUNet_raw_data/"
     tasks = ["Task002_BrainTumour_guided", "Task008_Pancreas_guided", "Task070_guided_all_public_ggo"]
     task_names = ["Brain Tumor", "Pancreas", "COVID-19"]
     set = "val"
@@ -124,9 +126,11 @@ if __name__ == '__main__':
     load = True
     comp_bce = False
     if comp_bce:
-        folder = "BCE"
+        folder = "BCE Evaluation"
+        suptitle = "Balanced Reliability Curve"
     else:
-        folder = "ECE"
+        folder = "ECE Evaluation"
+        suptitle = "Reliability Curve"
 
     for k, task in enumerate(tasks):
         fig = plt.figure(constrained_layout=True, figsize=(12, 7))
@@ -176,7 +180,7 @@ if __name__ == '__main__':
             ax.set_xlim(0, 1)
             ax.set_xlabel("Confidence")
             ax.set_ylabel("Accuracy")
-        plt.suptitle("Balanced Reliability Curve ({})".format(task_names[k]), fontsize=16)
+        plt.suptitle("{} ({})".format(suptitle, task_names[k]), fontsize=16)
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
         plt.savefig(base_path + "Evaluation/Uncertainty Evaluation/" + folder + "/" + task_names[k] + ".png", bbox_inches='tight')
         plt.clf()
