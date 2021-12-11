@@ -597,7 +597,7 @@ def eval_all_hyperparameters(save_dir, version, method, default_params, params, 
 
 def eval_test_set(save_dir, version, method, params, parallel):
     result = eval_single_hyperparameters(params, parallel)
-    with open(save_dir + version + "_" + method + ".pkl", 'wb') as handle:
+    with open(save_dir + version + "_" + method + "_" + uncertainty_quantification + ".pkl", 'wb') as handle:
         pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
     return
 
