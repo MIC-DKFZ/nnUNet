@@ -12,23 +12,21 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 from multiprocessing import Pool
-from typing import Union, Type
+from typing import Union
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 
 import nnunetv2
-from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
+from nnunetv2.paths import default_plans_identifier
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_nf_by_name
+from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.task_name_id_conversion import maybe_convert_to_task_name
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
-from nnunetv2.paths import default_plans_identifier
 
 
 class DefaultPreprocessor(object):
@@ -39,7 +37,7 @@ class DefaultPreprocessor(object):
         CAREFUL! WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL!
         """
 
-    def run_case(self, image_files: List[str], seg_file: str, plans: dict, configuration_name: str):
+    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: dict, configuration_name: str):
         """
         seg file can be none (test cases)
 
@@ -141,15 +139,15 @@ class DefaultPreprocessor(object):
             data[c] = normalizer.run(data, seg)
         return data
 
-    def run(self, task_name_or_id: Union[int, str], plans_identifier: str, configuration_name: str, num_processes: int):
+    def run(self, dataset_name_or_id: Union[int, str], plans_identifier: str, configuration_name: str, num_processes: int):
         """
         data identifier = configuration name in plans. EZ.
         """
-        task_name = maybe_convert_to_task_name(task_name_or_id)
+        dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
 
-        assert isdir(join(nnUNet_raw, task_name)), "The requested task could not be found in nnUNet_raw"
+        assert isdir(join(nnUNet_raw, dataset_name)), "The requested dataset could not be found in nnUNet_raw"
 
-        plans_file = join(nnUNet_preprocessed, task_name, plans_identifier + '.json')
+        plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
         assert isfile(plans_file), "Expected plans file (%s) not found. Run corresponding nnUNet_plan_experiment " \
                                    "first." % plans_file
 
@@ -163,22 +161,22 @@ class DefaultPreprocessor(object):
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')
 
-        caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, task_name, 'imagesTr'),
+        caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                            plans['dataset_json']['file_ending'])
-        output_directory = join(nnUNet_preprocessed, task_name, configuration_name)
+        output_directory = join(nnUNet_preprocessed, dataset_name, configuration_name)
         maybe_mkdir_p(output_directory)
 
         output_filenames_truncated = [join(output_directory, i) for i in caseids]
 
         suffix = plans['dataset_json']['file_ending']
         # list of lists with image filenames
-        image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, task_name, 'imagesTr'), suffix,
+        image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), suffix,
                                                                  caseids)
         # list of segmentation filenames
-        seg_fnames = [join(nnUNet_raw, task_name, 'labelsTr', i + suffix) for i in caseids]
+        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in caseids]
 
         pool = Pool(num_processes)
-        # we submit the tasks one by one so that we don't have dangling processes in the end
+        # we submit the datasets one by one so that we don't have dangling processes in the end
         # self.run_case_save(*list(zip(output_filenames_truncated, image_fnames, seg_fnames))[0], plans,
         #                   configuration_name)
         # raise RuntimeError()
@@ -193,3 +191,19 @@ class DefaultPreprocessor(object):
 if __name__ == '__main__':
     pp = DefaultPreprocessor()
     pp.run(2, default_plans_identifier, '3d_fullres', 8)
+
+    ###########################################################################################################
+    # how to process a test cases? This is an example:
+    pkl_file = 'plans.pkl'
+    plans = load_pickle(pkl_file)
+    configuration = '3d_fullres'
+    input_images = ['case000_0000.nii.gz', 'case000_0001.nii.gz'] # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
+    pp = DefaultPreprocessor()
+
+    # _ because this position would be the segmentation if seg_file was not None (training case)
+    # even if you have the segmentation, don't put the file there! You should always evaluate in the original
+    # resolution. What comes out of the preprocessor might have been resampled to some other image resolution (as
+    # specified by plans)
+    data, _, properties = pp.run_case(input_images, seg_file=None, plans=plans, configuration_name=configuration)
+
+    # voila. Now plug data into your prediction function of choice. We of course recommend nnU-Net's default (TODO)

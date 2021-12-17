@@ -10,23 +10,25 @@ class nnUNetDataset(object):
                  folder_with_segs_from_previous_stage: str = None):
         """
         This does not actually load the dataset. It merely creates a dictionary where the keys are training case names and
-        the values are again dictionaries containing the relevant information for that case.
+        the values are dictionaries containing the relevant information for that case.
         dataset[training_case] -> info
         Info has the following key:value pairs:
-        - data_file -> the full path to the npz file associated with the training case
-        - properties_file -> the pkl file containing the case properties
+        - dataset[case_identifier]['properties']['data_file'] -> the full path to the npz file associated with the training case
+        - dataset[case_identifier]['properties']['properties_file'] -> the pkl file containing the case properties
+
         In addition, if the total number of cases is < num_cases_properties_loading_threshold we load all the pickle files
         (containing auxiliary information). This is done for small datasets so that we don't spend too much CPU time on
         reading pkl files on the fly during training. However, for large datasets storing all the aux info (which also
-        contains locations of foreground voxels in the images) can be too large causing too much RAM utilization. In that
+        contains locations of foreground voxels in the images) can cause too much RAM utilization. In that
         case is it better to load on the fly.
-        If properties are loaded into the RAM, the info dicts each will have an additional entry:
-        - properties -> dict
 
-        IMPORTANT! THIS CLASS ITSELF IS READ-ONLY. YOU CANNOT ADD KEY:VALUE PAIRS WITH
-        nnUNetDataset[key] = value
+        If properties are loaded into the RAM, the info dicts each will have an additional entry:
+        - dataset[case_identifier]['properties'] -> pkl file content
+
+        IMPORTANT! THIS CLASS ITSELF IS READ-ONLY. YOU CANNOT ADD KEY:VALUE PAIRS WITH nnUNetDataset[key] = value
         USE THIS INSTEAD:
         nnUNetDataset.dataset[key] = value
+        (not sure why you'd want to do that though. So don't do it)
         """
         super().__init__()
         print('loading dataset')
@@ -90,7 +92,7 @@ class nnUNetDataset(object):
 if __name__ == '__main__':
     # this is a mini test. Todo: We can move this to tests in the future (requires simulated dataset)
 
-    folder = '/media/fabian/data/nnUNet_preprocessed/Task003_Liver/3d_lowres'
+    folder = '/media/fabian/data/nnUNet_preprocessed/Dataset003_Liver/3d_lowres'
     ds = nnUNetDataset(folder, 0) # this should not load the properties!
     # this SHOULD HAVE the properties
     ks = ds['liver_0'].keys()

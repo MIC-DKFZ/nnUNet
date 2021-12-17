@@ -84,7 +84,7 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_modalities:
         if not np.all(np.isclose(affine_image, affine_seg)):
             print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
                   'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
-                  'nnUNet_plot_task_pngs to verify if everything is OK!\n'
+                  'nnUNet_plot_dataset_pngs to verify if everything is OK!\n'
                   % (affine_image, affine_seg, files_image, file_seg))
             ret = False
 
@@ -184,6 +184,6 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
 
 if __name__ == "__main__":
     # investigate geometry issues
-    example_folder = '/media/fabian/data/raw_datasets/nnUNet_data/nnUNet_raw_data/Task003_Liver'
+    example_folder = '/media/fabian/data/raw_datasets/nnUNet_data/nnUNet_raw_data/Dataset003_Liver'
     num_processes = 6
     verify_dataset_integrity(example_folder, num_processes)

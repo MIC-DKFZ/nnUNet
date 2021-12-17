@@ -39,4 +39,4 @@ def get_case_identifiers(folder: str) -> List[str]:
 
 
 if __name__ == '__main__':
-    unpack_dataset('/media/fabian/data/nnUNet_preprocessed/Task002_Heart/2d')
+    unpack_dataset('/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/2d')

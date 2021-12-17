@@ -42,6 +42,7 @@ class NaturalImage2DIO(BaseReaderWriter):
                 # (or 4 if we have alpha)
                 assert npy_img.shape[-1] == 3 or npy_img.shape[-1] == 4, "If image is 3d then the last dimension must " \
                                                                          "have shape 3 or 4 (RGB or RGBA)"
+                # move RGB(A) to front, add additional dim so that we have shape (1, c, X, Y), where c is either 3 or 4
                 images.append(npy_img.transpose((2, 0, 1))[None])
             elif len(npy_img.shape) == 2:
                 # grayscale image

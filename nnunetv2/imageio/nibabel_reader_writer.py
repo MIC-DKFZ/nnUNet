@@ -35,7 +35,7 @@ class NibabelIO(BaseReaderWriter):
         Nibabel loads the images in a different order than sitk. We convert the axes to the sitk order to be
         consistent. This is of course considered properly in segmentation export as well.
 
-        IMPORTANT: Run nnUNet_plot_task_pngs to verify that this did not destroy the alignment of data and seg!
+        IMPORTANT: Run nnUNet_plot_dataset_pngs to verify that this did not destroy the alignment of data and seg!
         """
         super().__init__()
 
@@ -78,11 +78,11 @@ class NibabelIO(BaseReaderWriter):
             print(reoriented_affines)
             print('Image files:')
             print(image_fnames)
-            print('It is up to you to decide whether that\'s a problem. You should run nnUNet_plot_task_pngs to verify '
+            print('It is up to you to decide whether that\'s a problem. You should run nnUNet_plot_dataset_pngs to verify '
                   'that segmentations and data overlap.')
         if not self._check_all_same(spacings_for_nnunet):
-            print('ERROR! Not all input images have the same spacing_for_nnunet! (This should not happen and must be a '
-                  'bug. Please report!')
+            print('ERROR! Not all input images have the same spacing_for_nnunet! This might be caused by them not '
+                  'having the same affine')
             print('spacings_for_nnunet:')
             print(spacings_for_nnunet)
             print('Image files:')

@@ -9,12 +9,12 @@ from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
+from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
-from nnunetv2.utilities.task_name_id_conversion import convert_id_to_task_name, maybe_convert_to_task_name
 
 
 class DatasetFingerprintExtractor(object):
-    def __init__(self, task_name_or_id: Union[str, int], num_processes: int = 8):
+    def __init__(self, dataset_name_or_id: Union[str, int], num_processes: int = 8):
         """
         extracts the dataset fingerprint used for experiment planning. The dataset fingerprint will be saved as a
         json file in the input_folder
@@ -22,9 +22,9 @@ class DatasetFingerprintExtractor(object):
         Philosophy here is to do only what we really need. Don't store stuff that we can easily read from somewhere
         else. Don't compute stuff we don't need (except for intensity_statistics_by_modality)
         """
-        task_name = maybe_convert_to_task_name(task_name_or_id)
+        dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
 
-        self.input_folder = join(nnUNet_raw, task_name)
+        self.input_folder = join(nnUNet_raw, dataset_name)
         self.num_processes = num_processes
         self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
 

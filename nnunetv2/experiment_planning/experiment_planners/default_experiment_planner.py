@@ -1,4 +1,4 @@
-import shutil
+from copy import deepcopy
 from copy import deepcopy
 from typing import List, Union, Tuple
 
@@ -12,15 +12,14 @@ from nnunetv2.experiment_planning.experiment_planners.network_topology import ge
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.normalization.map_modality_to_normalization import get_normalization_scheme
-from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_spacing, \
-    resample_data_or_seg_to_shape, compute_new_shape
+from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
+from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.task_name_id_conversion import maybe_convert_to_task_name
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
 
 
 class ExperimentPlanner(object):
-    def __init__(self, task_name_or_id: Union[str, int],
+    def __init__(self, dataset_name_or_id: Union[str, int],
                  gpu_memory_target_in_gb: float = 8,
                  preprocessor_name: str = 'GenericPreprocessor', plans_name: str = 'nnUNetPlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
@@ -30,14 +29,14 @@ class ExperimentPlanner(object):
         also be affected
         """
 
-        self.task_name = maybe_convert_to_task_name(task_name_or_id)
+        self.dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
         self.suppress_transpose = suppress_transpose
-        self.raw_dataset_folder = join(nnUNet_raw, self.task_name)
+        self.raw_dataset_folder = join(nnUNet_raw, self.dataset_name)
         self.dataset_json = load_json(join(self.raw_dataset_folder, 'dataset.json'))
 
         # load dataset fingerprint
         if not isfile(join(self.raw_dataset_folder, 'dataset_fingerprint.json')):
-            raise RuntimeError('Fingerprint missing for this task. Please run nnUNet_extract_dataset_fingerprint')
+            raise RuntimeError('Fingerprint missing for this dataset. Please run nnUNet_extract_dataset_fingerprint')
 
         self.dataset_fingerprint = load_json(join(self.raw_dataset_folder, 'dataset_fingerprint.json'))
 
@@ -422,9 +421,9 @@ class ExperimentPlanner(object):
 
         recursive_fix_for_json_export(plans)
 
-        maybe_mkdir_p(join(nnUNet_preprocessed, self.task_name))
-        save_json(plans, join(nnUNet_preprocessed, self.task_name, self.plans_name + '.json'))
-        print('Plans were saved to %s' % join(nnUNet_preprocessed, self.task_name, self.plans_name + '.json'))
+        maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
+        save_json(plans, join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json'))
+        print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json'))
         self.plans = plans
 
     def load_plans(self, fname: str):
