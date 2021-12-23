@@ -6,6 +6,8 @@ from numpy import number
 
 
 class ImageNormalization(ABC):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = None
+
     def __init__(self, use_mask_for_norm: bool = None, intensityproperties: dict = None,
                  target_dtype: Type[number] = np.float32):
         self.use_mask_for_norm = use_mask_for_norm
@@ -21,6 +23,8 @@ class ImageNormalization(ABC):
 
 
 class ZScoreNormalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = True
+
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         """
         here seg is used to store the zero valued region. The value for that region in the segmentation is -1 by
@@ -44,6 +48,8 @@ class ZScoreNormalization(ImageNormalization):
 
 
 class CTNormalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
         image = image.astype(self.target_dtype)
@@ -57,11 +63,15 @@ class CTNormalization(ImageNormalization):
 
 
 class NoNormalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         return image.astype(self.target_dtype)
 
 
 class RescaleTo01Normalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         image = image.astype(self.target_dtype)
         image = image - image.min()
@@ -70,6 +80,8 @@ class RescaleTo01Normalization(ImageNormalization):
 
 
 class RGBTo01Normalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         assert image.min() >= 0, "RGB images are uint 8, for whatever reason I found pixel values smaller than 0. " \
                                  "Your images do not seem to be RGB images"

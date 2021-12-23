@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import shutil
 
@@ -6,7 +8,8 @@ from nnunetv2.training.dataloading.utils import get_case_identifiers
 
 
 class nnUNetDataset(object):
-    def __init__(self, folder: str, num_cases_properties_loading_threshold: int = 1000,
+    def __init__(self, folder: str, case_identifiers: List[str] = None,
+                 num_cases_properties_loading_threshold: int = 1000,
                  folder_with_segs_from_previous_stage: str = None):
         """
         This does not actually load the dataset. It merely creates a dictionary where the keys are training case names and
@@ -27,12 +30,14 @@ class nnUNetDataset(object):
 
         IMPORTANT! THIS CLASS ITSELF IS READ-ONLY. YOU CANNOT ADD KEY:VALUE PAIRS WITH nnUNetDataset[key] = value
         USE THIS INSTEAD:
+        TODO check all this
         nnUNetDataset.dataset[key] = value
         (not sure why you'd want to do that though. So don't do it)
         """
         super().__init__()
         print('loading dataset')
-        case_identifiers = get_case_identifiers(folder)
+        if case_identifiers is None:
+            case_identifiers = get_case_identifiers(folder)
         case_identifiers.sort()
         # we ned to use super().__getitem__ so that we don't end up in a recursion problem because of our custom
         # implementation of __getitem__
@@ -93,14 +98,14 @@ if __name__ == '__main__':
     # this is a mini test. Todo: We can move this to tests in the future (requires simulated dataset)
 
     folder = '/media/fabian/data/nnUNet_preprocessed/Dataset003_Liver/3d_lowres'
-    ds = nnUNetDataset(folder, 0) # this should not load the properties!
+    ds = nnUNetDataset(folder, num_cases_properties_loading_threshold=0) # this should not load the properties!
     # this SHOULD HAVE the properties
     ks = ds['liver_0'].keys()
     assert 'properties' in ks
     # amazing. I am the best.
 
     # this should have the properties
-    ds = nnUNetDataset(folder, 1000)
+    ds = nnUNetDataset(folder, num_cases_properties_loading_threshold=1000)
     # now rename the properties file so that it doesnt exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now we should still be able to access the properties because they have already been loaded
@@ -110,7 +115,7 @@ if __name__ == '__main__':
     shutil.move(join(folder, 'liver_XXX.pkl'), join(folder, 'liver_0.pkl'))
 
     # this should not have the properties
-    ds = nnUNetDataset(folder, 0)
+    ds = nnUNetDataset(folder, num_cases_properties_loading_threshold=0)
     # now rename the properties file so that it doesnt exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now this should crash

@@ -1,3 +1,4 @@
+import shutil
 from copy import deepcopy
 from copy import deepcopy
 from typing import List, Union, Tuple
@@ -179,22 +180,18 @@ class ExperimentPlanner(object):
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
-    def determine_normalization_scheme(self) -> List[str]:
+    def determine_normalization_scheme_and_whether_mask_is_used_for_norm(self) -> Tuple[List[str], List[bool]]:
         modalities = self.dataset_json['modality']
-        normalization_schemes = [get_normalization_scheme(m).__name__ for m in modalities.values()]
-        return normalization_schemes
-
-    def determine_whether_to_use_mask_for_norm(self) -> bool:
-        # use the nonzero mask for normalization if the cropping resulted in a substantial decrease in
-        # image size (this is an indication that the data is something like brats/isles and then we want to
-        # normalize in the brain region only)
-
-        # remember that the normalization scheme decides whether or not this is actually used! Only ZScoreNormalization
-        # can use it as of now. The others ignore it
-
-        use_nonzero_mask_for_norm = self.dataset_fingerprint['median_relative_size_after_cropping'] < (3 / 4.)
-
-        return use_nonzero_mask_for_norm
+        normalization_schemes = [get_normalization_scheme(m) for m in modalities.values()]
+        if self.dataset_fingerprint['median_relative_size_after_cropping'] < (3 / 4.):
+            use_nonzero_mask_for_norm = [False] * len(normalization_schemes)
+        else:
+            use_nonzero_mask_for_norm = [i.leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true for i in
+                                         normalization_schemes]
+            assert all([i in (True, False) for i in use_nonzero_mask_for_norm]), 'use_nonzero_mask_for_norm must be ' \
+                                                                                 'True or False and cannot be None'
+        normalization_schemes = [i.__name__ for i in normalization_schemes]
+        return normalization_schemes, use_nonzero_mask_for_norm
 
     def determine_transpose(self):
         if self.suppress_transpose:
@@ -288,18 +285,17 @@ class ExperimentPlanner(object):
             approximate_n_voxels_dataset * 0.05 / np.prod(patch_size, dtype=np.float64))
         batch_size = max(min(batch_size, bs_corresponding_to_5_percent), self.UNet_min_batch_size)
 
-        do_dummy_2D_data_aug = (max(patch_size) / patch_size[0]) > self.anisotropy_threshold
-
         resampling_data, resampling_data_kwargs, resampling_seg, resampling_seg_kwargs = self.determine_resampling()
         resampling_softmax, resampling_softmax_kwargs = self.determine_segmentation_softmax_export_fn()
 
+        normalization_schemes, mask_is_used_for_norm = \
+            self.determine_normalization_scheme_and_whether_mask_is_used_for_norm()
         plan = {
             'batch_size': batch_size,
             'num_pool_per_axis': network_num_pool_per_axis,
             'patch_size': patch_size,
             'median_patient_size_in_voxels': median_shape,
             'spacing': spacing,
-            'do_dummy_2D_data_aug': do_dummy_2D_data_aug,
             'pool_op_kernel_sizes': pool_op_kernel_sizes,
             'conv_kernel_sizes': conv_kernel_sizes,
             'unet_max_num_features': self.UNet_max_features_3d if len(spacing) == 3 else self.UNet_max_features_2d,
@@ -309,10 +305,10 @@ class ExperimentPlanner(object):
             'resampling_fn_seg_kwargs': resampling_seg_kwargs,
             'resampling_fn_softmax': resampling_softmax.__name__,
             'resampling_fn_softmax_kwargs': resampling_softmax_kwargs,
-            'normalization_schemes': self.determine_normalization_scheme(),
+            'normalization_schemes': normalization_schemes,
             'UNet_base_num_features': self.UNet_base_num_features,
             'UNet_class_name': self.UNet_class.__name__,
-            'use_mask_for_norm': self.determine_whether_to_use_mask_for_norm(),
+            'use_mask_for_norm': mask_is_used_for_norm,
             'data_identifier': data_identifier
         }
         return plan
@@ -395,13 +391,18 @@ class ExperimentPlanner(object):
         median_spacing = np.median(self.dataset_fingerprint['spacings'], 0)[transpose_forward]
         median_shape = np.median(self.dataset_fingerprint['shapes_after_crop'], 0)[transpose_forward]
 
+        # instead of writing all that into the plans we just copy the original files. More files, but less crowded
+        # per file
+        shutil.copy(join(self.raw_dataset_folder, 'dataset_fingerprint.json'),
+                    join(nnUNet_preprocessed, self.dataset_name, 'dataset_fingerprint.json'))
+        shutil.copy(join(self.raw_dataset_folder, 'dataset.json'),
+                    join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
+
         # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
         plans = {
-            'dataset_fingerprint': self.dataset_fingerprint,
             'original_median_spacing_after_transp': [int(i) for i in median_spacing],
             'original_median_shape_after_transp': [int(i) for i in median_shape],
             'preprocessor_name': self.preprocessor_name,
-            'dataset_json': self.dataset_json,
             'image_reader_writer': self.determine_reader_writer().__name__,
             'transpose_forward': [int(i) for i in transpose_forward],
             'transpose_backward': [int(i) for i in transpose_backward],
