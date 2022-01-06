@@ -75,7 +75,7 @@ The method above sets the paths permanently (until you delete the lines from you
 to set them only temporarily, you can run the export commands in your terminal:
 
 ```
-export nnUNet_raw_data_base="/media/fabian/nnUNet_raw"
+export nnUNet_raw_data_base="/media/fabian/nnUNet_raw_data_base"
 export nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
 export RESULTS_FOLDER="/media/fabian/nnUNet_trained_models"
 ```
