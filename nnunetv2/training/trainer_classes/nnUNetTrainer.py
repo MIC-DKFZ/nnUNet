@@ -14,7 +14,7 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
-from pytorch_lightning.utilities.types import STEP_OUTPUT
+from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
 
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
@@ -40,6 +40,8 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 import torch.nn.functional as F
 
+from nnunetv2.utilities.tensor_utilities import sum_tensor
+
 
 class nnUNetModule(pl.LightningModule):
     def __init__(self, dataset_name_or_id: Union[int, str], plans_name: str, configuration: str, fold: int,
@@ -48,6 +50,9 @@ class nnUNetModule(pl.LightningModule):
         This trainer should work with single and multi GPU training. Important! If you want to train multi-node
         multi-GPU then the data should be in the same physical location! (can have different paths, but must be the
         same folder for all nodes). This has to do with unpacking.
+
+        We do not use lightnings logging functionality because there is too much magic going on under the hood. We
+        need something simple.
         """
         super().__init__()
 
@@ -85,6 +90,8 @@ class nnUNetModule(pl.LightningModule):
                                   self.__class__.__name__ + '__' + plans_name + "__" + configuration)
         maybe_mkdir_p(self.output_folder)
         self.log_file = None
+
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
 
     def _handle_labels(self) -> Tuple[List, Union[List, None]]:
         # first we need to check if we have to run region-based training
@@ -185,37 +192,38 @@ class nnUNetModule(pl.LightningModule):
         return tr_keys, val_keys
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        timestamp = time()
-        dt_object = datetime.fromtimestamp(timestamp)
+        if self.trainer.is_global_zero:
+            timestamp = time()
+            dt_object = datetime.fromtimestamp(timestamp)
 
-        if add_timestamp:
-            args = ("%s:" % dt_object, *args)
+            if add_timestamp:
+                args = ("%s:" % dt_object, *args)
 
-        if self.log_file is None:
-            maybe_mkdir_p(self.output_folder)
-            timestamp = datetime.now()
-            self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
-                                 (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
-                                  timestamp.second))
-            with open(self.log_file, 'w') as f:
-                f.write("Starting... \n")
-        successful = False
-        max_attempts = 5
-        ctr = 0
-        while not successful and ctr < max_attempts:
-            try:
-                with open(self.log_file, 'a+') as f:
-                    for a in args:
-                        f.write(str(a))
-                        f.write(" ")
-                    f.write("\n")
-                successful = True
-            except IOError:
-                print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
-                sleep(0.5)
-                ctr += 1
-        if also_print_to_console:
-            print(*args)
+            if self.log_file is None:
+                maybe_mkdir_p(self.output_folder)
+                timestamp = datetime.now()
+                self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
+                                     (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
+                                      timestamp.second))
+                with open(self.log_file, 'w') as f:
+                    f.write("Starting... \n")
+            successful = False
+            max_attempts = 5
+            ctr = 0
+            while not successful and ctr < max_attempts:
+                try:
+                    with open(self.log_file, 'a+') as f:
+                        for a in args:
+                            f.write(str(a))
+                            f.write(" ")
+                        f.write("\n")
+                    successful = True
+                except IOError:
+                    print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
+                    sleep(0.5)
+                    ctr += 1
+            if also_print_to_console:
+                print(*args)
 
     def get_tr_and_val_datasets(self):
         # create dataset split
@@ -305,7 +313,7 @@ class nnUNetModule(pl.LightningModule):
             is_cascaded=False, all_labels=self.labels)
 
         # validation pipeline
-        val_transforms = self.get_validation_transform()
+        val_transforms = self.get_validation_transforms()
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
@@ -444,10 +452,10 @@ class nnUNetModule(pl.LightningModule):
         return tr_transforms
 
     @staticmethod
-    def get_validation_transform(deep_supervision_scales: Union[List, Tuple],
-                                 is_cascaded: bool = False,
-                                 all_labels: Union[Tuple[int, ...], List[int]] = None,
-                                 regions: List[Union[List[int], Tuple[int, ...]]] = None) -> AbstractTransform:
+    def get_validation_transforms(deep_supervision_scales: Union[List, Tuple],
+                                  is_cascaded: bool = False,
+                                  all_labels: Union[Tuple[int, ...], List[int]] = None,
+                                  regions: List[Union[List[int], Tuple[int, ...]]] = None) -> AbstractTransform:
         if is_cascaded and regions is not None:
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
 
@@ -481,8 +489,13 @@ class nnUNetModule(pl.LightningModule):
         # for now leave this untouched. For DDP we will have to change it (batch dice ;-) )
         l = self.loss(output, target)
 
-        self.log('train_loss', l)
         return l
+
+    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+        losses = torch.stack(outputs)
+        losses = self.all_gather(losses)
+        if self.trainer.is_global_zero:
+            self.log('train_loss', torch.mean(losses), rank_zero_only=True)
 
     def validation_step(self, batch) -> Optional[STEP_OUTPUT]:
         data = batch['data']
@@ -504,25 +517,63 @@ class nnUNetModule(pl.LightningModule):
         if self.regions is None:
             # we don't need softmax here because it doesn't change what value is the largest
             predicted_segmentation = output.argmax(1)
+            # in our implementation the target is always a 4D or 5D tensor for 2d and 3d images, respectively
+            # (shape b,c,x,y,z)
             target = target[:, 0]
+
+            axes = tuple(range(1, len(target.shape)))
+            num_classes = len(self.labels)
+
+            tp_hard = torch.zeros((target.shape[0], num_classes - 1), device=output.device)
+            fp_hard = torch.zeros((target.shape[0], num_classes - 1), device=output.device)
+            fn_hard = torch.zeros((target.shape[0], num_classes - 1), device=output.device)
+
+            for c in range(1, num_classes):
+                tp_hard[:, c - 1] = sum_tensor((predicted_segmentation == c).float() * (target == c).float(), axes=axes)
+                fp_hard[:, c - 1] = sum_tensor((predicted_segmentation == c).float() * (target != c).float(), axes=axes)
+                fn_hard[:, c - 1] = sum_tensor((predicted_segmentation != c).float() * (target == c).float(), axes=axes)
+
         else:
             # we skip the sigmoid because sigmoid(x) > 0.5 is equivalent to x > 0
             predicted_segmentation = (output > 0).float()
-        axes = tuple(range(1, len(target.shape)))
-        tp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
-        fp_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
-        fn_hard = torch.zeros((target.shape[0], num_classes - 1)).to(output_seg.device.index)
-        for c in range(1, num_classes):
-            tp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target == c).float(), axes=axes)
-            fp_hard[:, c - 1] = sum_tensor((output_seg == c).float() * (target != c).float(), axes=axes)
-            fn_hard[:, c - 1] = sum_tensor((output_seg != c).float() * (target == c).float(), axes=axes)
+            # here the predicted_segmentation is shape b,c,x,y,z where c containts the regions. The target has the same
+            # shape
+            axes = tuple(range(2, len(target.shape)))
+            num_regions = len(self.regions)
+
+            tp_hard = torch.zeros((target.shape[0], num_regions), device=output.device)
+            fp_hard = torch.zeros((target.shape[0], num_regions), device=output.device)
+            fn_hard = torch.zeros((target.shape[0], num_regions), device=output.device)
+
+            for c in range(num_regions):
+                tp_hard[:, c] = sum_tensor(predicted_segmentation[c] * target[c], axes=axes)
+                fp_hard[:, c] = sum_tensor(predicted_segmentation[c] * (1 - target[c]), axes=axes)
+                fn_hard[:, c] = sum_tensor((1 - predicted_segmentation[c] * target[c]), axes=axes)
 
         tp_hard = tp_hard.sum(0, keepdim=False).detach().cpu().numpy()
         fp_hard = fp_hard.sum(0, keepdim=False).detach().cpu().numpy()
         fn_hard = fn_hard.sum(0, keepdim=False).detach().cpu().numpy()
 
-        self.log('train_loss', l)
-        return l
+        return {'loss': l, 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
+
+    def validation_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+        losses = torch.stack([i['loss'] for i in outputs])
+        tps = torch.stack([i['tp_hard'] for i in outputs])
+        fps = torch.stack([i['fp_hard'] for i in outputs])
+        fns = torch.stack([i['fn_hard'] for i in outputs])
+
+        # if we are multi-GPU we should all gather this shit
+        tps = self.all_gather(tps).sum(0)
+        fps = self.all_gather(fps).sum(0)
+        fns = self.all_gather(fns).sum(0)
+
+        dice_per_class_or_region = 2 * tps / (2 * tps + fps + fns)
+        mean_fg_dice = torch.mean(dice_per_class_or_region)
+
+        if self.trainer.is_global_zero:
+            self.log('val_loss', torch.mean(losses), rank_zero_only=True)
+            self.log('dice_per_class_or_region', torch.mean(dice_per_class_or_region), rank_zero_only=True)
+            self.log('mean_fg_dice', torch.mean(mean_fg_dice), rank_zero_only=True)
 
     def on_epoch_start(self) -> None:
         sched = self.lr_schedulers()
