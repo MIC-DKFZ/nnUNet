@@ -26,7 +26,8 @@ from nnunetv2.preprocessing.resampling.default_resampling import compute_new_sha
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_nf_by_name
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
+    create_lists_from_splitted_dataset_folder, extract_unique_classes_from_dataset_json_labels
 
 
 class DefaultPreprocessor(object):
@@ -37,7 +38,8 @@ class DefaultPreprocessor(object):
         CAREFUL! WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL!
         """
 
-    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: dict, configuration_name: str):
+    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: Union[dict, str], configuration_name: str,
+                 dataset_json: Union[dict, str], dataset_fingerprint: Union[dict, str]):
         """
         seg file can be none (test cases)
 
@@ -45,6 +47,13 @@ class DefaultPreprocessor(object):
         so when we export we need to run the following order: resample -> crop -> transpose (we could also run
         transpose at a different place, but reverting the order of operations done during preprocessing seems cleaner)
         """
+        if isinstance(plans, str):
+            plans = load_json(plans)
+        if isinstance(dataset_fingerprint, str):
+            dataset_fingerprint = load_json(dataset_fingerprint)
+        if isinstance(dataset_json, str):
+            dataset_json = load_json(dataset_json)
+
         configuration = plans['configurations'][configuration_name]
         rw = recursive_find_reader_writer_by_name(plans['image_reader_writer'])()
 
@@ -89,18 +98,20 @@ class DefaultPreprocessor(object):
 
         # normalize
         data = self._normalize(data, seg, configuration['normalization_schemes'],
-                               plans['dataset_fingerprint'])
+                               dataset_fingerprint)
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
-            classes = [int(i) for i in plans['dataset_json']['labels'].keys() if int(i) > 0]
+            classes = [j for i, j in dataset_json['labels'].items() if i != 'background']
             data_properites['class_locations'] = self._sample_foreground_locations(seg, classes)
 
         return data, seg.astype(np.int8), data_properites
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
-                      plans: dict, configuration_name: str):
-        data, seg, properties = self.run_case(image_files, seg_file, plans, configuration_name)
+                      plans: Union[dict, str], configuration_name: str, dataset_json: Union[dict, str],
+                      dataset_fingerprint: Union[dict, str]):
+        data, seg, properties = self.run_case(image_files, seg_file, plans, configuration_name, dataset_json,
+                                              dataset_fingerprint)
         # print('dtypes', data.dtype, seg.dtype)
         np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
@@ -113,7 +124,13 @@ class DefaultPreprocessor(object):
         rndst = np.random.RandomState(seed)
         class_locs = {}
         for c in classes:
-            all_locs = np.argwhere(seg == c)
+            if isinstance(c, tuple):
+                mask = seg == c[0]
+                for cc in c[1:]:
+                    mask = mask | (seg == cc)
+                all_locs = np.argwhere(mask)
+            else:
+                all_locs = np.argwhere(seg == c)
             if len(all_locs) == 0:
                 class_locs[c] = []
                 continue
@@ -139,7 +156,7 @@ class DefaultPreprocessor(object):
             data[c] = normalizer.run(data, seg)
         return data
 
-    def run(self, dataset_name_or_id: Union[int, str], plans_identifier: str, configuration_name: str, num_processes: int):
+    def run(self, dataset_name_or_id: Union[int, str], configuration_name: str, plans_identifier: str, num_processes: int):
         """
         data identifier = configuration name in plans. EZ.
         """
@@ -152,23 +169,29 @@ class DefaultPreprocessor(object):
                                    "first." % plans_file
 
         plans = load_json(plans_file)
+        print('Preprocessing the following configuration:')
+        print(plans['configurations'][configuration_name])
 
         if configuration_name not in plans['configurations'].keys():
             raise RuntimeError("Requested configuration '%s' not found in ")
 
-        classes = [int(i) for i in plans['dataset_json']['labels'].keys() if int(i) > 0]
+        dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
+        dataset_json = load_json(dataset_json_file)
+        classes = extract_unique_classes_from_dataset_json_labels(dataset_json['labels'])
         if max(classes) > 127:
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')
 
+        dataset_fingerprint = load_json(join(nnUNet_preprocessed, dataset_name, 'dataset_fingerprint.json'))
+
         caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
-                                                           plans['dataset_json']['file_ending'])
+                                                           dataset_json['file_ending'])
         output_directory = join(nnUNet_preprocessed, dataset_name, configuration_name)
         maybe_mkdir_p(output_directory)
 
         output_filenames_truncated = [join(output_directory, i) for i in caseids]
 
-        suffix = plans['dataset_json']['file_ending']
+        suffix = dataset_json['file_ending']
         # list of lists with image filenames
         image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), suffix,
                                                                  caseids)
@@ -183,27 +206,39 @@ class DefaultPreprocessor(object):
         results = []
         for ofname, ifnames, segfnames in zip(output_filenames_truncated, image_fnames, seg_fnames):
             results.append(pool.starmap_async(self.run_case_save,
-                                              ((ofname, ifnames, segfnames, plans, configuration_name),)))
+                                              ((ofname, ifnames, segfnames, plans, configuration_name,
+                                                dataset_json, dataset_fingerprint),)))
         # let the workers do their job
         [i.get() for i in results]
 
 
-if __name__ == '__main__':
-    pp = DefaultPreprocessor()
-    pp.run(2, default_plans_identifier, '3d_fullres', 8)
+def example_test_case_preprocessing():
+    # (paths to files may need adaptations)
+    plans_file = default_plans_identifier + '.json'
+    dataset_json_file = 'dataset.json'
+    dataset_fingerprint_file = 'dataset_fingerprint.json'
+    input_images = ['case000_0000.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
 
-    ###########################################################################################################
-    # how to process a test cases? This is an example:
-    pkl_file = 'plans.pkl'
-    plans = load_pickle(pkl_file)
     configuration = '3d_fullres'
-    input_images = ['case000_0000.nii.gz', 'case000_0001.nii.gz'] # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
     pp = DefaultPreprocessor()
 
     # _ because this position would be the segmentation if seg_file was not None (training case)
     # even if you have the segmentation, don't put the file there! You should always evaluate in the original
     # resolution. What comes out of the preprocessor might have been resampled to some other image resolution (as
     # specified by plans)
-    data, _, properties = pp.run_case(input_images, seg_file=None, plans=plans, configuration_name=configuration)
+    data, _, properties = pp.run_case(input_images, seg_file=None, plans=plans_file, configuration_name=configuration,
+                                      dataset_json=dataset_json_file, dataset_fingerprint=dataset_fingerprint_file)
 
     # voila. Now plug data into your prediction function of choice. We of course recommend nnU-Net's default (TODO)
+    return data
+
+
+if __name__ == '__main__':
+    pp = DefaultPreprocessor()
+    pp.run(4, '3d_fullres', default_plans_identifier, 8)
+
+    ###########################################################################################################
+    # how to process a test cases? This is an example:
+    # example_test_case_preprocessing()
+
+

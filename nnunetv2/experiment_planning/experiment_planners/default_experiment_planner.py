@@ -33,13 +33,14 @@ class ExperimentPlanner(object):
         self.dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
         self.suppress_transpose = suppress_transpose
         self.raw_dataset_folder = join(nnUNet_raw, self.dataset_name)
+        preprocessed_folder = join(nnUNet_preprocessed, self.dataset_name)
         self.dataset_json = load_json(join(self.raw_dataset_folder, 'dataset.json'))
 
         # load dataset fingerprint
-        if not isfile(join(self.raw_dataset_folder, 'dataset_fingerprint.json')):
+        if not isfile(join(preprocessed_folder, 'dataset_fingerprint.json')):
             raise RuntimeError('Fingerprint missing for this dataset. Please run nnUNet_extract_dataset_fingerprint')
 
-        self.dataset_fingerprint = load_json(join(self.raw_dataset_folder, 'dataset_fingerprint.json'))
+        self.dataset_fingerprint = load_json(join(preprocessed_folder, 'dataset_fingerprint.json'))
 
         self.anisotropy_threshold = ANISO_THRESHOLD
 
@@ -391,10 +392,8 @@ class ExperimentPlanner(object):
         median_spacing = np.median(self.dataset_fingerprint['spacings'], 0)[transpose_forward]
         median_shape = np.median(self.dataset_fingerprint['shapes_after_crop'], 0)[transpose_forward]
 
-        # instead of writing all that into the plans we just copy the original files. More files, but less crowded
-        # per file
-        shutil.copy(join(self.raw_dataset_folder, 'dataset_fingerprint.json'),
-                    join(nnUNet_preprocessed, self.dataset_name, 'dataset_fingerprint.json'))
+        # instead of writing all that into the plans we just copy the original file. More files, but less crowded
+        # per file.
         shutil.copy(join(self.raw_dataset_folder, 'dataset.json'),
                     join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
 
@@ -432,4 +431,4 @@ class ExperimentPlanner(object):
 
 
 if __name__ == '__main__':
-    ExperimentPlanner(3, 8).plan_experiment()
+    ExperimentPlanner(4, 8).plan_experiment()

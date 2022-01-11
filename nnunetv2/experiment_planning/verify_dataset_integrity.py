@@ -21,7 +21,9 @@ from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
-from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
+from nnunetv2.paths import nnUNet_raw
+from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
+    extract_unique_classes_from_dataset_json_labels
 
 
 def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected_labels: List[int]) -> bool:
@@ -127,9 +129,13 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     # make sure all required keys are there
     dataset_keys = list(dataset_json.keys())
     required_keys = ['labels', "modality", "numTraining", "file_ending"]
-    assert all([i in dataset_keys] for i in required_keys), 'not all required keys are present in dataset.json.' \
-                                                            '\nRequired: %s\nPresent: %s' % (str(required_keys),
-                                                                                             str(dataset_keys))
+    assert all([i in dataset_keys for i in required_keys]), 'not all required keys are present in dataset.json.' \
+                                                            '\n\nRequired: \n%s\n\nPresent: \n%s\n\nMissing: ' \
+                                                            '\n%s\n\nUnused by nnU-Net:\n%s' % \
+                                                            (str(required_keys),
+                                                             str(dataset_keys),
+                                                             str([i for i in required_keys if i not in dataset_keys]),
+                                                             str([i for i in dataset_keys if i not in required_keys]))
 
     expected_num_training = dataset_json['numTraining']
     num_modalities = len(dataset_json['modality'].keys())
@@ -151,7 +157,16 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
 
     # check if labels are consecutive
-    expected_labels = list(int(i) for i in dataset_json['labels'].keys())
+    assert isinstance(dataset_json['labels'], dict), 'labels in dataset.json must be a dictionary'
+    # this will unfortunately not always trigger
+    assert all([isinstance(i, str) for i in dataset_json['labels'].keys()]), 'labels in dataset.json must be a dictionary with strings (label/region names) as keys and the labels/regions as values'
+    for l in dataset_json['labels'].values():
+        assert isinstance(l, (int, tuple)), 'values of labels dict in dataset.json must either be int or tuple of int'
+        if isinstance(l, tuple):
+            for ll in l:
+                assert isinstance(ll, int), 'values of labels dict in dataset.json must either be int or tuple of int'
+
+    expected_labels = extract_unique_classes_from_dataset_json_labels(dataset_json['labels'])
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1
     assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
 
@@ -179,11 +194,11 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
 
     # check for nans
     # check all same orientation nibabel
-    print('Done')
+    print('Done. If you didn\'t see any error messages then your dataset is most likely OK!')
 
 
 if __name__ == "__main__":
     # investigate geometry issues
-    example_folder = '/media/fabian/data/raw_datasets/nnUNet_data/nnUNet_raw_data/Dataset003_Liver'
+    example_folder = join(nnUNet_raw, 'Dataset004_Hippocampus')
     num_processes = 6
     verify_dataset_integrity(example_folder, num_processes)

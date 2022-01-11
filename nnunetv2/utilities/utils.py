@@ -12,6 +12,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+from typing import Union
 
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
@@ -40,3 +41,20 @@ def create_lists_from_splitted_dataset_folder(folder: str, suffix: str, case_ids
         p = re.compile(f + "_\d\d\d\d" + suffix)
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists
+
+
+def extract_unique_classes_from_dataset_json_labels(dataset_json_labels: dict[str, Union[tuple[int, ...], int]]) \
+        -> List[int]:
+    """
+    classes are re
+    """
+    all_labels = []
+    for r in dataset_json_labels.values():
+        if isinstance(r, tuple):
+            for ri in r:
+                all_labels.append(ri)
+        else:
+            all_labels.append(r)
+    all_labels = np.unique(all_labels)
+    all_labels.sort()
+    return list(all_labels)

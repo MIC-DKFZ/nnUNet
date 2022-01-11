@@ -3,11 +3,11 @@ from multiprocessing import Pool
 from typing import List, Type, Union
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
-from nnunetv2.paths import nnUNet_raw
+from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
@@ -24,6 +24,7 @@ class DatasetFingerprintExtractor(object):
         """
         dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
 
+        self.dataset_name = dataset_name
         self.input_folder = join(nnUNet_raw, dataset_name)
         self.num_processes = num_processes
         self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
@@ -92,7 +93,12 @@ class DatasetFingerprintExtractor(object):
             relative_size_after_cropping
 
     def run(self, overwrite_existing: bool = False) -> None:
-        properties_file = join(self.input_folder, 'dataset_fingerprint.json')
+        # we do not save the properties file in self.input_folder because that folder might be read-only. We can only
+        # reliably write in nnUNet_preprocessed and nnUNet_results, so nnUNet_preprocessed it is
+        preprocessed_output_folder = join(nnUNet_preprocessed, self.dataset_name)
+        maybe_mkdir_p(preprocessed_output_folder)
+        properties_file = join(preprocessed_output_folder, 'dataset_fingerprint.json')
+
         if not isfile(properties_file) or overwrite_existing:
             file_suffix = self.dataset_json['file_ending']
             training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),
@@ -154,5 +160,5 @@ class DatasetFingerprintExtractor(object):
 
 
 if __name__ == '__main__':
-    dfe = DatasetFingerprintExtractor(3, 6)
-    dfe.run(overwrite_existing=True)
+    dfe = DatasetFingerprintExtractor(4, 6)
+    dfe.run(overwrite_existing=False)

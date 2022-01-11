@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 from time import time, sleep
-from typing import Union, Optional, Tuple, List
+from typing import Union, Optional, Tuple, List, Dict, Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -38,9 +38,8 @@ from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-import torch.nn.functional as F
-
 from nnunetv2.utilities.tensor_utilities import sum_tensor
+from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
 
 
 class nnUNetModule(pl.LightningModule):
@@ -92,6 +91,8 @@ class nnUNetModule(pl.LightningModule):
         self.log_file = None
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        import IPython;IPython.embed()
+        return super().on_save_checkpoint(checkpoint)
 
     def _handle_labels(self) -> Tuple[List, Union[List, None]]:
         # first we need to check if we have to run region-based training
@@ -105,18 +106,9 @@ class nnUNetModule(pl.LightningModule):
             assert len(self.dataset_json['regions_class_order']) == len(regions), 'regions_class_order must have ans ' \
                                                                                   'many entries as there are ' \
                                                                                   'regions'
-            # I can't think of a smarter way to do this
-            all_labels = []
-            for r in regions:
-                if isinstance(r, tuple):
-                    for ri in r:
-                        all_labels.append(ri)
-                else:
-                    all_labels.append(r)
         else:
-            all_labels = list(self.dataset_json['labels'].values())
-            all_labels.sort()
             regions = None
+        all_labels = extract_unique_classes_from_dataset_json_labels(self.dataset_json['labels'])
         return all_labels, regions
 
     def configure_optimizers(self):
@@ -532,7 +524,6 @@ class nnUNetModule(pl.LightningModule):
                 tp_hard[:, c - 1] = sum_tensor((predicted_segmentation == c).float() * (target == c).float(), axes=axes)
                 fp_hard[:, c - 1] = sum_tensor((predicted_segmentation == c).float() * (target != c).float(), axes=axes)
                 fn_hard[:, c - 1] = sum_tensor((predicted_segmentation != c).float() * (target == c).float(), axes=axes)
-
         else:
             # we skip the sigmoid because sigmoid(x) > 0.5 is equivalent to x > 0
             predicted_segmentation = (output > 0).float()
