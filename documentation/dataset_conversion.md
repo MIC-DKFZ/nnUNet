@@ -183,17 +183,30 @@ Still, there is certainly a need for an out of the box segmentation solution for
 also on 2D segmentation tasks nnU-Net cam perform extremely well! We have, for example, won a 2D task in the cell 
 tracking challenge with nnU-Net (see our Nature Methods paper) and we have also successfully applied nnU-Net to 
 histopathological segmentation problems. 
-Working with 2D data in nnU-Net requires a small workaround in the creation of the dataset. Essentially, all images 
-must be converted to pseudo 3D images (so an image with shape (X, Y) needs to be converted to an image with shape 
-(1, X, Y). The resulting image must be saved in nifti format. Hereby it is important to set the spacing of the 
+
+Working with 2D data in nnU-Net requires a small workaround in the creation of the dataset. 
+Essentially, all images must be converted to pseudo 3D images (so an image with shape (X, Y).
+When working with 2D images it is important to follow the correct axis ordering. When loading the images with SimpleITK, 
+the resulting numpy array shape should be (1, x, y). We recommend you save your images with SimpleITK so that the
+correct shape is guaranteed. If you prefer to save your images with nibabel, please save them as (y, x, 1) 
+(SimpleITK reverts the ordering of the axes when reading). 
+To check whether your 2D images have the correct shape you can run the following snippet:
+```
+import SimpleITK as sitk
+print(sitk.GetArrayFromImage(sitk.ReadImage(FILENAME)).shape)
+```
+
+The resulting image must be saved in nifti format. Hereby it is important to set the spacing of the 
 first axis (the one with shape 1) to a value larger than the others. If you are working with niftis anyways, then 
-doing this should be easy for you. This example here is intended for demonstrating how nnU-Net can be used with 
+doing this should be easy for you.
+This example here is intended for demonstrating how nnU-Net can be used with 
 'regular' 2D images. We selected the massachusetts road segmentation dataset for this because it can be obtained 
 easily, it comes with a good amount of training cases but is still not too large to be difficult to handle.
     
 See [here](../nnunet/dataset_conversion/Task120_Massachusetts_RoadSegm.py) for an example. 
 This script contains a lot of comments and useful information. Also have a look 
 [here](../nnunet/dataset_conversion/Task089_Fluo-N2DH-SIM.py).
+
 
 ## How to update an existing dataset
 When updating a dataset you not only need to change the data located in `nnUNet_raw_data_base/nnUNet_raw_data`. Make 
