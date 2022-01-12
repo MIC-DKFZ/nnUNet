@@ -11,6 +11,8 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+from typing import Optional
+
 import zipfile
 from time import time
 
@@ -264,15 +266,7 @@ def download_and_install_from_url(url):
     tempfile = join(home, '.nnunetdownload_%s' % str(random_number))
 
     try:
-        with open(tempfile, 'wb') as f:
-            with requests.get(url, stream=True) as r:
-                r.raise_for_status()
-                for chunk in r.iter_content(chunk_size=8192 * 16):
-                    # If you have chunk encoded response uncomment if
-                    # and set chunk_size parameter to None.
-                    # if chunk:
-                    f.write(chunk)
-
+        download_file(url=url, local_filename=tempfile, chunk_size=8192 * 16)
         print("Download finished. Extracting...")
         install_model_from_zip_file(tempfile)
         print("Done")
@@ -283,13 +277,13 @@ def download_and_install_from_url(url):
             os.remove(tempfile)
 
 
-def download_file(url, local_filename):
+def download_file(url: str, local_filename: str, chunk_size: Optional[int] = None) -> str:
     # borrowed from https://stackoverflow.com/questions/16694907/download-large-file-in-python-with-requests
     # NOTE the stream=True parameter below
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with open(local_filename, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=None):
+            for chunk in r.iter_content(chunk_size=chunk_size):
                 # If you have chunk encoded response uncomment if
                 # and set chunk_size parameter to None.
                 #if chunk:
