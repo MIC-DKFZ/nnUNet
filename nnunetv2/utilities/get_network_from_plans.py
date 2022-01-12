@@ -1,10 +1,10 @@
 from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
-from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op, get_matching_batchnorm
 from torch import nn
+from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op, get_matching_batchnorm
 
 
-def get_network_from_plans(plans: dict, configuration: str, deep_supervision: bool = True, nonlin=nn.LeakyReLU,
-                           norm_op='instancenorm'):
+def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, deep_supervision: bool = True,
+                           nonlin=nn.LeakyReLU, norm_op='instancenorm'):
     """
     we may have to change this in the future to accomodate other plans -> network mappings
     """
@@ -31,17 +31,18 @@ def get_network_from_plans(plans: dict, configuration: str, deep_supervision: bo
         norm_op = get_matching_instancenorm(conv_op)
     elif norm_op == 'batchnorm':
         norm_op = get_matching_batchnorm(conv_op)
-    
+
+    import IPython;IPython.embed()
     # network class name!!
     model = network_class(
-        input_channels=len(plans["dataset_json"]["modality"]),
+        input_channels=len(dataset_json["modality"]),
         n_stages=num_stages,
         features_per_stage=[min(initial_features * 2**i, max_features) for i in range(num_stages)],
         conv_op=conv_op,
         kernel_sizes=plans["configurations"][configuration]["conv_kernel_sizes"],
         strides=plans["configurations"][configuration]["pool_op_kernel_sizes"],
         n_conv_per_stage=2,
-        num_classes=len(plans["dataset_json"]["labels"]),
+        num_classes=len(dataset_json["labels"]),
         n_conv_per_stage_decoder=2,
         conv_bias=True,
         norm_op=norm_op,

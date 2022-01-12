@@ -50,12 +50,11 @@ class nnUNetDataset(object):
                 self.dataset[c]['seg_from_prev_stage_file'] = join(folder, "%s.npz" % c)
 
         if len(case_identifiers) <= num_cases_properties_loading_threshold:
-            print('loading all case properties')
             for i in self.dataset.keys():
                 self.dataset[i]['properties'] = load_pickle(self.dataset[i]['properties_file'])
 
-    def __getitem__(self, item):
-        ret = {**self.dataset[item]}
+    def __getitem__(self, key):
+        ret = {**self.dataset[key]}
         if 'properties' not in ret.keys():
             ret['properties'] = load_pickle(ret['properties_file'])
         return ret

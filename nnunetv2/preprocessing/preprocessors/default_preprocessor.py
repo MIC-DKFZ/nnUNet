@@ -235,7 +235,7 @@ def example_test_case_preprocessing():
 
 if __name__ == '__main__':
     pp = DefaultPreprocessor()
-    pp.run(4, '3d_fullres', default_plans_identifier, 8)
+    pp.run(2, '2d', default_plans_identifier, 8)
 
     ###########################################################################################################
     # how to process a test cases? This is an example:

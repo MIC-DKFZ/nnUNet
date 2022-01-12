@@ -31,7 +31,9 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             seg = seg[:, selected_slice]
 
             # the line of death lol
-            properties['class_locations'] = {
+            # this needs to be a separate variable because we would otherwise permanently overwrite
+            # properties['class_locations']
+            class_locations = {
                 i: properties['class_locations'][i][properties['class_locations'][i][:, 1] == selected_slice][:, (0, 2, 3)]
                 for i in properties['class_locations'].keys()
             }
@@ -39,7 +41,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'],
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, class_locations,
                                                overwrite_class=selected_class)
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
@@ -66,7 +68,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
 
 if __name__ == '__main__':
-    folder = '/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/2d'
-    ds = nnUNetDataset(folder, 0)  # this should not load the properties!
-    dl = nnUNetDataLoader2D(ds, 5, (128, 128), (128, 128), 0.33, None, None)
+    folder = '/media/fabian/data/nnUNet_preprocessed/Dataset004_Hippocampus/2d'
+    ds = nnUNetDataset(folder, None, 1000)  # this should not load the properties!
+    dl = nnUNetDataLoader2D(ds, 366, (65, 65), (56, 40), 0.33, None, None)
     a = next(dl)

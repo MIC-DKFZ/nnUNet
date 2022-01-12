@@ -14,9 +14,14 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from nnunet.network_architecture.generic_UNet import Generic_UNet
+from nnunet.network_architecture.initialization import InitWeights_He
+from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
+from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
 
+from nnunetv2.configuration import ANISO_THRESHOLD
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
@@ -40,6 +45,7 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
+from torch import nn
 
 
 class nnUNetModule(pl.LightningModule):
@@ -58,25 +64,19 @@ class nnUNetModule(pl.LightningModule):
         self.dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
 
         self.preprocessed_dataset_folder_base = join(nnUNet_preprocessed, self.dataset_name)
-        self.plans_file = join(self.preprocessed_dataset_folder_base, plans_name + 'json')
+        self.plans_file = join(self.preprocessed_dataset_folder_base, plans_name + '.json')
         self.plans = load_json(self.plans_file)
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
-                                                self.plans['configurations'][self.configuration]["data_identifier"])
+                                                self.plans['configurations'][configuration]["data_identifier"])
         self.dataset_json = load_json(join(self.preprocessed_dataset_folder_base, 'dataset.json'))
 
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
-        self.labels, self.regions = self._handle_labels()
+        self.labels, self.regions, self.ignore_label = self._handle_labels()
 
         self.configuration = configuration
         self.unpack_dataset = unpack_dataset
         self.folder_with_segs_from_previous_stage = folder_with_segs_from_previous_stage
         self.fold = fold
-
-        # if you want to swap out the network architecture you need to change that here. You do not need to use the
-        # plans at all if you don't want to, just make sure your architecture is compatible with the patch size
-        # dictated by the plans!
-        # We made this a
-        self.network = get_network_from_plans(self.plans, configuration)
 
         self.initial_lr = 1e-2
         self.weight_decay = 3e-5
@@ -84,17 +84,65 @@ class nnUNetModule(pl.LightningModule):
 
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
+        self.num_epochs = 1000
 
-        self.output_folder = join(nnUNet_results, dataset_name_or_id,
+        self.output_folder = join(nnUNet_results, self.dataset_name,
                                   self.__class__.__name__ + '__' + plans_name + "__" + configuration)
         maybe_mkdir_p(self.output_folder)
         self.log_file = None
 
+        # if you want to swap out the network architecture you need to change that here. You do not need to use the
+        # plans at all if you don't want to, just make sure your architecture is compatible with the patch size
+        # dictated by the plans!
+        # We made this a
+        # self.network =   Generic_UNet(1, 32, 3,
+        #                               5,
+        #                               2, 2, nn.Conv3d, nn.InstanceNorm3d, {'eps': 1e-05, 'affine': True}, nn.Dropout3d,
+        #                               {'p': 0, 'inplace': True},
+        #                               nn.LeakyReLU, {'negative_slope': 0.01, 'inplace': True}, True, False,
+        #                               lambda x: x, InitWeights_He(1e-2),
+        #                               [[2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2], [1, 2, 2]],
+        #                               [[3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3]]
+        #                               , False, True, True)
+        self.network = get_network_from_plans(self.plans, self.dataset_json, configuration)
+        self.network.apply(InitWeights_He(1e-2))
+        self.plot_network_architecture()
+
+        if self.regions is None:
+            self.loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                        'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
+                                       ignore_label=self.ignore_label)
+        else:
+            self.loss = DC_and_BCE_loss({},
+                                        {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                         'do_bg': True, 'smooth': 1e-5}, ignore_label=self.ignore_label)
+        self.wrap_loss_for_deep_supervision()
+
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        import IPython;IPython.embed()
         return super().on_save_checkpoint(checkpoint)
 
-    def _handle_labels(self) -> Tuple[List, Union[List, None]]:
+    def plot_network_architecture(self):
+        try:
+            from batchgenerators.utilities.file_and_folder_operations import join
+            import hiddenlayer as hl
+            g = hl.build_graph(self.network,
+                               torch.rand((1, len(self.dataset_json["modality"]),
+                                           *self.plans['configurations'][self.configuration]['patch_size'])),
+                               transforms=None)
+            g.save(join(self.output_folder, "network_architecture.pdf"))
+            del g
+        except Exception as e:
+            self.print_to_log_file("Unable to plot network architecture:")
+            self.print_to_log_file(e)
+
+            self.print_to_log_file("\nprinting the network instead:\n")
+            self.print_to_log_file(self.network)
+            self.print_to_log_file("\n")
+        finally:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    def _handle_labels(self) -> Tuple[List, Union[List, None], Union[int, None]]:
         # first we need to check if we have to run region-based training
         region_needed = any([isinstance(i, tuple) and len(i) > 1 for i in self.dataset_json['labels'].values()])
         if region_needed:
@@ -109,16 +157,18 @@ class nnUNetModule(pl.LightningModule):
         else:
             regions = None
         all_labels = extract_unique_classes_from_dataset_json_labels(self.dataset_json['labels'])
-        return all_labels, regions
+
+        ignore_label = self.dataset_json['labels'].get('ignore')
+        if ignore_label is not None:
+            assert isinstance(ignore_label, int), f'Ignore label has to be an integer. It cannot be a region ' \
+                                                  f'(list/tuple). Got {type(ignore_label)}.'
+        return all_labels, regions, ignore_label
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
-        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.ep)
-        return optimizer, lr_scheduler
-
-    def on_train_epoch_start(self) -> None:
-        self.lr_schedulers().step(self.current_epoch)
+        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+        return [optimizer], [lr_scheduler]
 
     def do_split(self):
         """
@@ -138,20 +188,22 @@ class nnUNetModule(pl.LightningModule):
             tr_keys = case_identifiers
             val_keys = []
         else:
-            splits_file = join(self.dataset_directory, "splits_final.json")
-
+            splits_file = join(self.preprocessed_dataset_folder_base, "splits_final.json")
+            dataset = nnUNetDataset(self.preprocessed_dataset_folder, case_identifiers=None,
+                                    num_cases_properties_loading_threshold=0,
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
                 splits = []
-                all_keys_sorted = np.sort(list(self.dataset.keys()))
+                all_keys_sorted = np.sort(list(dataset.keys()))
                 kfold = KFold(n_splits=5, shuffle=True, random_state=12345)
                 for i, (train_idx, test_idx) in enumerate(kfold.split(all_keys_sorted)):
                     train_keys = np.array(all_keys_sorted)[train_idx]
                     test_keys = np.array(all_keys_sorted)[test_idx]
                     splits.append({})
-                    splits[-1]['train'] = train_keys
-                    splits[-1]['val'] = test_keys
+                    splits[-1]['train'] = list(train_keys)
+                    splits[-1]['val'] = list(test_keys)
                 save_json(splits, splits_file)
 
             else:
@@ -171,7 +223,7 @@ class nnUNetModule(pl.LightningModule):
                                        "random (but seeded) 80:20 split!" % (self.fold, len(splits)))
                 # if we request a fold that is not in the split file, create a random 80:20 split
                 rnd = np.random.RandomState(seed=12345 + self.fold)
-                keys = np.sort(list(self.dataset.keys()))
+                keys = np.sort(list(dataset.keys()))
                 idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
                 idx_val = [i for i in range(len(keys)) if i not in idx_tr]
                 tr_keys = [keys[i] for i in idx_tr]
@@ -184,7 +236,7 @@ class nnUNetModule(pl.LightningModule):
         return tr_keys, val_keys
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        if self.trainer.is_global_zero:
+        if self.trainer is not None and self.trainer.is_global_zero:
             timestamp = time()
             dt_object = datetime.fromtimestamp(timestamp)
 
@@ -239,7 +291,8 @@ class nnUNetModule(pl.LightningModule):
         if dim == 2:
             do_dummy_2d_data_aug = False
             # todo revisit this parametrization
-            if max(self.patch_size) / min(self.patch_size) > 1.5:
+            if max(self.plans['configurations'][self.configuration]['patch_size']) / \
+                    min(self.plans['configurations'][self.configuration]['patch_size']) > 1.5:
                 rotation_for_DA = {
                     'x': (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
                     'y': (0, 0),
@@ -255,7 +308,7 @@ class nnUNetModule(pl.LightningModule):
         elif dim == 3:
             # todo this is not ideal. We could also have patch_size (64, 16, 128) in which case a full 180deg 2d rot would be bad
             # order of the axes is determined by spacing, not image size
-            do_dummy_2d_data_aug = (max(patch_size) / patch_size[0]) > self.anisotropy_threshold
+            do_dummy_2d_data_aug = (max(patch_size) / patch_size[0]) > ANISO_THRESHOLD
             if do_dummy_2d_data_aug:
                 # why do we rotate 180 deg here all the time? We should also restrict it
                 rotation_for_DA = {
@@ -283,6 +336,23 @@ class nnUNetModule(pl.LightningModule):
 
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 
+    def _get_deep_supervision_scales(self):
+        deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
+            self.plans['configurations'][self.configuration]['pool_op_kernel_sizes']), axis=0))[:-1]
+        return deep_supervision_scales
+
+    def wrap_loss_for_deep_supervision(self):
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+        # this gives higher resolution outputs more weight in the loss
+        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+
+        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+        weights = weights / weights.sum()
+        # now wrap the loss
+        self.loss = DeepSupervisionWrapper(self.loss, weights)
+
     def get_dataloaders(self):
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
@@ -291,8 +361,7 @@ class nnUNetModule(pl.LightningModule):
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-        deep_supervision_scales = [[1, 1, 1]] + list(list(i) for i in 1 / np.cumprod(np.vstack(
-            self.plans['configurations'][self.configuration]['pool_op_kernel_sizes']), axis=0))[:-1]
+        deep_supervision_scales = self._get_deep_supervision_scales()
 
         rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
             self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
@@ -302,10 +371,13 @@ class nnUNetModule(pl.LightningModule):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=1, order_resampling_seg=0,
             use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
-            is_cascaded=False, all_labels=self.labels)
+            is_cascaded=False, all_labels=self.labels, regions=self.regions)
 
         # validation pipeline
-        val_transforms = self.get_validation_transforms()
+        val_transforms = self.get_validation_transforms(deep_supervision_scales,
+                                                        is_cascaded=False,
+                                                        all_labels=self.labels,
+                                                        regions=self.regions)
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
@@ -324,7 +396,7 @@ class nnUNetModule(pl.LightningModule):
         mt_gen_train._start()
         mt_gen_val._start()
 
-        return dl_tr, dl_val
+        return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
@@ -470,11 +542,9 @@ class nnUNetModule(pl.LightningModule):
         val_transforms = Compose(val_transforms)
         return val_transforms
 
-    def training_step(self, batch) -> STEP_OUTPUT:
+    def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         data = batch['data']
         target = batch['target']
-
-        self.optimizer.zero_grad()
 
         output = self.network(data)
 
@@ -483,17 +553,9 @@ class nnUNetModule(pl.LightningModule):
 
         return l
 
-    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
-        losses = torch.stack(outputs)
-        losses = self.all_gather(losses)
-        if self.trainer.is_global_zero:
-            self.log('train_loss', torch.mean(losses), rank_zero_only=True)
-
-    def validation_step(self, batch) -> Optional[STEP_OUTPUT]:
+    def validation_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
         data = batch['data']
         target = batch['target']
-
-        self.optimizer.zero_grad()
 
         output = self.network(data)
 
@@ -502,7 +564,7 @@ class nnUNetModule(pl.LightningModule):
 
         # for keeping track of the dice substitute we need to compute the tp, fp and fn of each validation step
         # deep supervision, we only need the result at the highest resolution
-        if isinstance(output, list):
+        if isinstance(output, (list, tuple)):
             output = output[0]
             target = target[0]
 
@@ -541,9 +603,9 @@ class nnUNetModule(pl.LightningModule):
                 fp_hard[:, c] = sum_tensor(predicted_segmentation[c] * (1 - target[c]), axes=axes)
                 fn_hard[:, c] = sum_tensor((1 - predicted_segmentation[c] * target[c]), axes=axes)
 
-        tp_hard = tp_hard.sum(0, keepdim=False).detach().cpu().numpy()
-        fp_hard = fp_hard.sum(0, keepdim=False).detach().cpu().numpy()
-        fn_hard = fn_hard.sum(0, keepdim=False).detach().cpu().numpy()
+        tp_hard = tp_hard.sum(0, keepdim=False)
+        fp_hard = fp_hard.sum(0, keepdim=False)
+        fn_hard = fn_hard.sum(0, keepdim=False)
 
         return {'loss': l, 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
 
@@ -562,13 +624,17 @@ class nnUNetModule(pl.LightningModule):
         mean_fg_dice = torch.mean(dice_per_class_or_region)
 
         if self.trainer.is_global_zero:
-            self.log('val_loss', torch.mean(losses), rank_zero_only=True)
-            self.log('dice_per_class_or_region', torch.mean(dice_per_class_or_region), rank_zero_only=True)
-            self.log('mean_fg_dice', torch.mean(mean_fg_dice), rank_zero_only=True)
+            self.print_to_log_file('val_loss', torch.mean(losses))
+            self.print_to_log_file('dice_per_class_or_region', dice_per_class_or_region.cpu().numpy())
+            self.print_to_log_file('mean_fg_dice', torch.mean(mean_fg_dice))
+            timestamp = time()
+            dt_object = datetime.fromtimestamp(timestamp)
+            print(f'Timestamp: {dt_object}\n')
 
-    def on_epoch_start(self) -> None:
-        sched = self.lr_schedulers()
-        sched.step(self.current_epoch)
-
-    def on_epoch_end(self) -> None:
-        pass
+    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+        print('TRAINING EPOCH DONE')
+        losses = torch.stack([i['loss'] for i in outputs])
+        losses = self.all_gather(losses)
+        if self.trainer.is_global_zero:
+            self.print_to_log_file(f'Epoch {self.current_epoch} done')
+            self.print_to_log_file('train_loss', torch.mean(losses))

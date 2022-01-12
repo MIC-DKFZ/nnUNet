@@ -375,6 +375,11 @@ class ExperimentPlanner(object):
                                                                   float(np.prod(median_num_voxels) *
                                                                         self.dataset_json['numTraining']))
                 num_voxels_in_patch = np.prod(plan_3d_lowres['patch_size'], dtype=np.int64)
+            if plan_3d_lowres is not None:
+                plan_3d_lowres['batch_dice'] = False
+                plan_3d_fullres['batch_dice'] = True
+            else:
+                plan_3d_fullres['batch_dice'] = False
         else:
             plan_3d_fullres = None
             plan_3d_lowres = None
@@ -383,6 +388,7 @@ class ExperimentPlanner(object):
         plan_2d = self.get_plans_for_configuration(fullres_spacing_transposed[1:],
                                                    new_median_shape_transposed[1:],
                                                    '2d', approximate_n_voxels_dataset)
+        plan_2d['batch_dice'] = True
 
         print('2D U-Net configuration:')
         print(plan_2d)
@@ -431,4 +437,4 @@ class ExperimentPlanner(object):
 
 
 if __name__ == '__main__':
-    ExperimentPlanner(4, 8).plan_experiment()
+    ExperimentPlanner(2, 8).plan_experiment()
