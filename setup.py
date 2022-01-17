@@ -21,7 +21,9 @@ setup(name='nnunet',
             "SimpleITK",
             "pandas",
             "requests",
-            "nibabel", 'tifffile'
+            "nibabel", 
+            "tifffile", 
+            "matplotlib",
       ],
       entry_points={
           'console_scripts': [
