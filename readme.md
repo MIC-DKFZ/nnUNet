@@ -247,7 +247,7 @@ nnUNet_train 3d_cascade_fullres nnUNetTrainerV2CascadeFullRes TaskXXX_MYTASK FOL
 Note that the 3D full resolution U-Net of the cascade requires the five folds of the low resolution U-Net to be 
 completed beforehand!
 
-The trained models will we written to the RESULTS_FOLDER/nnUNet folder. Each training obtains an automatically generated 
+The trained models will be written to the RESULTS_FOLDER/nnUNet folder. Each training obtains an automatically generated 
 output folder name:
 
 nnUNet_preprocessed/CONFIGURATION/TaskXXX_MYTASKNAME/TRAINER_CLASS_NAME__PLANS_FILE_NAME/FOLD
