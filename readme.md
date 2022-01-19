@@ -4,6 +4,43 @@ several datasets and tips on how to identify bottlenecks](documentation/expected
 
 Please read these documents before opening a new issue!
 
+**################## Monjoy's System START #######**
+1. Open Biowulf
+2. Go to folder "/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/". "nnUNet" is the main file. 
+3. Activate Conda using the following commands in the terminal
+
+```source /data/saham2/conda/etc/profile.d/conda.sh```
+
+```conda activate project2```
+
+4. Set paths:
+
+```export nnUNet_raw_data_base="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/"```
+
+```export nnUNet_preprocessed="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_preprocessed/"```
+
+```export RESULTS_FOLDER="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/"```
+
+5. Follow instructions from this paper https://github.com/MIC-DKFZ/nnUNet/blob/master/readme.md#run-inference
+6. libstdc++.so.6: version `CXXABI_1.3.9' not found. This problem can be solved by setting conda llib path like below. Type below code on the same terminal.
+
+```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
+
+7. To train use following commands
+
+**2D U-Net**
+
+```nnUNet_train 2d nnUNetTrainerV2 Task055_SegTHOR 5 --npz```
+
+
+#### 3D full resolution U-Net
+
+```nnUNet_train 3d_fullres nnUNetTrainerV2 Task055_SegTHOR 5 --npz```
+
+
+**################## Monjoy's System END #######**
+
+
 
 # nnU-Net
 
