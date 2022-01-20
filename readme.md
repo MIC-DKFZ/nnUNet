@@ -57,7 +57,9 @@ Once all models are trained, use the following command to automatically determin
 ```nnUNet_find_best_configuration -m 2d 3d_fullres 3d_lowres  -t 055```
 
 ```--strict``` option is not required as this flag has been removed from the main script.
-
+ see ```Output_of_bestModel.txt``` file for the output of above command
+ 
+ 
 
 **################## Monjoy's System END #######**
 
