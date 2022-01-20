@@ -1,0 +1,445 @@
+[saham2@biowulf nnU-Net_6jan2022]$ sinteractive --gres=gpu:p100:2 --cpus-per-task=32 --mem=120g --time=36:00:00
+salloc: Pending job allocation 30665704
+salloc: job 30665704 queued and waiting for resources
+salloc: job 30665704 has been allocated resources
+salloc: Granted job allocation 30665704
+salloc: Waiting for resource configuration
+salloc: Nodes cn2387 are ready for job
+[saham2@cn2387 nnU-Net_6jan2022]$ source /data/saham2/conda/etc/profile.d/conda.sh
+[saham2@cn2387 nnU-Net_6jan2022]$ conda activate project2
+(project2) [saham2@cn2387 nnU-Net_6jan2022]$ export nnUNet_raw_data_base="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/"
+(project2) [saham2@cn2387 nnU-Net_6jan2022]$ export nnUNet_preprocessed="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_preprocessed/"
+(project2) [saham2@cn2387 nnU-Net_6jan2022]$ export RESULTS_FOLDER="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/"
+(project2) [saham2@cn2387 nnU-Net_6jan2022]$ 
+(project2) [saham2@cn2387 nnU-Net_6jan2022]$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib
+(project2) [saham2@cn2387 nnU-Net_6jan2022]$ nnUNet_find_best_configuration -m 2d 3d_fullres 3d_lowres  -t 055
+running missing postprocessing for Task055_SegTHOR and model 2d
+Foreground vs background
+before: 0.8859513294569493
+after:  0.8065056761742709
+1
+before: 0.8016263724229031
+after:  0.7661907431250127
+2
+before: 0.9297890964445257
+after:  0.9300246595248659
+Removing all but the largest region for class 2 improved results!
+min_valid_object_sizes None
+3
+before: 0.8966303908906876
+after:  0.9000289004950652
+Removing all but the largest region for class 3 improved results!
+min_valid_object_sizes None
+4
+before: 0.915759458069681
+after:  0.9125955073440988
+done
+for which classes:
+[2, 3]
+min_object_sizes
+None
+done
+running missing postprocessing for Task055_SegTHOR and model 3d_fullres
+Foreground vs background
+before: 0.905486080742369
+after:  0.8454759571682939
+1
+before: 0.8330095641447202
+after:  0.8284540016368804
+2
+before: 0.9457311935544024
+after:  0.946690024134036
+Removing all but the largest region for class 2 improved results!
+min_valid_object_sizes None
+3
+before: 0.9068737536157494
+after:  0.9103948193552951
+Removing all but the largest region for class 3 improved results!
+min_valid_object_sizes None
+4
+before: 0.9363298116546044
+after:  0.9364740121080034
+Removing all but the largest region for class 4 improved results!
+min_valid_object_sizes None
+done
+for which classes:
+[2, 3, 4]
+min_object_sizes
+None
+done
+running missing postprocessing for Task055_SegTHOR and model 3d_lowres
+Foreground vs background
+before: 0.8936501842815154
+after:  0.8607130405928596
+1
+before: 0.8065037799257583
+after:  0.7917738030554845
+2
+before: 0.9444511540234843
+after:  0.9444519308219472
+Removing all but the largest region for class 2 improved results!
+min_valid_object_sizes None
+3
+before: 0.8944531398651691
+after:  0.8978943753765469
+Removing all but the largest region for class 3 improved results!
+min_valid_object_sizes None
+4
+before: 0.9291926633116502
+after:  0.9300695092047363
+Removing all but the largest region for class 4 improved results!
+min_valid_object_sizes None
+done
+for which classes:
+[2, 3, 4]
+min_object_sizes
+None
+done
+
+I will now ensemble combinations of the following models:
+ ['2d', '3d_fullres', '3d_lowres']
+ensembling /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/2d/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1 /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_fullres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1
+
+Ensembling folders
+ /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/2d/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1 
+ /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_fullres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+Foreground vs background
+before: 0.9023435733111757
+after:  0.8641321751061646
+1
+before: 0.8272372858782283
+after:  0.8056724675319661
+2
+before: 0.9440264988291858
+after:  0.9440266300534187
+Removing all but the largest region for class 2 improved results!
+min_valid_object_sizes None
+3
+before: 0.9056609219225015
+after:  0.9098247034607558
+Removing all but the largest region for class 3 improved results!
+min_valid_object_sizes None
+4
+before: 0.932449586614787
+after:  0.9350699777100303
+Removing all but the largest region for class 4 improved results!
+min_valid_object_sizes None
+done
+for which classes:
+[2, 3, 4]
+min_object_sizes
+None
+done
+ensembling /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/2d/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1 /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_lowres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1
+
+Ensembling folders
+ /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/2d/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1 
+ /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_lowres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+Foreground vs background
+before: 0.8987661010598104
+after:  0.8494514650708883
+1
+before: 0.8150804222243128
+after:  0.7969974312500171
+2
+before: 0.9455113858515862
+after:  0.9455112676465951
+3
+before: 0.9033552800932867
+after:  0.907727194846851
+Removing all but the largest region for class 3 improved results!
+min_valid_object_sizes None
+4
+before: 0.9311173160700559
+after:  0.9334115299509911
+Removing all but the largest region for class 4 improved results!
+min_valid_object_sizes None
+done
+for which classes:
+[3, 4]
+min_object_sizes
+None
+done
+ensembling /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_fullres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1 /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_lowres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1
+
+Ensembling folders
+ /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_fullres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1 
+ /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/3d_lowres/Task055_SegTHOR/nnUNetTrainerV2__nnUNetPlansv2.1
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+force_separate_z: None interpolation order: 3
+no resampling necessary
+Foreground vs background
+before: 0.9061061768145934
+after:  0.8352385436254656
+1
+before: 0.8308283087499213
+after:  0.8209747225405373
+2
+before: 0.9474392715279659
+after:  0.9474392715279659
+3
+before: 0.9086365898948492
+after:  0.9121299593628809
+Removing all but the largest region for class 3 improved results!
+min_valid_object_sizes None
+4
+before: 0.9375205370856371
+after:  0.9376417915282362
+Removing all but the largest region for class 4 improved results!
+min_valid_object_sizes None
+done
+for which classes:
+[3, 4]
+min_object_sizes
+None
+done
+2d 0.8859513294569493
+3d_fullres 0.905486080742369
+3d_lowres 0.8936501842815154
+ensemble_2d__nnUNetTrainerV2__nnUNetPlansv2.1--3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1 0.9023435733111757
+ensemble_2d__nnUNetTrainerV2__nnUNetPlansv2.1--3d_lowres__nnUNetTrainerV2__nnUNetPlansv2.1 0.8987661010598104
+ensemble_3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1--3d_lowres__nnUNetTrainerV2__nnUNetPlansv2.1 0.9061061768145934
+Task055_SegTHOR submit model ensemble_3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1--3d_lowres__nnUNetTrainerV2__nnUNetPlansv2.1 0.9061061768145934
+
+Here is how you should predict test cases. Run in sequential order and replace all input and output folder names with your personalized ones
+
+nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_fullres -p nnUNetPlansv2.1 -t Task055_SegTHOR
+nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_lowres -p nnUNetPlansv2.1 -t Task055_SegTHOR
+nnUNet_ensemble -f OUTPUT_FOLDER_MODEL1 OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/ensembles/Task055_SegTHOR/ensemble_3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1--3d_lowres__nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json
