@@ -43,6 +43,15 @@ Please read these documents before opening a new issue!
 ```nnUNet_train 3d_lowres nnUNetTrainerV2 Task055_SegTHOR 0 --npz ```
 
 
+8. **Identifying the best U-Net configuration**
+
+Once all models are trained, use the following command to automatically determine what U-Net configuration(s) to use for test set prediction:
+
+```nnUNet_find_best_configuration -m 2d 3d_fullres 3d_lowres  -t 055```
+
+```--strict``` option is not required as this flag has been removed from the main script.
+
+
 **################## Monjoy's System END #######**
 
 
