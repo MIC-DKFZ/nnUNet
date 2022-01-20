@@ -26,16 +26,21 @@ Please read these documents before opening a new issue!
 
 ```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
 
-7. To train use following commands
+7. To train use following commands. Here for each batch training should be repeated. Batch should start with Zero (0). So 0, 1, 2, 3, 4 for 5 fold cross validation
 
 **2D U-Net**
 
-```nnUNet_train 2d nnUNetTrainerV2 Task055_SegTHOR 5 --npz```
+```nnUNet_train 2d nnUNetTrainerV2 Task055_SegTHOR 0 --npz```
 
 
 #### 3D full resolution U-Net
 
-```nnUNet_train 3d_fullres nnUNetTrainerV2 Task055_SegTHOR 5 --npz```
+```nnUNet_train 3d_fullres nnUNetTrainerV2 Task055_SegTHOR 0 --npz```
+
+#### 3D cascade low resolution U-Net
+
+
+```nnUNet_train 3d_lowres nnUNetTrainerV2 Task055_SegTHOR 0 --npz ```
 
 
 **################## Monjoy's System END #######**
