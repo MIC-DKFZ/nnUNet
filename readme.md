@@ -64,9 +64,16 @@ Input folder need to be specified. Input folder will contain test images. In my 
 
 ```/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/```
 
-Full command:
+**Full command-1:**
 
 ```nnUNet_predict -i /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/ -o OUTPUT_FOLDER_MODEL1 -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_fullres -p nnUNetPlansv2.1 -t Task055_SegTHOR```
+
+**Full command-2**
+```nnUNet_predict -i /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/ -o OUTPUT_FOLDER_MODEL2 -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_lowres -p nnUNetPlansv2.1 -t Task055_SegTHOR```
+
+**Full command-3**
+```nnUNet_ensemble -f OUTPUT_FOLDER_MODEL1 OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/nnUNet/ensembles/Task055_SegTHOR/ensemble_3d_fullres__nnUNetTrainerV2__nnUNetPlansv2.1--3d_lowres__nnUNetTrainerV2__nnUNetPlansv2.1/postprocessing.json
+```
 
 
 **################## Monjoy's System END #######**
