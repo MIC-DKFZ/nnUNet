@@ -50,7 +50,7 @@ Please read these documents before opening a new issue!
 ```nnUNet_train 3d_lowres nnUNetTrainerV2 Task055_SegTHOR 0 --npz ```
 
 
-8. **Identifying the best U-Net configuration**
+**8. **Identifying the best U-Net configuration****
 
 Once all models are trained, use the following command to automatically determine what U-Net configuration(s) to use for test set prediction:
 
@@ -59,7 +59,15 @@ Once all models are trained, use the following command to automatically determin
 ```--strict``` option is not required as this flag has been removed from the main script.
  see ```Output_of_bestModel.txt``` file for the output of above command
  
- 
+** 9. Run Inference**
+Input folder need to be specified. Input folder will contain test images. In my case input folder path is given below:
+
+```/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/```
+
+Full command:
+
+```nnUNet_predict -i /data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/ -o OUTPUT_FOLDER_MODEL1 -tr nnUNetTrainerV2 -ctr nnUNetTrainerV2CascadeFullRes -m 3d_fullres -p nnUNetPlansv2.1 -t Task055_SegTHOR```
+
 
 **################## Monjoy's System END #######**
 
