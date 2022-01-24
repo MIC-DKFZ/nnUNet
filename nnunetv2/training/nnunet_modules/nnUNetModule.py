@@ -1,4 +1,5 @@
 import sys
+from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
 from typing import Union, Optional, Tuple, List, Dict, Any
@@ -14,10 +15,6 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
-from nnunet.network_architecture.generic_UNet import Generic_UNet
-from nnunet.network_architecture.initialization import InitWeights_He
-from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
 
@@ -39,13 +36,15 @@ from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from nnunetv2.training.dataloading.utils import unpack_dataset, get_case_identifiers
+from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
+from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.network_initialization import InitWeights_He
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
-from torch import nn
 
 
 class nnUNetModule(pl.LightningModule):
@@ -60,6 +59,7 @@ class nnUNetModule(pl.LightningModule):
         need something simple.
         """
         super().__init__()
+        self.save_hyperparameters()
 
         self.dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
 
@@ -86,27 +86,26 @@ class nnUNetModule(pl.LightningModule):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
 
-        self.output_folder = join(nnUNet_results, self.dataset_name,
+        self.output_folder_base = join(nnUNet_results, self.dataset_name,
                                   self.__class__.__name__ + '__' + plans_name + "__" + configuration)
+        self.output_folder = join(self.output_folder_base, f'fold_{fold}')
         maybe_mkdir_p(self.output_folder)
-        self.log_file = None
+
+        # initialize log file. This is just our log for the print statements etc. Not to be confused with lightning
+        # logging
+        timestamp = datetime.now()
+        self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
+                             (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
+                              timestamp.second))
+        with open(self.log_file, 'w') as f:
+            f.write("Starting... \n")
 
         # if you want to swap out the network architecture you need to change that here. You do not need to use the
-        # plans at all if you don't want to, just make sure your architecture is compatible with the patch size
-        # dictated by the plans!
-        # We made this a
-        # self.network =   Generic_UNet(1, 32, 3,
-        #                               5,
-        #                               2, 2, nn.Conv3d, nn.InstanceNorm3d, {'eps': 1e-05, 'affine': True}, nn.Dropout3d,
-        #                               {'p': 0, 'inplace': True},
-        #                               nn.LeakyReLU, {'negative_slope': 0.01, 'inplace': True}, True, False,
-        #                               lambda x: x, InitWeights_He(1e-2),
-        #                               [[2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2], [1, 2, 2]],
-        #                               [[3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3]]
-        #                               , False, True, True)
+        # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
+        # size dictated by the plans!
         self.network = get_network_from_plans(self.plans, self.dataset_json, configuration)
+        # weight initialization. Not sure how useful this actually is.
         self.network.apply(InitWeights_He(1e-2))
-        self.plot_network_architecture()
 
         if self.regions is None:
             self.loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
@@ -141,6 +140,19 @@ class nnUNetModule(pl.LightningModule):
         finally:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+    def print_plans(self):
+        dct = deepcopy(self.plans)
+        config = dct['configurations'][self.configuration]
+        del dct['configurations']
+        self.print_to_log_file('This is the configuration used by this training:\n', config, '\n')
+        self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
+
+    def on_train_start(self) -> None:
+        self.print_plans()
+
+        # produces a pdf in output folder
+        self.plot_network_architecture()
 
     def _handle_labels(self) -> Tuple[List, Union[List, None], Union[int, None]]:
         # first we need to check if we have to run region-based training
@@ -243,14 +255,6 @@ class nnUNetModule(pl.LightningModule):
             if add_timestamp:
                 args = ("%s:" % dt_object, *args)
 
-            if self.log_file is None:
-                maybe_mkdir_p(self.output_folder)
-                timestamp = datetime.now()
-                self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
-                                     (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
-                                      timestamp.second))
-                with open(self.log_file, 'w') as f:
-                    f.write("Starting... \n")
             successful = False
             max_attempts = 5
             ctr = 0
@@ -630,6 +634,7 @@ class nnUNetModule(pl.LightningModule):
             timestamp = time()
             dt_object = datetime.fromtimestamp(timestamp)
             print(f'Timestamp: {dt_object}\n')
+            self.log('val_loss', torch.mean(losses))
 
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         print('TRAINING EPOCH DONE')
@@ -638,3 +643,4 @@ class nnUNetModule(pl.LightningModule):
         if self.trainer.is_global_zero:
             self.print_to_log_file(f'Epoch {self.current_epoch} done')
             self.print_to_log_file('train_loss', torch.mean(losses))
+

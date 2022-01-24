@@ -32,7 +32,6 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
     elif norm_op == 'batchnorm':
         norm_op = get_matching_batchnorm(conv_op)
 
-    import IPython;IPython.embed()
     # network class name!!
     model = network_class(
         input_channels=len(dataset_json["modality"]),
