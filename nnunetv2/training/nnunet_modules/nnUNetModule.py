@@ -117,6 +117,17 @@ class nnUNetModule(pl.LightningModule):
                                          'do_bg': True, 'smooth': 1e-5}, ignore_label=self.ignore_label)
         self.wrap_loss_for_deep_supervision()
 
+        # all the logging alternatives are shit. Either too complicated or doesn't to what I want them to do. Sadge
+        # yes yes I know it's not da lightning wae but who knows da wae anywae?
+        self.my_fantastic_logging = {
+            'mean_fg_dice': list(),
+            'dice_per_class_or_region': list(),
+            'train_losses': list(),
+            'val_losses': list(),
+            'lrs': list(),
+        }
+        # shut up, this logging is great
+
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
         return super().on_save_checkpoint(checkpoint)
 
@@ -613,19 +624,42 @@ class nnUNetModule(pl.LightningModule):
 
         return {'loss': l, 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
 
+    def _log_to_my_fantastic_log(self, value, key: str) -> None:
+        # because lightning is so friggin special calling validation epochs all willy nilly I gotta check that we are
+        # having the correct lengths. Duh.
+        if key not in self.my_fantastic_logging.keys():
+            if self.current_epoch == 0:
+                self.my_fantastic_logging[key] = [value]
+            else:
+                raise RuntimeError("nnUNet logging expects one value to be added to each key per epoch. This condition "
+                                   "was violated because a new key was added at an epoch that is not 0.")
+
+        if len(self.my_fantastic_logging[key]) == self.current_epoch:
+            self.my_fantastic_logging[key].append(value)
+        elif len(self.my_fantastic_logging[key]) == self.current_epoch + 1:
+            self.my_fantastic_logging[key][-1] = value
+        else:
+            raise RuntimeError('Somebody messed up this checkpoint. nnUNet logging expects one value to be added to '
+                               'each key per epoch.')
+
     def validation_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
         tps = torch.stack([i['tp_hard'] for i in outputs])
         fps = torch.stack([i['fp_hard'] for i in outputs])
         fns = torch.stack([i['fn_hard'] for i in outputs])
 
-        # if we are multi-GPU we should all gather this shit
+        # if we are multi-GPU we should all gather this
         tps = self.all_gather(tps).sum(0)
         fps = self.all_gather(fps).sum(0)
         fns = self.all_gather(fns).sum(0)
 
         dice_per_class_or_region = 2 * tps / (2 * tps + fps + fns)
         mean_fg_dice = torch.mean(dice_per_class_or_region)
+
+        # my fantastic low-tech logging
+        self._log_to_my_fantastic_log(dice_per_class_or_region, 'dice_per_class_or_region')
+        self._log_to_my_fantastic_log(torch.mean(losses), 'val_loss')
+        self._log_to_my_fantastic_log(torch.mean(mean_fg_dice), 'mean_fg_dice')
 
         if self.trainer.is_global_zero:
             self.print_to_log_file('val_loss', torch.mean(losses))
