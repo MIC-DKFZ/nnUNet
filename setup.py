@@ -22,7 +22,9 @@ setup(name='nnunet',
             "pandas",
             "requests",
             "nibabel", 'tifffile',
-            "natsort", "nilearn"
+            "natsort", "nilearn",
+            "future",
+            "matplotlib"
       ],
       entry_points={
           'console_scripts': [
