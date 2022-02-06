@@ -31,7 +31,7 @@ def plot_dice_box_plots():
             ax.set_title("{}".format(class_name))
         plt.suptitle("{}".format(task_names[i]), fontsize=16)
         # plt.show()
-        plt.savefig(base_path + "Evaluation/Results/" + task_names[i] + ".png", bbox_inches='tight')
+        plt.savefig(base_path + "Evaluation/Results/" + set + "/" + task_names[i] + ".png", bbox_inches='tight')
         plt.clf()
 
 

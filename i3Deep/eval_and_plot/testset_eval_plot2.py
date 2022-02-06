@@ -44,7 +44,7 @@ def plot_dice_box_plots():
             axs.set_title("{}".format(class_name), fontsize=16)
         # fig.set_aspect(3)
         #plt.suptitle("{}".format(task_names[i]))# , fontsize=16)
-    plt.savefig(base_path + "Evaluation/Results/results.svg", dpi=150, bbox_inches='tight')
+    plt.savefig(base_path + "Evaluation/Results/" + set + "/results.png", dpi=150, bbox_inches='tight')
     plt.clf()
 
 
@@ -59,9 +59,9 @@ if __name__ == '__main__':
         ["automatic", "my_method", "P_Net", "watershed", "GraphCut1"]
     ]  # ["automatic", "my_method", "P_Net", "watershed", "random_walker", "GraphCut1", "random1", "random2", "random3"]
     method_names = [
-        ["Preseg.", "nnU-Net", "P-Net", "Watershed", "Random\nWalker"],
-        ["Preseg.", "nnU-Net", "P-Net", "Watershed", "Random\nWalker"],
-        ["Preseg.", "nnU-Net", "P-Net", "Watershed", "Graph-Cut\n"]
+        ["Preseg.", "i3Deep", "P-Net", "Watershed", "Random\nWalker"],
+        ["Preseg.", "i3Deep", "P-Net", "Watershed", "Random\nWalker"],
+        ["Preseg.", "i3Deep", "P-Net", "Watershed", "Graph-Cut\n"]
     ]  # ["Preseg.", "nnU-Net", "P-Net", "Watershed", "Random Walker", "Graph-Cut", "RS1", "RS2", "RS3"]
     set = "test"
     # figsizes = [[8, 5], [29, 10], [12, 5]]

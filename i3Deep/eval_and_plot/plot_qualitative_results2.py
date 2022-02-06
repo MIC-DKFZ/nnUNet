@@ -28,10 +28,10 @@ def plot():
 
 
 if __name__ == '__main__':
-    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Evaluation/Results/"
+    base_path = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/Evaluation/Results/test/"
     tasks = ["Task002_BrainTumour_guided", "Task008_Pancreas_guided", "Task070_guided_all_public_ggo"]
     task_names = ["Brain Tumor", "Pancreas", "COVID-19"]
-    methods = {"automatic": "Preseg.", "gt": "Ground Truth", "my_method": "nnU-Net", "P_Net": "P-Net", "random_walker": "Random Walker", "watershed": "Watershed", "graphcut": "GraphCut"}
+    methods = {"automatic": "Preseg.", "gt": "Ground Truth", "my_method": "i3Deep", "P_Net": "P-Net", "random_walker": "Random Walker", "watershed": "Watershed", "graphcut": "GraphCut"}
     # gridspec_indices = [[slice(0, 1), slice(0, 1)], [slice(0, 1), slice(1, 2)], [slice(0, 1), slice(2, 3)], [slice(1, 2), slice(0, 1)], [slice(1, 2), slice(1, 2)], [slice(1, 2), slice(2, 3)]]
     gridspec_indices = {"gt": [slice(0, 1), slice(0, 1)],
                         "automatic": [slice(0, 1), slice(1, 2)],

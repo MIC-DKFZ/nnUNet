@@ -60,13 +60,14 @@ def test_results2csv(load_filename, save_path):
 
 if __name__ == '__main__':
     tasks = ["Task070_guided_all_public_ggo", "Task002_BrainTumour_guided", "Task008_Pancreas_guided"]
+    set = "val"
     for task in tasks:
         print("Task: ", task)
-        basepath = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_test/"
+        basepath = "/gris/gris-f/homelv/kgotkows/datasets/nnUnet_datasets/nnUNet_raw_data/nnUNet_raw_data/" + task + "/refinement_" + set + "/"
 
-        load_filename = basepath + "basic_predictions_summary.json"
-        save_filename = basepath + "eval_results/processed/"
-        basic_predictions2csv(load_filename, save_filename)
+        # load_filename = basepath + "basic_predictions_summary.json"
+        # save_filename = basepath + "eval_results/processed/"
+        # basic_predictions2csv(load_filename, save_filename)
 
         result_filenames = utils.load_filenames(basepath + "eval_results/raw/", extensions=None)
         save_filename = basepath + "eval_results/processed/"
