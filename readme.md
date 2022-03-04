@@ -39,6 +39,8 @@ Please read these documents before opening a new issue!
 
 ```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
 
+**MODEL TRAINING**
+
 7. To train use following commands. Here for each batch training should be repeated. Batch should start with Zero (0). So 0, 1, 2, 3, 4 for 5 fold cross validation
 
 **2D U-Net**
@@ -65,7 +67,9 @@ Once all models are trained, use the following command to automatically determin
 ```--strict``` option is not required as this flag has been removed from the main script.
  see ```Output_of_bestModel.txt``` file for the output of above command
  
-** 9. Run Inference**
+ **MODEL PREDICTION**
+ 
+** **9. Run Inference****
 Input folder need to be specified. Input folder will contain test images. In my case input folder path is given below:
 
 ```/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/```
