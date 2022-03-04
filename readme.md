@@ -8,6 +8,12 @@ Please read these documents before opening a new issue!
 
 ** A. nnUNet data Preparation Instructions on Biowulf**
 
+**Convert `nii` to `nii.gz`** This needs to be done on MATLAB. Follow the below instructions. 
+
+1. Open [user@biowulf ~]$ sinteractive
+2. [user@cn1234 ~]$ module load matlab
+3. [user@cn1234 ~]$ matlab
+4. gzip('*.nii') # all `nii` files belong to the folder will be converted into compress `nii.gz` file
 
 
 ** B. nnUNet Training and Inference Instructions on Biowulf:**
