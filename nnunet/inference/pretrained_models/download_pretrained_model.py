@@ -173,7 +173,7 @@ def get_available_models():
         },
         "Task082_BraTS2020": {
             'description': "Brain tumor segmentation challenge 2020 (BraTS)\n"
-                           "Segmentation targets are 0: background, 1: edema, 2: enhancing tumor, 3: necrosis\n"
+                           "Segmentation targets are 0: background, 1: edema, 2: necrosis, 3: enhancing tumor\n"
                            "Input modalities are 0: T1, 1: T1ce, 2: T2, 3: FLAIR (MRI images)\n"
                            "Also see https://www.med.upenn.edu/cbica/brats2020/",
             'url': (
