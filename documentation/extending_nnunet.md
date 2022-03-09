@@ -16,7 +16,7 @@ This section gives guidance on how to implement changes to loss function, traini
 some architecture parameters, data augmentation etc. All these parameters are part of the **nnU-Net trainer class**, 
 which we have already seen in the sections above. The default trainer class for 2D, 3D low resolution and 3D full 
 resolution U-Net is nnUNetTrainerV2, the default for the 3D full resolution U-Net from the cascade is 
-nnUNetTrainerV2CascadeFullRes. Trainer classes in nnU-Net inherit form each other, nnUNetTrainerV2CascadeFullRes for 
+nnUNetTrainerV2CascadeFullRes. Trainer classes in nnU-Net inherit from each other, nnUNetTrainerV2CascadeFullRes for 
 example has nnUNetTrainerV2 as parent class and only overrides cascade-specific code.
 
 Due to the inheritance of trainer classes, changes can be integrated into nnU-Net quite easily and with minimal effort. 
