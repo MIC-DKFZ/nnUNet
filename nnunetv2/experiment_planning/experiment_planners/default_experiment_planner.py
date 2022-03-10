@@ -22,7 +22,7 @@ from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
 class ExperimentPlanner(object):
     def __init__(self, dataset_name_or_id: Union[str, int],
                  gpu_memory_target_in_gb: float = 8,
-                 preprocessor_name: str = 'GenericPreprocessor', plans_name: str = 'nnUNetPlans',
+                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetPlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
                  suppress_transpose: bool = False):
         """
@@ -67,6 +67,11 @@ class ExperimentPlanner(object):
         self.preprocessor_name = preprocessor_name
         self.plans_name = plans_name
         self.overwrite_target_spacing = overwrite_target_spacing
+        assert overwrite_target_spacing is None or len(overwrite_target_spacing), 'if overwrite_target_spacing is ' \
+                                                                                  'used then three floats must be ' \
+                                                                                  'given (as list or tuple)'
+        assert overwrite_target_spacing is None or all([isinstance(i, float) for i in overwrite_target_spacing]), \
+            'if overwrite_target_spacing is used then three floats must be given (as list or tuple)'
 
         self.plans = None
 
@@ -212,7 +217,7 @@ class ExperimentPlanner(object):
                                     median_shape: Union[np.ndarray, Tuple[int, ...], List[int]],
                                     data_identifier: str,
                                     approximate_n_voxels_dataset: float):
-        print(spacing, median_shape, approximate_n_voxels_dataset)
+        # print(spacing, median_shape, approximate_n_voxels_dataset)
         # find an initial patch size
         # we first use the spacing to get an aspect ratio
         tmp = 1 / np.array(spacing)
@@ -249,7 +254,7 @@ class ExperimentPlanner(object):
         reference = self.UNet_reference_val_2d if len(spacing) == 2 else self.UNet_reference_val_3d
 
         while estimate > reference:
-            print(patch_size)
+            # print(patch_size)
             # patch size seems to be too large, so we need to reduce it. Reduce the axis that currently violates the
             # aspect ratio the most (that is the largest relative to median shape)
             axis_to_be_reduced = np.argsort(patch_size / median_shape[:len(spacing)])[-1]
@@ -310,7 +315,8 @@ class ExperimentPlanner(object):
             'UNet_base_num_features': self.UNet_base_num_features,
             'UNet_class_name': self.UNet_class.__name__,
             'use_mask_for_norm': mask_is_used_for_norm,
-            'data_identifier': data_identifier
+            'data_identifier': data_identifier,
+            'preprocessor_name': self.preprocessor_name,
         }
         return plan
 
@@ -367,7 +373,7 @@ class ExperimentPlanner(object):
                     lowres_spacing *= spacing_increase_factor
                 median_num_voxels = np.prod(plan_3d_fullres['spacing'] / lowres_spacing * new_median_shape_transposed,
                                             dtype=np.float64)
-                print(lowres_spacing)
+                # print(lowres_spacing)
                 plan_3d_lowres = self.get_plans_for_configuration(lowres_spacing,
                                                                   [round(i) for i in plan_3d_fullres['spacing'] /
                                                                    lowres_spacing * new_median_shape_transposed],
@@ -407,7 +413,6 @@ class ExperimentPlanner(object):
         plans = {
             'original_median_spacing_after_transp': [int(i) for i in median_spacing],
             'original_median_shape_after_transp': [int(i) for i in median_shape],
-            'preprocessor_name': self.preprocessor_name,
             'image_reader_writer': self.determine_reader_writer().__name__,
             'transpose_forward': [int(i) for i in transpose_forward],
             'transpose_backward': [int(i) for i in transpose_backward],

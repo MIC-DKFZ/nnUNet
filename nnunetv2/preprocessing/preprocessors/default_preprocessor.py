@@ -169,7 +169,7 @@ class DefaultPreprocessor(object):
                                    "first." % plans_file
 
         plans = load_json(plans_file)
-        print('Preprocessing the following configuration:')
+        print(f'Preprocessing the following configuration: {configuration_name}')
         print(plans['configurations'][configuration_name])
 
         if configuration_name not in plans['configurations'].keys():

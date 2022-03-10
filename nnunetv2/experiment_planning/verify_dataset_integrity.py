@@ -194,7 +194,9 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
 
     # check for nans
     # check all same orientation nibabel
-    print('Done. If you didn\'t see any error messages then your dataset is most likely OK!')
+    print('\n####################')
+    print('verify_dataset_integrity Done. \nIf you didn\'t see any error messages then your dataset is most likely OK!')
+    print('####################\n')
 
 
 if __name__ == "__main__":
