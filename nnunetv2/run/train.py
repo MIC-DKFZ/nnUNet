@@ -1,58 +1,82 @@
-import argparse
-from typing import Union
-
-from batchgenerators.utilities.file_and_folder_operations import join
-
 import nnunetv2
-from nnunetv2.paths import default_plans_identifier
+import pytorch_lightning as pl
+from batchgenerators.utilities.file_and_folder_operations import join
 from nnunetv2.training.nnunet_modules.nnUNetModule import nnUNetModule
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-import pytorch_lightning as pl
 
 
-def nnUNet_train(trainer_class_name: str, dataset_name_or_id: Union[int, str], plans_name: str, configuration: str,
-                 fold: int, unpack_dataset: bool = True, folder_with_segs_from_previous_stage: str = None,
-                 pretrained_weights_from_checkpoint: str = None, resume: bool = False, num_gpus: int = 1):
-    nnunet_module = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnunet_modules"), trainer_class_name, 'nnunetv2.training.nnunet_modules')
+def nnUNet_train_from_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset_name_or_id', type=str,
+                        help="Dataset name or ID to train with")
+    parser.add_argument('configuration', type=str,
+                        help="Configuration that should be trained")
+    parser.add_argument('fold', type=int,
+                        help='Fold of the 5-fold cross-validation. Should be an int between 0 and 4.')
+    parser.add_argument('-tr', type=str, required=False, default='nnUNetModule',
+                        help='[OPTIONAL] Use this flag to specify a custom trainer module. Default: nnUNetModule')
+    parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
+                        help='[OPTIONAL] Use this flag to specify a custom plans identifier. Default: nnUNetPlans')
+    parser.add_argument('-pretrained_weights', type=str, required=False, default=None,
+                        help='[OPTIONAL] path to nnU-Net checkpoint file to be used as pretrained model. Will only '
+                             'be used when actually training. Beta. Use with caution.')
+    parser.add_argument("--use_compressed", default=False, action="store_true", required=False,
+                        help="[OPTIONAL] If you set this flag the training cases will not be decompressed. Reading compressed "
+                             "data is much more CPU and (potentially) RAM intensive and should only be used if you "
+                             "know what you are doing")
+    parser.add_argument('--npz', action='store_true', required=False,
+                        help='[OPTIONAL] Save softmax predictions from final validation as npz files (in addition to predicted '
+                             'segmentations). Needed for finding the best ensemble.')
+    parser.add_argument('--continue', action='store_true', required=False,
+                        help='[OPTIONAL] Continue training from latest checkpoint')
+    parser.add_argument('--val', action='store_true', required=False,
+                        help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished.')
+    args = parser.parse_args()
+
+    # load nnunet class and do sanity checks
+    nnunet_module = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnunet_modules"),
+                                                args.tr, 'nnunetv2.training.nnunet_modules')
     if nnunet_module is None:
-        raise RuntimeError(f'Could not find requested nnunet module {trainer_class_name} in '
+        raise RuntimeError(f'Could not find requested nnunet module {args.tr} in '
                            f'nnunetv2.training.nnunet_modules ('
-                           f'{join(nnunetv2.__path__[0], "training", "nnunet_modules")})')
+                           f'{join(nnunetv2.__path__[0], "training", "nnunet_modules")}). If it is located somewhere '
+                           f'else, please move it there.')
     assert issubclass(nnunet_module, nnUNetModule), 'The requested nnunet module class must inherit from ' \
                                                     'nnUNetModule. Please also note that the __init__ must accept ' \
-                                                    'the same input aruguments (in the correct order)'
+                                                    'the same input aruguments as nnUNetModule'
 
-    nnunet_module = nnunet_module(dataset_name_or_id, plans_name, configuration, fold, unpack_dataset,
-                                  folder_with_segs_from_previous_stage)
+    # handle dataset input. If it's an ID we need to convert to int from string
+    if args.dataset_name_or_id.startswith('Dataset'):
+        dataset_name_or_id = args.dataset_name_or_id
+    else:
+        try:
+            dataset_name_or_id = int(args.dataset_name_or_id)
+        except ValueError:
+            raise ValueError(f'dataset_name_or_id must either be an integer or a valid dataset name with the pattern '
+                             f'DatasetXXX_YYY where XXX are the three(!) task ID digits. Your '
+                             f'input: {args.dataset_name_or_id}')
 
-    # Todo pretrained weights and resuming from checkpoint
+    # initialize nnunet module
+    nnunet_module = nnunet_module(dataset_name_or_id=dataset_name_or_id, plans_name=args.p, configuration=args.configuration,
+                                  fold=args.fold, unpack_dataset=not args.use_compressed)
+
+    # Todo pretrained weights and resuming from checkpoint, pretrained weights, validation, npz export, next stage predictions
     trainer = pl.Trainer(logger=True, default_root_dir=nnunet_module.output_folder,
-                         gradient_clip_val=None,
-                         gradient_clip_algorithm='norm', num_nodes=1, gpus=num_gpus, enable_progress_bar=False,
-                         sync_batchnorm=num_gpus > 1, precision=16,
+                         gradient_clip_val=12,
+                         gradient_clip_algorithm='norm', num_nodes=1, gpus=1, enable_progress_bar=False,
+                         sync_batchnorm=1 > 1, precision=16,
                          resume_from_checkpoint=None,  # TODO
-                         benchmark=True, deterministic=False, #  nnunet dataloaders are nondeterminstic regardless of what you set here!
-                         replace_sampler_ddp=False,
-                         max_epochs=nnunet_module.num_epochs, num_sanity_val_steps=0,
+                         benchmark=True,
+                         deterministic=False,  # nnunet dataloaders are nondeterminstic regardless of what you set here!
+                         replace_sampler_ddp=False,  # we use our own sampling
+                         max_epochs=nnunet_module.num_epochs,
+                         num_sanity_val_steps=0,
                          )
 
     tr_gen, val_gen = nnunet_module.get_dataloaders()
     trainer.fit(nnunet_module, tr_gen, val_gen)
 
-
-def nnUNet_train_from_args():
-
-
-    nnUNet_train(trainer_class_name='nnUNetModule',
-    dataset_name_or_id=4,
-    plans_name=default_plans_identifier,
-    configuration='3d_fullres',
-    fold=0,
-    unpack_dataset=True,
-    folder_with_segs_from_previous_stage = None,
-    pretrained_weights_from_checkpoint = None,
-    resume=False,
-    num_gpus=1)
 
 if __name__ == '__main__':
     nnUNet_train_from_args()

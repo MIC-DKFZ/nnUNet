@@ -131,6 +131,15 @@ class nnUNetModule(pl.LightningModule):
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
         return super().on_save_checkpoint(checkpoint)
 
+    def on_train_start(self) -> None:
+        self.print_plans()
+
+        # produces a pdf in output folder
+        self.plot_network_architecture()
+
+    def on_train_epoch_start(self) -> None:
+        self.print_to_log_file(f'Epoch {self.current_epoch}:')
+
     def plot_network_architecture(self):
         try:
             from batchgenerators.utilities.file_and_folder_operations import join
@@ -158,12 +167,6 @@ class nnUNetModule(pl.LightningModule):
         del dct['configurations']
         self.print_to_log_file('This is the configuration used by this training:\n', config, '\n')
         self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
-
-    def on_train_start(self) -> None:
-        self.print_plans()
-
-        # produces a pdf in output folder
-        self.plot_network_architecture()
 
     def _handle_labels(self) -> Tuple[List, Union[List, None], Union[int, None]]:
         # first we need to check if we have to run region-based training
@@ -671,7 +674,6 @@ class nnUNetModule(pl.LightningModule):
             self.log('val_loss', torch.mean(losses))
 
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
-        print('TRAINING EPOCH DONE')
         losses = torch.stack([i['loss'] for i in outputs])
         losses = self.all_gather(losses)
         if self.trainer.is_global_zero:
