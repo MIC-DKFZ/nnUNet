@@ -1,6 +1,6 @@
 import nnunetv2
 import pytorch_lightning as pl
-from batchgenerators.utilities.file_and_folder_operations import join
+from batchgenerators.utilities.file_and_folder_operations import join, isfile
 from nnunetv2.training.nnunet_modules.nnUNetModule import nnUNetModule
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 
@@ -28,7 +28,7 @@ def nnUNet_train_from_args():
     parser.add_argument('--npz', action='store_true', required=False,
                         help='[OPTIONAL] Save softmax predictions from final validation as npz files (in addition to predicted '
                              'segmentations). Needed for finding the best ensemble.')
-    parser.add_argument('--continue', action='store_true', required=False,
+    parser.add_argument('--c', action='store_true', required=False,
                         help='[OPTIONAL] Continue training from latest checkpoint')
     parser.add_argument('--val', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished.')
@@ -61,12 +61,26 @@ def nnUNet_train_from_args():
     nnunet_module = nnunet_module(dataset_name_or_id=dataset_name_or_id, plans_name=args.p, configuration=args.configuration,
                                   fold=args.fold, unpack_dataset=not args.use_compressed)
 
+    if args.c:
+        expected_checkpoint_file = join(nnunet_module.output_folder, 'checkpoint_latest.pth')
+        if not isfile(expected_checkpoint_file):
+            expected_checkpoint_file = join(nnunet_module.output_folder, 'checkpoint_best.pth')
+        # special case where --c is used to run a previously aborted validation
+        if not isfile(expected_checkpoint_file):
+            expected_checkpoint_file = join(nnunet_module.output_folder, 'checkpoint_final.pth')
+        if not isfile(expected_checkpoint_file):
+            raise RuntimeError(f"Cannot continue training because there seems to be no checkpoint available to "
+                               f"continue from. Please run without the --c flag.")
+    else:
+        expected_checkpoint_file = None
+
     # Todo pretrained weights and resuming from checkpoint, pretrained weights, validation, npz export, next stage predictions
-    trainer = pl.Trainer(logger=True, default_root_dir=nnunet_module.output_folder,
+    trainer = pl.Trainer(logger=False, default_root_dir=nnunet_module.output_folder,
+                         enable_checkpointing=False,
                          gradient_clip_val=12,
                          gradient_clip_algorithm='norm', num_nodes=1, gpus=1, enable_progress_bar=False,
                          sync_batchnorm=1 > 1, precision=16,
-                         resume_from_checkpoint=None,  # TODO
+                         resume_from_checkpoint=expected_checkpoint_file,
                          benchmark=True,
                          deterministic=False,  # nnunet dataloaders are nondeterminstic regardless of what you set here!
                          replace_sampler_ddp=False,  # we use our own sampling

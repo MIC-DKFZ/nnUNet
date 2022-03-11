@@ -1,3 +1,4 @@
+import os
 import sys
 from copy import deepcopy
 from datetime import datetime
@@ -15,6 +16,7 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from pytorch_lightning.utilities import distributed
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
 
@@ -129,6 +131,9 @@ class nnUNetModule(pl.LightningModule):
             'epoch_end_timestamps': list()
         }
         # shut up, this logging is great
+
+        self._ema_pseudo_dice = None
+        self._best_ema = None
 
     def plot_network_architecture(self):
         try:
@@ -396,16 +401,24 @@ class nnUNetModule(pl.LightningModule):
         mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
                                        max(1, allowed_num_processes // 2), 1, None, True, 0.02)
 
+        return mt_gen_train, mt_gen_val
+
+    def on_fit_start(self) -> None:
         # maybe unpack
-        if self.unpack_dataset and self.global_rank == 0:
-            unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=True,
-                           num_processes=max(1, get_allowed_n_proc_DA() // 2))
+        if self.unpack_dataset:
+            if self.global_rank == 0:
+                self.print_to_log_file('unpacking dataset...')
+                unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=True,
+                               num_processes=max(1, get_allowed_n_proc_DA() // 2))
+            else:
+                self.print_to_log_file('waiting for rank 0 to finished unpacking')
+            self.trainer.training_type_plugin.barrier("unpacking")
+            self.print_to_log_file('unpacking done...')
 
         # get the bois going
-        mt_gen_train._start()
-        mt_gen_val._start()
-
-        return mt_gen_train, mt_gen_val
+        # fuck yeah. this is definitely how this is supposed to be used lol
+        self.trainer._data_connector._train_dataloader_source.instance._start()
+        self.trainer._data_connector._val_dataloader_source.instance._start()
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
@@ -637,7 +650,14 @@ class nnUNetModule(pl.LightningModule):
                                'each key per epoch.')
 
     def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        return super().on_save_checkpoint(checkpoint)
+        checkpoint['my_log'] = self.my_fantastic_logging
+        checkpoint['ema_pseudo_dice'] = self._ema_pseudo_dice
+        checkpoint['best_ema'] = self._best_ema
+
+    def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        self.my_fantastic_logging = checkpoint['my_log']
+        self._ema_pseudo_dice = checkpoint['ema_pseudo_dice']
+        self._best_ema = checkpoint['best_ema']
 
     def on_train_start(self) -> None:
         self.print_plans()
@@ -653,11 +673,40 @@ class nnUNetModule(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         self.print_to_log_file(f'Epoch {self.current_epoch} done')
-        self._log_to_my_fantastic_log(time(), 'epoch_end_timestamps')
         self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
         self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in self.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        self._log_to_my_fantastic_log(time(), 'epoch_end_timestamps')
+
+        self.hack_lightnings_checkpointing_system()
+
         self.print_to_log_file(f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s\n")
+
+    def hack_lightnings_checkpointing_system(self):
+        # the cool kids way would be to do this via hooks and shit but man why does everything have to be so
+        # complicated? All I want is to hijack lightnings multi GPU and AMP functionality
+
+        # maybe we can write our own checkpointing hook in the future. But today is not the day
+
+        # we save a checkpoint every 50 epochs
+        if self.current_epoch + 1 % 50 == 0 and self.current_epoch != (self.num_epochs - 1):
+            # this will call on_load_checkpoint as well
+            checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
+            torch.save(checkpoint, join(self.output_folder, 'checkpoint_latest.pth'))
+        elif self.current_epoch == self.num_epochs - 1:
+            checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
+            torch.save(checkpoint, join(self.output_folder, 'checkpoint_final.pth'))
+            # delete latest checkpoint
+            os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
+
+        # exponential moving average of pseudo dice to determine 'best' model (use with caution)
+        self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
+            if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
+        if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
+            self.print_to_log_file(f"New best checkpoint! Yayy!")
+            self._best_ema = self._ema_pseudo_dice
+            checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
+            torch.save(checkpoint, join(self.output_folder, 'checkpoint_best.pth'))
 
     def validation_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
@@ -681,7 +730,6 @@ class nnUNetModule(pl.LightningModule):
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
         losses = self.all_gather(losses)
-        if self.trainer.is_global_zero:
-            train_loss = torch.mean(losses).item()
-            self._log_to_my_fantastic_log(train_loss, 'train_losses')
+        train_loss = torch.mean(losses).item()
+        self._log_to_my_fantastic_log(train_loss, 'train_losses')
 
