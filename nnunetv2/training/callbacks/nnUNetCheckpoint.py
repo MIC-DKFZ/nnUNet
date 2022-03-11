@@ -35,7 +35,7 @@ class nnUNetCheckpoint(Callback):
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         current_epoch = pl_module.current_epoch
-        if current_epoch + 1 % 50 == 0 and current_epoch != (pl_module.num_epochs - 1):
+        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (pl_module.num_epochs - 1):
             trainer.save_checkpoint(join(pl_module.output_folder, 'checkpoint_latest.pth'), False)
         elif current_epoch == pl_module.num_epochs - 1:
             trainer.save_checkpoint(join(pl_module.output_folder, 'checkpoint_final.pth'), True)
