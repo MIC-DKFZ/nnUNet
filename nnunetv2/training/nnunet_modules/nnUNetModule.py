@@ -130,18 +130,6 @@ class nnUNetModule(pl.LightningModule):
         }
         # shut up, this logging is great
 
-    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
-        return super().on_save_checkpoint(checkpoint)
-
-    def on_train_start(self) -> None:
-        self.print_plans()
-
-        # produces a pdf in output folder
-        self.plot_network_architecture()
-
-    def on_train_epoch_start(self) -> None:
-        self.print_to_log_file(f'Epoch {self.current_epoch}:')
-
     def plot_network_architecture(self):
         try:
             from batchgenerators.utilities.file_and_folder_operations import join
@@ -168,7 +156,7 @@ class nnUNetModule(pl.LightningModule):
         dct = deepcopy(self.plans)
         config = dct['configurations'][self.configuration]
         del dct['configurations']
-        self.print_to_log_file('This is the configuration used by this training:\n', config, '\n')
+        self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n', config, '\n')
         self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def _handle_labels(self) -> Tuple[List, Union[List, None], Union[int, None]]:
@@ -648,6 +636,29 @@ class nnUNetModule(pl.LightningModule):
             raise RuntimeError('Somebody messed up this checkpoint. nnUNet logging expects one value to be added to '
                                'each key per epoch.')
 
+    def on_save_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
+        return super().on_save_checkpoint(checkpoint)
+
+    def on_train_start(self) -> None:
+        self.print_plans()
+
+        # produces a pdf in output folder
+        self.plot_network_architecture()
+
+    def on_train_epoch_start(self) -> None:
+        self.print_to_log_file(f'Epoch {self.current_epoch}:')
+        self.print_to_log_file(f"Current learning rate: {np.round(self.optimizers().param_groups[0]['lr'], decimals=5)}")
+        self._log_to_my_fantastic_log(time(), 'epoch_start_timestamps')
+        self._log_to_my_fantastic_log(self.optimizers().param_groups[0]['lr'], 'lrs')
+
+    def on_train_epoch_end(self) -> None:
+        self.print_to_log_file(f'Epoch {self.current_epoch} done')
+        self._log_to_my_fantastic_log(time(), 'epoch_end_timestamps')
+        self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in self.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        self.print_to_log_file(f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s\n")
+
     def validation_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
         tps = torch.stack([i['tp_hard'] for i in outputs])
@@ -663,23 +674,14 @@ class nnUNetModule(pl.LightningModule):
         mean_fg_dice = torch.mean(dice_per_class_or_region)
 
         # my fantastic low-tech logging
-        self._log_to_my_fantastic_log(dice_per_class_or_region, 'dice_per_class_or_region')
-        self._log_to_my_fantastic_log(torch.mean(losses), 'val_loss')
-        self._log_to_my_fantastic_log(torch.mean(mean_fg_dice), 'mean_fg_dice')
-
-        if self.trainer.is_global_zero:
-            self.print_to_log_file('val_loss', torch.mean(losses))
-            self.print_to_log_file('dice_per_class_or_region', dice_per_class_or_region.cpu().numpy())
-            self.print_to_log_file('mean_fg_dice', torch.mean(mean_fg_dice))
-            timestamp = time()
-            dt_object = datetime.fromtimestamp(timestamp)
-            print(f'Timestamp: {dt_object}\n')
-            self.log('val_loss', torch.mean(losses))
+        self._log_to_my_fantastic_log(dice_per_class_or_region.cpu().numpy(), 'dice_per_class_or_region')
+        self._log_to_my_fantastic_log(torch.mean(losses).item(), 'val_losses')
+        self._log_to_my_fantastic_log(torch.mean(mean_fg_dice).item(), 'mean_fg_dice')
 
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
         losses = self.all_gather(losses)
         if self.trainer.is_global_zero:
-            self.print_to_log_file(f'Epoch {self.current_epoch} done')
-            self.print_to_log_file('train_loss', torch.mean(losses))
+            train_loss = torch.mean(losses).item()
+            self._log_to_my_fantastic_log(train_loss, 'train_losses')
 
