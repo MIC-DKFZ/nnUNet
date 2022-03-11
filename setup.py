@@ -31,6 +31,7 @@ setup(name='nnunetv2',
               'nnUNetv2_extract_fingerprint = nnunetv2.experiment_planning.plan_and_preprocess:extract_fingerprint',
               'nnUNetv2_plan_experiment = nnunetv2.experiment_planning.plan_and_preprocess:plan_experiment',
               'nnUNetv2_preprocess = nnunetv2.experiment_planning.plan_and_preprocess:preprocess',
+              'nnUNetv2_train = nnunetv2.run.train:nnUNet_train_from_args'
           ],
       },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',

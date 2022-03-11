@@ -125,6 +125,8 @@ class nnUNetModule(pl.LightningModule):
             'train_losses': list(),
             'val_losses': list(),
             'lrs': list(),
+            'epoch_start_timestamps': list(),
+            'epoch_end_timestamps': list()
         }
         # shut up, this logging is great
 
@@ -146,7 +148,8 @@ class nnUNetModule(pl.LightningModule):
             import hiddenlayer as hl
             g = hl.build_graph(self.network,
                                torch.rand((1, len(self.dataset_json["modality"]),
-                                           *self.plans['configurations'][self.configuration]['patch_size'])),
+                                           *self.plans['configurations'][self.configuration]['patch_size']),
+                                          device=self.device),
                                transforms=None)
             g.save(join(self.output_folder, "network_architecture.pdf"))
             del g
