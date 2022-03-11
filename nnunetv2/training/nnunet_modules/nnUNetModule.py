@@ -666,48 +666,10 @@ class nnUNetModule(pl.LightningModule):
         self.plot_network_architecture()
 
     def on_train_epoch_start(self) -> None:
-        self.print_to_log_file(f'Epoch {self.current_epoch}:')
+        self.print_to_log_file(f'\nEpoch {self.current_epoch}:')
         self.print_to_log_file(f"Current learning rate: {np.round(self.optimizers().param_groups[0]['lr'], decimals=5)}")
         self._log_to_my_fantastic_log(time(), 'epoch_start_timestamps')
         self._log_to_my_fantastic_log(self.optimizers().param_groups[0]['lr'], 'lrs')
-
-    def on_train_epoch_end(self) -> None:
-        self.print_to_log_file(f'Epoch {self.current_epoch} done')
-        self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
-        self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
-        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in self.my_fantastic_logging['dice_per_class_or_region'][-1]])
-        self._log_to_my_fantastic_log(time(), 'epoch_end_timestamps')
-
-        self.hack_lightnings_checkpointing_system()
-
-        self.print_to_log_file(f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s\n")
-
-    def hack_lightnings_checkpointing_system(self):
-        # the cool kids way would be to do this via hooks and shit but man why does everything have to be so
-        # complicated? All I want is to hijack lightnings multi GPU and AMP functionality
-
-        # maybe we can write our own checkpointing hook in the future. But today is not the day
-
-        if self.global_rank == 0:
-            # we save a checkpoint every 50 epochs
-            if self.current_epoch + 1 % 50 == 0 and self.current_epoch != (self.num_epochs - 1):
-                # this will call on_load_checkpoint as well
-                checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
-                torch.save(checkpoint, join(self.output_folder, 'checkpoint_latest.pth'))
-            elif self.current_epoch == self.num_epochs - 1:
-                checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
-                torch.save(checkpoint, join(self.output_folder, 'checkpoint_final.pth'))
-                # delete latest checkpoint
-                os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
-
-            # exponential moving average of pseudo dice to determine 'best' model (use with caution)
-            self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
-                if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
-            if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
-                self.print_to_log_file(f"New best checkpoint! Yayy!")
-                self._best_ema = self._ema_pseudo_dice
-                checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
-                torch.save(checkpoint, join(self.output_folder, 'checkpoint_best.pth'))
 
     def validation_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
@@ -733,4 +695,11 @@ class nnUNetModule(pl.LightningModule):
         losses = self.all_gather(losses)
         train_loss = torch.mean(losses).item()
         self._log_to_my_fantastic_log(train_loss, 'train_losses')
+        self._log_to_my_fantastic_log(time(), 'epoch_end_timestamps')
+
+        self.print_to_log_file(f'Epoch {self.current_epoch} done')
+        self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in self.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        self.print_to_log_file(f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 

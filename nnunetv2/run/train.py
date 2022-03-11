@@ -1,6 +1,9 @@
 import nnunetv2
 import pytorch_lightning as pl
 from batchgenerators.utilities.file_and_folder_operations import join, isfile
+
+from nnunetv2.training.callbacks.nnUNetCheckpoint import nnUNetCheckpoint
+from nnunetv2.training.callbacks.nnUNetPlottingCallbacks import nnUNetProgressPngCallback
 from nnunetv2.training.nnunet_modules.nnUNetModule import nnUNetModule
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 
@@ -77,9 +80,10 @@ def nnUNet_train_from_args():
     # Todo pretrained weights and resuming from checkpoint, pretrained weights, validation, npz export, next stage predictions
     trainer = pl.Trainer(logger=False, default_root_dir=nnunet_module.output_folder,
                          enable_checkpointing=False,
+                         callbacks=[nnUNetCheckpoint(), nnUNetProgressPngCallback()],
                          gradient_clip_val=12,
                          gradient_clip_algorithm='norm', num_nodes=1, gpus=1, enable_progress_bar=False,
-                         sync_batchnorm=1 > 1, precision=16,
+                         sync_batchnorm=True, precision=16,
                          resume_from_checkpoint=expected_checkpoint_file,
                          benchmark=True,
                          deterministic=False,  # nnunet dataloaders are nondeterminstic regardless of what you set here!
