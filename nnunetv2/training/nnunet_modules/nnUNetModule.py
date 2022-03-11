@@ -688,25 +688,26 @@ class nnUNetModule(pl.LightningModule):
 
         # maybe we can write our own checkpointing hook in the future. But today is not the day
 
-        # we save a checkpoint every 50 epochs
-        if self.current_epoch + 1 % 50 == 0 and self.current_epoch != (self.num_epochs - 1):
-            # this will call on_load_checkpoint as well
-            checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
-            torch.save(checkpoint, join(self.output_folder, 'checkpoint_latest.pth'))
-        elif self.current_epoch == self.num_epochs - 1:
-            checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
-            torch.save(checkpoint, join(self.output_folder, 'checkpoint_final.pth'))
-            # delete latest checkpoint
-            os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
+        if self.global_rank == 0:
+            # we save a checkpoint every 50 epochs
+            if self.current_epoch + 1 % 50 == 0 and self.current_epoch != (self.num_epochs - 1):
+                # this will call on_load_checkpoint as well
+                checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
+                torch.save(checkpoint, join(self.output_folder, 'checkpoint_latest.pth'))
+            elif self.current_epoch == self.num_epochs - 1:
+                checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
+                torch.save(checkpoint, join(self.output_folder, 'checkpoint_final.pth'))
+                # delete latest checkpoint
+                os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
 
-        # exponential moving average of pseudo dice to determine 'best' model (use with caution)
-        self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
-            if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
-        if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
-            self.print_to_log_file(f"New best checkpoint! Yayy!")
-            self._best_ema = self._ema_pseudo_dice
-            checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
-            torch.save(checkpoint, join(self.output_folder, 'checkpoint_best.pth'))
+            # exponential moving average of pseudo dice to determine 'best' model (use with caution)
+            self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
+                if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
+            if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
+                self.print_to_log_file(f"New best checkpoint! Yayy!")
+                self._best_ema = self._ema_pseudo_dice
+                checkpoint = self.trainer.checkpoint_connector.dump_checkpoint()
+                torch.save(checkpoint, join(self.output_folder, 'checkpoint_best.pth'))
 
     def validation_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         losses = torch.stack([i['loss'] for i in outputs])
