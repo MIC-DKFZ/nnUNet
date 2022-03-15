@@ -54,6 +54,7 @@ class nnUNetTrainerV2_DA5(nnUNetTrainerV2):
         proc = get_allowed_n_proc_DA()
         self.num_proc_DA = proc if proc is not None else 12
         self.num_cached = 4
+        self.regions_class_order = self.regions = None
 
     def setup_DA_params(self):
         self.deep_supervision_scales = [[1, 1, 1]] + list(list(i) for i in 1 / np.cumprod(
