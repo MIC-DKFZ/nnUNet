@@ -1,5 +1,18 @@
 # Common Issues and their Solutions
 
+- [Common Issues and their Solutions](#common-issues-and-their-solutions)
+  * [RuntimeError: Expected scalar type half but found float](#runtimeerror--expected-scalar-type-half-but-found-float)
+  * [nnU-Net gets 'stuck' during preprocessing, training or inference](#nnu-net-gets--stuck--during-preprocessing--training-or-inference)
+  * [nnU-Net training: RuntimeError: CUDA out of memory](#nnu-net-training--runtimeerror--cuda-out-of-memory)
+  * [nnU-Net training in Docker container: RuntimeError: unable to write to file </torch_781_2606105346>](#nnu-net-training-in-docker-container--runtimeerror--unable-to-write-to-file---torch-781-2606105346-)
+  * [Downloading pretrained models: unzip: cannot find zipfile directory in one of /home/isensee/.nnunetdownload_16031094034174126](#downloading-pretrained-models--unzip--cannot-find-zipfile-directory-in-one-of--home-isensee-nnunetdownload-16031094034174126)
+  * [Downloading pre-trained models: `unzip: 'unzip' is not recognized as an internal or external command` OR `Command 'unzip' not found`](#downloading-pre-trained-models---unzip---unzip--is-not-recognized-as-an-internal-or-external-command--or--command--unzip--not-found-)
+  * [nnU-Net training (2D U-Net): High (and increasing) system RAM usage, OOM](#nnu-net-training--2d-u-net---high--and-increasing--system-ram-usage--oom)
+  * [nnU-Net training of cascade: Error `seg from prev stage missing`](#nnu-net-training-of-cascade--error--seg-from-prev-stage-missing-)
+  * [nnU-Net training: `RuntimeError: CUDA error: device-side assert triggered`](#nnu-net-training---runtimeerror--cuda-error--device-side-assert-triggered-)
+  * [nnU-Net training: Error: mmap length is greater than file size and EOFError](#nnu-net-training--error--mmap-length-is-greater-than-file-size-and-eoferror)
+  * [running nnU-Net on Azure instances](#running-nnu-net-on-azure-instances)
+
 ## RuntimeError: Expected scalar type half but found float
 
 This can happen when running inference (or training) with mixed precision enabled on older GPU hardware. It points 
