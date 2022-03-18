@@ -67,7 +67,10 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
         assert isfile(segmentation_softmax), "If isinstance(segmentation_softmax, str) then " \
                                              "isfile(segmentation_softmax) must be True"
         del_file = deepcopy(segmentation_softmax)
-        segmentation_softmax = np.load(segmentation_softmax)
+        if segmentation_softmax.endswith('.npy'):
+            segmentation_softmax = np.load(segmentation_softmax)
+        elif segmentation_softmax.endswith('.npz'):
+            segmentation_softmax = np.load(segmentation_softmax)['softmax']
         os.remove(del_file)
 
     # first resample, then put result into bbox of cropping, then save
@@ -127,7 +130,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
     bbox = properties_dict.get('crop_bbox')
 
     if bbox is not None:
-        seg_old_size = np.zeros(shape_original_before_cropping)
+        seg_old_size = np.zeros(shape_original_before_cropping, dtype=np.uint8)
         for c in range(3):
             bbox[c][1] = np.min((bbox[c][0] + seg_old_spacing.shape[c], shape_original_before_cropping[c]))
         seg_old_size[bbox[0][0]:bbox[0][1],
@@ -155,7 +158,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
         sitk.WriteImage(seg_resized_itk, non_postprocessed_fname)
 
 
-def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separate_z=None, order_z=0):
+def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separate_z=None, order_z=0, verbose: bool = False):
     """
     faster and uses less ram than save_segmentation_nifti_from_softmax, but maybe less precise and also does not support
     softmax export (which is needed for ensembling). So it's a niche function that may be useful in some cases.
@@ -168,7 +171,8 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
     """
     # suppress output
     print("force_separate_z:", force_separate_z, "interpolation order:", order)
-    sys.stdout = open(os.devnull, 'w')
+    if not verbose:
+        sys.stdout = open(os.devnull, 'w')
 
     if isinstance(segmentation, str):
         assert isfile(segmentation), "If isinstance(segmentation_softmax, str) then " \
@@ -230,4 +234,5 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
     seg_resized_itk.SetDirection(dct['itk_direction'])
     sitk.WriteImage(seg_resized_itk, out_fname)
 
-    sys.stdout = sys.__stdout__
+    if not verbose:
+        sys.stdout = sys.__stdout__
