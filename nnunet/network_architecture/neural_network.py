@@ -321,6 +321,7 @@ class SegmentationNetwork(NeuralNetwork):
 
                 self._gaussian_3d = gaussian_importance_map
                 self._patch_size_for_gaussian_3d = patch_size
+                if verbose: print("done")
             else:
                 if verbose: print("using precomputed Gaussian")
                 gaussian_importance_map = self._gaussian_3d
@@ -357,11 +358,11 @@ class SegmentationNetwork(NeuralNetwork):
 
             if verbose: print("moving data to GPU")
             data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
-            
+
             if verbose: print("initializing result_numsamples (on GPU)")
             aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
                                                        device=self.get_device())
-            
+
         else:
             if use_gaussian and num_tiles > 1:
                 add_for_nb_of_preds = self._gaussian_3d
@@ -400,15 +401,16 @@ class SegmentationNetwork(NeuralNetwork):
         aggregated_nb_of_predictions = aggregated_nb_of_predictions[slicer]
 
         # computing the class_probabilities by dividing the aggregated result with result_numsamples
-        class_probabilities = aggregated_results / aggregated_nb_of_predictions
+        aggregated_results /= aggregated_nb_of_predictions
+        del aggregated_nb_of_predictions
 
         if regions_class_order is None:
-            predicted_segmentation = class_probabilities.argmax(0)
+            predicted_segmentation = aggregated_results.argmax(0)
         else:
             if all_in_gpu:
-                class_probabilities_here = class_probabilities.detach().cpu().numpy()
+                class_probabilities_here = aggregated_results.detach().cpu().numpy()
             else:
-                class_probabilities_here = class_probabilities
+                class_probabilities_here = aggregated_results
             predicted_segmentation = np.zeros(class_probabilities_here.shape[1:], dtype=np.float32)
             for i, c in enumerate(regions_class_order):
                 predicted_segmentation[class_probabilities_here[i] > 0.5] = c
@@ -419,10 +421,10 @@ class SegmentationNetwork(NeuralNetwork):
             if regions_class_order is None:
                 predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
 
-            class_probabilities = class_probabilities.detach().cpu().numpy()
+            aggregated_results = aggregated_results.detach().cpu().numpy()
 
         if verbose: print("prediction done")
-        return predicted_segmentation, class_probabilities
+        return predicted_segmentation, aggregated_results
 
     def _internal_predict_2D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1, 2), regions_class_order: tuple = None,
@@ -569,7 +571,7 @@ class SegmentationNetwork(NeuralNetwork):
         # if cuda available:
         #   everything in here takes place on the GPU. If x and mult are not yet on GPU this will be taken care of here
         #   we now return a cuda tensor! Not numpy array!
-        
+
         assert len(x.shape) == 4, 'x must be (b, c, x, y)'
 
         x = maybe_to_torch(x)
