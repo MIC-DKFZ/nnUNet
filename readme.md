@@ -39,7 +39,7 @@ Please read these documents before opening a new issue!
 
 ```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
 
-** B. DATSET PREPARATION on SegTHOR data**
+**B. DATSET PREPARATION on SegTHOR data**
 
 1. Create three EMPTY folders with names "nnUNet_raw_data_base", "nnUNet_preprocessed" and "nnUNet_trained_models". Follow ```4. Set Paths``` and ```6.```
 
