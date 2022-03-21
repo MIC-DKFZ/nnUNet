@@ -45,6 +45,7 @@ Please read these documents before opening a new issue!
 
 2. Run the script ```Task055_SegTHOR.py``` located at the ```https://github.com/monjoybme/nnUNet/blob/dev/nnunet/dataset_conversion/Task055_SegTHOR.py```. You just need to set the location of your raw data. 
 
+3. run ```nnUNet_plan_and_preprocess -t 055 --verify_dataset_integrity```
 
 
 **MODEL TRAINING**
