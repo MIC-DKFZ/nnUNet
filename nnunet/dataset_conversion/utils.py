@@ -17,6 +17,7 @@
 from typing import Tuple
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 
 def get_identifiers_from_splitted_files(folder: str):

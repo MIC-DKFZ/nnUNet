@@ -15,6 +15,7 @@
 import os
 import shutil
 from batchgenerators.utilities.file_and_folder_operations import subdirs, subfiles
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 
 def crawl_and_copy(current_folder, out_folder, prefix="fabian_", suffix="ummary.json"):
@@ -31,13 +32,13 @@ def crawl_and_copy(current_folder, out_folder, prefix="fabian_", suffix="ummary.
     f = [i for i in f if i.endswith(suffix)]
     if current_folder.find("fold0") != -1:
         for fl in f:
-            shutil.copy(os.path.join(current_folder, fl), os.path.join(out_folder, prefix+fl))
+            shutil.copy(join(current_folder, fl), join(out_folder, prefix+fl)) # Fix worng output path name issue.
     for su in s:
         if prefix == "":
             add = su
         else:
             add = "__" + su
-        crawl_and_copy(os.path.join(current_folder, su), out_folder, prefix=prefix+add)
+        crawl_and_copy(join(current_folder, su), out_folder, prefix=prefix+add) # Fix worng output path name issue.
 
 
 if __name__ == "__main__":

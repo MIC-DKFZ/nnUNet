@@ -23,6 +23,7 @@ import matplotlib
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from torch import nn
 from torch.optim import lr_scheduler
 
@@ -40,6 +41,7 @@ from nnunet.training.dataloading.dataset_loading import load_dataset, DataLoader
 from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from nnunet.training.network_training.network_trainer import NetworkTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
+from nnunet.utilities.af_identity import identity_helper # Python 3 unable to pickle lambda.
 from nnunet.utilities.tensor_utilities import sum_tensor
 
 matplotlib.use("agg")
@@ -255,7 +257,7 @@ class nnUNetTrainer(NetworkTrainer):
         self.network = Generic_UNet(self.num_input_channels, self.base_num_features, self.num_classes, net_numpool,
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
                                     dropout_op_kwargs,
-                                    net_nonlin, net_nonlin_kwargs, False, False, lambda x: x, InitWeights_He(1e-2),
+                                    net_nonlin, net_nonlin_kwargs, False, False, identity_helper, InitWeights_He(1e-2), # Python 3 unable to pickle lambda.
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.inference_apply_nonlin = softmax_helper
 
@@ -273,7 +275,8 @@ class nnUNetTrainer(NetworkTrainer):
 
     def plot_network_architecture(self):
         try:
-            from batchgenerators.utilities.file_and_folder_operations import join
+            #from batchgenerators.utilities.file_and_folder_operations import join
+            from nnunet.utilities.file_and_folder_operations_winos import join # Join path by slash on windows system.
             import hiddenlayer as hl
             if torch.cuda.is_available():
                 g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)).cuda(),

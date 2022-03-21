@@ -18,7 +18,8 @@ import torch
 
 from nnunet.inference.predict import predict_from_folder
 from nnunet.paths import default_plans_identifier, network_training_output_dir, default_cascade_trainer, default_trainer
-from batchgenerators.utilities.file_and_folder_operations import join, isdir
+from batchgenerators.utilities.file_and_folder_operations import isdir #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 
 

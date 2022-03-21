@@ -22,6 +22,7 @@ from skimage.transform import resize
 from scipy.ndimage.interpolation import map_coordinates
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from multiprocessing.pool import Pool
 
 
@@ -216,10 +217,10 @@ class GenericPreprocessor(object):
 
     @staticmethod
     def load_cropped(cropped_output_dir, case_identifier):
-        all_data = np.load(os.path.join(cropped_output_dir, "%s.npz" % case_identifier))['data']
+        all_data = np.load(join(cropped_output_dir, "%s.npz" % case_identifier))['data'] # Fix worng output path name issue.
         data = all_data[:-1].astype(np.float32)
         seg = all_data[-1:]
-        with open(os.path.join(cropped_output_dir, "%s.pkl" % case_identifier), 'rb') as f:
+        with open(join(cropped_output_dir, "%s.pkl" % case_identifier), 'rb') as f: # Fix worng output path name issue.
             properties = pickle.load(f)
         return data, seg, properties
 
@@ -352,10 +353,10 @@ class GenericPreprocessor(object):
             print(c, target_num_samples)
         properties['class_locations'] = class_locs
 
-        print("saving: ", os.path.join(output_folder_stage, "%s.npz" % case_identifier))
-        np.savez_compressed(os.path.join(output_folder_stage, "%s.npz" % case_identifier),
+        print("saving: ", join(output_folder_stage, "%s.npz" % case_identifier)) # Fix worng output path name issue.
+        np.savez_compressed(join(output_folder_stage, "%s.npz" % case_identifier), # Fix worng output path name issue.
                             data=all_data.astype(np.float32))
-        with open(os.path.join(output_folder_stage, "%s.pkl" % case_identifier), 'wb') as f:
+        with open(join(output_folder_stage, "%s.pkl" % case_identifier), 'wb') as f: # Fix worng output path name issue.
             pickle.dump(properties, f)
 
     def run(self, target_spacings, input_folder_with_cropped_npz, output_folder, data_identifier,
@@ -386,7 +387,7 @@ class GenericPreprocessor(object):
 
         for i in range(num_stages):
             all_args = []
-            output_folder_stage = os.path.join(output_folder, data_identifier + "_stage%d" % i)
+            output_folder_stage = join(output_folder, data_identifier + "_stage%d" % i) # Fix worng output path name issue.
             maybe_mkdir_p(output_folder_stage)
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):
@@ -608,7 +609,7 @@ class PreprocessorFor2D(GenericPreprocessor):
         all_classes = load_pickle(join(input_folder_with_cropped_npz, 'dataset_properties.pkl'))['all_classes']
 
         for i in range(num_stages):
-            output_folder_stage = os.path.join(output_folder, data_identifier + "_stage%d" % i)
+            output_folder_stage = join(output_folder, data_identifier + "_stage%d" % i) # Fix worng output path name issue.
             maybe_mkdir_p(output_folder_stage)
             spacing = target_spacings[i]
             for j, case in enumerate(list_of_cropped_npz_files):

@@ -17,6 +17,7 @@ import zipfile
 from multiprocessing.pool import Pool
 
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import shutil
 from nnunet.paths import default_cascade_trainer, default_plans_identifier, default_trainer, network_training_output_dir
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name

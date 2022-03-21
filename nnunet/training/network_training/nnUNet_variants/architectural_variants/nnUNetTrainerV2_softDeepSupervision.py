@@ -13,7 +13,8 @@
 #    limitations under the License.
 
 
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 
 try:

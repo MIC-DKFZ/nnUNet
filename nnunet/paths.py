@@ -13,7 +13,8 @@
 #    limitations under the License.
 
 import os
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 # do not modify these unless you know what you are doing
 my_output_identifier = "nnUNet"

@@ -18,6 +18,7 @@ import shutil
 import nnunet
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_pickle, subfiles
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from multiprocessing.pool import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props

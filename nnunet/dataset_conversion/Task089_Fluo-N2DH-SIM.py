@@ -18,6 +18,7 @@ from multiprocessing import Pool
 import SimpleITK as sitk
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from skimage.io import imread
 from skimage.io import imsave
 from skimage.morphology import disk

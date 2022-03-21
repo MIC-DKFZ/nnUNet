@@ -14,6 +14,7 @@
 
 from nnunet.experiment_planning.utils import split_4d, crop, analyze_dataset, plan_and_preprocess
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.paths import nnUNet_raw_data
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ from time import sleep
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from torch import nn
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -34,7 +35,7 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.network_training.nnUNetTrainerV2_DDP import nnUNetTrainerV2_DDP
 from nnunet.utilities.distributed import awesome_allgather_function
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
-
+from nnunet.utilities.af_identity import identity_helper # Python 3 unable to pickle lambda.
 
 class nnUNetTrainerV2BraTSRegions_BN(nnUNetTrainerV2):
     def initialize_network(self):
@@ -56,7 +57,7 @@ class nnUNetTrainerV2BraTSRegions_BN(nnUNetTrainerV2):
                                     len(self.net_num_pool_op_kernel_sizes),
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
                                     dropout_op_kwargs,
-                                    net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
+                                    net_nonlin, net_nonlin_kwargs, True, False, identity_helper, InitWeights_He(1e-2), # Python 3 unable to pickle lambda.
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         if torch.cuda.is_available():
             self.network.cuda()

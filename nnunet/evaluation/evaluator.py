@@ -23,7 +23,8 @@ import numpy as np
 import pandas as pd
 import SimpleITK as sitk
 from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
-from batchgenerators.utilities.file_and_folder_operations import save_json, subfiles, join
+from batchgenerators.utilities.file_and_folder_operations import save_json, subfiles #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from collections import OrderedDict
 
 

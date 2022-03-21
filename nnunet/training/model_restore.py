@@ -15,6 +15,8 @@
 import nnunet
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
+import posixpath # convert path by slash on windows system.
 import importlib
 import pkgutil
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
@@ -133,6 +135,7 @@ def load_model_and_checkpoint_files(folder, folds=None, mixed_precision=None, ch
     elif folds is None:
         print("folds is None so we will automatically look for output folders (not using \'all\'!)")
         folds = subfolders(folder, prefix="fold")
+        folds = [i.replace(os.sep, posixpath.sep) for i in folds] # Fix worng output path name issue.
         print("found the following folds: ", folds)
     else:
         raise ValueError("Unknown value for folds. Type: %s. Expected: list of int, int, str or None", str(type(folds)))

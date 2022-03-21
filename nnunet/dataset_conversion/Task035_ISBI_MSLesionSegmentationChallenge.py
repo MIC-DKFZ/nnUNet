@@ -18,6 +18,7 @@ import numpy as np
 import SimpleITK as sitk
 import multiprocessing
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 
 def convert_to_nii_gz(filename):

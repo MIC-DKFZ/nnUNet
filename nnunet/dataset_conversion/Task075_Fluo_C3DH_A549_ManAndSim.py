@@ -16,6 +16,7 @@ from multiprocessing import Pool
 import SimpleITK as sitk
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.paths import nnUNet_raw_data
 from nnunet.paths import preprocessing_output_dir
 from skimage.io import imread

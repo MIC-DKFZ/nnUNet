@@ -17,8 +17,8 @@ from copy import deepcopy
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 import SimpleITK as sitk
 import shutil
-from batchgenerators.utilities.file_and_folder_operations import join
-
+#from batchgenerators.utilities.file_and_folder_operations import join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 def split_4d_nifti(filename, output_folder):
     img_itk = sitk.ReadImage(filename)

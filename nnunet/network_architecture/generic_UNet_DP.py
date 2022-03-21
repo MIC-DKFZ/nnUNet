@@ -19,6 +19,7 @@ from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.loss_functions.dice_loss import get_tp_fp_fn_tn
 from nnunet.utilities.nd_softmax import softmax_helper
+from nnunet.utilities.af_identity import identity_helper # Python 3 unable to pickle lambda.
 from nnunet.utilities.tensor_utilities import sum_tensor
 from torch import nn
 
@@ -52,7 +53,7 @@ class Generic_UNet_DP(Generic_UNet):
                                               norm_op, norm_op_kwargs,
                                               dropout_op, dropout_op_kwargs,
                                               nonlin, nonlin_kwargs, deep_supervision, dropout_in_localization,
-                                              lambda x: x, weightInitializer, pool_op_kernel_sizes,
+                                              identity_helper, weightInitializer, pool_op_kernel_sizes, # Python 3 unable to pickle lambda.
                                               conv_kernel_sizes,
                                               upscale_logits, convolutional_pooling, convolutional_upsampling,
                                               max_num_features)

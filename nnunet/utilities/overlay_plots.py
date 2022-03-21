@@ -17,6 +17,7 @@ import numpy as np
 import SimpleITK as sitk
 from nnunet.utilities.task_name_id_conversion import convert_task_name_to_id, convert_id_to_task_name
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.paths import *
 
 color_cycle = (

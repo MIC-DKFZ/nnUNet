@@ -14,7 +14,8 @@
 
 
 import matplotlib
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.data_augmentation_noDA import get_no_augmentation
 from nnunet.training.dataloading.dataset_loading import unpack_dataset, DataLoader3D, DataLoader2D

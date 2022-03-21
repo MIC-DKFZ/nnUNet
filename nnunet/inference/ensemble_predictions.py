@@ -18,6 +18,7 @@ from copy import deepcopy
 
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import numpy as np
 from multiprocessing import Pool
 from nnunet.postprocessing.connected_components import apply_postprocessing_to_folder, load_postprocessing

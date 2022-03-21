@@ -22,8 +22,9 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.distributed as dist
-from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, join, subfiles, isfile, load_pickle, \
-    save_json
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p, subfiles, isfile, load_pickle, \
+    save_json #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax

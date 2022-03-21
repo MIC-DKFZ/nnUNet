@@ -4,6 +4,7 @@ from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.training.network_training.nnUNet_variants.data_augmentation.nnUNetTrainerV2_insaneDA import \
     nnUNetTrainerV2_insaneDA
 from nnunet.utilities.nd_softmax import softmax_helper
+from nnunet.utilities.af_identity import identity_helper # Python 3 unable to pickle lambda.
 from torch import nn
 
 
@@ -47,7 +48,7 @@ class nnUNetTrainerV2_MMS(nnUNetTrainerV2_insaneDA):
                                     len(self.net_num_pool_op_kernel_sizes),
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
                                     dropout_op_kwargs,
-                                    net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
+                                    net_nonlin, net_nonlin_kwargs, True, False, identity_helper, InitWeights_He(1e-2), # Python 3 unable to pickle lambda.
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         if torch.cuda.is_available():
             self.network.cuda()

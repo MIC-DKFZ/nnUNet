@@ -12,12 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import torch
-from torch import nn
-import torch.nn.functional as F
 import sys
 
 if sys.version_info.major >= 3: # Python 3 unable to pickle lambda.
-    def softmax_helper(x): return F.softmax(x, 1)
+    def identity_helper(x): return x
 else:
-    softmax_helper = lambda x: F.softmax(x, 1)
+    identity_helper = lambda x: x

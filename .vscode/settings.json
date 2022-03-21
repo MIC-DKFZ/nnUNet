@@ -1,0 +1,21 @@
+{
+    "window.zoomLevel": 2,
+    "files.autoSave": "afterDelay",
+    "editor.formatOnSave": true,
+    "security.workspace.trust.untrustedFiles": "open",
+    "terminal.integrated.env.windows": {
+        "OMP_NUM_THREADS": "1",
+        "PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:32",
+        "PYTORCH_NO_CUDA_MEMORY_CACHING": "1",
+        "nnUNet_raw_data_base": "D:/DL_Dataset/nnUNet_Dataset/nnUNet_raw_data_base",
+        "nnUNet_preprocessed": "D:/DL_Dataset/nnUNet_Dataset/nnUNet_preprocessed",
+        "RESULTS_FOLDER": "D:/DL_Dataset/nnUNet_Dataset/nnUNet_trained_models",
+        "nnUNet_def_n_proc": "8",
+        "nnUNet_n_proc_DA": "12",
+        //"CUDA_VISIBLE_DEVICES": "0"
+    },
+    "workbench.editor.wrapTabs": true,
+    "settingsSync.ignoredSettings": [
+        "workbench.editor.wrapTabs"
+    ]
+}

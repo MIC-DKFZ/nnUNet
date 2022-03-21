@@ -29,11 +29,13 @@ from nnunet.training.data_augmentation.default_data_augmentation import default_
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
+from nnunet.utilities.af_identity import identity_helper # Python 3 unable to pickle lambda.
 from sklearn.model_selection import KFold
 from torch import nn
 from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 
 class nnUNetTrainerV2(nnUNetTrainer):
@@ -155,7 +157,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
                                     len(self.net_num_pool_op_kernel_sizes),
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
                                     dropout_op_kwargs,
-                                    net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
+                                    net_nonlin, net_nonlin_kwargs, True, False, identity_helper, InitWeights_He(1e-2), # Python 3 unable to pickle lambda.
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         if torch.cuda.is_available():
             self.network.cuda()

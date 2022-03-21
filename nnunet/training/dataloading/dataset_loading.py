@@ -21,6 +21,7 @@ from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 
 def get_case_identifiers(folder):

@@ -15,6 +15,7 @@
 from nnunet.evaluation.model_selection.summarize_results_in_one_json import summarize2
 from nnunet.paths import network_training_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 if __name__ == "__main__":
     summary_output_folder = join(network_training_output_dir, "summary_jsons_fold0_new")

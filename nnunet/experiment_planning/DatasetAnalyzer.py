@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from multiprocessing import Pool
 
 from nnunet.configuration import default_num_threads
