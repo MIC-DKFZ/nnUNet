@@ -39,11 +39,11 @@ Please read these documents before opening a new issue!
 
 ```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
 
-**DATSET PREPARATION on SegTHOR data**
+** B. DATSET PREPARATION on SegTHOR data**
 
-0 Create three EMPTY folders with names "nnUNet_raw_data_base", "nnUNet_preprocessed" and "nnUNet_trained_models". Follow ```4. Set Paths``` and ```6.```
+1. Create three EMPTY folders with names "nnUNet_raw_data_base", "nnUNet_preprocessed" and "nnUNet_trained_models". Follow ```4. Set Paths``` and ```6.```
 
-1. Run the script ```Task055_SegTHOR.py``` located at the ```https://github.com/monjoybme/nnUNet/blob/dev/nnunet/dataset_conversion/Task055_SegTHOR.py```. You just need to set the location of your raw data. 
+2. Run the script ```Task055_SegTHOR.py``` located at the ```https://github.com/monjoybme/nnUNet/blob/dev/nnunet/dataset_conversion/Task055_SegTHOR.py```. You just need to set the location of your raw data. 
 
 
 
