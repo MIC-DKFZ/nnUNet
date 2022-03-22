@@ -1,12 +1,49 @@
-**[2020_10_21] Update:** We now have documentation for [common questions](documentation/common_questions.md) and
-[common issues](documentation/common_problems_and_solutions.md). We now also provide [reference epoch times for 
-several datasets and tips on how to identify bottlenecks](documentation/expected_epoch_times.md).
+**################## Monjoy's System START ##################**
 
-Please read these documents before opening a new issue!
+====================================================================================================
 
-**################## Monjoy's System START #######**
+**A. Prepare Biowulf terminal/SBATCH for training/testing/inference of ```nnUNet```**
+====================================================================================================
+1. Open Biowulf
+2. Go to the folder where ```nnUnet``` file is saved. For example, "/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/". "nnUNet" is the main file. Copy that file to new location if working on a ```NEW DATASET```. Required only for training on new dataset. 
+3. Activate Conda using the following commands in the terminal
 
-** A. nnUNet data Preparation Instructions on Biowulf**
+```source /data/saham2/conda/etc/profile.d/conda.sh```
+
+```conda activate project2```
+
+4. Set paths:
+
+```export nnUNet_raw_data_base="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/"``` [Path will change]
+
+```export nnUNet_preprocessed="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_preprocessed/"``` [Path will change]
+
+```export RESULTS_FOLDER="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/"``` [Path will change]
+
+5. libstdc++.so.6: version `CXXABI_1.3.9' not found. This problem can be solved by setting conda llib path like below. Type below code on the same terminal.
+
+```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [Fixed path no changes are required]  [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
+
+N.B.: Follow instructions from this paper https://github.com/MIC-DKFZ/nnUNet/blob/master/readme.md#run-inference
+
+=========================================================================================
+
+**B. Start TRAINING on SegTHOR data. Step by step process on Biowulf**
+
+=========================================================================================
+
+1. **First**, copy ```/data/saham2/Esophagus_Segmentation/nnUNet_modifiedSgThor_Data_21March2022/nnUNet/``` in a new dictory. As I don't want to diturb the existing folder. 
+
+2. **B. DATSET PREPARATION on SegTHOR data**
+
+a. Create three EMPTY folders with names "**nnUNet_raw_data_base**", "**nnUNet_preprocessed**" and "**nnUNet_trained_models**". This folders should be at the same place where ```nnUNet``` folder (pasted before) is situated.  
+
+b. Run the script ```Task055_SegTHOR.py``` located at the ```https://github.com/monjoybme/nnUNet/blob/dev/nnunet/dataset_conversion/Task055_SegTHOR.py```. You just need to set the location of your raw data. Script only applicable for SegTHOR data. Change the script littlebit for other dataset. 
+
+c. run ```nnUNet_plan_and_preprocess -t 055 --verify_dataset_integrity``` on the Biowulf terminal
+
+
+** Additional Instructions for data preparation**
 
 **Convert `nii` to `nii.gz`** This needs to be done on MATLAB. Follow the below instructions. 
 
@@ -16,41 +53,10 @@ Please read these documents before opening a new issue!
 4. gzip('*.nii') # all `nii` files belong to the folder will be converted into compress `nii.gz` file
 
 
-** B. nnUNet Training and Inference Instructions on Biowulf:**
 
-1. Open Biowulf
-2. Go to folder "/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/". "nnUNet" is the main file. 
-3. Activate Conda using the following commands in the terminal
+3. **MODEL TRAINING**
 
-```source /data/saham2/conda/etc/profile.d/conda.sh```
-
-```conda activate project2```
-
-4. Set paths:
-
-```export nnUNet_raw_data_base="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/"```
-
-```export nnUNet_preprocessed="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_preprocessed/"```
-
-```export RESULTS_FOLDER="/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_trained_models/"```
-
-5. Follow instructions from this paper https://github.com/MIC-DKFZ/nnUNet/blob/master/readme.md#run-inference
-6. libstdc++.so.6: version `CXXABI_1.3.9' not found. This problem can be solved by setting conda llib path like below. Type below code on the same terminal.
-
-```export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/data/saham2/conda/lib``` [source: https://github.com/AllenDowney/ThinkStats2/issues/92].  
-
-**B. DATSET PREPARATION on SegTHOR data**
-
-1. Create three EMPTY folders with names "nnUNet_raw_data_base", "nnUNet_preprocessed" and "nnUNet_trained_models". Follow ```4. Set Paths``` and ```6.```
-
-2. Run the script ```Task055_SegTHOR.py``` located at the ```https://github.com/monjoybme/nnUNet/blob/dev/nnunet/dataset_conversion/Task055_SegTHOR.py```. You just need to set the location of your raw data. 
-
-3. run ```nnUNet_plan_and_preprocess -t 055 --verify_dataset_integrity```
-
-
-**MODEL TRAINING**
-
-7. To train use following commands. Here for each batch training should be repeated. Batch should start with Zero (0). So 0, 1, 2, 3, 4 for 5 fold cross validation
+To train use following commands. Here for each batch training should be repeated. **Batch should start with Zero (0)**. So 0, 1, 2, 3, 4 for 5 fold cross validation
 
 **2D U-Net**
 
@@ -67,7 +73,7 @@ Please read these documents before opening a new issue!
 ```nnUNet_train 3d_lowres nnUNetTrainerV2 Task055_SegTHOR 0 --npz ```
 
 
-**8. **Identifying the best U-Net configuration****
+**4. **Identifying the best U-Net configuration****
 
 Once all models are trained, use the following command to automatically determine what U-Net configuration(s) to use for test set prediction:
 
@@ -76,9 +82,9 @@ Once all models are trained, use the following command to automatically determin
 ```--strict``` option is not required as this flag has been removed from the main script.
  see ```Output_of_bestModel.txt``` file for the output of above command
  
- **MODEL PREDICTION**
+ 5. **MODEL PREDICTION**
  
-** **9. Run Inference****
+** ** Run Inference****
 Input folder need to be specified. Input folder will contain test images. In my case input folder path is given below:
 
 ```/data/saham2/Esophagus_Segmentation/nnU-Net_6jan2022/nnUNet_raw_data_base/nnUNet_raw_data/Task055_SegTHOR/imagesTs/```
@@ -98,6 +104,11 @@ Input folder need to be specified. Input folder will contain test images. In my 
 
 **################## Monjoy's System END #######**
 
+**[2020_10_21] Update:** We now have documentation for [common questions](documentation/common_questions.md) and
+[common issues](documentation/common_problems_and_solutions.md). We now also provide [reference epoch times for 
+several datasets and tips on how to identify bottlenecks](documentation/expected_epoch_times.md).
+
+Please read these documents before opening a new issue!
 
 
 # nnU-Net
