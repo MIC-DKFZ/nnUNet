@@ -477,7 +477,7 @@ def nnunet_evaluate_folder():
                                                                        "liver, 2: tumor. So this argument "
                                                                        "should be -l 1 2. You can if you want also "
                                                                        "evaluate the background label (0) but in "
-                                                                       "this case that would not gie any useful "
+                                                                       "this case that would not give any useful "
                                                                        "information.")
     args = parser.parse_args()
     return evaluate_folder(args.ref, args.pred, args.l)
