@@ -36,6 +36,7 @@ def preprocess_dataset(dataset_load_path, dataset_save_path, pool):
 
 
 def preprocess_csv(ribfrac_train_info_1_path, ribfrac_train_info_2_path, ribfrac_val_info_path):
+    print("Processing csv...")
     meta_data = defaultdict(list)
     for csv_path in [ribfrac_train_info_1_path, ribfrac_train_info_2_path, ribfrac_val_info_path]:
         df = pd.read_csv(csv_path)
@@ -44,11 +45,14 @@ def preprocess_csv(ribfrac_train_info_1_path, ribfrac_train_info_2_path, ribfrac
             instance = row["label_id"]
             class_label = row["label_code"]
             meta_data[name].append({"instance": instance, "class_label": class_label})
+    print("Finished csv processing.")
     return meta_data
 
 
 def preprocess_train(image_path, mask_path, meta_data, save_path, pool):
+    print("Processing train data...")
     pool.map(partial(preprocess_train_single, image_path=image_path, mask_path=mask_path, meta_data=meta_data, save_path=save_path), meta_data.keys())
+    print("Finished processing train data.")
 
 
 def preprocess_train_single(name, image_path, mask_path, meta_data, save_path):
@@ -57,17 +61,21 @@ def preprocess_train_single(name, image_path, mask_path, meta_data, save_path):
     instance_seg_mask, spacing, _, _ = load_image(join(mask_path, name + "-label.nii.gz"), return_meta=True, is_seg=True)
     semantic_seg_mask = np.zeros_like(instance_seg_mask, dtype=int)
     for entry in meta_data[name]:
-        semantic_seg_mask[instance_seg_mask == entry["instance"]] = entry["class_label"]
-    semantic_seg_mask[semantic_seg_mask == -1] = 5  # Set ignore label to 5
+        class_label = entry["class_label"]
+        if class_label > 0:
+            class_label = 1
+        semantic_seg_mask[instance_seg_mask == entry["instance"]] = class_label
     save_image(join(save_path, "imagesTr/RibFrac_" + str(id).zfill(4) + "_0000.nii.gz"), image, spacing=spacing, is_seg=False)
     save_image(join(save_path, "labelsTr/RibFrac_" + str(id).zfill(4) + ".nii.gz"), semantic_seg_mask, spacing=spacing, is_seg=True)
 
 
 def preprocess_test(load_test_image_dir, save_path):
+    print("Processing test data...")
     filenames = load_filenames(load_test_image_dir)
     for filename in tqdm(filenames):
         id = int(os.path.basename(filename)[8:-13])
         copyfile(filename, join(save_path, "imagesTs/RibFrac_" + str(id).zfill(4) + "_0000.nii.gz"))
+    print("Finished processing test data.")
 
 
 def load_filenames(img_dir, extensions=None):
@@ -153,8 +161,8 @@ if __name__ == "__main__":
 
     pool = mp.Pool(processes=20)
 
-    dataset_load_path = "/home/k539i/Documents/datasets/original/RibFrac/"
-    dataset_save_path = "/home/k539i/Documents/datasets/preprocessed/Task154_RibFrac/"
+    dataset_load_path = "/home/k539i/Documents/network_drives/E132-Projekte/Projects/2021_Gotkowski_RibFrac_RibSeg/original/RibFrac/"
+    dataset_save_path = "/home/k539i/Documents/network_drives/E132-Projekte/Projects/2021_Gotkowski_RibFrac_RibSeg/preprocessed/Task155_RibFrac_binary/"
     preprocess_dataset(dataset_load_path, dataset_save_path, pool)
 
     print("Still saving images in background...")
@@ -162,5 +170,5 @@ if __name__ == "__main__":
     pool.join()
     print("All tasks finished.")
 
-    labels = {0: "background", 1: "displaced_rib_fracture", 2: "non_displaced_rib_fracture", 3: "buckle_rib_fracture", 4: "segmental_rib_fracture", 5: "unidentified_rib_fracture"}
-    generate_dataset_json(join(dataset_save_path, 'dataset.json'), join(dataset_save_path, "imagesTr"), None, ('CT',), labels, "Task154_RibFrac")
+    labels = {0: "background", 1: "fracture"}
+    generate_dataset_json(join(dataset_save_path, 'dataset.json'), join(dataset_save_path, "imagesTr"), None, ('CT',), labels, "Task155_RibFrac_binary")

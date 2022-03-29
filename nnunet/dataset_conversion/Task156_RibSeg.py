@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     ribfrac_load_path = "/home/k539i/Documents/datasets/original/RibFrac/"
     ribseg_load_path = "/home/k539i/Documents/datasets/original/RibSeg/"
-    dataset_save_path = "/home/k539i/Documents/datasets/preprocessed/Task155_RibSeg/"
+    dataset_save_path = "/home/k539i/Documents/datasets/preprocessed/Task156_RibSeg/"
 
     max_imagesTr_id = 500
 
@@ -137,4 +137,4 @@ if __name__ == "__main__":
     pool.join()
     print("All tasks finished.")
 
-    generate_dataset_json(join(dataset_save_path, 'dataset.json'), join(dataset_save_path, "imagesTr"), None, ('CT',), {0: 'bg', 1: 'rib'}, "Task155_RibSeg")
+    generate_dataset_json(join(dataset_save_path, 'dataset.json'), join(dataset_save_path, "imagesTr"), None, ('CT',), {0: 'bg', 1: 'rib'}, "Task156_RibSeg")
