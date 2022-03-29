@@ -209,8 +209,9 @@ if __name__ == "__main__":
     json_dict['name'] = "M&Ms"
     json_dict['description'] = "short axis cardiac cine MRI segmentation"
     json_dict['tensorImageSize'] = "4D"
-    json_dict['reference'] = "Campello, Victor M. et al.: Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image " \
-                             "Segmentation. In preparation."
+    json_dict['reference'] = "Campello, Victor M et al. “Multi-Centre, Multi-Vendor and Multi-Disease Cardiac " \
+                             "Segmentation: The M&Ms Challenge.” IEEE transactions on " \
+                             "medical imaging vol. 40,12 (2021): 3543-3554. doi:10.1109/TMI.2021.3090082"
     json_dict['licence'] = "see M&Ms challenge"
     json_dict['release'] = "0.0"
     json_dict['modality'] = {
