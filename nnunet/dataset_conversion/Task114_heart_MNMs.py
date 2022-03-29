@@ -61,12 +61,10 @@ def generate_filename_for_nnunet(pat_id, ts, pat_folder=None, add_zeros=False, v
     return filename
 
 
-def select_annotated_frames_mms(data_folder, out_folder, add_zeros=False, mode='mnms',
-                                df_path="/media/full/tera2/data/challenges/mms/Training-corrected_original/M&Ms Dataset Information.xlsx"):
+def select_annotated_frames_mms(data_folder, out_folder, add_zeros=False, is_gt=False,
+                                df_path="/media/full/tera2/data/challenges/mms/Training-corrected_original/M&Ms Dataset Information.xlsx",
+                                mode='mnms',):
     table = pd.read_excel(df_path, index_col='External code')
-
-    raw_image_paths, raw_gt_paths = get_mnms_data(data_folder)
-    combine_paths = raw_image_paths + raw_gt_paths # not so nice but only one of the lists will have entreis
 
     for idx in table.index:
         ed = table.loc[idx, 'ED']
@@ -76,11 +74,16 @@ def select_annotated_frames_mms(data_folder, out_folder, add_zeros=False, mode='
 
         if vendor != "C": # vendor C is for test data
 
+            # this step is needed in case of M&Ms data to adjust it to the nnUNet frame work
             # generate old filename (w/o vendor and centre)
-            filename_ed_original = combine_paths[
-                [(idx in x and str(ed).zfill(4) in x) for x in raw_image_paths] == True]
-            filename_es_original = combine_paths[
-                [(idx in x and str(es).zfill(4) in x) for x in raw_image_paths] == True]
+            if is_gt:
+                add_to_name = 'sa_gt'
+            else:
+                add_to_name = 'sa'
+            filename_ed_original = os.path.join(
+                data_folder, "{}_{}_{}.nii.gz".format(idx, add_to_name, str(ed).zfill(4)))
+            filename_es_original = os.path.join(
+                data_folder, "{}_{}_{}.nii.gz".format(idx, add_to_name, str(es).zfill(4)))
 
             # generate new filename with vendor and centre
             filename_ed = generate_filename_for_nnunet(pat_id=idx, ts=ed, pat_folder=out_folder,
@@ -140,16 +143,18 @@ def create_custom_splits_for_experiments(task_path):
 if __name__ == "__main__":
     # this script will split 4d data from the M&Ms data set into 3d images for both, raw images and gt annotations.
     # after this script you will be able to start a training on the M&Ms data.
-    # use this script as insipration in case other data than M&Ms data is use for training.
+    # use this script as inspiration in case other data than M&Ms data is use for training.
     #
     # check also the comments at the END of the script for instructions on how to run the actual training after this
     # script
     #
 
     # define a task ID for your experiment (I have choosen 114)
-    task_name = "Task114_heart_mnms"
+    task_name = "Task679_heart_mnms"
     # this is where the downloaded data from the M&Ms challenge shall be placed
     raw_data_dir = "/media/full/tera2/data"
+    # set path to official ***M&Ms Dataset Information.xlsx*** file
+    df_path = "/media/full/tera2/data/challenges/mms/Training-corrected_original/M&Ms Dataset Information.xlsx"
     # don't make changes here
     folder_imagesTr = "imagesTr"
     train_dir = os.path.join(raw_data_dir, task_name, folder_imagesTr)
@@ -194,8 +199,8 @@ if __name__ == "__main__":
     labelsTr_path = os.path.join(out_dir, "labelsTr")
     # only a small fraction of all timestep in the cardiac cycle possess gt annotation. These timestep will now be
     # selected
-    select_annotated_frames_mms(split_path_raw_all_ts, imagesTr_path, add_zeros=True)
-    select_annotated_frames_mms(split_path_gt_all_ts, labelsTr_path, add_zeros=False)
+    select_annotated_frames_mms(split_path_raw_all_ts, imagesTr_path, add_zeros=True, is_gt=False, df_path=df_path)
+    select_annotated_frames_mms(split_path_gt_all_ts, labelsTr_path, add_zeros=False, is_gt=True, df_path=df_path)
 
     labelsTr = subfiles(labelsTr_path)
 
@@ -204,7 +209,7 @@ if __name__ == "__main__":
     json_dict['name'] = "M&Ms"
     json_dict['description'] = "short axis cardiac cine MRI segmentation"
     json_dict['tensorImageSize'] = "4D"
-    json_dict['reference'] = "Campello, Víctor M. et al.: Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image " \
+    json_dict['reference'] = "Campello, Victor M. et al.: Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image " \
                              "Segmentation. In preparation."
     json_dict['licence'] = "see M&Ms challenge"
     json_dict['release'] = "0.0"

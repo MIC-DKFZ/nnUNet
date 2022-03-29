@@ -199,10 +199,6 @@ def get_available_models():
                             "Note: Labels of the M&Ms Challenge are not in the same order as for the ACDC challenge. \n"
                             "See https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunet/dataset_conversion/Task114_heart_mnms.py",
             'url': "https://zenodo.org/record/4288464/files/Task114_heart_MNMs.zip?download=1"
-<<<<<<< HEAD
-=======
-            ""
->>>>>>> origin/task114_heart_mnms
         },
         "Task115_COVIDSegChallenge": {
             'description': "Covid lesion segmentation in CT images. Data originates from COVID-19-20 challenge.\n"
