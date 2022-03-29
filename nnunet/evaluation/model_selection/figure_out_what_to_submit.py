@@ -15,6 +15,7 @@ import shutil
 from itertools import combinations
 import nnunet
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.evaluation.add_mean_dice_to_json import foreground_mean
 from nnunet.evaluation.evaluator import evaluate_folder
 from nnunet.evaluation.model_selection.ensemble import ensemble

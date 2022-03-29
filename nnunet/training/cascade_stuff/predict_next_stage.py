@@ -17,6 +17,7 @@ from copy import deepcopy
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import argparse
 from nnunet.preprocessing.preprocessing import resample_data_or_seg
 from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p

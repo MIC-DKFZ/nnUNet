@@ -25,6 +25,7 @@ from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.paths import network_training_output_dir
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import numpy as np
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2

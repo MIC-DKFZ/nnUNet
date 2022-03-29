@@ -21,6 +21,7 @@ from nnunet.configuration import default_num_threads
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.evaluation.region_based_evaluation import evaluate_regions, get_brats_regions
 
 

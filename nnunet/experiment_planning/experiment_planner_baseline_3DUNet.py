@@ -19,6 +19,7 @@ from copy import deepcopy
 import nnunet
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import get_pool_and_conv_props_poolLateV2
@@ -470,9 +471,9 @@ if __name__ == "__main__":
     for t in tasks:
         try:
             print("\n\n\n", t)
-            cropped_out_dir = os.path.join(nnUNet_cropped_data, t)
-            preprocessing_output_dir_this_task = os.path.join(preprocessing_output_dir, t)
-            splitted_4d_output_dir_task = os.path.join(nnUNet_raw_data, t)
+            cropped_out_dir = join(nnUNet_cropped_data, t)                          # Fix worng output path name issue.
+            preprocessing_output_dir_this_task = join(preprocessing_output_dir, t)  # Fix worng output path name issue.
+            splitted_4d_output_dir_task = join(nnUNet_raw_data, t)                  # Fix worng output path name issue.
             lists, modalities = create_lists_from_splitted_dataset(splitted_4d_output_dir_task)
 
             dataset_analyzer = DatasetAnalyzer(cropped_out_dir, overwrite=False)

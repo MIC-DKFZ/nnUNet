@@ -1,6 +1,7 @@
 import SimpleITK
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import shutil
 
 import SimpleITK as sitk

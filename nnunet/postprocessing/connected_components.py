@@ -24,6 +24,7 @@ from scipy.ndimage import label
 import SimpleITK as sitk
 from nnunet.utilities.sitk_stuff import copy_geometry
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import shutil
 
 

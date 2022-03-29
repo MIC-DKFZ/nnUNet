@@ -14,6 +14,7 @@
 from collections import OrderedDict
 import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 
 
 def export_for_submission(source_dir, target_dir):

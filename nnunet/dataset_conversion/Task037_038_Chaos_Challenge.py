@@ -21,6 +21,7 @@ import dicom2nifti
 import numpy as np
 from batchgenerators.utilities.data_splitting import get_split_deterministic
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from PIL import Image
 import SimpleITK as sitk
 from nnunet.paths import preprocessing_output_dir, nnUNet_raw_data

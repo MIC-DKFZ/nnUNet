@@ -19,6 +19,7 @@ import SimpleITK as sitk
 import nibabel as nib
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.configuration import default_num_threads
 
 

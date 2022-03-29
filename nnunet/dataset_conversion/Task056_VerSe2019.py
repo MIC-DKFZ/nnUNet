@@ -19,6 +19,7 @@ from multiprocessing.pool import Pool
 from nnunet.configuration import default_num_threads
 from nnunet.paths import nnUNet_raw_data
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import shutil
 from medpy import metric
 import numpy as np
@@ -116,8 +117,9 @@ def remove_label(label_file: str, remove_this: int, replace_with: int = 0):
 if __name__ == "__main__":
     ### First we create a nnunet dataset from verse. After this the images will be all willy nilly in their
     # orientation because that's how VerSe comes
-    base = '/media/fabian/DeepLearningData/VerSe2019'
-    base = "/home/fabian/data/VerSe2019"
+    #base = '/media/fabian/DeepLearningData/VerSe2019'
+    #base = "/home/fabian/data/VerSe2019"
+    base = "D:/Work/Issues/Meeting/Python/Data/the MICCAI-challenge/VerSe 2019 (MICCAI challenge data structure)"
 
     # correct orientation
     train_files_base = subfiles(join(base, "train"), join=False, suffix="_seg.nii.gz")

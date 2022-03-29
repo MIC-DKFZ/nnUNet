@@ -16,6 +16,7 @@
 from collections import OrderedDict
 
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import numpy as np
 from nnunet.paths import nnUNet_raw_data, preprocessing_output_dir
 import shutil

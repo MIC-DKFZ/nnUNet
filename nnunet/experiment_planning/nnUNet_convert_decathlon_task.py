@@ -12,6 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.configuration import default_num_threads
 from nnunet.experiment_planning.utils import split_4d
 from nnunet.utilities.file_endings import remove_trailing_slash

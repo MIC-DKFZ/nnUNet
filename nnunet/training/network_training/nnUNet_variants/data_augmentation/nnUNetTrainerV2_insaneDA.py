@@ -14,7 +14,8 @@
 
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import maybe_mkdir_p #, join
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.data_augmentation.data_augmentation_insaneDA import get_insaneDA_augmentation
 from nnunet.training.data_augmentation.default_data_augmentation import default_3D_augmentation_params, \

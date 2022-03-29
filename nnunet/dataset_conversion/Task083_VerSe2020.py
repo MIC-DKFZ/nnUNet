@@ -19,6 +19,7 @@ from copy import deepcopy
 from multiprocessing.pool import Pool
 
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.dataset_conversion.Task056_VerSe2019 import check_if_all_in_good_orientation, \
     print_unique_labels_and_their_volumes
 from nnunet.paths import nnUNet_raw_data, preprocessing_output_dir

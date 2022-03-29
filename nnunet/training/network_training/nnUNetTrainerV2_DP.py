@@ -16,6 +16,7 @@
 import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from nnunet.network_architecture.generic_UNet_DP import Generic_UNet_DP
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2

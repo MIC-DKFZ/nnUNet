@@ -2,6 +2,7 @@ from copy import deepcopy
 from multiprocessing.pool import Pool
 
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 from medpy import metric
 import SimpleITK as sitk
 import numpy as np

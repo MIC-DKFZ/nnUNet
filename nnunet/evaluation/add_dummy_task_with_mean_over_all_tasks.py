@@ -15,6 +15,7 @@
 import json
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import subfiles
+from nnunet.utilities.file_and_folder_operations_winos import * # Join path by slash on windows system.
 import os
 from collections import OrderedDict
 
@@ -69,7 +70,7 @@ for i in mean_scores.keys():
             foreground_values = [mean_scores[i][n][m] for n in tasks]
             new_res['results']['mean']["mean"][m] = np.nanmean(foreground_values)
         output_fname = i.replace(" ", "_") + "_globalMean.json"
-        with open(os.path.join(folder, output_fname), 'w') as f:
+        with open(join(folder, output_fname), 'w') as f: # Fix worng output path name issue.
             json.dump(new_res, f)
     except AssertionError:
         print("could not process experiment %s" % i)

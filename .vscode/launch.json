@@ -1,0 +1,83 @@
+{
+    // 使用 IntelliSense 以得知可用的屬性。
+    // 暫留以檢視現有屬性的描述。
+    // 如需詳細資訊，請瀏覽: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "args": [
+                ////////////////////////////////////////////////////////////
+                // file: nnUNet_convert_decathlon_task.py
+                // command: nnUNet_convert_decathlon_task
+                //"-i",
+                //"D:/DL_Dataset/nnUNet_Dataset/nnUNet_raw_data_base/nnUNet_raw_data/Task04_Hippocampus",
+                ////////////////////////////////////////////////////////////
+                // nnUNet_plan_and_preprocess.py
+                // command: nnUNet_plan_and_preprocess
+                //"-p",
+                //"1",
+                //"-t",
+                //"4"
+                // // VerSe2019
+                // "-t",
+                // "056",
+                // "--verify_dataset_integrity"
+                ////////////////////////////////////////////////////////////
+                // file: run_training.py
+                // command: nnUNet_train
+                //"3d_fullres",
+                //"nnUNetTrainerV2",
+                //"4",
+                //"0",
+                //"-pretrained_weights",
+                //"D:/DL_Dataset/nnUNet_Dataset/nnUNet_trained_models/nnUNet/3d_fullres/Task004_Hippocampus/nnUNetTrainerV2__nnUNetPlansv2.1/fold_0/model_latest.model"
+                // // VerSe2019
+                "3d_fullres",
+                "nnUNetTrainerV2",
+                "Task056_VerSe",
+                "all",
+                "-c",
+                //"--fp32",
+                "-pretrained_weights",
+                "D:/DL_Dataset/nnUNet_Dataset/pretrained_weights/Models_Genesis/pretrained_nnUNet_ series/genesis_nnunet_luna16_006.model"
+                ////////////////////////////////////////////////////////////
+                // file: download_pretrained_model.py
+                // command: nnUNet_download_pretrained_model 
+                //"Task005_Prostate"
+                ////////////////////////////////////////////////////////////
+                // file: predict_simple.py
+                // command: nnUNet_predict
+                // "-i",
+                // "D:/DL_Dataset/nnUNet_Dataset/nnUNet_raw_data_base/nnUNet_raw_data/Task005_Prostate/imagesTs",
+                // "-o",
+                // "D:/DL_Dataset/nnUNet_Dataset/nnUNet_result/Task005_Prostate",
+                // "-t",
+                // "5",
+                // "-m",
+                // "3d_fullres",
+                // //"2d",
+                // //"-f",
+                // //"0",
+                // //"--num_threads_preprocessing",
+                // //"1",
+                // //"--num_threads_nifti_save",
+                // //"1",
+                // //"--all_in_gpu",
+                // //"True",
+                // //"--disable_mixed_precision",
+                // //"--disable_tta"
+                ////////////////////////////////////////////////////////////
+                // file: Task056_VerSe2019.py
+                // command: python Task056_VerSe2019.py 
+                //
+                ////////////////////////////////////////////////////////////
+            ],
+            "name": "Python: 目前檔案",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false // true
+        }
+    ]
+}
