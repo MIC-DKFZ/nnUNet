@@ -20,7 +20,7 @@ from numpy.random.mtrand import RandomState
 import subprocess
 from multiprocessing import pool
 import pandas as pd
-
+from nnunet.experiment_planning.common_utils import split_4d_nifti
 
 
 def get_mnms_data(data_root):
@@ -61,8 +61,12 @@ def generate_filename_for_nnunet(pat_id, ts, pat_folder=None, add_zeros=False, v
     return filename
 
 
-def select_annotated_frames_mms(data_folder, out_folder, add_zeros=False, mode='mnms', df_path="/media/full/tera2/data/challenges/mms/Training-corrected_original/M&Ms Dataset Information.xlsx"):
+def select_annotated_frames_mms(data_folder, out_folder, add_zeros=False, mode='mnms',
+                                df_path="/media/full/tera2/data/challenges/mms/Training-corrected_original/M&Ms Dataset Information.xlsx"):
     table = pd.read_excel(df_path, index_col='External code')
+
+    raw_image_paths, raw_gt_paths = get_mnms_data(data_folder)
+    combine_paths = raw_image_paths + raw_gt_paths # not so nice but only one of the lists will have entreis
 
     for idx in table.index:
         ed = table.loc[idx, 'ED']
@@ -70,13 +74,13 @@ def select_annotated_frames_mms(data_folder, out_folder, add_zeros=False, mode='
         vendor = table.loc[idx, 'Vendor']
         centre = table.loc[idx, 'Centre']
 
-        if vendor != "C":
+        if vendor != "C": # vendor C is for test data
 
             # generate old filename (w/o vendor and centre)
-            filename_ed_original = generate_filename_for_nnunet(pat_id=idx, ts=ed, pat_folder=data_folder,
-                                                       vendor=None, centre=None, add_zeros=False)
-            filename_es_original = generate_filename_for_nnunet(pat_id=idx, ts=es, pat_folder=data_folder,
-                                                       vendor=None, centre=None, add_zeros=False)
+            filename_ed_original = combine_paths[
+                [(idx in x and str(ed).zfill(4) in x) for x in raw_image_paths] == True]
+            filename_es_original = combine_paths[
+                [(idx in x and str(es).zfill(4) in x) for x in raw_image_paths] == True]
 
             # generate new filename with vendor and centre
             filename_ed = generate_filename_for_nnunet(pat_id=idx, ts=ed, pat_folder=out_folder,
@@ -132,96 +136,76 @@ def create_custom_splits_for_experiments(task_path):
                                                                                                 0] in identifiers_b_val]})
     save_pickle(splits, existing_splits)
 
-def split_4d_nii(nii_path, split_folder, pat_name=None, add_zeros=False):
-
-    # create temporary folder in which the 3d+t file will be split into many 3d files
-    temp_base = os.path.dirname(nii_path)
-    temp_location = os.path.join(temp_base, 'tmp')
-    if not os.path.isdir(temp_location):
-        os.mkdir(temp_location)
-    os.chdir(temp_location)
-
-    if not os.path.isdir(split_folder):
-        os.mkdir(split_folder)
-    _ = subprocess.call(['fslsplit', nii_path])
-
-    # rename files so that the patient's ID is in the filename
-    file_list = [f for f in os.listdir(temp_location) if os.path.isfile(f)]
-    file_list = sorted(file_list)
-
-    if not pat_name:
-        pat_name = os.path.basename(os.path.dirname(nii_path))
-
-    for ts, temp_file in enumerate(file_list):
-        # get time
-        time_step = temp_file.split('.')[0][3:]
-        # make sure the time step is a number. Otherwise trust in pythons sort algorithm
-        try:
-            int(time_step)
-        except:
-            time_step = ts
-
-        # change filename AND location -> move files
-        if add_zeros:
-            new_file_name = '{}_{}_0000.nii.gz'.format(pat_name, time_step)
-        else:
-            new_file_name = '{}_{}.nii.gz'.format(pat_name, time_step)
-        os.rename(os.path.join(temp_location, temp_file),
-                  os.path.join(split_folder, new_file_name))
-
-    os.rmdir(temp_location)
-
-def split_4d_parallel(args):
-    nii_path, split_folder, pat_name = args
-    split_4d_nii(nii_path, split_folder, pat_name)
-
-
-def split_4d_for_all_pat(files_paths, split_folder):
-    p = pool.Pool(8)
-    p.map(split_4d_parallel,
-          zip(files_paths, [split_folder] * len(files_paths), [None] * len(files_paths)))
 
 if __name__ == "__main__":
-    task_name = "Task114_heart_MNMs"
-    train_dir = "/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/nnUnet_raw/nnUNet_raw_data/{}/imagesTr".format(task_name)
-    test_dir = "/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/nnUnet_raw/nnUNet_raw_data/{}/imagesTs".format(task_name)
-    #out_dir='/media/full/tera2/output_nnUNet/preprocessed_data/Task114_heart_mnms'
-    out_dir='/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/tmp'
+    # this script will split 4d data from the M&Ms data set into 3d images for both, raw images and gt annotations.
+    # after this script you will be able to start a training on the M&Ms data.
+    # use this script as insipration in case other data than M&Ms data is use for training.
+    #
+    # check also the comments at the END of the script for instructions on how to run the actual training after this
+    # script
+    #
 
-    # train
-    all_train_files = [os.path.join(train_dir, x) for x in os.listdir(train_dir)]
-    # test
-    all_test_files = [os.path.join(test_dir, x) for x in os.listdir(test_dir)]
+    # define a task ID for your experiment (I have choosen 114)
+    task_name = "Task114_heart_mnms"
+    # this is where the downloaded data from the M&Ms challenge shall be placed
+    raw_data_dir = "/media/full/tera2/data"
+    # don't make changes here
+    folder_imagesTr = "imagesTr"
+    train_dir = os.path.join(raw_data_dir, task_name, folder_imagesTr)
 
-    data_root = '/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/data/challenges/mms/Training-corrected_original/Labeled'
-    files_raw, files_gt = get_mnms_data(data_root=data_root)
-    split_path_raw ='/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/data/challenges/mms/temp_split_raw'
-    split_path_gt ='/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/data/challenges/mms/temp_split_gt'
-    maybe_mkdir_p(split_path_raw)
-    maybe_mkdir_p(split_path_gt)
+    # this is where our your splitted files WITH annotation will be stored. Dont make changes here. Otherwise nnUNet
+    # might have problems finding the training data later during the training process
+    out_dir = os.path.join(os.environ.get('nnUNet_raw_data_base'), 'nnUNet_raw_data', task_name)
 
-    split_4d_for_all_pat(files_raw, split_path_raw)
-    split_4d_for_all_pat(files_gt, split_path_gt)
+    files_raw, files_gt = get_mnms_data(data_root=train_dir)
 
-    out_dir = '/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/nnUnet_raw/nnUNet_raw_data/{}/'.format(task_name)
+    filesTs, _ = get_mnms_data(data_root=train_dir)
 
+    split_path_raw_all_ts = os.path.join(raw_data_dir, task_name, "splitted_all_timesteps", folder_imagesTr,
+                                         "split_raw_images")
+    split_path_gt_all_ts = os.path.join(raw_data_dir, task_name, "splitted_all_timesteps", folder_imagesTr,
+                                        "split_annotation")
+    maybe_mkdir_p(split_path_raw_all_ts)
+    maybe_mkdir_p(split_path_gt_all_ts)
+
+    # for fast splitting of many patients use the following lines
+    # however keep in mind that these lines cause problems for some users.
+    # If problems occur use the code for loops below
+    # print("splitting raw 4d images into 3d images")
+    # split_4d_for_all_pat(files_raw, split_path_raw)
+    # print("splitting ground truth 4d into 3d files")
+    # split_4d_for_all_pat(files_gt, split_path_gt_all_ts)
+
+    print("splitting raw 4d images into 3d images")
+    for f in files_raw:
+        print("splitting {}".format(f))
+        split_4d_nifti(f, split_path_raw_all_ts)
+    print("splitting ground truth 4d into 3d files")
+    for gt in files_gt:
+        split_4d_nifti(gt, split_path_gt_all_ts)
+        print("splitting {}".format(gt))
+
+    print("prepared data will be saved at: {}".format(out_dir))
     maybe_mkdir_p(join(out_dir, "imagesTr"))
-    maybe_mkdir_p(join(out_dir, "imagesTs"))
     maybe_mkdir_p(join(out_dir, "labelsTr"))
 
     imagesTr_path = os.path.join(out_dir, "imagesTr")
     labelsTr_path = os.path.join(out_dir, "labelsTr")
-    select_annotated_frames_mms(split_path_raw, imagesTr_path, add_zeros=True)
-    select_annotated_frames_mms(split_path_gt, labelsTr_path, add_zeros=False)
+    # only a small fraction of all timestep in the cardiac cycle possess gt annotation. These timestep will now be
+    # selected
+    select_annotated_frames_mms(split_path_raw_all_ts, imagesTr_path, add_zeros=True)
+    select_annotated_frames_mms(split_path_gt_all_ts, labelsTr_path, add_zeros=False)
 
     labelsTr = subfiles(labelsTr_path)
 
-
+    # create a json file that will be needed by nnUNet to initiate the preprocessing process
     json_dict = OrderedDict()
     json_dict['name'] = "M&Ms"
     json_dict['description'] = "short axis cardiac cine MRI segmentation"
     json_dict['tensorImageSize'] = "4D"
-    json_dict['reference'] = "Campello, Víctor M. et al.: Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image Segmentation. In preparation."
+    json_dict['reference'] = "Campello, Víctor M. et al.: Multi-Centre, Multi-Vendor & Multi-Disease Cardiac Image " \
+                             "Segmentation. In preparation."
     json_dict['licence'] = "see M&Ms challenge"
     json_dict['release'] = "0.0"
     json_dict['modality'] = {
@@ -236,24 +220,37 @@ if __name__ == "__main__":
     }
     json_dict['numTraining'] = len(labelsTr)
     json_dict['numTest'] = 0
-    json_dict['training'] = [{'image': "./imagesTr/%s" % i.split("/")[-1], "label": "./labelsTr/%s" % i.split("/")[-1]} for i in
-                             labelsTr]
+    json_dict['training'] = [{'image': "./imagesTr/%s" % i.split("/")[-1],
+                              "label": "./labelsTr/%s" % i.split("/")[-1]} for i in labelsTr]
     json_dict['test'] = []
 
     save_json(json_dict, os.path.join(out_dir, "dataset.json"))
 
+    #
+    # now the data is ready to be preprocessed by the nnUNet
+    # the following steps are only needed if you want to reproduce the exact results from the MMS challenge
+    #
+
+
     # then preprocess data and plan training.
     # run in terminal
-    # > nnUNet_plan_and_preprocess -t <TaskID> --verify_dataset_integrity
+    # nnUNet_plan_and_preprocess -t 114 --verify_dataset_integrity # for 2d
+    # nnUNet_plan_and_preprocess -t 114 --verify_dataset_integrity -pl3d ExperimentPlannerTargetSpacingForAnisoAxis # for 3d
 
     # start training and stop it immediately to get a split.pkl file
-    # > nnUNet_train 2d nnUNetTrainerV2_MMS <TaskID> 0
+    # nnUNet_train 2d nnUNetTrainerV2_MMS 114 0
 
     #
     # then create custom splits as used for the final M&Ms submission
     #
 
-    split_file_path = '/media/full/97d8d6e1-1aa1-4761-9dd1-fc6a62cf6264/output_nnUNet/preprocessed_data/{}/'.format(task_name)
+    # in this file comment everything except for the following line
+    # create_custom_splits_for_experiments(out_dir)
 
-    create_custom_splits_for_experiments(split_file_path)
+    # then start training with
+    #
+    # nnUNet_train 3d_fullres nnUNetTrainerV2_MMS Task114_heart_mnms -p nnUNetPlanstargetSpacingForAnisoAxis 0 # for 3d and fold 0
+    # and
+    # nnUNet_train 2d nnUNetTrainerV2_MMS Task114_heart_mnms 0 # for 2d and fold 0
+
 

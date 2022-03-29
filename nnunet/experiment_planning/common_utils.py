@@ -20,7 +20,7 @@ import shutil
 from batchgenerators.utilities.file_and_folder_operations import join
 
 
-def split_4d_nifti(filename, output_folder):
+def split_4d_nifti(filename, output_folder, add_zeros=False):
     img_itk = sitk.ReadImage(filename)
     dim = img_itk.GetDimension()
     file_base = filename.split("/")[-1]
