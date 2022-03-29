@@ -12,14 +12,14 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from collections import OrderedDict
-from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
+from collections import OrderedDict
+
 import numpy as np
-from numpy.random.mtrand import RandomState
-import subprocess
-from multiprocessing import pool
 import pandas as pd
+from batchgenerators.utilities.file_and_folder_operations import *
+from numpy.random.mtrand import RandomState
+
 from nnunet.experiment_planning.common_utils import split_4d_nifti
 
 
