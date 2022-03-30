@@ -82,6 +82,7 @@ should be used with even larger values for `nnUNet_n_proc_DA`.
 
 
 ## OLD: Pytorch 1.7.1 compiled with cuDNN 8.1.0.77
+(Columns are different. The table above includes the A100 PCIe and lacks the Titan Xp GPUs!)
 
 |                                   | A100 40GB (DGX A100) 400W | V100 32GB SXM3 (DGX2) 350W | V100 32GB PCIe 250W | Quadro RTX6000 24GB 260W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
 |-----------------------------------|---------------------------|----------------------------|---------------------|--------------------------|---------------------|-----------------------|--------------------|
