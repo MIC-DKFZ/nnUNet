@@ -2,8 +2,7 @@
 Trainings can take some time. A well-running training setup is essential to get the most of nnU-Net. nnU-Net does not 
 require any fancy hardware, just a well-balanced system. We recommend at least 32 GB of RAM, 6 CPU cores (12 threads), 
 SSD storage (this can be SATA and does not have to be PCIe. DO NOT use an external SSD connected via USB!) and a 
-2080 ti GPU. If your system has multiple GPUs, the 
-other components need to scale linearly with the number of GPUs.
+2080 ti GPU. If your system has multiple GPUs, the other components need to scale linearly with the number of GPUs.
 
 # Benchmark Details
 To ensure your system is running as intended, we provide some benchmark numbers against which you can compare. Here 
@@ -14,18 +13,19 @@ are the details about benchmarking:
 (they provide a good spectrum of dataset properties)
 - we use the nnUNetTrainerV2_5epochs trainer. This will run only for 5 epochs and it will skip validation. 
 From the 5 epochs, we select the fastest one as the epoch time. 
-- We will also be running the nnUNetTrainerV2_5epochs_dummyLoad trainer on the 3d_fullres config (called **3d_fullres dummy**). This trainer does not use 
-the dataloader and instead uses random dummy inputs, bypassing all data augmentation (CPU) and I/O bottlenecks. 
+- We will also be running the nnUNetTrainerV2_5epochs_dummyLoad trainer on the 3d_fullres config 
+(called **3d_fullres dummy**). This trainer does not use the dataloader and instead uses random dummy inputs, 
+bypassing all data augmentation (CPU) and I/O bottlenecks. 
 - All trainings are done with mixed precision. This is why Pascal GPUs (Titan Xp) are so slow (they do not have 
 tensor cores) 
 
 # How to run the benchmark
-First go into the folder where the preprocessed data and plans file of the task you would like to use are located. For me this is
-`/home/fabian/data/nnUNet_preprocessed/Task002_Heart`
+First go into the folder where the preprocessed data and plans file of the task you would like to use are located. 
+For me this is `/home/fabian/data/nnUNet_preprocessed/Task002_Heart`
 
 Then run the following python snippet. This will create our custom **3d_fullres_large** configuration. Note that this 
 large configuration will only run on GPUs with 16GB or more! We included it in the test because some GPUs 
-(V100, and probably also A100) can shine when they get more work to do per iteration.
+(V100, A100) can shine when they get more work to do per iteration.
 ```python
 from batchgenerators.utilities.file_and_folder_operations import *
 plans = load_pickle('nnUNetPlansv2.1_plans_3D.pkl')
@@ -48,20 +48,40 @@ output as your benchmark time.
 
 # Results
 
-The following table shows the results we are getting on our servers/workstations. We are using pytorch 1.7.1 that we 
-compiled ourselves using the instrucutions found [here](https://github.com/pytorch/pytorch#from-source). The cuDNN 
-version we used is 8.1.0.77. You should be seeing similar numbers when you 
+The following table shows the results we are getting on our servers/workstations. We are using pytorch 1.11.0 that we 
+compiled ourselves using the instructions found [here](https://github.com/pytorch/pytorch#from-source). The cuDNN 
+version we used is 8.3.2.44. You should be seeing similar numbers when you 
 run the benchmark on your server/workstation. Note that fluctuations of a couple of seconds are normal!
 
 IMPORTANT: Compiling pytorch from source is currently mandatory for best performance! Pytorch 1.8 does not have 
 working tensorcore acceleration for 3D convolutions when installed with pip or conda!
 
 IMPORTANT: A100 and V100 are very fast with the newer cuDNN versions and need more CPU workers to prevent bottlenecks,
-set the environment variable `nnUNet_n_proc_DA=XX`
-to increase the number of data augmentation workers. Recommended: 20 for V100, 32 for A100. Datasets with many input
-modalities (BraTS: 4) require A LOT of CPU and should be used with even larger values for `nnUNet_n_proc_DA`
+set the environment variable `nnUNet_n_proc_DA=XX` to increase the number of data augmentation workers. 
+Recommended: 20 for V100, 32 for A100. Datasets with many input modalities (BraTS: 4) require A LOT of CPU and 
+should be used with even larger values for `nnUNet_n_proc_DA`.
 
-## Pytorch 1.7.1 compiled with cuDNN 8.1.0.77
+## Pytorch 1.11.0 compiled with cuDNN 8.3.2.44
+
+|                                   | A100 40GB PCIe 250W | A100 40GB (DGX A100) 400W | V100 32GB SXM3 (DGX2) 350W | V100 32GB PCIe 250W | Quadro RTX6000 24GB 260W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W |
+|-----------------------------------|---------------------|---------------------------|----------------------------|---------------------|--------------------------|---------------------|-----------------------|
+| Task002_Heart 2d                  | 36.75               | 41.48                     | 57.4                       | 61.32               | 70.96                    | 70.39               | 86.1                  |
+| Task002_Heart 3d_fullres          | 47.16               | 46.22                     | 81.92                      | 84.82               | 109.5                    | 107.44              | 123.27                |
+| Task002_Heart 3d_fullres dummy    | 46.52               | 43.6                      | 66.84                      | 78.75               | 99.88                    | 97.39               | 116.36                |
+| Task002_Heart 3d_fullres large    | 121.55              | 111.64                    | 221.03                     | 242.56              | 284.73                   | 302.02              | OOM                   |
+|                                   |                     |                           |                            |                     |                          |                     |                       |
+| Task003_Liver 2d                  | 35.66               | 39.26                     | 65.34                      | 65.76               | 79.72                    | 70.44               | 86.37                 |
+| Task003_Liver 3d_fullres          | 41.49               | 39.67                     | 74.21                      | 76.79               | 77.63                    | 86.75               | 94.16                 |
+| Task003_Liver 3d_fullres dummy    | 40.63               | 37.71                     | 62.37                      | 70.55               | 76.37                    | 74.66               | 86.8                  |
+| Task003_Liver 3d_fullres large    | 102.48              | 97.85                     | 202.04                     | 209.4               | 226.45                   | 254.77              | OOM                   |
+|                                   |                     |                           |                            |                     |                          |                     |                       |
+| Task005_Prostate 2d               | 36.41               | 37.07                     | 64.58                      | 65.88               | 70.47                    | 77.95               | 88.54                 |
+| Task005_Prostate 3d_fullres       | 42.95               | 41.92                     | 90.92                      | 95.54               | 85.69                    | 90.66               | 109.78                |
+| Task005_Prostate 3d_fullres dummy | 41.78               | 39.56                     | 78.22                      | 88.83               | 83.69                    | 81.31               | 101.75                |
+| Task005_Prostate 3d_fullres large | 106.98              | 102.75                    | 239.32                     | 259.14              | 255.64                   | 270.8               | OOM                   |
+
+
+## OLD: Pytorch 1.7.1 compiled with cuDNN 8.1.0.77
 
 |                                   | A100 40GB (DGX A100) 400W | V100 32GB SXM3 (DGX2) 350W | V100 32GB PCIe 250W | Quadro RTX6000 24GB 260W | Titan RTX 24GB 280W | RTX 2080 ti 11GB 250W | Titan Xp 12GB 250W |
 |-----------------------------------|---------------------------|----------------------------|---------------------|--------------------------|---------------------|-----------------------|--------------------|
@@ -86,23 +106,17 @@ wrong. Note that each system is unique and we cannot help you find bottlenecks b
 presented in this section!
 
 ## First step: Make sure you have the right software!
-In order to get maximum performance, you need to have pytorch compiled with a recent cuDNN version (8002 or newer is a must!). 
-Unfortunately the currently provided pip/conda installable pytorch versions have a bug which causes their performance 
-to be very low (see https://github.com/pytorch/pytorch/issues/57115 and https://github.com/pytorch/pytorch/issues/50153). 
-They are about 2x-3x slower than the numbers we report in the table above. 
-You need to have a pytorch version that was compiled from source to get maximum performance as shown in the table above.  
-The easiest way to get that is by using the [Nvidia pytorch Docker](https://ngc.nvidia.com/catalog/containers/nvidia:pytorch). 
-If you cannot use docker, you will need to compile pytorch 
-yourself. For that, first download and install cuDNN from the [Nvidia homepage](https://developer.nvidia.com/cudnn), then follow the 
-[instructions on the pytorch website](https://github.com/pytorch/pytorch#from-source) on how to compile it.
-
-If you compiled pytorch yourself, you can check for the correct cuDNN version by running:
+In order to get maximum performance, you need to have pytorch that ships with or was compiled with a recent cuDNN v
+ersion (8002 or newer is a must!). 
+You can check your cudnn versionlike this:
 ```bash
 python -c 'import torch;print(torch.backends.cudnn.version())'
 ```
-If the output is `8002` or higher, then you are good to go. If not you may have to take action. IMPORTANT: this 
-only applies to pytorch that was compiled from source. pip/conda installed pytorch will report a new cuDNN version 
-but still have poor performance due to the bug linked above.
+If the output is `8002` or higher, then you are good to go. If not you may have to take action: either update your 
+pytorch version or maybe even compile it yourself.
+Compiling yourself will almost always give the maximum performance. Please follow the 
+[instructions on the pytorch website](https://github.com/pytorch/pytorch#from-source). You'll need the cuDNN tar file 
+which you can download from the [Nvidia homepage](https://developer.nvidia.com/cudnn).
 
 ## Identifying the bottleneck
 If the software is up to date and you are still experiencing problems, this is how you can figure out what is going on:
@@ -120,7 +134,7 @@ This means that up to 13 processes should be running simultaneously.
 blinking your system is doing something with your HDD/SSD.
 
 ### GPU bottleneck
-If `nvidia-smi` is constantly showing 90-100% GPU utilization and the reported power draw is near the maximum, your 
+If `nvidia-smi` is constantly showing 80-100% GPU utilization and the reported power draw is near the maximum, your 
 GPU is the bottleneck. This is great! That means that your other components are not slowing it down. Your epochs times 
 should be the same as ours reported above. If they are not then you need to investigate your software stack (see cuDNN stuff above).
 
