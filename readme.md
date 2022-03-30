@@ -50,25 +50,29 @@ Please also cite this paper if you are using nnU-Net for your research!
 
 
 # Table of Contents
+- [nnU-Net](#nnu-net)
+- [Table of Contents](#table-of-contents)
 - [Installation](#installation)
 - [Usage](#usage)
-    * [How to run nnU-Net on a new dataset](#how-to-run-nnu-net-on-a-new-dataset)
-        + [Dataset conversion](#dataset-conversion)
-        + [Experiment planning and preprocessing](#experiment-planning-and-preprocessing)
-        + [Model training](#model-training)
-            - [2D U-Net](#2d-u-net)
-            - [3D full resolution U-Net](#3d-full-resolution-u-net)
-            - [3D U-Net cascade](#3d-u-net-cascade)
-                * [3D low resolution U-Net](#3d-low-resolution-u-net)
-                * [3D full resolution U-Net](#3d-full-resolution-u-net-1)
-            - [Multi GPU training](#multi-gpu-training)
-        + [Identifying the best U-Net configuration](#identifying-the-best-u-net-configuration)
-        + [Run inference](#run-inference)
-    * [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
-    * [Examples](#examples)
-- [Extending/Changing nnU-Net](#extending-or-changing-nnu-net)
+  - [How to run nnU-Net on a new dataset](#how-to-run-nnu-net-on-a-new-dataset)
+    - [Dataset conversion](#dataset-conversion)
+    - [Experiment planning and preprocessing](#experiment-planning-and-preprocessing)
+    - [Model training](#model-training)
+      - [2D U-Net](#2d-u-net)
+      - [3D full resolution U-Net](#3d-full-resolution-u-net)
+      - [3D U-Net cascade](#3d-u-net-cascade)
+        - [3D low resolution U-Net](#3d-low-resolution-u-net)
+        - [3D full resolution U-Net](#3d-full-resolution-u-net-1)
+      - [Multi GPU training](#multi-gpu-training)
+    - [Identifying the best U-Net configuration](#identifying-the-best-u-net-configuration)
+    - [Run inference](#run-inference)
+  - [How to run inference with pretrained models](#how-to-run-inference-with-pretrained-models)
+  - [Examples](#examples)
+- [Extending or Changing nnU-Net](#extending-or-changing-nnu-net)
 - [Information on run time and potential performance bottlenecks.](#information-on-run-time-and-potential-performance-bottlenecks)
 - [Common questions and issues](#common-questions-and-issues)
+- [Useful Resources](#useful-resources)
+- [Acknowledgements](#acknowledgements)
 
 
 # Installation
@@ -78,12 +82,10 @@ systems.
 nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For training nnU-Net models the GPU should have at
 least 10 GB (popular non-datacenter options are the RTX 2080ti, RTX 3080 or RTX 3090). Due to the use of automated mixed
 precision, fastest training times are achieved with the Volta architecture (Titan V, V100 GPUs) when installing pytorch
-the easy way. Since pytorch comes with cuDNN 7.6.5 and tensor core acceleration on Turing GPUs is not supported for 3D
-convolutions in this version, you will not get the best training speeds on Turing GPUs. You can remedy that by compiling pytorch from source
-(see [here](https://github.com/pytorch/pytorch#from-source)) using cuDNN 8.0.2 or newer. This will unlock Turing GPUs
-(RTX 2080ti, RTX 6000) for automated mixed precision training with 3D convolutions and make the training blistering
-fast as well. Note that future versions of pytorch may include cuDNN 8.0.2 or newer by default and
-compiling from source will not be necessary.
+the easy way. If using Turing GPUs (RTX 2080ti, RTX 6000) it is highly recommended to use a pytorch version using cuDNN 8.0.2 or newer to make full use of tensor core acceleration for 3d convolutions. 
+Therefore it is recommended to install pytorch version 1.8.2 or newer. Alternatively, you can also compile pytorch from source (see [here](https://github.com/pytorch/pytorch#from-source)) using cuDNN 8.0.2 or newer.
+This will also unlock Turing GPUs automated mixed precision training with 3D convolutions and make the training blistering
+fast as well. 
 We don't know the speed of Ampere GPUs with vanilla vs self-compiled pytorch yet - this section will be updated as
 soon as we know.
 
@@ -465,6 +467,10 @@ Click [here](documentation/expected_epoch_times.md).
 We have collected solutions to common [questions](documentation/common_questions.md) and
 [problems](documentation/common_problems_and_solutions.md). Please consult these documents before you open a new issue.
 
+# Useful Resources
+The [nnU-Net Workshop](https://github.com/IML-DKFZ/nnunet-workshop) is a step-by-step introduction to nnU-Net and visualizing
+results using MITK. Regarding nnU-Net, it includes training and inference examples and an example to train on a new dataset.
+The workshop itself is a jupyter notebook, which can be executed in GoogleColab.
 
 # Acknowledgements
 
