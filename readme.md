@@ -80,14 +80,7 @@ nnU-Net has been tested on Linux (Ubuntu 16, 18 and 20; centOS, RHEL). We do not
 systems.
 
 nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For training nnU-Net models the GPU should have at
-least 10 GB (popular non-datacenter options are the RTX 2080ti, RTX 3080 or RTX 3090). Due to the use of automated mixed
-precision, fastest training times are achieved with the Volta architecture (Titan V, V100 GPUs) when installing pytorch
-the easy way. If using Turing GPUs (RTX 2080ti, RTX 6000) it is highly recommended to use a pytorch version using cuDNN 8.0.2 or newer to make full use of tensor core acceleration for 3d convolutions. 
-Therefore it is recommended to install pytorch version 1.8.2 or newer. Alternatively, you can also compile pytorch from source (see [here](https://github.com/pytorch/pytorch#from-source)) using cuDNN 8.0.2 or newer.
-This will also unlock Turing GPUs automated mixed precision training with 3D convolutions and make the training blistering
-fast as well. 
-We don't know the speed of Ampere GPUs with vanilla vs self-compiled pytorch yet - this section will be updated as
-soon as we know.
+least 10 GB (popular non-datacenter options are the RTX 2080ti, RTX 3080 or RTX 3090). 
 
 For training, we recommend a strong CPU to go along with the GPU. At least 6 CPU cores (12 threads) are recommended. CPU
 requirements are mostly related to data augmentation and scale with the number of input channels. They are thus higher
@@ -100,8 +93,17 @@ environment variable OMP_NUM_THREADS=1 (preferably in your bashrc using `export 
 
 Python 2 is deprecated and not supported. Please make sure you are using Python 3.
 
-1) Install [PyTorch](https://pytorch.org/get-started/locally/). You need at least version 1.6
-2) Install nnU-Net depending on your use case:
+1) Install [PyTorch](https://pytorch.org/get-started/locally/) as described on their website (conda/pip). Please 
+install the latest version and (IMPORTANT!) choose 
+the highest CUDA version compatible with your drivers for maximum performance. 
+**DO NOT JUST `PIP INSTALL NNUNET` WITHOUT PROPERLY INSTALLING PYTORCH FIRST**
+2) Verify that a recent version of pytorch was installed by running
+    ```bash
+    python -c 'import torch;print(torch.backends.cudnn.version())'
+    python -c 'import torch;print(torch.__version__)'   
+    ```
+   This should print `8200` and `1.11.0+cu113` (Apr 1st 2022)
+3) Install nnU-Net depending on your use case:
     1) For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running **inference with pretrained models**:
 
        ```pip install nnunet```
@@ -112,9 +114,9 @@ Python 2 is deprecated and not supported. Please make sure you are using Python 
           cd nnUNet
           pip install -e .
           ```
-3) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
+4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
    set a few of environment variables. Please follow the instructions [here](documentation/setting_up_paths.md).
-4) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
+5) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
    plots of the network topologies it generates (see [Model training](#model-training)). To install hiddenlayer,
    run the following commands:
     ```bash

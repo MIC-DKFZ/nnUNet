@@ -9,7 +9,7 @@ setup(name='nnunet',
       author_email='f.isensee@dkfz-heidelberg.de',
       license='Apache License Version 2.0, January 2004',
       install_requires=[
-            "torch>=1.11.0a",
+            "torch>1.10.0",
             "tqdm",
             "dicom2nifti",
             "scikit-image>=0.14",
