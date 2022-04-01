@@ -25,7 +25,7 @@ def get_identifiers_from_splitted_files(folder: str):
 
 
 def generate_dataset_json(output_file: str, imagesTr_dir: str, imagesTs_dir: str, modalities: Tuple,
-                          labels: dict, dataset_name: str, license: str = "hands off!", dataset_description: str = "",
+                          labels: dict, dataset_name: str, sort_keys=True, license: str = "hands off!", dataset_description: str = "",
                           dataset_reference="", dataset_release='0.0'):
     """
     :param output_file: This needs to be the full path to the dataset.json you intend to write, so
@@ -38,6 +38,7 @@ def generate_dataset_json(output_file: str, imagesTr_dir: str, imagesTs_dir: str
     :param labels: dict with int->str (key->value) mapping the label IDs to label names. Note that 0 is always
     supposed to be background! Example: {0: 'background', 1: 'edema', 2: 'enhancing tumor'}
     :param dataset_name: The name of the dataset. Can be anything you want
+    :param sort_keys: In order to sort or not, the keys in dataset.json
     :param license:
     :param dataset_description:
     :param dataset_reference: website of the dataset, if available
@@ -72,4 +73,4 @@ def generate_dataset_json(output_file: str, imagesTr_dir: str, imagesTs_dir: str
     if not output_file.endswith("dataset.json"):
         print("WARNING: output file name is not dataset.json! This may be intentional or not. You decide. "
               "Proceeding anyways...")
-    save_json(json_dict, os.path.join(output_file))
+    save_json(json_dict, os.path.join(output_file), sort_keys=sort_keys)
