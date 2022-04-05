@@ -375,15 +375,13 @@ Once all models are trained, use the following
 command to automatically determine what U-Net configuration(s) to use for test set prediction:
 
 ```bash
-nnUNet_find_best_configuration -m 2d 3d_fullres 3d_lowres 3d_cascade_fullres -t XXX --strict
+nnUNet_find_best_configuration -m 2d 3d_fullres 3d_lowres 3d_cascade_fullres -t XXX
 ```
 
 (all 5 folds need to be completed for all specified configurations!)
 
 On datasets for which the cascade was not configured, use `-m 2d 3d_fullres` instead. If you wish to only explore some
-subset of the configurations, you can specify that with the `-m` command. We recommend setting the
-`--strict` (crash if one of the requested configurations is
-missing) flag. Additional options are available (use `-h` for help).
+subset of the configurations, you can specify that with the `-m` command. Additional options are available (use `-h` for help).
 
 ### Run inference
 Remember that the data located in the input folder must adhere to the format specified
