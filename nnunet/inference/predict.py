@@ -69,7 +69,7 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
             then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
             filename or np.ndarray and will handle this automatically"""
             print(d.shape)
-            if np.prod(d.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save, 4 because float32 is 4 bytes
+            if np.prod(d.shape, dtype=np.double) > (2e9 / 4 * 0.85):  # *0.85 just to be save, 4 because float32 is 4 bytes
                 print(
                     "This output is too large for python process-process communication. "
                     "Saving output temporarily to disk")
@@ -99,6 +99,10 @@ def preprocess_multithreaded(trainer, list_of_lists, output_files, num_processes
 
     classes = list(range(1, trainer.num_classes))
     assert isinstance(trainer, nnUNetTrainer)
+ 
+    if torch.cuda.is_available() and trainer.network.get_device() != 'cpu':
+        trainer.network.cpu()
+
     q = Queue(1)
     processes = []
     for i in range(num_processes):
@@ -214,6 +218,9 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
 
         print("predicting", output_filename)
         trainer.load_checkpoint_ram(params[0], False)
+        if torch.cuda.is_available() and trainer.network.get_device() == 'cpu':
+            trainer.network.cuda()
+
         softmax = trainer.predict_preprocessed_data_return_seg_and_softmax(
             d, do_mirroring=do_tta, mirror_axes=trainer.data_aug_params['mirror_axes'], use_sliding_window=True,
             step_size=step_size, use_gaussian=True, all_in_gpu=all_in_gpu,
@@ -254,7 +261,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         bytes_per_voxel = 4
         if all_in_gpu:
             bytes_per_voxel = 2  # if all_in_gpu then the return value is half (float16)
-        if np.prod(softmax.shape) > (2e9 / bytes_per_voxel * 0.85):  # * 0.85 just to be save
+        if np.prod(softmax.shape, dtype=np.double) > (2e9 / bytes_per_voxel * 0.85):  # * 0.85 just to be save
             print(
                 "This output is too large for python process-process communication. Saving output temporarily to disk")
             np.save(output_filename[:-7] + ".npy", softmax)

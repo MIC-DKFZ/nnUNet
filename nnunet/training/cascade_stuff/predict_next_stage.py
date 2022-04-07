@@ -75,7 +75,7 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
         target_shp = data_nextstage.shape[1:]
         output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
 
-        if np.prod(predicted_probabilities.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+        if np.prod(predicted_probabilities.shape, dtype=np.double) > (2e9 / 4 * 0.85):  # *0.85 just to be save
             np.save(output_file[:-4] + ".npy", predicted_probabilities)
             predicted_probabilities = output_file[:-4] + ".npy"
 
