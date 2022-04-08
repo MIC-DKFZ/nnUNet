@@ -198,9 +198,9 @@ def main():
                     m1, t1, pl1 = model1.split("__")
                     m2, t2, pl2 = model2.split("__")
                     predict_str += "nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL1 -tr " + tr + " -ctr " + trc + " -m " + m1 + " -p " + pl + " -t " + \
-                                   id_task_mapping[t] + "\n"
+                                   id_task_mapping[t] + " -z\n"
                     predict_str += "nnUNet_predict -i FOLDER_WITH_TEST_CASES -o OUTPUT_FOLDER_MODEL2 -tr " + tr + " -ctr " + trc + " -m " + m2 + " -p " + pl + " -t " + \
-                                   id_task_mapping[t] + "\n"
+                                   id_task_mapping[t] + " -z\n"
 
                     if not disable_postprocessing:
                         predict_str += "nnUNet_ensemble -f OUTPUT_FOLDER_MODEL1 OUTPUT_FOLDER_MODEL2 -o OUTPUT_FOLDER -pp " + join(network_training_output_dir, "ensembles", id_task_mapping[t], k, "postprocessing.json") + "\n"
