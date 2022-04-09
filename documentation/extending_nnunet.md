@@ -55,7 +55,7 @@ classes are ExperimentPlanner2D_v21 for the 2D U-Net and ExperimentPlanner3D_v21
 U-Net cascade. Just like nnUNetTrainers, the ExperimentPlanners inherit from each other, resulting in minimal programming 
 effort to incorporate changes. Just like with the trainers, simply give your custom ExperimentPlanners a unique name and 
 save them in some subfolder of nnunet.experiment_planning. You can then specify your class names when running 
-`nnUNet_plan_and_preprocess` and nnU-Net will find them automatically. When inheriting form ExperimentPlanners, you **MUST** 
+`nnUNet_plan_and_preprocess` and nnU-Net will find them automatically. When inheriting from ExperimentPlanners, you **MUST** 
 overwrite the class variables `self.data_identifier` and `self.plans_fname` (just like for example 
 [here](../nnunet/experiment_planning/alternative_experiment_planning/normalization/experiment_planner_3DUNet_CT2.py)). 
 If you omit this step the planner will overwrite the plans file and the preprocessed data of the planner it inherits from.
