@@ -641,7 +641,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
         new_state_dict = OrderedDict()
         curr_state_dict_keys = list(self.network.state_dict().keys())
-        # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
+        # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         for k, value in checkpoint['state_dict'].items():
             key = k
