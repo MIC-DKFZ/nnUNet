@@ -521,9 +521,9 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                     else:
                         softmax_fname = None
 
-                    """There is a problem with python process communication that prevents us from communicating obejcts
+                    """There is a problem with python process communication that prevents us from communicating objects
                     larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-                    communicated by the multiprocessing.Pipe object then the placeholder (\%i I think) does not allow for long
+                    communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
                     enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
                     patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
                     then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either

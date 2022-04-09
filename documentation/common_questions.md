@@ -1,17 +1,17 @@
 # FAQ
 
 - [FAQ](#faq)
-  * [Where can I find the segmentation metrics of my experiments?](#where-can-i-find-the-segmentation-metrics-of-my-experiments-)
-  * [What postprocessing is selected?](#what-postprocessing-is-selected-)
-  * [Evaluating test set results](#evaluating-test-set-results)
-  * [Creating and managing data splits](#creating-and-managing-data-splits)
-  * [How can I swap component XXX (for example the loss) of nnU-Net?](#how-can-i-swap-component-xxx--for-example-the-loss--of-nnu-net-)
-  * [How does nnU-Net handle multi-modal images?](#how-does-nnu-net-handle-multi-modal-images-)
-  * [Why does nnU-Net not use all my GPU memory?](#why-does-nnu-net-not-use-all-my-gpu-memory-)
-  * [Do I need to always run all U-Net configurations?](#do-i-need-to-always-run-all-u-net-configurations-)
-  * [Sharing Models](#sharing-models)
-  * [Can I run nnU-Net on smaller GPUs?](#can-i-run-nnu-net-on-smaller-gpus-)
-  * [Why is no 3d_lowres model created?](#why-is-no-3d-lowres-model-created-)
+  - [Where can I find the segmentation metrics of my experiments?](#where-can-i-find-the-segmentation-metrics-of-my-experiments)
+  - [What postprocessing is selected?](#what-postprocessing-is-selected)
+  - [Evaluating test set results](#evaluating-test-set-results)
+  - [Creating and managing data splits](#creating-and-managing-data-splits)
+  - [How can I swap component XXX (for example the loss) of nnU-Net?](#how-can-i-swap-component-xxx-for-example-the-loss-of-nnu-net)
+  - [How does nnU-Net handle multi-modal images?](#how-does-nnu-net-handle-multi-modal-images)
+  - [Why does nnU-Net not use all my GPU memory?](#why-does-nnu-net-not-use-all-my-gpu-memory)
+  - [Do I need to always run all U-Net configurations?](#do-i-need-to-always-run-all-u-net-configurations)
+  - [Sharing Models](#sharing-models)
+  - [Can I run nnU-Net on smaller GPUs?](#can-i-run-nnu-net-on-smaller-gpus)
+  - [Why is no 3d_lowres model created?](#why-is-no-3d_lowres-model-created)
 
 ## Where can I find the segmentation metrics of my experiments?
 **Results for the validation sets of each fold** are stored in the respective output folder after the training is completed. For example, this could be. 
@@ -149,7 +149,7 @@ iterations each (250000 iterations). The training time thus scales approximately
 know what you are doing! Again, training times will be increased if you do this! 3) is a better way of increasing the 
 patch size.
 
-3) Run `nnUNet_plan_and_preprocess` with a larger GPU memory budget. This will make nnU-Net plan for larger patch sizes 
+3) Run `nnUNet_plan_and_preprocess` with a larger GPU memory budget. This will make nnU-Net plan for larger batch sizes 
 during experiment planning. Doing this can change the patch size, network topology, the batch size as well as the 
 presence of the U-Net cascade. To run with a different memory budget, you need to specify a different experiment planner, for example
 `nnUNet_plan_and_preprocess -t TASK_ID -pl2d None -pl3d ExperimentPlanner3D_v21_32GB` (note that `-pl2d None` will 
