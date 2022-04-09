@@ -280,7 +280,7 @@ class DataLoader3D(SlimDataLoaderBase):
                     need_to_pad[d] = self.patch_size[d] - case_all_data.shape[d + 1]
 
             # we can now choose the bbox from -need_to_pad // 2 to shape - patch_size + need_to_pad // 2. Here we
-            # define what the upper and lower bound can be to then sample form them with np.random.randint
+            # define what the upper and lower bound can be to then sample from them with np.random.randint
             shape = case_all_data.shape[1:]
             lb_x = - need_to_pad[0] // 2
             ub_x = shape[0] + need_to_pad[0] // 2 + need_to_pad[0] % 2 - self.patch_size[0]
@@ -528,7 +528,7 @@ class DataLoader2D(SlimDataLoaderBase):
             assert len(case_all_data.shape) == 3
 
             # we can now choose the bbox from -need_to_pad // 2 to shape - patch_size + need_to_pad // 2. Here we
-            # define what the upper and lower bound can be to then sample form them with np.random.randint
+            # define what the upper and lower bound can be to then sample from them with np.random.randint
 
             need_to_pad = self.need_to_pad.copy()
             for d in range(2):
