@@ -170,7 +170,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
     def run_online_evaluation(self, output, target):
         """
         due to deep supervision the return value and the reference are now lists of tensors. We only need the full
-        resolution output because this is what we are interested in the end. The others are ignored
+        resolution output because this is what we are interested in in the end. The others are ignored
         :param output:
         :param target:
         :return:

@@ -28,7 +28,7 @@ class TestSlidingWindow(unittest2.TestCase):
                                                                                              str(patch_size), step_size)
         target_step_sizes_in_voxels = [i * step_size for i in patch_size]
 
-        # this code is copied from the current implementation. Not ideal, but I don't know hoe else to the the
+        # this code is copied from the current implementation. Not ideal, but I don't know how else to compute the
         # expected num_steps
         num_steps = [int(np.ceil((i - k) / j)) + 1 for i, j, k in zip(image_size, target_step_sizes_in_voxels,
                                                                       patch_size)]

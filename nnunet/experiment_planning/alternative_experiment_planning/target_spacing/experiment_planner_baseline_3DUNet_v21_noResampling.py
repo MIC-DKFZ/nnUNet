@@ -34,7 +34,7 @@ class ExperimentPlanner3D_v21_noResampling(ExperimentPlanner3D_v21):
         :return:
         """
         use_nonzero_mask_for_normalization = self.determine_whether_to_use_mask_for_norm()
-        print("Are we using the nonzero mask for normalizaion?", use_nonzero_mask_for_normalization)
+        print("Are we using the nonzero mask for normalization?", use_nonzero_mask_for_normalization)
         spacings = self.dataset_properties['all_spacings']
         sizes = self.dataset_properties['all_sizes']
 
@@ -132,7 +132,7 @@ class ExperimentPlanner3D_v21_noResampling_16GB(ExperimentPlanner3D_v21_16GB):
         :return:
         """
         use_nonzero_mask_for_normalization = self.determine_whether_to_use_mask_for_norm()
-        print("Are we using the nonzero mask for normalizaion?", use_nonzero_mask_for_normalization)
+        print("Are we using the nonzero mask for normalization?", use_nonzero_mask_for_normalization)
         spacings = self.dataset_properties['all_spacings']
         sizes = self.dataset_properties['all_sizes']
 
