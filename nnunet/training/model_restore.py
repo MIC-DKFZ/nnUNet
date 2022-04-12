@@ -110,7 +110,7 @@ def load_model_and_checkpoint_files(folder, folds=None, mixed_precision=None, ch
     """
     used for if you need to ensemble the five models of a cross-validation. This will restore the model from the
     checkpoint in fold 0, load all parameters of the five folds in ram and return both. This will allow for fast
-    switching between parameters (as opposed to loading them form disk each time).
+    switching between parameters (as opposed to loading them from disk each time).
 
     This is best used for inference and test prediction
     :param folder:

@@ -23,7 +23,7 @@ def load_pretrained_weights(network, fname, verbose=False):
 
     new_state_dict = {}
 
-    # if state dict comes form nn.DataParallel but we use non-parallel model here then the state dict keys do not
+    # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
     # match. Use heuristic to make it match
     for k, value in pretrained_dict.items():
         key = k
