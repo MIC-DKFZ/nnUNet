@@ -170,7 +170,6 @@ class ImageCropper(object):
         except Exception as e:
             print("Exception in", case_identifier, ":")
             print(e)
-            raise e
 
     def get_list_of_cropped_files(self):
         return subfiles(self.output_folder, join=True, suffix=".npz")
