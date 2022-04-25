@@ -2,6 +2,7 @@ import numpy as np
 
 
 # Hello! crop_to_nonzero is the function you are looking for. Ignore the rest.
+from acvl_utils.bounding_boxes import crop_to_bbox, get_bbox_from_mask
 
 
 def create_nonzero_mask(data):
@@ -18,12 +19,6 @@ def create_nonzero_mask(data):
         nonzero_mask = nonzero_mask | this_mask
     nonzero_mask = binary_fill_holes(nonzero_mask)
     return nonzero_mask
-
-
-def crop_to_bbox(image, bbox):
-    assert len(image.shape) == 3, "only supports 3d images"
-    resizer = (slice(bbox[0][0], bbox[0][1]), slice(bbox[1][0], bbox[1][1]), slice(bbox[2][0], bbox[2][1]))
-    return image[resizer]
 
 
 def crop_to_nonzero(data, seg=None, nonzero_label=-1):
@@ -61,43 +56,3 @@ def crop_to_nonzero(data, seg=None, nonzero_label=-1):
     return data, seg, bbox
 
 
-def get_bbox_from_mask(mask):
-    """
-    this implementation uses less ram than the np.where one and is faster as well
-
-    :param mask:
-    :param outside_value:
-    :return:
-    """
-    Z, X, Y = mask.shape
-    minzidx, maxzidx, minxidx, maxxidx, minyidx, maxyidx = 0, Z, 0, X, 0, Y
-    zidx = list(range(Z))
-    for z in zidx:
-        if np.any(mask[z]):
-            minzidx = z
-            break
-    for z in zidx[::-1]:
-        if np.any(mask[z]):
-            maxzidx = z + 1
-            break
-
-    xidx = list(range(X))
-    for x in xidx:
-        if np.any(mask[:, x]):
-            minxidx = x
-            break
-    for x in xidx[::-1]:
-        if np.any(mask[:, x]):
-            maxxidx = x + 1
-            break
-
-    yidx = list(range(Y))
-    for y in yidx:
-        if np.any(mask[:, :, y]):
-            minyidx = y
-            break
-    for y in yidx[::-1]:
-        if np.any(mask[:, :, y]):
-            maxyidx = y + 1
-            break
-    return [[minzidx, maxzidx], [minxidx, maxxidx], [minyidx, maxyidx]]
