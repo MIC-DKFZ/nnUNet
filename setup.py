@@ -24,6 +24,7 @@ setup(name='nnunetv2',
             'tifffile',
             'requests',
             "nibabel",
+            "pytorch_lightning",
       ],
       entry_points={
           'console_scripts': [

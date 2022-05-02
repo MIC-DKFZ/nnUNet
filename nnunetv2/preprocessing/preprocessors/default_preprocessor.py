@@ -23,7 +23,7 @@ from nnunetv2.paths import default_plans_identifier
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
-from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_nf_by_name
+from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
@@ -77,12 +77,13 @@ class DefaultPreprocessor(object):
         data_properites['shape_before_cropping'] = shape_before_cropping
         # this command will generate a segmentation. This is important because of the nonzero mask which we may need
         data, seg, bbox = crop_to_nonzero(data, seg)
+        data_properites['bbox_used_for_cropping'] = bbox
         print(data.shape, seg.shape)
         data_properites['shape_after_cropping_and_before_resampling'] = data.shape[1:]
 
         # resample
-        fn_data = recursive_find_resampling_nf_by_name(configuration['resampling_fn_data'])
-        fn_seg = recursive_find_resampling_nf_by_name(configuration['resampling_fn_seg'])
+        fn_data = recursive_find_resampling_fn_by_name(configuration['resampling_fn_data'])
+        fn_seg = recursive_find_resampling_fn_by_name(configuration['resampling_fn_seg'])
         target_spacing = configuration['spacing']  # this should already be transposed
 
         if len(target_spacing) < len(data.shape[1:]):

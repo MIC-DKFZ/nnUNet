@@ -21,6 +21,7 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
 
 from nnunetv2.configuration import ANISO_THRESHOLD
+from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
@@ -47,6 +48,7 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.network_initialization import InitWeights_He
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
+from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 
 
 class nnUNetModule(pl.LightningModule):
@@ -86,10 +88,10 @@ class nnUNetModule(pl.LightningModule):
 
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 10
 
         self.output_folder_base = join(nnUNet_results, self.dataset_name,
-                                  self.__class__.__name__ + '__' + plans_name + "__" + configuration)
+                                       self.__class__.__name__ + '__' + plans_name + "__" + configuration)
         self.output_folder = join(self.output_folder_base, f'fold_{fold}')
         maybe_mkdir_p(self.output_folder)
 
@@ -134,6 +136,19 @@ class nnUNetModule(pl.LightningModule):
 
         self._ema_pseudo_dice = None
         self._best_ema = None
+
+        self.inference_allowed_mirroring_axes = None  # this variable is set in
+        # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
+        self.inference_gaussian = None  # will be set in self.on_predict_start to speed up inference. After
+        # prediction it is set back to None in self.on_predict_end
+        self.inference_parameters = {
+            'tile_step_size': 0.5,
+            'use_gaussian': True,
+            'use_mirroring': True,
+            'perform_everything_on_gpu': False,
+            'verbose': True,
+            'save_probabilities': False,
+        }
 
     def plot_network_architecture(self):
         try:
@@ -297,7 +312,7 @@ class nnUNetModule(pl.LightningModule):
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
         """
-        This function is stupid and vertainly one of the weakest spots of this implementation. Not entirely sure how we can fix it.
+        This function is stupid and certainly one of the weakest spots of this implementation. Not entirely sure how we can fix it.
         """
         patch_size = self.plans['configurations'][self.configuration]["patch_size"]
         dim = len(patch_size)
@@ -557,8 +572,8 @@ class nnUNetModule(pl.LightningModule):
             val_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
 
         if deep_supervision_scales is not None:
-                val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
-                                                                   output_key='target'))
+            val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
+                                                               output_key='target'))
 
         val_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
         val_transforms = Compose(val_transforms)
@@ -653,11 +668,13 @@ class nnUNetModule(pl.LightningModule):
         checkpoint['my_log'] = self.my_fantastic_logging
         checkpoint['ema_pseudo_dice'] = self._ema_pseudo_dice
         checkpoint['best_ema'] = self._best_ema
+        checkpoint['inference_allowed_mirroring_axes'] = self.inference_allowed_mirroring_axes
 
     def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
         self.my_fantastic_logging = checkpoint['my_log']
         self._ema_pseudo_dice = checkpoint['ema_pseudo_dice']
         self._best_ema = checkpoint['best_ema']
+        self.inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes']
 
     def on_train_start(self) -> None:
         self.print_plans()
@@ -667,7 +684,8 @@ class nnUNetModule(pl.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         self.print_to_log_file(f'\nEpoch {self.current_epoch}:')
-        self.print_to_log_file(f"Current learning rate: {np.round(self.optimizers().param_groups[0]['lr'], decimals=5)}")
+        self.print_to_log_file(
+            f"Current learning rate: {np.round(self.optimizers().param_groups[0]['lr'], decimals=5)}")
         self._log_to_my_fantastic_log(time(), 'epoch_start_timestamps')
         self._log_to_my_fantastic_log(self.optimizers().param_groups[0]['lr'], 'lrs')
 
@@ -700,6 +718,93 @@ class nnUNetModule(pl.LightningModule):
         self.print_to_log_file(f'Epoch {self.current_epoch} done')
         self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
         self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
-        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in self.my_fantastic_logging['dice_per_class_or_region'][-1]])
-        self.print_to_log_file(f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
+                                               self.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        self.print_to_log_file(
+            f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+
+    def get_validation_dataloader(self):
+        """
+        This one is just a generator that is used for the final (real!) validation. It loads the preprocessed
+        validation cases. This is compatible with DDP!
+        """
+        _, val_dataset = self.get_tr_and_val_datasets()
+
+        validation_output_folder = join(self.output_folder, 'validation')
+        maybe_mkdir_p(validation_output_folder)
+
+        val_keys = list(val_dataset.keys())
+        my_keys = val_keys[self.trainer.local_rank:: self.trainer.world_size]
+        for k in my_keys:
+            case = val_dataset.load_case(k)
+            output_filename = join(validation_output_folder, k)
+            yield case[0], case[2], output_filename  # this is the preprocessed data and properties dict and the
+            # filename for the exported segmentation
+
+    def set_inference_parameters(self, tile_step_size: float = 0.5, use_gaussian: bool = True,
+                                 use_mirroring: bool = True, perform_everything_on_gpu: bool = False,
+                                 verbose: bool = True, save_probabilities: bool = False):
+        self.inference_parameters = {
+            'tile_step_size': tile_step_size,
+            'use_gaussian': use_gaussian,
+            'use_mirroring': use_mirroring,
+            'perform_everything_on_gpu': perform_everything_on_gpu,
+            'verbose': verbose,
+            'save_probabilities': save_probabilities,
+        }
+
+    def on_predict_start(self) -> None:
+        self.inference_gaussian = torch.from_numpy(compute_gaussian(
+            self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
+        self.network.decoder.deep_supervision = False
+
+    def on_predict_end(self) -> None:
+        self.inference_gaussian = None
+        self.trainer.training_type_plugin.barrier("prediction")
+        self.network.decoder.deep_supervision = True
+
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+        # intended to be used with generator from self.get_validation_dataloader
+        # we hijack this lightning function. It is not supposed to be used this way
+        data, properties, output_filename = batch
+
+        prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),
+                                                          tile_size=self.plans['configurations'][self.configuration][
+                                                              'patch_size'],
+                                                          mirror_axes=self.inference_allowed_mirroring_axes if
+                                                          self.inference_parameters['use_mirroring'] else None,
+                                                          tile_step_size=self.inference_parameters['tile_step_size'],
+                                                          use_gaussian=self.inference_parameters['use_gaussian'],
+                                                          precomputed_gaussian=self.inference_gaussian,
+                                                          perform_everything_on_gpu=self.inference_parameters[
+                                                              'perform_everything_on_gpu'],
+                                                          verbose=self.inference_parameters['verbose'])
+
+        if self.regions is None:
+            # softmax-based inference
+            prediction = torch.softmax(prediction, 0)
+        else:
+            # sigmoid-based prediction
+            prediction = torch.sigmoid(prediction)
+
+        prediction = prediction.to('cpu').numpy()
+
+        if self.inference_parameters['save_probabilities']:
+            probabilities_file = output_filename + ".npz"
+        else:
+            probabilities_file = None
+
+        """There is a problem with python process communication that prevents us from communicating objects
+        larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+        communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
+        enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+        patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+        then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
+        filename or np.ndarray and will handle this automatically"""
+        if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            np.save(output_filename + '.npy', prediction)
+            prediction = output_filename + '.npy'
+
+        export_prediction(prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename)
+
 

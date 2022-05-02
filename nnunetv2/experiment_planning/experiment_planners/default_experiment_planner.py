@@ -136,7 +136,7 @@ class ExperimentPlanner(object):
         """
         resampling_fn = resample_data_or_seg_to_shape
         resampling_fn_kwargs = {
-            "is_seg": True,
+            "is_seg": False,
             "order": 1,
             "order_z": 0,
             "force_separate_z": None,

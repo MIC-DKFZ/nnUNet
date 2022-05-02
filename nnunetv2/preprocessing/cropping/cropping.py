@@ -2,7 +2,7 @@ import numpy as np
 
 
 # Hello! crop_to_nonzero is the function you are looking for. Ignore the rest.
-from acvl_utils.bounding_boxes import crop_to_bbox, get_bbox_from_mask
+from acvl_utils.cropping_and_padding.bounding_boxes import get_bbox_from_mask, crop_to_bbox
 
 
 def create_nonzero_mask(data):

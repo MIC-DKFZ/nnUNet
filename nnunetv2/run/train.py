@@ -92,9 +92,15 @@ def nnUNet_train_from_args():
                          num_sanity_val_steps=0,
                          )
 
-    tr_gen, val_gen = nnunet_module.get_dataloaders()
-    trainer.fit(nnunet_module, tr_gen, val_gen)
+    if not args.val:
+        tr_gen, val_gen = nnunet_module.get_dataloaders()
+        trainer.fit(nnunet_module, tr_gen, val_gen)
 
+    if args.val:
+        nnunet_module = nnunet_module.load_from_checkpoint(join(nnunet_module.output_folder, 'checkpoint_best.pth'))
+
+    dl = nnunet_module.get_validation_dataloader()
+    trainer.predict(nnunet_module, dl)
 
 if __name__ == '__main__':
     nnUNet_train_from_args()

@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from batchgenerators.utilities.file_and_folder_operations import join
+from batchgenerators.utilities.file_and_folder_operations import join, isfile
 import os
 from typing import Dict, Any
 from pytorch_lightning import Callback
@@ -40,7 +40,8 @@ class nnUNetCheckpoint(Callback):
         elif current_epoch == pl_module.num_epochs - 1:
             trainer.save_checkpoint(join(pl_module.output_folder, 'checkpoint_final.pth'), True)
             # delete latest checkpoint
-            os.remove(join(pl_module.output_folder, 'checkpoint_latest.pth'))
+            if isfile(join(pl_module.output_folder, 'checkpoint_latest.pth')):
+                os.remove(join(pl_module.output_folder, 'checkpoint_latest.pth'))
 
         # exponential moving average of pseudo dice to determine 'best' model (use with caution)
         self._current_ema = self._current_ema * 0.9 + 0.1 * pl_module.my_fantastic_logging['mean_fg_dice'][-1] \
