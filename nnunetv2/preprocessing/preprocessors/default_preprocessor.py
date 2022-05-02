@@ -154,7 +154,7 @@ class DefaultPreprocessor(object):
                 raise RuntimeError('Unable to locate class \'%s\' for normalization' % scheme)
             normalizer = normalizer_class(normalization_schemes,
                                           dataset_fingerprint['foreground_intensity_properties_by_modality'][str(c)])
-            data[c] = normalizer.run(data, seg)
+            data[c] = normalizer.run(data[c], seg[0])
         return data
 
     def run(self, dataset_name_or_id: Union[int, str], configuration_name: str, plans_identifier: str, num_processes: int):
@@ -218,9 +218,9 @@ def example_test_case_preprocessing():
     plans_file = default_plans_identifier + '.json'
     dataset_json_file = 'dataset.json'
     dataset_fingerprint_file = 'dataset_fingerprint.json'
-    input_images = ['case000_0000.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
+    input_images = ['prostate_00_0000.nii.gz', 'prostate_00_0001.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
 
-    configuration = '3d_fullres'
+    configuration = '2d'
     pp = DefaultPreprocessor()
 
     # _ because this position would be the segmentation if seg_file was not None (training case)

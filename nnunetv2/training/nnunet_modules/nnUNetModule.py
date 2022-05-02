@@ -88,7 +88,7 @@ class nnUNetModule(pl.LightningModule):
 
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 10
+        self.num_epochs = 20
 
         self.output_folder_base = join(nnUNet_results, self.dataset_name,
                                        self.__class__.__name__ + '__' + plans_name + "__" + configuration)
@@ -273,7 +273,7 @@ class nnUNetModule(pl.LightningModule):
         return tr_keys, val_keys
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        if self.trainer is not None and self.trainer.is_global_zero:
+        if self.trainer is None or self.trainer.is_global_zero:
             timestamp = time()
             dt_object = datetime.fromtimestamp(timestamp)
 
@@ -361,7 +361,9 @@ class nnUNetModule(pl.LightningModule):
                                             *rotation_for_DA.values(),
                                             (0.85, 1.25))
         if do_dummy_2d_data_aug:
-            initial_patch_size = [patch_size[0]] + initial_patch_size
+            initial_patch_size[0] = patch_size[0]
+
+        self.print_to_log_file(f'do_dummy_2d_data_aug: {do_dummy_2d_data_aug}')
 
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 
@@ -582,7 +584,6 @@ class nnUNetModule(pl.LightningModule):
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         data = batch['data']
         target = batch['target']
-
         output = self.network(data)
 
         # for now leave this untouched. For DDP we will have to change it (batch dice ;-) )

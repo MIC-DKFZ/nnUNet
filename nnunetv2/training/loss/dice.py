@@ -70,9 +70,7 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
             y_onehot = gt
         else:
             gt = gt.long()
-            y_onehot = torch.zeros(shp_x)
-            if net_output.device.type == "cuda":
-                y_onehot = y_onehot.cuda(net_output.device.index)
+            y_onehot = torch.zeros(shp_x, device=net_output.device)
             y_onehot.scatter_(1, gt, 1)
 
     tp = net_output * y_onehot
