@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 from copy import deepcopy
 from datetime import datetime
@@ -679,6 +680,20 @@ class nnUNetModule(pl.LightningModule):
 
     def on_train_start(self) -> None:
         self.print_plans()
+
+        # copy plans and dataset.json so that they can be used for restoring everything we need for inference
+        shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset.json'),
+                    join(self.output_folder_base, 'dataset.json'))
+        shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
+                    join(self.output_folder_base, 'dataset_fingerprint.json'))
+        shutil.copy(self.plans_file, join(self.output_folder_base, 'plans.json'))
+
+        # we also need some additional information for inference. Since inference is independent of the trainer it
+        # cannot be restored otherwise
+        save_json({
+            'configuration_name': self.configuration,
+            'allowed_mirror_axes': self.inference_allowed_mirroring_axes
+        }, join(self.output_folder_base, 'config.json'))
 
         # produces a pdf in output folder
         self.plot_network_architecture()
