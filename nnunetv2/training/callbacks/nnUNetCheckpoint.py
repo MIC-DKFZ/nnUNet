@@ -25,13 +25,19 @@ class nnUNetCheckpoint(Callback):
 
         }
 
-    def on_load_checkpoint(
-        self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", callback_state: Dict[str, Any]
-    ) -> None:
-        self._best_ema = callback_state['_best_ema']
-        self._current_ema = callback_state['_current_ema']
-        self.alpha = callback_state['alpha']
-        self.save_every = callback_state['save_every']
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        self._best_ema = state_dict['_best_ema']
+        self._current_ema = state_dict['_current_ema']
+        self.alpha = state_dict['alpha']
+        self.save_every = state_dict['save_every']
+
+    # def on_load_checkpoint(
+    #     self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", callback_state: Dict[str, Any]
+    # ) -> None:
+    #     self._best_ema = callback_state['_best_ema']
+    #     self._current_ema = callback_state['_current_ema']
+    #     self.alpha = callback_state['alpha']
+    #     self.save_every = callback_state['save_every']
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         current_epoch = pl_module.current_epoch

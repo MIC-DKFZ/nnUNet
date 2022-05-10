@@ -96,11 +96,12 @@ def nnUNet_train_from_args():
         tr_gen, val_gen = nnunet_module.get_dataloaders()
         trainer.fit(nnunet_module, tr_gen, val_gen)
 
-    if args.val:
-        nnunet_module = nnunet_module.load_from_checkpoint(join(nnunet_module.output_folder, 'checkpoint_best.pth'))
+    if not trainer.interrupted:
+        if args.val:
+            nnunet_module = nnunet_module.load_from_checkpoint(join(nnunet_module.output_folder, 'checkpoint_final.pth'))
 
-    dl = nnunet_module.get_validation_dataloader()
-    trainer.predict(nnunet_module, dl)
+        dl = nnunet_module.get_validation_dataloader()
+        trainer.predict(nnunet_module, dl)
 
 if __name__ == '__main__':
     nnUNet_train_from_args()

@@ -17,6 +17,7 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from nnunetv2.utilities.helpers import softmax_helper
 from pytorch_lightning.utilities import distributed
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
@@ -46,6 +47,7 @@ from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.label_handling import handle_labels
 from nnunetv2.utilities.network_initialization import InitWeights_He
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
@@ -76,7 +78,10 @@ class nnUNetModule(pl.LightningModule):
         self.dataset_json = load_json(join(self.preprocessed_dataset_folder_base, 'dataset.json'))
 
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
-        self.labels, self.regions, self.ignore_label = self._handle_labels()
+        self.labels, self.regions, self.ignore_label = handle_labels(self.dataset_json)
+
+        # needed for predictions
+        self.inference_nonlinearity = torch.sigmoid if self.regions is not None else softmax_helper
 
         self.configuration = configuration
         self.unpack_dataset = unpack_dataset
@@ -179,28 +184,6 @@ class nnUNetModule(pl.LightningModule):
         del dct['configurations']
         self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n', config, '\n')
         self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
-
-    def _handle_labels(self) -> Tuple[List, Union[List, None], Union[int, None]]:
-        # first we need to check if we have to run region-based training
-        region_needed = any([isinstance(i, tuple) and len(i) > 1 for i in self.dataset_json['labels'].values()])
-        if region_needed:
-            assert 'regions_class_order' in self.dataset_json.keys(), 'if region-based training is requested via ' \
-                                                                      'dataset.json then you need to define ' \
-                                                                      'regions_class_order as well, ' \
-                                                                      'see documentation!'  # TODO add this
-            regions = list(self.dataset_json['labels'].values())
-            assert len(self.dataset_json['regions_class_order']) == len(regions), 'regions_class_order must have ans ' \
-                                                                                  'many entries as there are ' \
-                                                                                  'regions'
-        else:
-            regions = None
-        all_labels = extract_unique_classes_from_dataset_json_labels(self.dataset_json['labels'])
-
-        ignore_label = self.dataset_json['labels'].get('ignore')
-        if ignore_label is not None:
-            assert isinstance(ignore_label, int), f'Ignore label has to be an integer. It cannot be a region ' \
-                                                  f'(list/tuple). Got {type(ignore_label)}.'
-        return all_labels, regions, ignore_label
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
@@ -430,7 +413,7 @@ class nnUNetModule(pl.LightningModule):
                                num_processes=max(1, get_allowed_n_proc_DA() // 2))
             else:
                 self.print_to_log_file('waiting for rank 0 to finished unpacking')
-            self.trainer.training_type_plugin.barrier("unpacking")
+            self.trainer.strategy.barrier("unpacking")
             self.print_to_log_file('unpacking done...')
 
         # get the bois going
@@ -670,13 +653,16 @@ class nnUNetModule(pl.LightningModule):
         checkpoint['my_log'] = self.my_fantastic_logging
         checkpoint['ema_pseudo_dice'] = self._ema_pseudo_dice
         checkpoint['best_ema'] = self._best_ema
+
+        # we also need some additional information for inference. We only need to save this and not need to restore it
+        # on loading
         checkpoint['inference_allowed_mirroring_axes'] = self.inference_allowed_mirroring_axes
+        checkpoint['inference_nonlinearity'] = self.inference_nonlinearity
 
     def on_load_checkpoint(self, checkpoint: Dict[str, Any]) -> None:
         self.my_fantastic_logging = checkpoint['my_log']
         self._ema_pseudo_dice = checkpoint['ema_pseudo_dice']
         self._best_ema = checkpoint['best_ema']
-        self.inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes']
 
     def on_train_start(self) -> None:
         self.print_plans()
@@ -688,15 +674,12 @@ class nnUNetModule(pl.LightningModule):
                     join(self.output_folder_base, 'dataset_fingerprint.json'))
         shutil.copy(self.plans_file, join(self.output_folder_base, 'plans.json'))
 
-        # we also need some additional information for inference. Since inference is independent of the trainer it
-        # cannot be restored otherwise
-        save_json({
-            'configuration_name': self.configuration,
-            'allowed_mirror_axes': self.inference_allowed_mirroring_axes
-        }, join(self.output_folder_base, 'config.json'))
-
         # produces a pdf in output folder
         self.plot_network_architecture()
+
+        # hacky workaround? Otherwise the optimizer attached to the lr scheduler is not the correct one. WTF lightning?
+        self.lr_schedulers().optimizer = self.optimizers()
+        self.lr_schedulers().step(self.trainer.current_epoch)
 
     def on_train_epoch_start(self) -> None:
         self.print_to_log_file(f'\nEpoch {self.current_epoch}:')
@@ -753,8 +736,8 @@ class nnUNetModule(pl.LightningModule):
         my_keys = val_keys[self.trainer.local_rank:: self.trainer.world_size]
         for k in my_keys:
             case = val_dataset.load_case(k)
-            output_filename = join(validation_output_folder, k)
-            yield case[0], case[2], output_filename  # this is the preprocessed data and properties dict and the
+            output_filename_truncated = join(validation_output_folder, k)
+            yield case[0], case[2], output_filename_truncated  # this is the preprocessed data and properties dict and the
             # filename for the exported segmentation
 
     def set_inference_parameters(self, tile_step_size: float = 0.5, use_gaussian: bool = True,
@@ -776,13 +759,13 @@ class nnUNetModule(pl.LightningModule):
 
     def on_predict_end(self) -> None:
         self.inference_gaussian = None
-        self.trainer.training_type_plugin.barrier("prediction")
+        self.trainer.strategy.barrier("prediction")
         self.network.decoder.deep_supervision = True
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         # intended to be used with generator from self.get_validation_dataloader
         # we hijack this lightning function. It is not supposed to be used this way
-        data, properties, output_filename = batch
+        data, properties, output_filename_truncated = batch
 
         prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),
                                                           tile_size=self.plans['configurations'][self.configuration][
@@ -805,11 +788,6 @@ class nnUNetModule(pl.LightningModule):
 
         prediction = prediction.to('cpu').numpy()
 
-        if self.inference_parameters['save_probabilities']:
-            probabilities_file = output_filename + ".npz"
-        else:
-            probabilities_file = None
-
         """There is a problem with python process communication that prevents us from communicating objects
         larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
         communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
@@ -818,9 +796,11 @@ class nnUNetModule(pl.LightningModule):
         then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
         filename or np.ndarray and will handle this automatically"""
         if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
-            np.save(output_filename + '.npy', prediction)
-            prediction = output_filename + '.npy'
+            np.save(output_filename_truncated + '.npy', prediction)
+            prediction = output_filename_truncated + '.npy'
 
-        export_prediction(prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename)
+        # this needs to go into background processes
+        export_prediction(prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename_truncated,
+                          self.inference_parameters['save_probabilities'])
 
 
