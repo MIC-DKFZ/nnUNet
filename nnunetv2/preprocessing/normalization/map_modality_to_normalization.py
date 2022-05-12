@@ -20,5 +20,5 @@ def get_normalization_scheme(modality_name: str) -> Type[ImageNormalization]:
     norm_scheme = modality_to_normalization_mapping.get(modality_name)
     if norm_scheme is None:
         norm_scheme = ZScoreNormalization
-    print('Using %s for image normalization' % norm_scheme.__name__)
+    # print('Using %s for image normalization' % norm_scheme.__name__)
     return norm_scheme

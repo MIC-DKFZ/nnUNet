@@ -48,7 +48,7 @@ class ExperimentPlanner(object):
         self.UNet_class = PlainConvUNet
         # the following two numbers are really arbitrary and were set to reproduce nnU-Net V1's configurations as
         # much as possible
-        self.UNet_reference_val_3d = 550000000  # 455600128
+        self.UNet_reference_val_3d = 630000000  # 455600128  550000000
         self.UNet_reference_val_2d = 85000000  # 83252480
         self.UNet_reference_com_nfeatures = 32
         self.UNet_reference_val_corresp_GB = 8
@@ -252,6 +252,7 @@ class ExperimentPlanner(object):
         # how large is the reference for us here (batch size etc)?
         # adapt for our vram target
         reference = self.UNet_reference_val_2d if len(spacing) == 2 else self.UNet_reference_val_3d
+        print(reference)
 
         while estimate > reference:
             # print(patch_size)
@@ -364,6 +365,8 @@ class ExperimentPlanner(object):
             spacing_increase_factor = 1.03 # used to be 1.01 but that is slow with new GPU memory estimation!
 
             while num_voxels_in_patch / median_num_voxels < self.lowres_creation_threshold:
+                print(f'Attempting to find 3d_lowres config. Current spacing: {lowres_spacing}. '
+                      f'Current median num voxels: {median_num_voxels}')
                 # we incrementally increase the target spacing. We start with the anisotropic axis/axes until it/they
                 # is/are similar (factor 2) to the other ax(i/e)s.
                 max_spacing = max(lowres_spacing)
@@ -411,8 +414,8 @@ class ExperimentPlanner(object):
 
         # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
         plans = {
-            'original_median_spacing_after_transp': [int(i) for i in median_spacing],
-            'original_median_shape_after_transp': [int(i) for i in median_shape],
+            'original_median_spacing_after_transp': [float(i) for i in median_spacing],
+            'original_median_shape_after_transp': [int(round(i)) for i in median_shape],
             'image_reader_writer': self.determine_reader_writer().__name__,
             'transpose_forward': [int(i) for i in transpose_forward],
             'transpose_backward': [int(i) for i in transpose_backward],

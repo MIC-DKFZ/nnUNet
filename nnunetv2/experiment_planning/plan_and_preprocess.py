@@ -161,7 +161,7 @@ def plan_and_preprocess():
     parser.add_argument("--clean", required=False, default=False, action="store_true",
                         help='[OPTIONAL] Set this flag to overwrite existing fingerprints. If this flag is not set and a '
                              'fingerprint already exists, the fingerprint extractor will not run. REQUIRED IF YOU '
-                             'CHANGE THE DATASET FINGERPRINT EXTRACTOR')
+                             'CHANGE THE DATASET FINGERPRINT EXTRACTOR OR MAKE CHANGES TO THE DATASET!')
     parser.add_argument('-pl', type=str, default='ExperimentPlanner', required=False,
                         help='[OPTIONAL] Name of the Experiment Planner class that should be used. Default is '
                              '\'ExperimentPlanner\'. Note: There is no longer a distinction between 2d and 3d planner. '

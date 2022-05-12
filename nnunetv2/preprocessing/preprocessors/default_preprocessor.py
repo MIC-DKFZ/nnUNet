@@ -79,7 +79,7 @@ class DefaultPreprocessor(object):
         # this command will generate a segmentation. This is important because of the nonzero mask which we may need
         data, seg, bbox = crop_to_nonzero(data, seg)
         data_properites['bbox_used_for_cropping'] = bbox
-        print(data.shape, seg.shape)
+        # print(data.shape, seg.shape)
         data_properites['shape_after_cropping_and_before_resampling'] = data.shape[1:]
 
         # resample
@@ -93,6 +93,8 @@ class DefaultPreprocessor(object):
             target_spacing = [original_spacing[0]] + target_spacing
         new_shape = compute_new_shape(data.shape[1:], original_spacing, target_spacing)
 
+        # print('current shape', data.shape[1:], 'current_spacing', original_spacing,
+        #       '\ntarget shape', new_shape, 'target_spacing', target_spacing)
         data = fn_data(data, new_shape, original_spacing, target_spacing,
                        **configuration['resampling_fn_data_kwargs'])
         seg = fn_seg(seg, new_shape, original_spacing, target_spacing,
