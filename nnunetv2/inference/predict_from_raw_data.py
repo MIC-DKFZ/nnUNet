@@ -136,8 +136,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 os.remove(delfile)
 
             ofile = preprocessed['ofile']
-            if ofile.endswith('hippocampus_005'):
-                import IPython;IPython.embed()
+
             properties = preprocessed['data_properites']
 
             prediction = None

@@ -3,6 +3,7 @@ import shutil
 import sys
 from copy import deepcopy
 from datetime import datetime
+from multiprocessing import Pool
 from time import time, sleep
 from typing import Union, Optional, Tuple, List, Dict, Any
 
@@ -17,12 +18,12 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
-from nnunetv2.utilities.helpers import softmax_helper
+from nnunetv2.utilities.helpers import softmax_helper_dim0
 from pytorch_lightning.utilities import distributed
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
 
-from nnunetv2.configuration import ANISO_THRESHOLD
+from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -81,7 +82,7 @@ class nnUNetModule(pl.LightningModule):
         self.labels, self.regions, self.ignore_label = handle_labels(self.dataset_json)
 
         # needed for predictions
-        self.inference_nonlinearity = torch.sigmoid if self.regions is not None else softmax_helper
+        self.inference_nonlinearity = torch.sigmoid if self.regions is not None else softmax_helper_dim0
 
         self.configuration = configuration
         self.unpack_dataset = unpack_dataset
@@ -94,7 +95,7 @@ class nnUNetModule(pl.LightningModule):
 
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 20
+        self.num_epochs = 1000
 
         self.output_folder_base = join(nnUNet_results, self.dataset_name,
                                        self.__class__.__name__ + '__' + plans_name + "__" + configuration)
@@ -114,8 +115,6 @@ class nnUNetModule(pl.LightningModule):
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
         self.network = get_network_from_plans(self.plans, self.dataset_json, configuration)
-        # weight initialization. Not sure how useful this actually is.
-        self.network.apply(InitWeights_He(1e-2))
 
         if self.regions is None:
             self.loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
@@ -147,6 +146,7 @@ class nnUNetModule(pl.LightningModule):
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
         self.inference_gaussian = None  # will be set in self.on_predict_start to speed up inference. After
         # prediction it is set back to None in self.on_predict_end
+        self.inference_segmentation_export_pool = None
         self.inference_parameters = {
             'tile_step_size': 0.5,
             'use_gaussian': True,
@@ -154,6 +154,7 @@ class nnUNetModule(pl.LightningModule):
             'perform_everything_on_gpu': False,
             'verbose': True,
             'save_probabilities': False,
+            'n_processes_segmentation_export': default_num_processes,
         }
 
     def plot_network_architecture(self):
@@ -384,7 +385,7 @@ class nnUNetModule(pl.LightningModule):
         # training pipeline
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
-            order_resampling_data=1, order_resampling_seg=0,
+            order_resampling_data=3, order_resampling_seg=1,
             use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
             is_cascaded=False, all_labels=self.labels, regions=self.regions)
 
@@ -405,6 +406,13 @@ class nnUNetModule(pl.LightningModule):
         return mt_gen_train, mt_gen_val
 
     def on_fit_start(self) -> None:
+        self.print_plans()
+
+        if self.trainer.current_epoch == 0 and self.trainer.global_step == 0:
+            self.print_to_log_file('Initializing weights...')
+            # weight initialization. Not sure how useful this actually is.
+            self.network.apply(InitWeights_He(1e-2))
+
         # maybe unpack
         if self.unpack_dataset:
             if self.global_rank == 0:
@@ -665,8 +673,6 @@ class nnUNetModule(pl.LightningModule):
         self._best_ema = checkpoint['best_ema']
 
     def on_train_start(self) -> None:
-        self.print_plans()
-
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset.json'),
                     join(self.output_folder_base, 'dataset.json'))
@@ -737,12 +743,14 @@ class nnUNetModule(pl.LightningModule):
         for k in my_keys:
             case = val_dataset.load_case(k)
             output_filename_truncated = join(validation_output_folder, k)
-            yield case[0], case[2], output_filename_truncated  # this is the preprocessed data and properties dict and the
+            yield case[0], case[
+                2], output_filename_truncated  # this is the preprocessed data and properties dict and the
             # filename for the exported segmentation
 
     def set_inference_parameters(self, tile_step_size: float = 0.5, use_gaussian: bool = True,
                                  use_mirroring: bool = True, perform_everything_on_gpu: bool = False,
-                                 verbose: bool = True, save_probabilities: bool = False):
+                                 verbose: bool = True, save_probabilities: bool = False,
+                                 n_processes_segmentation_export: int = default_num_processes):
         self.inference_parameters = {
             'tile_step_size': tile_step_size,
             'use_gaussian': use_gaussian,
@@ -750,17 +758,22 @@ class nnUNetModule(pl.LightningModule):
             'perform_everything_on_gpu': perform_everything_on_gpu,
             'verbose': verbose,
             'save_probabilities': save_probabilities,
+            'n_processes_segmentation_export': n_processes_segmentation_export,
         }
 
     def on_predict_start(self) -> None:
         self.inference_gaussian = torch.from_numpy(compute_gaussian(
             self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
         self.network.decoder.deep_supervision = False
+        self.inference_segmentation_export_pool = Pool(self.inference_parameters['n_processes_segmentation_export'])
 
     def on_predict_end(self) -> None:
         self.inference_gaussian = None
         self.trainer.strategy.barrier("prediction")
         self.network.decoder.deep_supervision = True
+        self.inference_segmentation_export_pool.close()
+        self.inference_segmentation_export_pool.join()
+        self.inference_segmentation_export_pool = None
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         # intended to be used with generator from self.get_validation_dataloader
@@ -800,7 +813,17 @@ class nnUNetModule(pl.LightningModule):
             prediction = output_filename_truncated + '.npy'
 
         # this needs to go into background processes
-        export_prediction(prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename_truncated,
-                          self.inference_parameters['save_probabilities'])
+        r = self.inference_segmentation_export_pool.starmap_async(
+            export_prediction, (
+                (prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename_truncated,
+                 self.inference_parameters['save_probabilities']),
+            )
+        )
 
+        # export_prediction(prediction, properties, self.configuration, self.plans, self.dataset_json,
+        #                   output_filename_truncated,
+        #                   self.inference_parameters['save_probabilities'])
+        return r
 
+    def on_predict_epoch_end(self, results: List[Any]) -> None:
+        _ = [i.get() for i in results[0]]

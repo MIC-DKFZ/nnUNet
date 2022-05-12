@@ -14,9 +14,7 @@ class nnUNetCheckpoint(Callback):
         self._best_ema = None
         self._current_ema = None
 
-    def on_save_checkpoint(
-        self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", checkpoint: Dict[str, Any]
-    ) -> dict:
+    def state_dict(self) -> Dict[str, Any]:
         return {
             '_best_ema': self._best_ema,
             '_current_ema': self._current_ema,

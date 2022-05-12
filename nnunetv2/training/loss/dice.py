@@ -1,5 +1,6 @@
 import torch
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss
+from nnunetv2.utilities.helpers import softmax_helper_dim0, softmax_helper_dim1
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from torch import nn
 
@@ -31,6 +32,7 @@ class SoftDiceLoss(nn.Module):
         nominator = 2 * tp + self.smooth
         denominator = 2 * tp + fp + fn + self.smooth
 
+        # todo use clip!
         dc = nominator / (denominator + 1e-8)
 
         if not self.do_bg:
@@ -120,7 +122,7 @@ class DC_and_CE_loss(nn.Module):
         self.ignore_label = ignore_label
 
         self.ce = RobustCrossEntropyLoss(**ce_kwargs)
-        self.dc = SoftDiceLoss(apply_nonlin=torch.nn.Softmax(dim=1), **soft_dice_kwargs)
+        self.dc = SoftDiceLoss(apply_nonlin=softmax_helper_dim1, **soft_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
         """

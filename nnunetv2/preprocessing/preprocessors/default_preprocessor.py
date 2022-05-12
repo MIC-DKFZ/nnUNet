@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import shutil
 from multiprocessing import Pool
 from typing import Union
 
@@ -188,6 +189,10 @@ class DefaultPreprocessor(object):
         caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                            dataset_json['file_ending'])
         output_directory = join(nnUNet_preprocessed, dataset_name, configuration_name)
+
+        if isdir(output_directory):
+            shutil.rmtree(output_directory)
+
         maybe_mkdir_p(output_directory)
 
         output_filenames_truncated = [join(output_directory, i) for i in caseids]

@@ -190,10 +190,10 @@ class ExperimentPlanner(object):
         modalities = self.dataset_json['modality']
         normalization_schemes = [get_normalization_scheme(m) for m in modalities.values()]
         if self.dataset_fingerprint['median_relative_size_after_cropping'] < (3 / 4.):
-            use_nonzero_mask_for_norm = [False] * len(normalization_schemes)
-        else:
             use_nonzero_mask_for_norm = [i.leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true for i in
                                          normalization_schemes]
+        else:
+            use_nonzero_mask_for_norm = [False] * len(normalization_schemes)
             assert all([i in (True, False) for i in use_nonzero_mask_for_norm]), 'use_nonzero_mask_for_norm must be ' \
                                                                                  'True or False and cannot be None'
         normalization_schemes = [i.__name__ for i in normalization_schemes]
@@ -421,11 +421,15 @@ class ExperimentPlanner(object):
 
         if plan_3d_lowres is not None:
             plans['configurations']['3d_lowres'] = plan_3d_lowres
+            if plan_3d_fullres is not None:
+                plans['configurations']['3d_lowres']['next_stage'] = '3d_fullres'
             print('3D lowres U-Net configuration:')
             print(plan_3d_lowres)
             print()
         if plan_3d_fullres is not None:
             plans['configurations']['3d_fullres'] = plan_3d_fullres
+            if plan_3d_lowres is not None:
+                plans['configurations']['3d_lowres']['previous_stage'] = '3d_lowres'
             print('3D fullres U-Net configuration:')
             print(plan_3d_fullres)
             print()
