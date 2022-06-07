@@ -408,11 +408,6 @@ class nnUNetModule(pl.LightningModule):
     def on_fit_start(self) -> None:
         self.print_plans()
 
-        if self.trainer.current_epoch == 0 and self.trainer.global_step == 0:
-            self.print_to_log_file('Initializing weights...')
-            # weight initialization. Not sure how useful this actually is.
-            self.network.apply(InitWeights_He(1e-2))
-
         # maybe unpack
         if self.unpack_dataset:
             if self.global_rank == 0:

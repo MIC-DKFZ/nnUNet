@@ -1,5 +1,6 @@
 from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
+from nnunetv2.utilities.network_initialization import InitWeights_He
 from torch import nn
 
 
@@ -56,4 +57,5 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
         deep_supervision=deep_supervision,
         **kwargs[segmentation_network_class_name]
     )
+    model.apply(InitWeights_He(1e-2))
     return model
