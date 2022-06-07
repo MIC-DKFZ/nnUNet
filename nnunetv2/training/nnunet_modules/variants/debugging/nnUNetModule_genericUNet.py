@@ -1,7 +1,10 @@
+from multiprocessing import Pool
 from typing import Union
 
+import torch
 from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
 from nnunet.network_architecture.generic_UNet import Generic_UNet
+from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from torch import nn
 
 from nnunetv2.training.nnunet_modules.nnUNetModule import nnUNetModule
@@ -31,3 +34,17 @@ class nnUNetModule_GenericUNet(nnUNetModule):
                                                            None,
                                     nn.LeakyReLU, {'inplace': True}, True, False, lambda x: x, InitWeights_He(1e-2),
                                     strides, plans["configurations"][configuration]["conv_kernel_sizes"], False, True, True)
+
+    def on_predict_start(self) -> None:
+        self.inference_gaussian = torch.from_numpy(compute_gaussian(
+            self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
+        self.network.do_ds = False
+        self.inference_segmentation_export_pool = Pool(self.inference_parameters['n_processes_segmentation_export'])
+
+    def on_predict_end(self) -> None:
+        self.inference_gaussian = None
+        self.trainer.strategy.barrier("prediction")
+        self.network.do_ds = True
+        self.inference_segmentation_export_pool.close()
+        self.inference_segmentation_export_pool.join()
+        self.inference_segmentation_export_pool = None
