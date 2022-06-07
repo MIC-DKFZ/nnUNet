@@ -4,6 +4,13 @@ import numpy as np
 def recursive_fix_for_json_export(my_dict: dict):
     # json is stupid. 'cannot serialize object of type bool_/int64/float64'. Come on bro.
     for k in my_dict.keys():
+        if isinstance(k, (np.int64, np.int32, np.int8, np.uint8)):
+            tmp = my_dict[k]
+            del my_dict[k]
+            my_dict[int(k)] = tmp
+            del tmp
+            k = int(k)
+
         if isinstance(my_dict[k], dict):
             recursive_fix_for_json_export(my_dict[k])
         elif isinstance(my_dict[k], np.ndarray):
@@ -15,8 +22,10 @@ def recursive_fix_for_json_export(my_dict: dict):
             my_dict[k] = int(my_dict[k])
         elif isinstance(my_dict[k], (np.float32, np.float64, np.float16)):
             my_dict[k] = float(my_dict[k])
-        elif isinstance(my_dict[k], (list, tuple)):
+        elif isinstance(my_dict[k], list):
             my_dict[k] = fix_types_iterable(my_dict[k], output_type=type(my_dict[k]))
+        elif isinstance(my_dict[k], tuple):
+            raise RuntimeError('Tuples not supported')
 
 
 def fix_types_iterable(iterable, output_type):

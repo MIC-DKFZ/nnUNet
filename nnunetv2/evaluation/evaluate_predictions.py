@@ -82,6 +82,9 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
         compute_metrics,
         list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions] * len(files_pred), [ignore_label] * len(files_pred)))
     )
+    pool.close()
+    pool.join()
+
     k = regions[0][0] if len(regions[0]) == 1 else regions[0]
     metric_list = list(results[0]['metrics'][k].keys())
     means = {}
@@ -90,8 +93,7 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
         means[k] = {}
         for m in metric_list:
             means[k][m] = np.nanmean([i['metrics'][k][m] for i in results])
-    pool.close()
-    pool.join()
+
     [recursive_fix_for_json_export(i) for i in results]
     recursive_fix_for_json_export(means)
     write_json({'metric_per_case': results, 'mean': means}, output_file)

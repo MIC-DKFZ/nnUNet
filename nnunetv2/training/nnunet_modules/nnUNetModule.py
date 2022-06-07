@@ -19,6 +19,8 @@ from batchgenerators.transforms.spatial_transforms import SpatialTransform, Mirr
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
+from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
@@ -765,6 +767,14 @@ class nnUNetModule(pl.LightningModule):
         self.inference_segmentation_export_pool.close()
         self.inference_segmentation_export_pool.join()
         self.inference_segmentation_export_pool = None
+
+        compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
+                                  join(self.output_folder, 'validation'),
+                                  join(self.output_folder, 'validation', 'summary.json'),
+                                  determine_reader_writer(self.dataset_json)(),
+                                  self.dataset_json["file_ending"],
+                                  self.regions if self.regions is not None else labels_to_list_of_regions(self.labels),
+                                  self.ignore_label)
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
         # intended to be used with generator from self.get_validation_dataloader
