@@ -1,4 +1,4 @@
-import os
+import shutil
 import shutil
 import sys
 from copy import deepcopy
@@ -18,13 +18,9 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
-from nnunetv2.utilities.helpers import softmax_helper_dim0
-from pytorch_lightning.utilities import distributed
-from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
-from sklearn.model_selection import KFold
-
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction
+from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
@@ -48,11 +44,11 @@ from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.utilities.label_handling import handle_labels
-from nnunetv2.utilities.network_initialization import InitWeights_He
 from nnunetv2.utilities.tensor_utilities import sum_tensor
-from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
-from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
+from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
+from sklearn.model_selection import KFold
 
 
 class nnUNetModule(pl.LightningModule):
@@ -412,7 +408,7 @@ class nnUNetModule(pl.LightningModule):
         if self.unpack_dataset:
             if self.global_rank == 0:
                 self.print_to_log_file('unpacking dataset...')
-                unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=True,
+                unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
                                num_processes=max(1, get_allowed_n_proc_DA() // 2))
             else:
                 self.print_to_log_file('waiting for rank 0 to finished unpacking')
