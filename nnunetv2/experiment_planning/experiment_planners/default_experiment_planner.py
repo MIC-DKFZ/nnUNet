@@ -1,6 +1,7 @@
 import shutil
 from copy import deepcopy
 from copy import deepcopy
+from functools import cache
 from typing import List, Union, Tuple
 
 import numpy as np
@@ -48,7 +49,7 @@ class ExperimentPlanner(object):
         self.UNet_class = PlainConvUNet
         # the following two numbers are really arbitrary and were set to reproduce nnU-Net V1's configurations as
         # much as possible
-        self.UNet_reference_val_3d = 590000000  # 455600128  550000000
+        self.UNet_reference_val_3d = 560000000  # 455600128  550000000
         self.UNet_reference_val_2d = 85000000  # 83252480
         self.UNet_reference_com_nfeatures = 32
         self.UNet_reference_val_corresp_GB = 8
@@ -82,7 +83,32 @@ class ExperimentPlanner(object):
                                                                training_identifiers[0] + '_0000' +
                                                                self.dataset_json['file_ending']))
 
-    def estimate_VRAM_usage(self, patch_size,
+    @staticmethod
+    @cache
+    def static_estimate_VRAM_usage(patch_size: Tuple[int],
+                                   n_stages: int,
+                                   strides: Union[int, List[int], Tuple[int, ...]], UNet_class,
+                                   num_input_channels: int, features_per_stage: Tuple[int],
+                                   blocks_per_stage: Union[int, Tuple[int]],
+                                   num_labels: int):
+        """
+        Works for PlainConvUNet, ResidualEncoderUNet
+        """
+        dim = len(patch_size)
+        conv_op = convert_dim_to_conv_op(dim)
+        norm_op = get_matching_instancenorm(conv_op)
+        net = UNet_class(num_input_channels, n_stages,
+                         features_per_stage,
+                         conv_op,
+                         3,
+                         strides,
+                         blocks_per_stage,
+                         num_labels,
+                         blocks_per_stage[::-1] if not isinstance(blocks_per_stage, int) else blocks_per_stage,
+                         norm_op=norm_op)
+        return net.compute_conv_feature_map_size(patch_size)
+
+    def estimate_VRAM_usage(self, patch_size: Tuple[int],
                             n_stages: int,
                             strides: Union[int, List[int], Tuple[int, ...]]):
         """
@@ -247,7 +273,25 @@ class ExperimentPlanner(object):
                                                              999999)
 
         # now estimate vram consumption
-        estimate = self.estimate_VRAM_usage(patch_size, len(pool_op_kernel_sizes), pool_op_kernel_sizes)
+        # net = self.UNet_class(len(self.dataset_json['modality'].keys()), n_stages,
+        #                       [min(max_features, self.UNet_reference_com_nfeatures * 2 ** i) for i in range(n_stages)],
+        #                       conv_op, 3, strides, self.UNet_blocks_per_stage,
+        #                       len(self.dataset_json['labels'].keys()),
+        #                       self.UNet_blocks_per_stage[::-1] if not isinstance(self.UNet_blocks_per_stage, int)
+        #                       else self.UNet_blocks_per_stage,
+        #                       norm_op=norm_op)
+        estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
+                                                   len(pool_op_kernel_sizes),
+                                                   tuple([tuple(i) for i in pool_op_kernel_sizes]),
+                                                   self.UNet_class,
+                                                   len(self.dataset_json['modality'].keys()),
+                                                   tuple([min(self.UNet_max_features_2d if len(patch_size) == 2 else
+                                                              self.UNet_max_features_3d,
+                                                              self.UNet_reference_com_nfeatures * 2 ** i) for
+                                                    i in range(len(pool_op_kernel_sizes))]),
+                                                   self.UNet_blocks_per_stage,
+                                                   len(self.dataset_json['labels'].keys()))
+        # estimate = self.estimate_VRAM_usage(patch_size, len(pool_op_kernel_sizes), pool_op_kernel_sizes)
 
         # how large is the reference for us here (batch size etc)?
         # adapt for our vram target
@@ -278,7 +322,18 @@ class ExperimentPlanner(object):
             shape_must_be_divisible_by = get_pool_and_conv_props(spacing, patch_size,
                                                                  self.UNet_featuremap_min_edge_length,
                                                                  999999)
-            estimate = self.estimate_VRAM_usage(patch_size, len(pool_op_kernel_sizes), pool_op_kernel_sizes)
+            # estimate = self.estimate_VRAM_usage(patch_size, len(pool_op_kernel_sizes), pool_op_kernel_sizes)
+            estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
+                                                       len(pool_op_kernel_sizes),
+                                                       tuple([tuple(i) for i in pool_op_kernel_sizes]),
+                                                       self.UNet_class,
+                                                       len(self.dataset_json['modality'].keys()),
+                                                       tuple([min(self.UNet_max_features_2d if len(patch_size) == 2 else
+                                                                  self.UNet_max_features_3d,
+                                                                  self.UNet_reference_com_nfeatures * 2 ** i) for
+                                                              i in range(len(pool_op_kernel_sizes))]),
+                                                       self.UNet_blocks_per_stage,
+                                                       len(self.dataset_json['labels'].keys()))
 
         # alright now let's determine the batch size. This will give self.UNet_min_batch_size if the while loop was
         # executed. If not, additional vram headroom is used to increase batch size
