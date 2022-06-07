@@ -47,7 +47,7 @@ class nnUNetDataLoaderBase(DataLoader):
         seg_shape = (self.batch_size, seg.shape[0], *self.patch_size)
         return data_shape, seg_shape
 
-    def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: dict,
+    def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
                  overwrite_class: Union[int, Tuple[int, ...]] = None):
         # in dataloader 2d we need to select the slice prior to this and also modify the class_locations to only have
         # locations for the given slice
@@ -70,6 +70,10 @@ class nnUNetDataLoaderBase(DataLoader):
         if not force_fg:
             bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]
         else:
+            assert class_locations is not None, 'if force_fg is set class_locations cannot be None'
+            if overwrite_class is not None:
+                assert overwrite_class in class_locations.keys(), 'desired class ("overwrite_class") does not ' \
+                                                                  'have class_locations (missing key)'
             # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
             foreground_classes = np.array(
                 [i for i in class_locations.keys() if len(class_locations[i]) != 0])

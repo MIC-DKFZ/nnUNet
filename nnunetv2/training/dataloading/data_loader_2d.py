@@ -31,18 +31,17 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             seg = seg[:, selected_slice]
 
             # the line of death lol
-            # this needs to be a separate variable because we would otherwise permanently overwrite
+            # this needs to be a separate variable because we could otherwise permanently overwrite
             # properties['class_locations']
             class_locations = {
-                i: properties['class_locations'][i][properties['class_locations'][i][:, 1] == selected_slice][:, (0, 2, 3)]
-                for i in properties['class_locations'].keys()
-            }
+                selected_class: properties['class_locations'][selected_class][properties['class_locations'][selected_class][:, 1] == selected_slice][:, (0, 2, 3)]
+            } if force_fg else None
 
             # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, class_locations,
-                                               overwrite_class=selected_class)
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, class_locations, overwrite_class=selected_class)
+
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
             # valid_bbox is just the coord that lied within the data cube. It will be padded to match the patch size
