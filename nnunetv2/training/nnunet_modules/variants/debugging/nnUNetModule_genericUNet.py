@@ -6,7 +6,7 @@ import torch
 from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from torch import nn
 
@@ -55,7 +55,7 @@ class nnUNetModule_GenericUNet(nnUNetModule):
         compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
                                   join(self.output_folder, 'validation'),
                                   join(self.output_folder, 'validation', 'summary.json'),
-                                  determine_reader_writer(self.dataset_json)(),
+                                  recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
                                   self.dataset_json["file_ending"],
                                   self.regions if self.regions is not None else labels_to_list_of_regions(self.labels),
                                   self.ignore_label)

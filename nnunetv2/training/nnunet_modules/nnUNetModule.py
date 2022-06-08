@@ -20,7 +20,7 @@ from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, 
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer, recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
@@ -347,6 +347,7 @@ class nnUNetModule(pl.LightningModule):
             initial_patch_size[0] = patch_size[0]
 
         self.print_to_log_file(f'do_dummy_2d_data_aug: {do_dummy_2d_data_aug}')
+        self.inference_allowed_mirroring_axes = mirror_axes
 
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 
@@ -665,6 +666,9 @@ class nnUNetModule(pl.LightningModule):
         self._ema_pseudo_dice = checkpoint['ema_pseudo_dice']
         self._best_ema = checkpoint['best_ema']
 
+        self.inference_nonlinearity = checkpoint['inference_nonlinearity']
+        self.inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes']
+
     def on_train_start(self) -> None:
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset.json'),
@@ -771,7 +775,7 @@ class nnUNetModule(pl.LightningModule):
         compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
                                   join(self.output_folder, 'validation'),
                                   join(self.output_folder, 'validation', 'summary.json'),
-                                  determine_reader_writer(self.dataset_json)(),
+                                  recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
                                   self.dataset_json["file_ending"],
                                   self.regions if self.regions is not None else labels_to_list_of_regions(self.labels),
                                   self.ignore_label)
@@ -780,6 +784,7 @@ class nnUNetModule(pl.LightningModule):
         # intended to be used with generator from self.get_validation_dataloader
         # we hijack this lightning function. It is not supposed to be used this way
         data, properties, output_filename_truncated = batch
+        import IPython;IPython.embed()
 
         prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),
                                                           tile_size=self.plans['configurations'][self.configuration][
