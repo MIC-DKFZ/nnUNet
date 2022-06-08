@@ -3,7 +3,8 @@ import numpy as np
 
 def recursive_fix_for_json_export(my_dict: dict):
     # json is stupid. 'cannot serialize object of type bool_/int64/float64'. Come on bro.
-    for k in my_dict.keys():
+    keys = list(my_dict.keys())  # cannot iterate over keys() if we change keys....
+    for k in keys:
         if isinstance(k, (np.int64, np.int32, np.int8, np.uint8)):
             tmp = my_dict[k]
             del my_dict[k]
