@@ -49,7 +49,7 @@ if __name__ == "__main__":
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\""
     resources = "-R \"tensorcore\""
     gpu_requirements = "-gpu num=1:j_exclusive=yes:mode=exclusive_process:gmem=1G"
-    queue = "-q gpu-priori"
+    queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh &&"
     train_command = 'nnUNetv2_train'
 
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         'nnUNetModule': ('nnUNetPlans',),
     }
 
-    additional_arguments = None  # '' #  --disable_saving
+    additional_arguments = '--val'  # '' #  --disable_saving
 
     output_file = "/home/fabian/deleteme.txt"
     with open(output_file, 'w') as f:

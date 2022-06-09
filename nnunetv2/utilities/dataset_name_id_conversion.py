@@ -57,7 +57,7 @@ def convert_id_to_dataset_name(dataset_id: int):
 
 def convert_dataset_name_to_id(dataset_name: str):
     assert dataset_name.startswith("Dataset")
-    dataset_id = int(dataset_name[4:7])
+    dataset_id = int(dataset_name[7:10])
     return dataset_id
 
 
