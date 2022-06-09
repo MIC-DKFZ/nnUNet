@@ -29,10 +29,6 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
     if isinstance(dataset_json_dict_or_file, str):
         dataset_json_dict_or_file = load_json(dataset_json_dict_or_file)
 
-    # revert transpose
-    predicted_array_or_file = predicted_array_or_file.transpose([0] + [i + 1 for i in
-                                                                       plans_dict_or_file['transpose_backward']])
-
     # resample to original shape
     resampling_fn = recursive_find_resampling_fn_by_name(
         plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax"]
@@ -61,12 +57,22 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
     segmentation_reverted_cropping = np.zeros(properties_dict['shape_before_cropping'], dtype=np.uint8)
     slicer = bounding_box_to_slice(properties_dict['bbox_used_for_cropping'])
     segmentation_reverted_cropping[slicer] = segmentation
+    del segmentation
+
+    # revert transpose
+    segmentation_reverted_cropping = segmentation_reverted_cropping.transpose(plans_dict_or_file['transpose_backward'])
 
     # save
     if save_probabilities:
+        # probabilities are already resampled
+
+        # revert cropping
         probs_reverted_cropping = np.zeros((predicted_array_or_file.shape[0], *properties_dict['shape_before_cropping']), dtype=np.float16)
         slicer = bounding_box_to_slice(properties_dict['bbox_used_for_cropping'])
         probs_reverted_cropping[tuple([slice(None)] + list(slicer))] = predicted_array_or_file
+        # $revert transpose
+        probs_reverted_cropping = probs_reverted_cropping.transpose([0] + [i + 1 for i in
+                                                                           plans_dict_or_file['transpose_backward']])
         np.savez_compressed(output_file_truncated + '.npz', probabilities=probs_reverted_cropping)
         del probs_reverted_cropping
     del predicted_array_or_file

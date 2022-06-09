@@ -17,7 +17,8 @@ from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform, 
 from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
-from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p, \
+    split_path
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer, recursive_find_reader_writer_by_name
@@ -784,7 +785,7 @@ class nnUNetModule(pl.LightningModule):
         # intended to be used with generator from self.get_validation_dataloader
         # we hijack this lightning function. It is not supposed to be used this way
         data, properties, output_filename_truncated = batch
-        import IPython;IPython.embed()
+        print(split_path(output_filename_truncated)[-1])
 
         prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),
                                                           tile_size=self.plans['configurations'][self.configuration][
