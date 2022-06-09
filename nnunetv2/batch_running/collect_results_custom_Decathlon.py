@@ -1,7 +1,7 @@
-from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_results
-from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name, convert_id_to_dataset_name, convert_dataset_name_to_id
+from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name, convert_dataset_name_to_id
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 
 if __name__ == '__main__':
