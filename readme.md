@@ -22,9 +22,9 @@ Hereby, many pipeline settings depend directly or indirectly on the properties o
 and display a complex co-dependence: image size, for example, affects the patch size, which in
 turn affects the required receptive field of the network, a factor that itself influences several other
 hyperparameters in the pipeline. As a result, pipelines that were developed on one (type of) dataset are inherently
-incomaptible with other datasets in the domain.
+incompatible with other datasets in the domain.
 
-**nnU-Net is the first segmentation method that is designed to deal with the dataset diversity found in the domain. It
+**nnU-Net is the first segmentation method which deal with the dataset diversity found in the domain. It
 condenses and automates the keys decisions for designing a successful segmentation pipeline for any given dataset.**
 
 nnU-Net makes the following contributions to the field:
@@ -36,7 +36,7 @@ nnU-Net makes the following contributions to the field:
    segmentation. Inexperienced users can use nnU-Net out of the box for their custom 3D segmentation problem without
    need for manual intervention.
 3. **Framework:** nnU-Net is a framework for fast and effective development of segmentation methods. Due to its modular
-   structure, new architectures and methods can easily be integrated into nnU-Net. Researchers can then benefit from its
+   structure, new architectures and methods can be integrated into nnU-Net. Researchers can benefit from its
    generic nature to roll out and evaluate their modifications on an arbitrary number of datasets in a
    standardized environment.
 
@@ -82,11 +82,11 @@ systems.
 nnU-Net requires a GPU! For inference, the GPU should have 4 GB of VRAM. For training nnU-Net models the GPU should have at
 least 10 GB (popular non-datacenter options are the RTX 2080ti, RTX 3080 or RTX 3090). 
 
-For training, we recommend a strong CPU to go along with the GPU. At least 6 CPU cores (12 threads) are recommended. CPU
+For training, we recommend a strong CPU to go along with the GPU with at least 6 CPU cores (12 threads). CPU
 requirements are mostly related to data augmentation and scale with the number of input channels. They are thus higher
 for datasets like BraTS which use 4 image modalities and lower for datasets like LiTS which only uses CT images.
 
-We very strongly recommend you install nnU-Net in a virtual environment.
+We strongly recommend you install nnU-Net in a virtual environment.
 [Here is a quick how-to for Ubuntu.](https://linoxide.com/linux-how-to/setup-python-virtual-environment-ubuntu/)
 If you choose to compile pytorch from source, you will need to use conda instead of pip. In that case, please set the
 environment variable OMP_NUM_THREADS=1 (preferably in your bashrc using `export OMP_NUM_THREADS=1`). This is important!
@@ -123,7 +123,7 @@ the highest CUDA version compatible with your drivers for maximum performance.
     pip install --upgrade git+https://github.com/FabianIsensee/hiddenlayer.git@more_plotted_details#egg=hiddenlayer
     ```
 
-Installing nnU-Net will add several new commands to your terminal. These commands are used to run the entire nnU-Net
+Installing nnU-Net will add new commands to your terminal. These commands are used to run the entire nnU-Net
 pipeline. You can execute them from any location on your system. All nnU-Net commands have the prefix `nnUNet_` for
 easy identification.
 
@@ -172,11 +172,11 @@ nnUNetTrainer (see below). Note that the preprocessed data folder only contains 
 The test images are not preprocessed (they are not looked at at all!). Their preprocessing happens on the fly during
 inference.
 
-`--verify_dataset_integrity` should be run at least for the first time the command is run on a given dataset. This will execute some
+`--verify_dataset_integrity` should be run at least for the first time the command is run on a given dataset. This will execute
 checks on the dataset to ensure that it is compatible with nnU-Net. If this check has passed once, it can be
 omitted in future runs. If you adhere to the dataset conversion guide (see above) then this should pass without issues :-)
 
-Note that `nnUNet_plan_and_preprocess` accepts several additional input arguments. Running `-h` will list all of them
+Note that `nnUNet_plan_and_preprocess` accepts additional input arguments. Running `-h` will list all of them
 along with a description. If you run out of RAM during preprocessing, you may want to adapt the number of processes
 used with the `-tl` and `-tf` options.
 
@@ -185,7 +185,7 @@ of the data will be located at nnUNet_preprocessed/TaskXXX_MYTASK.
 
 Extraction of the dataset fingerprint can take from a couple of seconds to several minutes depending on the properties
 of the segmentation task. Pipeline configuration given the extracted finger print is nearly instantaneous (couple
-of seconds). Preprocessing depends on image size and how powerful the CPU is. It can take between seconds and several
+of seconds). Preprocessing depends on image size and how powerful the CPU is. It can take between seconds and
 tens of minutes.
 
 ### Model training
@@ -197,7 +197,7 @@ running the cross-validation) are desired. See [FAQ](documentation/common_questi
 Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the U-Net
 cascade is omitted because the patch size of the full resolution U-Net already covers a large part of the input images.
 
-Training models is done with the `nnUNet_train` command. The general structure of the command is:
+Training models use `nnUNet_train` command. The general structure of the command is:
 ```bash
 nnUNet_train CONFIGURATION TRAINER_CLASS_NAME TASK_NAME_OR_ID FOLD  --npz (additional options)
 ```
@@ -313,7 +313,7 @@ shown for one folder above for brevity):
   they all originate from the same volume ('global Dice'; we do not compute a Dice for each validation case and then
   average over all cases but pretend that there is only one validation case from which we sample patches). The reason for
   this is that the 'global Dice' is easy to compute during training and is still quite useful to evaluate whether a model
-  is training at all or not. A proper validation is run at the end of the training.
+  is training at all or not. A proper validation runs at the end of the training.
 - validation_raw: in this folder are the predicted validation cases after the training has finished. The summary.json
   contains the validation metrics (a mean over all cases is provided at the end of the file).
 
@@ -346,7 +346,7 @@ CUDA_VISIBLE_DEVICES=0,1,2... nnUNet_train_DP CONFIGURATION nnUNetTrainerV2_DP T
 Note that nnUNetTrainerV2 was replaced with nnUNetTrainerV2_DP. Just like before, CONFIGURATION can be 2d, 3d_lowres or
 3d_fullres. TASK_NAME_OR_ID refers to the task you would like to train and FOLD is the fold of the cross-validation.
 GPUS (integer value) specifies the number of GPUs you wish to train on. To specify which GPUs you want to use, please make use of the
-CUDA_VISIBLE_DEVICES envorinment variable to specify the GPU ids (specify as many as you configure with -gpus GPUS).
+CUDA_VISIBLE_DEVICES environment variable to specify the GPU ids (specify as many as you configure with -gpus GPUS).
 --dbs, if set, will distribute the batch size across GPUs. So if nnUNet configures a batch size of 2 and you run on 2 GPUs
 , each GPU will run with a batch size of 1. If you omit --dbs, each GPU will run with the full batch size (2 for each GPU
 in this example for a total of batch size 4).
@@ -422,7 +422,7 @@ printed at the start of the inference.
 
 Trained models for all challenges we participated in are publicly available. They can be downloaded and installed
 directly with nnU-Net. Note that downloading a pretrained model will overwrite other models that were trained with
-exactly the same configuration (2d, 3d_fullres, ...), trainer (nnUNetTrainerV2) and plans.
+the same configuration (2d, 3d_fullres, ...), trainer (nnUNetTrainerV2) and plans.
 
 To obtain a list of available models, as well as a short description, run
 
