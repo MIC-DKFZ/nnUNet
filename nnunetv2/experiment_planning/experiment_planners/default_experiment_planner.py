@@ -470,6 +470,8 @@ class ExperimentPlanner(object):
 
         # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
         plans = {
+            'dataset_name': self.dataset_name,
+            'plans_name': self.plans_name,
             'original_median_spacing_after_transp': [float(i) for i in median_spacing],
             'original_median_shape_after_transp': [int(round(i)) for i in median_shape],
             'image_reader_writer': self.determine_reader_writer().__name__,
