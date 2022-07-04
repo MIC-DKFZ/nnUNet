@@ -17,7 +17,7 @@ import zipfile
 from time import time
 
 import requests
-from batchgenerators.utilities.file_and_folder_operations import join, isfile
+from batchgenerators.utilities.file_and_folder_operations import join, isfile, isdir
 
 from nnunet.paths import network_training_output_dir
 
@@ -233,6 +233,19 @@ def print_available_pretrained_models():
         print('')
         print(m)
         print(av_models[m]['description'])
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--export', help="Specify the folder name for saving the json file.", required=False)
+    args = parser.parse_args()
+    json_output_dir = args.export
+    if json_output_dir:
+        import json
+        if isdir(json_output_dir):
+            with open(args.export + '/available_models.json', 'w', encoding='utf8') as json_file:
+                json.dump(av_models, json_file, indent=1)
+            print("Data successfully exported to", join(json_output_dir, 'available_models.json'))
+        else:
+            print("Please specify a folder path.")
 
 
 def download_and_install_pretrained_model_by_name(taskname):
