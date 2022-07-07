@@ -492,7 +492,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         my_keys = all_keys[self.local_rank::dist.get_world_size()]
         # we cannot simply iterate over all_keys because we need to know pred_gt_tuples and valid_labels of all cases
         # for evaluation (which is done by local rank 0)
-        for k in my_keys:
+        for k in all_keys:
             properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
