@@ -36,6 +36,8 @@ def get_allowed_n_proc_DA():
     elif hostname.startswith('e230-dgx2'):
         return 6
     elif hostname.startswith('e230-dgxa100-'):
-        return 32
+        return 28
+    elif hostname.startswith('lsf22-gpu'):
+        return 28
     else:
         return None
