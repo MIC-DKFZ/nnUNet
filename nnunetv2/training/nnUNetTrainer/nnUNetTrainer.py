@@ -35,7 +35,7 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.training.dataloading.utils import get_case_identifiers
+from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss, get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
@@ -581,10 +581,19 @@ class nnUNetTrainer(object):
         return val_transforms
 
     def on_train_start(self):
+        self.print_plans()
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
         maybe_mkdir_p(self.output_folder)
+
+        # maybe unpack
+        if self.unpack_dataset:
+            self.print_to_log_file('unpacking dataset...')
+            unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
+                           num_processes=max(1, get_allowed_n_proc_DA() // 2))
+            self.print_to_log_file('unpacking done...')
 
         # dataloaders must be instantiated here because they need access to the training data which may not be present
         # when doing inference
@@ -612,6 +621,8 @@ class nnUNetTrainer(object):
 
     def on_train_epoch_start(self):
         self.lr_scheduler.step(self.current_epoch)
+        self.print_to_log_file('')
+        self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
             f"Current learning rate: {np.round(self.optimizer.param_groups[0]['lr'], decimals=5)}")
         self.my_fantastic_logging['lrs'].append(self.optimizer.param_groups[0]['lr'])
@@ -710,6 +721,13 @@ class nnUNetTrainer(object):
     def on_epoch_end(self):
         self.my_fantastic_logging['epoch_end_timestamps'].append(time())
 
+        self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
+                                               self.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        self.print_to_log_file(
+            f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+
         self._plot_progress_png()
 
         # handling periodic checkpointing
@@ -730,8 +748,8 @@ class nnUNetTrainer(object):
             if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
 
         if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
-            self.print_to_log_file(f"New best checkpoint! Yayy! New best EMA fg Dice: {self._best_ema}")
             self._best_ema = self._ema_pseudo_dice
+            self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
         self.current_epoch += 1
