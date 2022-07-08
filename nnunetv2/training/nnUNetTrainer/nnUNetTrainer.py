@@ -1,13 +1,14 @@
+import inspect
+import os
 import shutil
 import sys
 from copy import deepcopy
 from datetime import datetime
-from multiprocessing import Pool
 from time import time, sleep
-from typing import Union, Optional, Tuple, List, Dict, Any
+from typing import Union, Tuple, List
 
+import matplotlib
 import numpy as np
-import pytorch_lightning as pl
 import torch
 from batchgenerators.transforms.abstract_transforms import AbstractTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
@@ -16,13 +17,8 @@ from batchgenerators.transforms.noise_transforms import GaussianNoiseTransform, 
 from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
-from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p, \
-    split_path
+from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
-from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer, recursive_find_reader_writer_by_name
-from nnunetv2.inference.export_prediction import export_prediction
-from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
@@ -39,22 +35,23 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.training.dataloading.utils import unpack_dataset, get_case_identifiers
+from nnunetv2.training.dataloading.utils import get_case_identifiers
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss, get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
-from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.utilities.label_handling import handle_labels
-from nnunetv2.utilities.tensor_utilities import sum_tensor
-from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from sklearn.model_selection import KFold
-import inspect
-
 from torch import autocast
 from torch.cuda.amp import GradScaler
+
+matplotlib.use('agg')
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 
 class nnUNetTrainer(object):
@@ -176,6 +173,10 @@ class nnUNetTrainer(object):
             'save_probabilities': False,
             'n_processes_segmentation_export': default_num_processes,
         }
+
+        ### checkpoint saving stuff
+        self.save_every = 50
+        self.disable_checkpointing = False
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -436,6 +437,7 @@ class nnUNetTrainer(object):
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
+
         if dim == 2:
             dl_tr = nnUNetDataLoader2D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
                                        initial_patch_size,
@@ -579,11 +581,14 @@ class nnUNetTrainer(object):
         return val_transforms
 
     def on_train_start(self):
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         maybe_mkdir_p(self.output_folder)
 
         # dataloaders must be instantiated here because they need access to the training data which may not be present
         # when doing inference
-        self.dataloader_train, self.dataloader_val = self.get_tr_and_val_datasets()
+        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
 
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         save_json(self.plans, join(self.output_folder_base, 'plans.json'))
@@ -596,20 +601,30 @@ class nnUNetTrainer(object):
         # produces a pdf in output folder
         self.plot_network_architecture()
 
+    def on_train_end(self):
+        self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
+        # now we can delete latest
+        if isfile(join(self.output_folder, "checkpoint_latest.pth")):
+            os.remove(join(self.output_folder, "checkpoint_latest.pth"))
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def on_train_epoch_start(self):
-        self.current_epoch += 1
         self.lr_scheduler.step(self.current_epoch)
         self.print_to_log_file(
             f"Current learning rate: {np.round(self.optimizer.param_groups[0]['lr'], decimals=5)}")
-        self.my_fantastic_logging['epoch_start_timestamps'].append(time())
         self.my_fantastic_logging['lrs'].append(self.optimizer.param_groups[0]['lr'])
 
-    def train_step(self, batch: dict) -> float:
+    def train_step(self, batch: dict) -> dict:
         data = batch['data']
         target = batch['target']
 
         data = data.to(self.device, non_blocking=True)
-        target = target.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
+        else:
+            target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad()
 
@@ -618,38 +633,207 @@ class nnUNetTrainer(object):
             del data
             l = self.loss(output, target)
 
-        if self.grad_scaler is not None:
-            self.grad_scaler.scale(l).backward()
-            self.grad_scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-            self.grad_scaler.step(self.optimizer)
-            self.grad_scaler.update()
-        else:
-            l.backward()
-            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-        return l.detach().cpu().numpy()
+        self.grad_scaler.scale(l).backward()
+        self.grad_scaler.unscale_(self.optimizer)
+        torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+        self.grad_scaler.step(self.optimizer)
+        self.grad_scaler.update()
+        return {'loss': l.detach().cpu().numpy()}
 
-    def on_train_epoch_end(self):
-        pass
+    def on_train_epoch_end(self, train_outputs: List[dict]):
+        outputs = collate_outputs(train_outputs)
+        average_loss = np.mean(outputs['loss'])
+        self.my_fantastic_logging['train_losses'].append(average_loss)
 
     def on_validation_epoch_start(self):
         pass
 
-    def validation_step(self):
-        pass
+    def validation_step(self, batch: dict) -> dict:
+        data = batch['data']
+        target = batch['target']
 
-    def on_validation_epoch_end(self):
-        pass
+        data = data.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
+        else:
+            target = target.to(self.device, non_blocking=True)
+
+        self.optimizer.zero_grad()
+
+        with autocast(self.device_type):
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+        # we only need the output with the highest output resolution
+        output = output[0]
+        target = target[0]
+
+        # the following is needed for online evaluation. Fake dice (green line)
+        axes = [0] + list(range(2, len(output.shape)))
+
+        if self.regions is None:
+            # no need for softmax
+            output_seg = output.argmax(1)[:, None]
+            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
+            predicted_segmentation_onehot.scatter_(1, output_seg, 1)
+            del output_seg
+        else:
+            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
+
+        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes)
+
+        # [1:] in order to remove background
+        tp_hard = tp.detach().cpu().numpy()[1:]
+        fp_hard = fp.detach().cpu().numpy()[1:]
+        fn_hard = fn.detach().cpu().numpy()[1:]
+        return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
+
+    def on_validation_epoch_end(self, val_outputs: List[dict]):
+        outputs_collated = collate_outputs(val_outputs)
+        tp = np.sum(outputs_collated['tp_hard'], 0)
+        fp = np.sum(outputs_collated['fp_hard'], 0)
+        fn = np.sum(outputs_collated['fn_hard'], 0)
+        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
+                                           zip(tp, fp, fn)]]
+        mean_fg_dice = np.nanmean(global_dc_per_class)
+        self.my_fantastic_logging['mean_fg_dice'].append(mean_fg_dice)
+        self.my_fantastic_logging['dice_per_class_or_region'].append(global_dc_per_class)
+        self.my_fantastic_logging['val_losses'].append(np.mean(outputs_collated['loss']))
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def on_epoch_start(self):
+        self.my_fantastic_logging['epoch_start_timestamps'].append(time())
 
     def on_epoch_end(self):
-        pass
+        self.my_fantastic_logging['epoch_end_timestamps'].append(time())
 
-    def save_checkpoint(self):
-        pass
+        self._plot_progress_png()
 
-    def load_checkpoint(self):
-        pass
+        # handling periodic checkpointing
+        current_epoch = self.current_epoch
+        if not self.disable_checkpointing and \
+                (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
+        elif not self.disable_checkpointing and \
+                current_epoch == self.num_epochs - 1:
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_final.pth'),)
+            # delete latest checkpoint
+            if isfile(join(self.output_folder, 'checkpoint_latest.pth')):
+                os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
+
+        # handle 'best' checkpointing
+        # exponential moving average of pseudo dice to determine 'best' model (use with caution)
+        self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
+            if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
+
+        if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
+            self.print_to_log_file(f"New best checkpoint! Yayy! New best EMA fg Dice: {self._best_ema}")
+            self._best_ema = self._ema_pseudo_dice
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
+
+        self.current_epoch += 1
+
+    def save_checkpoint(self, filename: str) -> None:
+        checkpoint = {
+            'network_weights': self.network.state_dict(),
+            'optimizer_state': self.optimizer.state_dict(),
+            'grad_scaler_state': self.grad_scaler.state_dict(),
+            'logging': self.my_fantastic_logging,
+            '_best_ema': self._best_ema,
+            '_current_ema': self._ema_pseudo_dice,
+            'current_epoch': self.current_epoch,
+            'init_args': self.my_init_kwargs,
+            'trainer_name': self.__class__.__name__,
+        }
+        torch.save(checkpoint, filename)
+
+    def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
+        if isinstance(filename_or_checkpoint, str):
+            checkpoint = torch.load(filename_or_checkpoint, map_location=torch.device('cpu'))
+        # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
+        # match. Use heuristic to make it match
+        new_state_dict = {}
+        for k, value in checkpoint['network_weights'].items():
+            key = k
+            if key not in self.network.state_dict().keys() and key.startswith('module.'):
+                key = key[7:]
+            new_state_dict[key] = value
+
+        self.my_init_kwargs = checkpoint['init_args']
+        self.current_epoch = checkpoint['current_epoch']
+        self.my_fantastic_logging = checkpoint['logging']
+        self._best_ema = checkpoint['_best_ema']
+        self._ema_pseudo_dice = checkpoint['_current_ema']
+        self.network.load_state_dict(new_state_dict)
+        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
     def perform_actual_validation(self):
         pass
+
+    def run_training(self):
+        self.on_train_start()
+
+        for epoch in range(self.current_epoch, self.num_epochs):
+            self.on_epoch_start()
+
+            self.on_train_epoch_start()
+            train_outputs = []
+            for batch_id in range(self.num_iterations_per_epoch):
+                train_outputs.append(self.train_step(next(self.dataloader_train)))
+            self.on_train_epoch_end(train_outputs)
+
+            with torch.no_grad():
+                self.on_validation_epoch_start()
+                val_outputs = []
+                for batch_id in range(self.num_val_iterations_per_epoch):
+                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                self.on_validation_epoch_end(val_outputs)
+
+            self.on_epoch_end()
+
+        self.on_train_end()
+
+    def _plot_progress_png(self):
+        sns.set(font_scale=2.5)
+        fig, ax_all = plt.subplots(3, 1, figsize=(20, 18 * 2))
+        # regular progress.png as we are used to from previous nnU-Net versions
+        ax = ax_all[0]
+        ax2 = ax.twinx()
+        x_values = list(range(self.current_epoch + 1))
+        ax.plot(x_values, self.my_fantastic_logging['train_losses'], color='b', ls='-', label="loss_tr", linewidth=4)
+        ax.plot(x_values, self.my_fantastic_logging['val_losses'], color='r', ls='-', label="loss_val", linewidth=4)
+        ax2.plot(x_values, self.my_fantastic_logging['mean_fg_dice'], color='g', ls='--', label="pseudo dice", linewidth=4)
+        ax.set_xlabel("epoch")
+        ax.set_ylabel("loss")
+        ax2.set_ylabel("pseudo dice")
+        ax.legend(loc=(0, 1))
+        ax2.legend(loc=(0.2, 1))
+
+        # epoch times to see whether the training speed is consistent
+        ax = ax_all[1]
+        x_values = list(range(self.current_epoch + 1))
+        ax.plot(x_values, [i - j for i, j in zip(self.my_fantastic_logging['epoch_end_timestamps'],
+                                                 self.my_fantastic_logging['epoch_start_timestamps'])], color='b',
+                ls='-', label="epoch duration", linewidth=4)
+        ylim = [0] + [ax.get_ylim()[1]]
+        ax.set(ylim=ylim)
+        ax.set_xlabel("epoch")
+        ax.set_ylabel("time [s]")
+        ax.legend(loc=(0, 1))
+
+        # learning rate
+        ax = ax_all[2]
+        x_values = list(range(self.current_epoch + 1))
+        ax.plot(x_values, self.my_fantastic_logging['lrs'], color='b', ls='-', label="learning rate", linewidth=4)
+        ax.set_xlabel("epoch")
+        ax.set_ylabel("learning rate")
+        ax.legend(loc=(0, 1))
+
+        plt.tight_layout()
+
+        fig.savefig(join(self.output_folder, "progress.png"))
+        plt.close()
