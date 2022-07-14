@@ -413,7 +413,7 @@ class nnUNetModule(pl.LightningModule):
             if self.global_rank == 0:
                 self.print_to_log_file('unpacking dataset...')
                 unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
-                               num_processes=max(1, get_allowed_n_proc_DA() // 2))
+                               num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
             else:
                 self.print_to_log_file('waiting for rank 0 to finished unpacking')
             self.trainer.strategy.barrier("unpacking")

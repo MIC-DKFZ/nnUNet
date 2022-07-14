@@ -595,7 +595,7 @@ class nnUNetTrainer(object):
         if self.unpack_dataset:
             self.print_to_log_file('unpacking dataset...')
             unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
-                           num_processes=max(1, get_allowed_n_proc_DA() // 2))
+                           num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
             self.print_to_log_file('unpacking done...')
 
         # dataloaders must be instantiated here because they need access to the training data which may not be present

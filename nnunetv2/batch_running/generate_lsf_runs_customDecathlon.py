@@ -51,16 +51,16 @@ if __name__ == "__main__":
     gpu_requirements = "-gpu num=1:j_exclusive=yes:mode=exclusive_process:gmem=1G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh &&"
-    train_command = 'nnUNetv2_train'
+    train_command = 'python /home/isensee/git_repos/nnunet_remake/nnunetv2/run/train_nolightning.py'
 
     folds = (0, )
     use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
 
     use_these_modules = {
-        'nnUNetModule': ('nnUNetPlans',),
+        'nnUNetTrainer': ('nnUNetPlans',),
     }
 
-    additional_arguments = '--val'  # '' #  --disable_saving
+    additional_arguments = ''  # '' #  --disable_saving
 
     output_file = "/home/fabian/deleteme.txt"
     with open(output_file, 'w') as f:
