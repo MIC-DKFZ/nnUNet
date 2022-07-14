@@ -47,7 +47,7 @@ class nnUNetDataset(object):
             self.dataset[c]['data_file'] = join(folder, "%s.npz" % c)
             self.dataset[c]['properties_file'] = join(folder, "%s.pkl" % c)
             if folder_with_segs_from_previous_stage is not None:
-                self.dataset[c]['seg_from_prev_stage_file'] = join(folder, "%s.npz" % c)
+                self.dataset[c]['seg_from_prev_stage_file'] = join(folder_with_segs_from_previous_stage, "%s.npz" % c)
 
         if len(case_identifiers) <= num_cases_properties_loading_threshold:
             for i in self.dataset.keys():
