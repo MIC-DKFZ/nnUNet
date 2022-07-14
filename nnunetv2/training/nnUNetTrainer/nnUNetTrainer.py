@@ -4,6 +4,7 @@ import shutil
 import sys
 from copy import deepcopy
 from datetime import datetime
+from multiprocessing import Pool
 from time import time, sleep
 from typing import Union, Tuple, List
 
@@ -19,6 +20,10 @@ from batchgenerators.transforms.spatial_transforms import SpatialTransform, Mirr
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
+from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
+from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
+from nnunetv2.inference.export_prediction import export_prediction
+from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
@@ -51,7 +56,6 @@ from torch.cuda.amp import GradScaler
 matplotlib.use('agg')
 import seaborn as sns
 import matplotlib.pyplot as plt
-
 
 
 class nnUNetTrainer(object):
@@ -92,7 +96,7 @@ class nnUNetTrainer(object):
         self.preprocessed_dataset_folder_base = join(nnUNet_preprocessed, plans['dataset_name']) \
             if nnUNet_preprocessed is not None else None
         self.output_folder_base = join(nnUNet_results, plans['dataset_name'],
-                                       self.__class__.__name__ + '__' + plans['plans_name'] + "__" + configuration)\
+                                       self.__class__.__name__ + '__' + plans['plans_name'] + "__" + configuration) \
             if nnUNet_results is not None else None
         self.output_folder = join(self.output_folder_base, f'fold_{fold}')
 
@@ -107,15 +111,15 @@ class nnUNetTrainer(object):
             join(nnUNet_results, plans['dataset_name'],
                  self.__class__.__name__ + '__' + plans['plans_name'] + "__" +
                  plans['configurations'][configuration]['previous_stage'], 'prediction_next_stage') \
-            if 'previous_stage' in plans['configurations'][configuration].keys() else None
+                if 'previous_stage' in plans['configurations'][configuration].keys() else None
 
         ### Some hyperparameters for you to fiddle with
         self.initial_lr = 1e-2
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
-        self.num_iterations_per_epoch = 250
-        self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_iterations_per_epoch = 100
+        self.num_val_iterations_per_epoch = 10
+        self.num_epochs = 20
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -142,6 +146,7 @@ class nnUNetTrainer(object):
                               timestamp.second))
         self.my_fantastic_logging = {
             'mean_fg_dice': list(),
+            'ema_fg_dice': list(),
             'dice_per_class_or_region': list(),
             'train_losses': list(),
             'val_losses': list(),
@@ -161,9 +166,7 @@ class nnUNetTrainer(object):
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
-        self.inference_gaussian = None  # will be set in self.on_predict_start to speed up inference. After
         # prediction it is set back to None in self.on_predict_end
-        self.inference_segmentation_export_pool = None
         self.inference_parameters = {
             'tile_step_size': 0.5,
             'use_gaussian': True,
@@ -186,12 +189,12 @@ class nnUNetTrainer(object):
     def _build_loss(self):
         if self.regions is None:
             loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                        'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
-                                       ignore_label=self.ignore_label)
+                                   'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
+                                  ignore_label=self.ignore_label)
         else:
             loss = DC_and_BCE_loss({},
-                                        {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                         'do_bg': True, 'smooth': 1e-5}, ignore_label=self.ignore_label)
+                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                    'do_bg': True, 'smooth': 1e-5}, ignore_label=self.ignore_label)
         deep_supervision_scales = self._get_deep_supervision_scales()
 
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
@@ -728,8 +731,6 @@ class nnUNetTrainer(object):
         self.print_to_log_file(
             f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 
-        self._plot_progress_png()
-
         # handling periodic checkpointing
         current_epoch = self.current_epoch
         if not self.disable_checkpointing and \
@@ -737,7 +738,7 @@ class nnUNetTrainer(object):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
         elif not self.disable_checkpointing and \
                 current_epoch == self.num_epochs - 1:
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_final.pth'),)
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_final.pth'), )
             # delete latest checkpoint
             if isfile(join(self.output_folder, 'checkpoint_latest.pth')):
                 os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
@@ -747,10 +748,14 @@ class nnUNetTrainer(object):
         self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
             if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
 
+        self.my_fantastic_logging['ema_fg_dice'].append(self._ema_pseudo_dice)
+
         if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
             self._best_ema = self._ema_pseudo_dice
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
+
+        self._plot_progress_png()
 
         self.current_epoch += 1
 
@@ -790,7 +795,70 @@ class nnUNetTrainer(object):
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
     def perform_actual_validation(self):
-        pass
+        self.network.decoder.deep_supervision = False
+
+        inference_gaussian = torch.from_numpy(
+            compute_gaussian(self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
+        segmentation_export_pool = Pool(self.inference_parameters['n_processes_segmentation_export'])
+        validation_output_folder = join(self.output_folder, 'validation')
+        maybe_mkdir_p(validation_output_folder)
+
+        _, dataset_val = self.get_tr_and_val_datasets()
+
+        results = []
+        for k in dataset_val.keys():
+            data, _, properties = dataset_val.load_case(k)
+            output_filename_truncated = join(validation_output_folder, k)
+
+            prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),
+                                                              tile_size=
+                                                              self.plans['configurations'][self.configuration][
+                                                                  'patch_size'],
+                                                              mirror_axes=self.inference_allowed_mirroring_axes if
+                                                              self.inference_parameters['use_mirroring'] else None,
+                                                              tile_step_size=self.inference_parameters[
+                                                                  'tile_step_size'],
+                                                              use_gaussian=self.inference_parameters['use_gaussian'],
+                                                              precomputed_gaussian=inference_gaussian,
+                                                              perform_everything_on_gpu=self.inference_parameters[
+                                                                  'perform_everything_on_gpu'],
+                                                              verbose=self.inference_parameters['verbose']).cpu().numpy()
+            """There is a problem with python process communication that prevents us from communicating objects
+            larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+            communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
+            enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+            patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+            then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
+            filename or np.ndarray and will handle this automatically"""
+            if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                np.save(output_filename_truncated + '.npy', prediction)
+                prediction = output_filename_truncated + '.npy'
+
+            # this needs to go into background processes
+            results.append(
+                segmentation_export_pool.starmap_async(
+                    export_prediction, (
+                        (prediction, properties, self.configuration, self.plans, self.dataset_json,
+                         output_filename_truncated,
+                         self.inference_parameters['save_probabilities']),
+                    )
+                )
+            )
+
+        _ = [r.get() for r in results]
+
+        segmentation_export_pool.close()
+        segmentation_export_pool.join()
+
+        compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
+                                  validation_output_folder,
+                                  join(validation_output_folder, 'summary.json'),
+                                  recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
+                                  self.dataset_json["file_ending"],
+                                  self.regions if self.regions is not None else labels_to_list_of_regions(self.labels),
+                                  self.ignore_label)
+
+        self.network.decoder.deep_supervision = True
 
     def run_training(self):
         self.on_train_start()
@@ -824,7 +892,10 @@ class nnUNetTrainer(object):
         x_values = list(range(self.current_epoch + 1))
         ax.plot(x_values, self.my_fantastic_logging['train_losses'], color='b', ls='-', label="loss_tr", linewidth=4)
         ax.plot(x_values, self.my_fantastic_logging['val_losses'], color='r', ls='-', label="loss_val", linewidth=4)
-        ax2.plot(x_values, self.my_fantastic_logging['mean_fg_dice'], color='g', ls='--', label="pseudo dice", linewidth=4)
+        ax2.plot(x_values, self.my_fantastic_logging['mean_fg_dice'], color='g', ls='--', label="pseudo dice",
+                 linewidth=4)
+        ax2.plot(x_values, self.my_fantastic_logging['ema_fg_dice'], color='g', ls='-', label="pseudo dice (mov. avg.)",
+                 linewidth=4)
         ax.set_xlabel("epoch")
         ax.set_ylabel("loss")
         ax2.set_ylabel("pseudo dice")

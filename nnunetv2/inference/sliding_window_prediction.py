@@ -108,54 +108,55 @@ def predict_sliding_window_return_logits(network: nn.Module,
                                          precomputed_gaussian: torch.Tensor = None,
                                          perform_everything_on_gpu: bool = True,
                                          verbose: bool = True) -> Union[np.ndarray, torch.Tensor]:
-    assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
+    with torch.no_grad():
+        assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
-    if not torch.cuda.is_available():
-        if perform_everything_on_gpu:
-            print('WARNING! "perform_everything_on_gpu" was True but cuda is not available! Set it to False...')
-        perform_everything_on_gpu = False
+        if not torch.cuda.is_available():
+            if perform_everything_on_gpu:
+                print('WARNING! "perform_everything_on_gpu" was True but cuda is not available! Set it to False...')
+            perform_everything_on_gpu = False
 
-    if verbose: print("step_size:", tile_step_size)
-    if verbose: print("mirror_axes:", mirror_axes)
+        if verbose: print("step_size:", tile_step_size)
+        if verbose: print("mirror_axes:", mirror_axes)
 
-    if not isinstance(input_image, torch.Tensor):
-        input_image = torch.from_numpy(input_image)
+        if not isinstance(input_image, torch.Tensor):
+            input_image = torch.from_numpy(input_image)
 
-    # if input_image is smaller than tile_size we need to pad it to tile_size.
-    data, slicer_revert_padding = pad_nd_image(input_image, tile_size, 'constant', {'value': 0}, True, None)
+        # if input_image is smaller than tile_size we need to pad it to tile_size.
+        data, slicer_revert_padding = pad_nd_image(input_image, tile_size, 'constant', {'value': 0}, True, None)
 
-    if use_gaussian:
-        gaussian = torch.from_numpy(
-            compute_gaussian(tile_size, sigma_scale=1. / 8)) if precomputed_gaussian is None else precomputed_gaussian
-        if perform_everything_on_gpu:
-            gaussian = gaussian.to('cuda:0', non_blocking=False)
-        else:
-            gaussian = gaussian.to('cpu', non_blocking=False)
+        if use_gaussian:
+            gaussian = torch.from_numpy(
+                compute_gaussian(tile_size, sigma_scale=1. / 8)) if precomputed_gaussian is None else precomputed_gaussian
+            if perform_everything_on_gpu:
+                gaussian = gaussian.to('cuda:0', non_blocking=False)
+            else:
+                gaussian = gaussian.to('cpu', non_blocking=False)
 
-    slicers = get_sliding_window_generator(data.shape[1:], tile_size, tile_step_size)
+        slicers = get_sliding_window_generator(data.shape[1:], tile_size, tile_step_size)
 
-    # preallocate results and num_predictions
-    # RuntimeError: "softmax_kernel_impl" not implemented for 'Half'. F.U.
-    predicted_logits = torch.zeros((num_classes, *data.shape[1:]), dtype=torch.float32,
-                                   device='cpu' if not perform_everything_on_gpu else 'cuda:0')
-    n_predictions = torch.zeros(data.shape[1:], dtype=torch.float32,
-                                device='cpu' if not perform_everything_on_gpu else 'cuda:0')
+        # preallocate results and num_predictions
+        # RuntimeError: "softmax_kernel_impl" not implemented for 'Half'. F.U.
+        predicted_logits = torch.zeros((num_classes, *data.shape[1:]), dtype=torch.float32,
+                                       device='cpu' if not perform_everything_on_gpu else 'cuda:0')
+        n_predictions = torch.zeros(data.shape[1:], dtype=torch.float32,
+                                    device='cpu' if not perform_everything_on_gpu else 'cuda:0')
 
-    for sl in slicers:
-        workon = data[sl][None]
+        for sl in slicers:
+            workon = data[sl][None]
 
-        if torch.cuda.is_available():
-            workon = workon.to('cuda:0', non_blocking=False)
+            if torch.cuda.is_available():
+                workon = workon.to('cuda:0', non_blocking=False)
 
-        prediction = maybe_mirror_and_predict(network, workon, mirror_axes)[0]
+            prediction = maybe_mirror_and_predict(network, workon, mirror_axes)[0]
 
-        if not perform_everything_on_gpu:
-            prediction = prediction.to('cpu', non_blocking=False)
+            if not perform_everything_on_gpu:
+                prediction = prediction.to('cpu', non_blocking=False)
 
-        predicted_logits[sl] += (prediction * gaussian if use_gaussian else prediction)
-        n_predictions[sl[1:]] += (gaussian if use_gaussian else 1)
+            predicted_logits[sl] += (prediction * gaussian if use_gaussian else prediction)
+            n_predictions[sl[1:]] += (gaussian if use_gaussian else 1)
 
-    predicted_logits /= n_predictions
+        predicted_logits /= n_predictions
     return predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
 
 
