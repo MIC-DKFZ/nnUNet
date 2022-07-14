@@ -22,6 +22,9 @@ def get_allowed_n_proc_DA():
 
     hostname = subprocess.getoutput(['hostname'])
 
+    if 'nnUNet_n_proc_DA' in os.environ.keys():
+        return int(os.environ['nnUNet_n_proc_DA'])
+
     if hostname in ['hdf19-gpu16', 'hdf19-gpu17', 'e230-AMDworkstation']:
         return 16
 
@@ -37,6 +40,8 @@ def get_allowed_n_proc_DA():
     elif hostname.startswith('e230-dgx2'):
         return 6
     elif hostname.startswith('e230-dgxa100-'):
-        return 32
+        return 28
+    elif hostname.startswith('lsf22-gpu'):
+        return 28
     else:
-        return None
+        return 12  # default value
