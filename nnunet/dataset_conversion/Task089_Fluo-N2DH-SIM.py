@@ -65,80 +65,6 @@ def generate_border_as_suggested_by_twollmann_2d(label_img: np.ndarray, spacing,
     return border
 
 
-def prepare_task(base, task_id, task_name, spacing, border_thickness: float = 15):
-    p = Pool(16)
-
-    foldername = "Task%03.0d_%s" % (task_id, task_name)
-
-    out_base = join(nnUNet_raw_data, foldername)
-    imagestr = join(out_base, "imagesTr")
-    imagests = join(out_base, "imagesTs")
-    labelstr = join(out_base, "labelsTr")
-    maybe_mkdir_p(imagestr)
-    maybe_mkdir_p(imagests)
-    maybe_mkdir_p(labelstr)
-
-    train_patient_names = []
-    test_patient_names = []
-    res = []
-
-    for train_sequence in [i for i in subfolders(base + "_train", join=False) if not i.endswith("_GT")]:
-        train_cases = subfiles(join(base + '_train', train_sequence), suffix=".tif", join=False)
-        for t in train_cases:
-            casename = train_sequence + "_" + t[:-4]
-            img_file = join(base + '_train', train_sequence, t)
-            lab_file = join(base + '_train', train_sequence + "_GT", "SEG", "man_seg" + t[1:])
-            if not isfile(lab_file):
-                continue
-            img_out_base = join(imagestr, casename)
-            anno_out = join(labelstr, casename + ".nii.gz")
-            res.append(
-                p.starmap_async(load_bmp_convert_to_nifti_borders_2d,
-                                ((img_file, lab_file, img_out_base, anno_out, spacing, border_thickness),)))
-            train_patient_names.append(casename)
-
-    for test_sequence in [i for i in subfolders(base + "_test", join=False) if not i.endswith("_GT")]:
-        test_cases = subfiles(join(base + '_test', test_sequence), suffix=".tif", join=False)
-        for t in test_cases:
-            casename = test_sequence + "_" + t[:-4]
-            img_file = join(base + '_test', test_sequence, t)
-            lab_file = None
-            img_out_base = join(imagests, casename)
-            anno_out = None
-            res.append(
-                p.starmap_async(load_bmp_convert_to_nifti_borders_2d,
-                                ((img_file, lab_file, img_out_base, anno_out, spacing, border_thickness),)))
-            test_patient_names.append(casename)
-
-    _ = [i.get() for i in res]
-
-    json_dict = {}
-    json_dict['name'] = task_name
-    json_dict['description'] = ""
-    json_dict['tensorImageSize'] = "4D"
-    json_dict['reference'] = ""
-    json_dict['licence'] = ""
-    json_dict['release'] = "0.0"
-    json_dict['modality'] = {
-        "0": "BF",
-    }
-    json_dict['labels'] = {
-        "0": "background",
-        "1": "cell",
-        "2": "border",
-    }
-
-    json_dict['numTraining'] = len(train_patient_names)
-    json_dict['numTest'] = len(test_patient_names)
-    json_dict['training'] = [{'image': "./imagesTr/%s.nii.gz" % i, "label": "./labelsTr/%s.nii.gz" % i} for i in
-                             train_patient_names]
-    json_dict['test'] = ["./imagesTs/%s.nii.gz" % i for i in test_patient_names]
-
-    save_json(json_dict, os.path.join(out_base, "dataset.json"))
-    p.close()
-    p.join()
-
-
 def convert_to_instance_seg(arr: np.ndarray, spacing: tuple = (0.125, 0.125), small_center_threshold: int = 30,
                             isolated_border_as_separate_instance_threshold=15):
     from skimage.morphology import label, dilation
@@ -232,27 +158,92 @@ def convert_to_tiff(nifti_image: str, output_name: str):
 
 
 if __name__ == "__main__":
-    base = "/home/fabian/Downloads/Fluo-N2DH-SIM+"
-    task_name = 'Fluo-N2DH-SIM'
+    source_train = "/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/train/Fluo-N2DH-SIM+"
+    source_test = "/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/test/Fluo-N2DH-SIM+"
+
     spacing = (0.125, 0.125)
 
-    task_id = 999
+    # adding the time information is a hassle, bear with us. We first create a dummy task under id 999, then copy it and finally put the time information in
     border_thickness = 0.7
-    prepare_task(base, task_id, task_name, spacing, border_thickness)
 
+    p = Pool(16)
+
+    # now add the time information and make this a real task
     task_id = 89
     additional_time_steps = 4
     task_name = 'Fluo-N2DH-SIM_thickborder_time'
-    full_taskname = 'Task%03.0d_' % task_id + task_name
-    output_raw = join(nnUNet_raw_data, full_taskname)
-    shutil.rmtree(output_raw)
-    shutil.copytree(join(nnUNet_raw_data, 'Task999_Fluo-N2DH-SIM_thickborder'), output_raw)
+    foldername = 'Task%03.0d_' % task_id + task_name
 
-    shutil.rmtree(join(nnUNet_raw_data, 'Task999_Fluo-N2DH-SIM_thickborder'))
+    out_base = join(nnUNet_raw_data, foldername)
+    imagestr = join(out_base, "imagesTr")
+    imagests = join(out_base, "imagesTs")
+    labelstr = join(out_base, "labelsTr")
+    maybe_mkdir_p(imagestr)
+    maybe_mkdir_p(imagests)
+    maybe_mkdir_p(labelstr)
+
+    train_patient_names = []
+    test_patient_names = []
+    res = []
+
+    for train_sequence in ['01', '02']:
+        train_cases = subfiles(join(source_train, train_sequence), suffix=".tif", join=False)
+        for t in train_cases:
+            casename = train_sequence + "_" + t[:-4]
+            img_file = join(source_train, train_sequence, t)
+            lab_file = join(source_train, train_sequence + "_GT", "SEG", "man_seg" + t[1:])
+
+            img_out_base = join(imagestr, casename)
+            anno_out = join(labelstr, casename + ".nii.gz")
+            res.append(
+                p.starmap_async(load_bmp_convert_to_nifti_borders_2d,
+                                ((img_file, lab_file, img_out_base, anno_out, spacing, border_thickness),)))
+            train_patient_names.append(casename)
+
+    for test_sequence in ['01', '02']:
+        test_cases = subfiles(join(source_test, test_sequence), suffix=".tif", join=False)
+        for t in test_cases:
+            casename = test_sequence + "_" + t[:-4]
+            img_file = join(source_test, test_sequence, t)
+            lab_file = None
+            img_out_base = join(imagests, casename)
+            anno_out = None
+            res.append(
+                p.starmap_async(load_bmp_convert_to_nifti_borders_2d,
+                                ((img_file, lab_file, img_out_base, anno_out, spacing, border_thickness),)))
+            test_patient_names.append(casename)
+
+    _ = [i.get() for i in res]
+    p.close()
+    p.join()
+
+    # generate dataset.json
+    json_dict = {}
+    json_dict['name'] = task_name
+    json_dict['description'] = ""
+    json_dict['tensorImageSize'] = "4D"
+    json_dict['reference'] = ""
+    json_dict['licence'] = ""
+    json_dict['release'] = "0.0"
+    json_dict['modality'] = {
+        "0": "BF",
+    }
+    json_dict['labels'] = {
+        "0": "background",
+        "1": "cell",
+        "2": "border",
+    }
+    json_dict['numTraining'] = len(train_patient_names)
+    json_dict['numTest'] = len(test_patient_names)
+    json_dict['training'] = [{'image': "./imagesTr/%s.nii.gz" % i, "label": "./labelsTr/%s.nii.gz" % i} for i in
+                             train_patient_names]
+    json_dict['test'] = ["./imagesTs/%s.nii.gz" % i for i in test_patient_names]
+
+    save_json(json_dict, os.path.join(out_base, "dataset.json"))
 
     # now add additional time information
     for fld in ['imagesTr', 'imagesTs']:
-        curr = join(output_raw, fld)
+        curr = join(out_base, fld)
         for seq in ['01', '02']:
             images = subfiles(curr, prefix=seq, join=False)
             for i in images:
@@ -273,7 +264,7 @@ if __name__ == "__main__":
                     else:
                         shutil.copy(expected_filename, join(curr, i.replace("_0000", "_%04.0d" % (
                                     additional_time_steps + previous_timestep))))
-    dataset = load_json(join(output_raw, 'dataset.json'))
+    dataset = load_json(join(out_base, 'dataset.json'))
     dataset['modality'] = {
         '0': 't_minus 4',
         '1': 't_minus 3',
@@ -281,7 +272,7 @@ if __name__ == "__main__":
         '3': 't_minus 1',
         '4': 'frame of interest',
     }
-    save_json(dataset, join(output_raw, 'dataset.json'))
+    save_json(dataset, join(out_base, 'dataset.json'))
 
     # we do not need custom splits since we train on all training cases
 

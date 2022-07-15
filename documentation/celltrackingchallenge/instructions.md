@@ -11,6 +11,9 @@ together. This could have been a good idea or a horrible one. This was not evalu
 Note that this script will create a custom cross-validation split so that we stratify properly. Againg it's not 
 sure whether this is necessary. Just roll with it.
 
+Now run planning and preprocessing with 
+`nnUNet_plan_and_preprocess -t 75 -pl2d None` (`-pl2d None` disables the 2d configuration which is not needed here!)
+
 ## Training
 You can now execute nnU-Net training:
 ```bash
@@ -28,3 +31,12 @@ convert the predicted nifti images back to tiff.
 
 Best would probably be to just use our [inference code](http://celltrackingchallenge.net/participants/DKFZ-GE/) 
 (with the pretrained weights). Or at least use it as an inspiration.
+
+# Fluo-N2DH-SIM
+This dataset is an instance segmentation problem. But nnU-Net can only do semantic segmentation. Dang. That's it. Bye.
+
+...
+
+Nah just kidding. We use an age old trick (which we didnt invent) and convert the instance segmentation task into a 
+semantic segmentation task. Semantic classes are 'cell center' and 'cell border'. This will allow us to convert back
+to a 
