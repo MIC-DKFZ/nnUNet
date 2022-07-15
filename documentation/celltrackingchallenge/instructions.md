@@ -52,7 +52,8 @@ is probably not very effective but remember that we are just applying nnU-Net he
 Open the file [Task089_Fluo-N2DH-SIM.py](../../nnunet/dataset_conversion/Task089_Fluo-N2DH-SIM.py) and 
 modify the paths. Then execute it with python. This will convert the raw dataset.
 
-Then run `nnUNet_plan_and_preprocess -t 89 -pl3d None` (`-pl3d None` because this is a 2D dataset and we dont need the 3d configurations).
+Then run `nnUNet_plan_and_preprocess -t 89 -pl3d None` (`-pl3d None` because this is a 2D dataset and we don't need 
+the 3d configurations).
 
 ## Training
 You can now execute nnU-Net training:
@@ -64,7 +65,8 @@ This just trains a single model on all available training cases. No ensembling h
 
 ## Inference
 You can use the images in `imagesTs` but honestly just use the code we provide for inference 
-[here](http://celltrackingchallenge.net/participants/DKFZ-GE/)
+[here](http://celltrackingchallenge.net/participants/DKFZ-GE/). If you choose to run inference all by yourself, 
+remember to specify the 'all' fold correctly (`nnUNet_predict [...] -f all`).
 
 # Fluo-N3DH-SIM+
 Instance segmentation just like Fluo-N2DH-SIM so we convert the instances into a two-call semantic segmentation 
@@ -75,8 +77,16 @@ problem (cell border & center) so that we can solve it with nnU-Net. No messing 
 Open the file [Task076_Fluo_N3DH_SIM.py](../../nnunet/dataset_conversion/Task076_Fluo_N3DH_SIM.py) and 
 modify the paths. Then execute it with python. This will convert the raw dataset.
 
+Then run `nnUNet_plan_and_preprocess -t 76 -pl2d None` (`-pl2d None` because this is a 3D dataset and we don't need the 
+2d configurations).
 
 ## Training
+You can now execute nnU-Net training:
+```bash
+nnUNet_train 3d_fullres nnUNetTrainerV2 76 all
+```
 
 ## Inference
-
+You can use the images in `imagesTs` but honestly just use the code we provide for inference 
+[here](http://celltrackingchallenge.net/participants/DKFZ-GE/). If you choose to run inference all by yourself, 
+remember to specify the 'all' fold correctly (`nnUNet_predict [...] -f all`).
