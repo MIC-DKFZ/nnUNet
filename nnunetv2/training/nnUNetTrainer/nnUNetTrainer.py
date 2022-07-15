@@ -22,7 +22,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, load_json
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.inference.export_prediction import export_prediction
+from nnunetv2.inference.export_prediction import export_prediction, resample_and_save
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -174,7 +174,7 @@ class nnUNetTrainer(object):
             'perform_everything_on_gpu': False,
             'verbose': True,
             'save_probabilities': False,
-            'n_processes_segmentation_export': default_num_processes,
+            'n_processes_segmentation_export': 4,
         }
 
         ### checkpoint saving stuff
@@ -770,6 +770,7 @@ class nnUNetTrainer(object):
             'current_epoch': self.current_epoch,
             'init_args': self.my_init_kwargs,
             'trainer_name': self.__class__.__name__,
+            'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
         }
         torch.save(checkpoint, filename)
 
@@ -790,6 +791,8 @@ class nnUNetTrainer(object):
         self.my_fantastic_logging = checkpoint['logging']
         self._best_ema = checkpoint['_best_ema']
         self._ema_pseudo_dice = checkpoint['_current_ema']
+        self.inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
+
         self.network.load_state_dict(new_state_dict)
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
@@ -804,6 +807,12 @@ class nnUNetTrainer(object):
         maybe_mkdir_p(validation_output_folder)
 
         _, dataset_val = self.get_tr_and_val_datasets()
+
+        next_stages = self.plans['configurations'][self.configuration].get('next_stage')
+        if isinstance(next_stages, str):
+            next_stages = [next_stages]
+        if next_stages is not None:
+            _ = [maybe_mkdir_p(join(self.output_folder_base, 'predicted_next_stage', n)) for n in next_stages]
 
         results = []
         for k in dataset_val.keys():
@@ -832,18 +841,51 @@ class nnUNetTrainer(object):
             filename or np.ndarray and will handle this automatically"""
             if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                 np.save(output_filename_truncated + '.npy', prediction)
-                prediction = output_filename_truncated + '.npy'
+                prediction_for_export = output_filename_truncated + '.npy'
+            else:
+                prediction_for_export = prediction
 
             # this needs to go into background processes
             results.append(
                 segmentation_export_pool.starmap_async(
                     export_prediction, (
-                        (prediction, properties, self.configuration, self.plans, self.dataset_json,
+                        (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
                          output_filename_truncated,
                          self.inference_parameters['save_probabilities']),
                     )
                 )
             )
+
+            # if needed, export the softmax prediction for the next stage
+            if next_stages is not None:
+                for n in next_stages:
+                    expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans['dataset_name'], self.plans['configurations'][n]['data_identifier'])
+
+                    try:
+                        # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
+                        tmp = nnUNetDataset(expected_preprocessed_folder, [k])
+                        d, s, p = tmp.load_case(k)
+                    except FileNotFoundError:
+                        self.print_to_log_file(f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! Run the preprocessing for this configuration!")
+                        continue
+
+                    target_shape = d.shape[1:]
+                    output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
+                    output_file = join(output_folder, k + '.npz')
+
+                    if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                        np.save(output_file[:-4] + '.npy', prediction)
+                        prediction_for_export = output_file[:-4] + '.npy'
+                    else:
+                        prediction_for_export = prediction
+                    # resample_and_save(prediction, target_shape, output_file, self.plans, self.configuration, properties,
+                    #                   self.dataset_json, n)
+                    results.append(segmentation_export_pool.starmap_async(
+                        resample_and_save, (
+                            (prediction_for_export, target_shape, output_file, self.plans, self.configuration, properties,
+                             self.dataset_json, n),
+                        )
+                    ))
 
         _ = [r.get() for r in results]
 
@@ -884,8 +926,9 @@ class nnUNetTrainer(object):
         self.on_train_end()
 
     def _plot_progress_png(self):
+        import IPython;IPython.embed()
         sns.set(font_scale=2.5)
-        fig, ax_all = plt.subplots(3, 1, figsize=(20, 18 * 2))
+        fig, ax_all = plt.subplots(3, 1, figsize=(30, 54))
         # regular progress.png as we are used to from previous nnU-Net versions
         ax = ax_all[0]
         ax2 = ax.twinx()

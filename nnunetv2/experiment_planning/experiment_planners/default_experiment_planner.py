@@ -483,7 +483,7 @@ class ExperimentPlanner(object):
         if plan_3d_lowres is not None:
             plans['configurations']['3d_lowres'] = plan_3d_lowres
             if plan_3d_fullres is not None:
-                plans['configurations']['3d_lowres']['next_stage'] = '3d_fullres'
+                plans['configurations']['3d_lowres']['next_stage'] = '3d_cascade_fullres'
             print('3D lowres U-Net configuration:')
             print(plan_3d_lowres)
             print()
