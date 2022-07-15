@@ -47,7 +47,7 @@ in the color channel. So the input to the model is [t-4, t-3, t-2, t-1, frame_of
 is probably not very effective but remember that we are jsut applying nnU-Net here and cannot change the method 
 (it's supposed to be out-of-the-box ;-) ).
 
-Open the file [Task089_Fluo-N2DH-SIM.py](../../nnunet/dataset_conversion/Task075_Fluo_C3DH_A549_ManAndSim.py) and 
+Open the file [Task089_Fluo-N2DH-SIM.py](../../nnunet/dataset_conversion/Task089_Fluo-N2DH-SIM.py) and 
 modify the paths. Then execute it with python. This will convert the raw dataset.
 
 Then run `nnUNet_plan_and_preprocess -t 89 -pl3d None` (`-pl3d None` because this is a 2D dataset and we dont need the 3d configurations).
