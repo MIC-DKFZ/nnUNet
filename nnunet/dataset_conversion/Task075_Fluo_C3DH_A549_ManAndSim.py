@@ -35,7 +35,16 @@ def load_tiff_convert_to_nifti(img_file, lab_file, img_out_base, anno_out, spaci
         sitk.WriteImage(l_itk, anno_out)
 
 
-def prepare_task(base, task_id, task_name, spacing):
+if __name__ == "__main__":
+    source_folder_fluo_c3dh_a549 = '/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/train/Fluo-C3DH-A549'
+    source_folder_fluo_c3dh_a549_sim = '/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/train/Fluo-C3DH-A549-SIM'
+    source_folder_fluo_c3dh_a549_test = '/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/test/Fluo-C3DH-A549'
+    source_folder_fluo_c3dh_a549_sim_test = '/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/test/Fluo-C3DH-A549-SIM'
+
+    task_id = 75
+    task_name = 'Fluo_C3DH_A549_ManAndSim'
+
+    spacing = (1, 0.126, 0.126)
     p = Pool(16)
 
     foldername = "Task%03.0d_%s" % (task_id, task_name)
@@ -52,31 +61,34 @@ def prepare_task(base, task_id, task_name, spacing):
     test_patient_names = []
     res = []
 
-    for train_sequence in [i for i in subfolders(base + "_train", join=False) if not i.endswith("_GT")]:
-        train_cases = subfiles(join(base + '_train', train_sequence), suffix=".tif", join=False)
-        for t in train_cases:
-            casename = train_sequence + "_" + t[:-4]
-            img_file = join(base + '_train', train_sequence, t)
-            lab_file = join(base + '_train', train_sequence + "_GT", "SEG", "man_seg" + t[1:])
-            if not isfile(lab_file):
-                continue
-            img_out_base = join(imagestr, casename)
-            anno_out = join(labelstr, casename + ".nii.gz")
-            res.append(
-                p.starmap_async(load_tiff_convert_to_nifti, ((img_file, lab_file, img_out_base, anno_out, spacing),)))
-            train_patient_names.append(casename)
+    for source_folder in [source_folder_fluo_c3dh_a549, source_folder_fluo_c3dh_a549_sim]:
+        for train_sequence in ['01', '02']:
+            train_cases = subfiles(join(source_folder, train_sequence), suffix=".tif", join=False)
+            for t in train_cases:
+                casename = os.path.basename(source_folder) + "__" + train_sequence + "__" + t[:-4]
+                img_file = join(source_folder, train_sequence, t)
+                lab_file = join(source_folder, train_sequence + "_GT", "SEG", "man_seg" + t[1:])
+                if not isfile(lab_file):
+                    # not all cases are annotated in the manual dataset
+                    continue
+                img_out_base = join(imagestr, casename)
+                anno_out = join(labelstr, casename + ".nii.gz")
+                res.append(
+                    p.starmap_async(load_tiff_convert_to_nifti, ((img_file, lab_file, img_out_base, anno_out, spacing),)))
+                train_patient_names.append(casename)
 
-    for test_sequence in [i for i in subfolders(base + "_test", join=False) if not i.endswith("_GT")]:
-        test_cases = subfiles(join(base + '_test', test_sequence), suffix=".tif", join=False)
-        for t in test_cases:
-            casename = test_sequence + "_" + t[:-4]
-            img_file = join(base + '_test', test_sequence, t)
-            lab_file = None
-            img_out_base = join(imagests, casename)
-            anno_out = None
-            res.append(
-                p.starmap_async(load_tiff_convert_to_nifti, ((img_file, lab_file, img_out_base, anno_out, spacing),)))
-            test_patient_names.append(casename)
+    for test_folder in [source_folder_fluo_c3dh_a549_test, source_folder_fluo_c3dh_a549_sim_test]:
+        for test_sequence in ['01', '02']:
+            test_cases = subfiles(join(test_folder, test_sequence), suffix=".tif", join=False)
+            for t in test_cases:
+                casename = os.path.basename(source_folder) + "__" + test_sequence + "__" + t[:-4]
+                img_file = join(test_folder, test_sequence, t)
+                lab_file = None
+                img_out_base = join(imagests, casename)
+                anno_out = None
+                res.append(
+                    p.starmap_async(load_tiff_convert_to_nifti, ((img_file, lab_file, img_out_base, anno_out, spacing),)))
+                test_patient_names.append(casename)
 
     _ = [i.get() for i in res]
 
@@ -106,32 +118,26 @@ def prepare_task(base, task_id, task_name, spacing):
     p.join()
 
 
-if __name__ == "__main__":
-    base = "/media/fabian/My Book/datasets/CellTrackingChallenge/Fluo-C3DH-A549_ManAndSim"
-    task_id = 75
-    task_name = 'Fluo_C3DH_A549_ManAndSim'
-    spacing = (1, 0.126, 0.126)
-    prepare_task(base, task_id, task_name, spacing)
-
     task_name = "Task075_Fluo_C3DH_A549_ManAndSim"
     labelsTr = join(nnUNet_raw_data, task_name, "labelsTr")
     cases = subfiles(labelsTr, suffix='.nii.gz', join=False)
     splits = []
     splits.append(
-        {'train': [i[:-7] for i in cases if i.startswith('01_') or i.startswith('02_SIM')],
-         'val': [i[:-7] for i in cases if i.startswith('02_') and not i.startswith('02_SIM')]}
+        {'train': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549__01') or i.startswith('Fluo-C3DH-A549-SIM')],
+         'val': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549__02')]}
     )
     splits.append(
-        {'train': [i[:-7] for i in cases if i.startswith('02_') or i.startswith('01_SIM')],
-         'val': [i[:-7] for i in cases if i.startswith('01_') and not i.startswith('01_SIM')]}
+        {'train': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549__02') or i.startswith('Fluo-C3DH-A549-SIM')],
+         'val': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549__01')]}
     )
     splits.append(
-        {'train': [i[:-7] for i in cases if i.startswith('01_') or i.startswith('02_') and not i.startswith('02_SIM')],
-         'val': [i[:-7] for i in cases if i.startswith('02_SIM')]}
+        {'train': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549__') or i.startswith('Fluo-C3DH-A549-SIM__01')],
+         'val': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549-SIM__02')]}
     )
     splits.append(
-        {'train': [i[:-7] for i in cases if i.startswith('02_') or i.startswith('01_') and not i.startswith('01_SIM')],
-         'val': [i[:-7] for i in cases if i.startswith('01_SIM')]}
+        {'train': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549__') or i.startswith('Fluo-C3DH-A549-SIM__02')],
+         'val': [i[:-7] for i in cases if i.startswith('Fluo-C3DH-A549-SIM__01')]}
     )
+    maybe_mkdir_p(join(preprocessing_output_dir, task_name))
     save_pickle(splits, join(preprocessing_output_dir, task_name, "splits_final.pkl"))
 
