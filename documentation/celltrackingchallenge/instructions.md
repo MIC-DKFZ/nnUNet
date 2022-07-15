@@ -55,7 +55,7 @@ Then run `nnUNet_plan_and_preprocess -t 89 -pl3d None` (`-pl3d None` because thi
 ## Training
 You can now execute nnU-Net training:
 ```bash
-nnUNet_train 3d_fullres nnUNetTrainerV2 89 all
+nnUNet_train 2d nnUNetTrainerV2 89 all
 ```
 
 This just trains a single model on all available training cases. No ensembling here (maybe we should have!?).
