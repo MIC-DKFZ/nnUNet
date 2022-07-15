@@ -39,4 +39,28 @@ This dataset is an instance segmentation problem. But nnU-Net can only do semant
 
 Nah just kidding. We use an age old trick (which we didnt invent) and convert the instance segmentation task into a 
 semantic segmentation task. Semantic classes are 'cell center' and 'cell border'. This will allow us to convert back
-to a 
+to instance segmentation when we are done.
+
+Ah and this dataset is also a time series abd because it may be hard to distinguish cell instances in 2D without time 
+information we hack some of that good stuff in there. Essentially we stack the previous images of the frame of interest 
+in the color channel. So the input to the model is [t-4, t-3, t-2, t-1, frame_of_interest]. Stacking in color channels
+is probably not very effective but remember that we are jsut applying nnU-Net here and cannot change the method 
+(it's supposed to be out-of-the-box ;-) ).
+
+Open the file [Task089_Fluo-N2DH-SIM.py](../../nnunet/dataset_conversion/Task075_Fluo_C3DH_A549_ManAndSim.py) and 
+modify the paths. Then execute it with python. This will convert the raw dataset.
+
+Then run `nnUNet_plan_and_preprocess -t 89 -pl3d None` (`-pl3d None` because this is a 2D dataset and we dont need the 3d configurations).
+
+## Training
+You can now execute nnU-Net training:
+```bash
+nnUNet_train 3d_fullres nnUNetTrainerV2 89 all
+```
+
+This just trains a single model on all available training cases. No ensembling here (maybe we should have!?).
+
+## Inference
+You can use the images in `imagesTs` but honestly just use the code we provide for inference 
+[here](http://celltrackingchallenge.net/participants/DKFZ-GE/)
+
