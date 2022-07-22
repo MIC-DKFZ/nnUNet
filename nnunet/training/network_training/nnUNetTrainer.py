@@ -47,7 +47,7 @@ matplotlib.use("agg")
 
 class nnUNetTrainer(NetworkTrainer):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=1000):
         """
         :param deterministic:
         :param fold: can be either [0 ... 5) for cross-validation, 'all' to train on all available training data or
@@ -68,6 +68,7 @@ class nnUNetTrainer(NetworkTrainer):
         if stage 1 exists then stage 1 is the high resolution stage, otherwise it's 0
         :param unpack_data: if False, npz preprocessed data will not be unpacked to npy. This consumes less space but
         is considerably slower! Running unpack_data=False with 2d should never be done!
+        :param max_num_epochs: not used here (only used in nnUNetTrainerV2) but required here for consistent signatures
 
         IMPORTANT: If you inherit from nnUNetTrainer and the init args change then you need to redefine self.init_args
         in your init accordingly. Otherwise checkpoints won't load properly!

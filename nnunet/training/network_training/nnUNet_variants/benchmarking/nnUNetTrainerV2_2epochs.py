@@ -26,9 +26,9 @@ from torch.cuda.amp import autocast
 
 class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+                         deterministic, fp16, max_num_epochs)
         self.max_num_epochs = 2
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
@@ -51,9 +51,9 @@ class nnUNetTrainerV2_2epochs(nnUNetTrainerV2):
 
 class nnUNetTrainerV2_5epochs(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=5):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+                         deterministic, fp16, max_num_epochs)
         self.max_num_epochs = 5
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
@@ -76,9 +76,9 @@ class nnUNetTrainerV2_5epochs(nnUNetTrainerV2):
 
 class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=5):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+                         deterministic, fp16, max_num_epochs)
         self.max_num_epochs = 5
         self.loss = RobustCrossEntropyLoss()
 
@@ -151,9 +151,9 @@ class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
 
 class nnUNetTrainerV2_5epochs_noDS(nnUNetTrainerV2_noDeepSupervision):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=5):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+                         deterministic, fp16, max_num_epochs)
         self.max_num_epochs = 5
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
@@ -226,9 +226,9 @@ class nnUNetTrainerV2_5epochs_noDS(nnUNetTrainerV2_noDeepSupervision):
 class nnUNetTrainerV2_DDP_5epochs(nnUNetTrainerV2_DDP):
     def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True,
                  stage=None,
-                 unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False):
+                 unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False, max_num_epochs=5):
         super().__init__(plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, distribute_batch_size, fp16)
+                         deterministic, distribute_batch_size, fp16, max_num_epochs)
         self.max_num_epochs = 5
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,

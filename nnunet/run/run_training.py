@@ -89,6 +89,8 @@ def main():
                         help='path to nnU-Net checkpoint file to be used as pretrained model (use .model '
                              'file, for example model_final_checkpoint.model). Will only be used when actually training. '
                              'Optional. Beta. Use with caution.')
+    parser.add_argument('--max_num_epochs', type=int, required=False, default=1000,
+                        help='number of epochs to train for')
 
     args = parser.parse_args()
 
@@ -114,6 +116,8 @@ def main():
     # interp_order = args.interp_order
     # interp_order_z = args.interp_order_z
     # force_separate_z = args.force_separate_z
+
+    max_num_epochs = args.max_num_epochs
 
     if not task.startswith("Task"):
         task_id = int(task)
@@ -151,7 +155,8 @@ def main():
     trainer = trainer_class(plans_file, fold, output_folder=output_folder_name, dataset_directory=dataset_directory,
                             batch_dice=batch_dice, stage=stage, unpack_data=decompress_data,
                             deterministic=deterministic,
-                            fp16=run_mixed_precision)
+                            fp16=run_mixed_precision,
+                            max_num_epochs=max_num_epochs)
     if args.disable_saving:
         trainer.save_final_checkpoint = False # whether or not to save the final checkpoint
         trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to

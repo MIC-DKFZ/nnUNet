@@ -24,9 +24,9 @@ class nnUNetTrainerV2_Adam_ReduceOnPlateau(nnUNetTrainerV2):
     Same schedule as nnUNetTrainer
     """
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=1000):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+                         deterministic, fp16, max_num_epochs)
         self.initial_lr = 3e-4
 
     def initialize_optimizer_and_scheduler(self):

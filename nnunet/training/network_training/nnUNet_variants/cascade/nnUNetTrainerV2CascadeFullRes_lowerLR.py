@@ -18,8 +18,9 @@ from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUN
 
 class nnUNetTrainerV2CascadeFullRes_lowerLR(nnUNetTrainerV2CascadeFullRes):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, previous_trainer="nnUNetTrainerV2", fp16=False):
+                 unpack_data=True, deterministic=True, previous_trainer="nnUNetTrainerV2", fp16=False,
+                 max_num_epochs=1000):
         super().__init__(plans_file, fold, output_folder, dataset_directory,
                          batch_dice, stage, unpack_data, deterministic,
-                         previous_trainer, fp16)
+                         previous_trainer, fp16, max_num_epochs)
         self.initial_lr = 1e-3

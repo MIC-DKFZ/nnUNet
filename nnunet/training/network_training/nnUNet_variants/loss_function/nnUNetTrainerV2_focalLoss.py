@@ -19,9 +19,9 @@ from torch import nn
 
 class nnUNetTrainerV2_SegLoss_Focal(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=1000):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage,
-                                              unpack_data, deterministic, fp16)
+                                              unpack_data, deterministic, fp16, max_num_epochs)
         print("Setting up self.loss = Focal_loss({'alpha':0.75, 'gamma':2, 'smooth':1e-5})")
         self.loss = FocalLossV2(apply_nonlin=nn.Softmax(dim=1), **{'alpha':0.5, 'gamma':2, 'smooth':1e-5})
 

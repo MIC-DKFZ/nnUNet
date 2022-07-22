@@ -49,9 +49,9 @@ from tqdm import trange
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, local_rank, output_folder=None, dataset_directory=None, batch_dice=True,
                  stage=None,
-                 unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False):
+                 unpack_data=True, deterministic=True, distribute_batch_size=False, fp16=False, max_num_epochs=1000):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage,
-                         unpack_data, deterministic, fp16)
+                         unpack_data, deterministic, fp16, max_num_epochs)
         self.init_args = (
             plans_file, fold, local_rank, output_folder, dataset_directory, batch_dice, stage, unpack_data,
             deterministic, distribute_batch_size, fp16)

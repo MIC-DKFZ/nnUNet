@@ -20,9 +20,9 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 
 class nnUNetTrainerV2_graduallyTransitionFromCEToDice(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
-                 unpack_data=True, deterministic=True, fp16=False):
+                 unpack_data=True, deterministic=True, fp16=False, max_num_epochs=1000):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
-                         deterministic, fp16)
+                         deterministic, fp16, max_num_epochs)
         self.loss = DC_and_CE_loss({'batch_dice': self.batch_dice, 'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=2, weight_dice=0)
 
     def update_loss(self):
