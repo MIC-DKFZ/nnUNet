@@ -20,21 +20,19 @@ import numpy as np
 
 def convert_id_to_dataset_name(dataset_id: int):
     startswith = "Dataset%03.0d" % dataset_id
-    if nnUNet_preprocessed is not None:
+    if nnUNet_preprocessed is not None and isdir(nnUNet_preprocessed):
         candidates_preprocessed = subdirs(nnUNet_preprocessed, prefix=startswith, join=False)
     else:
         candidates_preprocessed = []
 
-    if nnUNet_raw is not None:
+    if nnUNet_raw is not None and isdir(nnUNet_raw):
         candidates_raw = subdirs(nnUNet_raw, prefix=startswith, join=False)
     else:
         candidates_raw = []
 
     candidates_trained_models = []
-    if nnUNet_results is not None:
-        for m in ['2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres']:
-            if isdir(join(nnUNet_results, m)):
-                candidates_trained_models += subdirs(join(nnUNet_results, m), prefix=startswith, join=False)
+    if nnUNet_results is not None and isdir(nnUNet_results):
+        candidates_trained_models += subdirs(nnUNet_results, prefix=startswith, join=False)
 
     all_candidates = candidates_preprocessed + candidates_raw + candidates_trained_models
     unique_candidates = np.unique(all_candidates)
