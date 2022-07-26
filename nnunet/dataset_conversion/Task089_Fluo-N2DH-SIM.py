@@ -158,8 +158,8 @@ def convert_to_tiff(nifti_image: str, output_name: str):
 
 
 if __name__ == "__main__":
-    source_train = "/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/train/Fluo-N2DH-SIM+"
-    source_test = "/home/isensee/drives/E132-Rohdaten/CellTrackingChallenge/test/Fluo-N2DH-SIM+"
+    source_train = "/home/fabian/Downloads/Fluo-N2DH-SIM+_train"
+    source_test = "/home/fabian/Downloads/Fluo-N2DH-SIM+_test"
 
     spacing = (0.125, 0.125)
 
@@ -277,5 +277,14 @@ if __name__ == "__main__":
     # we do not need custom splits since we train on all training cases
 
     # test set predictions are converted to instance seg with convert_folder_to_instanceseg
+    # convert_folder_to_instanceseg('/home/fabian/temp/OUTPUT_DIRECTORY_2D', '/home/fabian/temp/OUTPUT_DIRECTORY_2D_instance',
+    #                               spacing, 12)
 
     # test set predictions are converted to tiff with convert_to_tiff
+    # input_files = nifti_files('/home/fabian/temp/OUTPUT_DIRECTORY_2D_instance', join=False)
+    # output_folder = '/home/fabian/temp/OUTPUT_DIRECTORY_2D_instance_tiff'
+    # maybe_mkdir_p(output_folder)
+    # output_files = [join(output_folder, i[:-7] + '.tif') for i in input_files]
+    # input_files = [join('/home/fabian/temp/OUTPUT_DIRECTORY_2D_instance', i) for i in input_files]
+    # for i, o in zip(input_files, output_files):
+    #     convert_to_tiff(i, o)
