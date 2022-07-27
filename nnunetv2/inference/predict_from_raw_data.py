@@ -13,6 +13,7 @@ from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
@@ -50,9 +51,13 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           checkpoint_name: str = 'checkpoint_final.pth',
                           num_processes_preprocessing: int = default_num_processes,
                           num_processes_segmentation_export: int = default_num_processes):
+    # we could also load plans and dataset_json from the init arguments in the checkpoint but then would still have to
+    # load the filgerprint from file. Not quite sure what is the best method so we leave things as they are for the
+    # moment.
     dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
     plans = load_json(join(model_training_output_dir, 'plans.json'))
     dataset_fingerprint = load_json(join(model_training_output_dir, 'dataset_fingerprint.json'))
+
     maybe_mkdir_p(output_folder)
 
     # todo auto detect folds
@@ -64,26 +69,32 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     if isinstance(use_folds, str):
         checkpoint = torch.load(join(model_training_output_dir, f'fold_{use_folds}', checkpoint_name),
                                 map_location=torch.device('cpu'))
-        configuration = checkpoint['hyper_parameters']['configuration']
-        inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes']
-        inference_nonlinearity = checkpoint['inference_nonlinearity']
+        configuration = checkpoint['init_args']['configuration']
+        inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
+            'inference_allowed_mirroring_axes' in checkpoint.keys() else None
+        if 'inference_nonlinearity' not in checkpoint.keys():
+            print('WARNING using old checkpoint without saved inference_nonlinearity. Assuming softmax...')
+            inference_nonlinearity = softmax_helper_dim0
+        else:
+            inference_nonlinearity = checkpoint['inference_nonlinearity']
 
-        parameters.append(checkpoint['state_dict'])
-        # remove the 'network.' prefix from state_dict
-        parameters[-1] = {i[len('network.'):]: j for i, j in parameters[-1].items()}
+        parameters.append(checkpoint['network_weights'])
     else:
         for i, f in enumerate(use_folds):
             f = int(f)
             checkpoint = torch.load(join(model_training_output_dir, f'fold_{f}', checkpoint_name),
                                     map_location=torch.device('cpu'))
             if i == 0:
-                configuration = checkpoint['hyper_parameters']['configuration']
-                inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes']
-                inference_nonlinearity = checkpoint['inference_nonlinearity']
+                configuration = checkpoint['init_args']['configuration']
+                inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
+                    'inference_allowed_mirroring_axes' in checkpoint.keys() else None
+                if 'inference_nonlinearity' not in checkpoint.keys():
+                    print('WARNING using old checkpoint without saved inference_nonlinearity. Assuming softmax...')
+                    inference_nonlinearity = softmax_helper_dim0
+                else:
+                    inference_nonlinearity = checkpoint['inference_nonlinearity']
 
-            parameters.append(checkpoint['state_dict'])
-            # remove the 'network.' prefix from state_dict
-            parameters[-1] = {i[len('network.'):]: j for i, j in parameters[-1].items()}
+            parameters.append(checkpoint['network_weights'])
 
     if isinstance(list_of_lists_or_source_folder, str):
         list_of_lists_or_source_folder = create_lists_from_splitted_dataset_folder(list_of_lists_or_source_folder,
@@ -188,15 +199,17 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
 
 if __name__ == '__main__':
-    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset004_Hippocampus/imagesTs',
-                          '/media/fabian/data/nnUNet_raw/Dataset004_Hippocampus/imagesTs_prednnUNetRemake',
-                          '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetModule__nnUNetPlans__3d_fullres',
+    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs',
+                          '/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_prednnUNetRemake',
+                          '/home/fabian/results/nnUNet_remake/Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_lowres',
                           (0,),
                           0.5,
-                          True,
-                          True,
-                          False,
-                          True,
-                          False,
-                          True,
-                          'checkpoint_final.pth')
+                          use_gaussian=True,
+                          use_mirroring=True,
+                          perform_everything_on_gpu=True,
+                          verbose=True,
+                          save_probabilities=False,
+                          overwrite=True,
+                          checkpoint_name='checkpoint_final.pth',
+                          num_processes_preprocessing=3,
+                          num_processes_segmentation_export=3)

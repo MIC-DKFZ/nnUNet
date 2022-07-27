@@ -11,6 +11,7 @@ from typing import Union, Tuple, List
 import matplotlib
 import numpy as np
 import torch
+from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.abstract_transforms import AbstractTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
     ContrastAugmentationTransform, GammaTransform
@@ -107,11 +108,12 @@ class nnUNetTrainer(object):
         # IMPORTANT! the mapping must be bijective, so lowres must point to fullres and vice versa (using
         # "previous_stage" and "next_stage"). Otherwise it won't work!
         # TODO: allow multiple next stages for one configuration
+        self.is_cascaded = 'previous_stage' in plans['configurations'][configuration].keys()
         self.folder_with_segs_from_previous_stage = \
             join(nnUNet_results, plans['dataset_name'],
                  self.__class__.__name__ + '__' + plans['plans_name'] + "__" +
-                 plans['configurations'][configuration]['previous_stage'], 'prediction_next_stage') \
-                if 'previous_stage' in plans['configurations'][configuration].keys() else None
+                 plans['configurations'][configuration]['previous_stage'], 'predicted_next_stage', self.configuration) \
+                if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with
         self.initial_lr = 1e-2
@@ -131,7 +133,10 @@ class nnUNetTrainer(object):
         # if you want to swap out the network architecture you need to change that here. You do not need to use the
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
-        self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration).to(self.device)
+        self.num_input_channels = self.determine_num_input_channels(self.plans, self.configuration, self.dataset_json,
+                                                                    self.labels, self.regions, self.ignore_label)
+        self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration,
+                                              self.num_input_channels, deep_supervision=True).to(self.device)
         self.optimizer, self.lr_scheduler = self.configure_optimizers()
         self.grad_scaler = GradScaler() if self.device_type == 'cuda' else None
 
@@ -180,6 +185,19 @@ class nnUNetTrainer(object):
         ### checkpoint saving stuff
         self.save_every = 50
         self.disable_checkpointing = False
+
+    @staticmethod
+    def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict, all_labels: List[int],
+                                     regions: List = None, ignore_label: int = None) -> int:
+        # cascade has different number of input channels
+        if 'previous_stage' in plans['configurations'][configuration].keys():
+            if regions is not None:
+                raise NotImplemented('Cascade not yet implemented region-based training')
+            num_label_inputs = len(all_labels) - 1 if ignore_label is None else len(all_labels) - 2
+            num_input_channels = len(dataset_json["modality"]) + num_label_inputs
+        else:
+            num_input_channels = len(dataset_json["modality"])
+        return num_input_channels
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -308,7 +326,7 @@ class nnUNetTrainer(object):
             from batchgenerators.utilities.file_and_folder_operations import join
             import hiddenlayer as hl
             g = hl.build_graph(self.network,
-                               torch.rand((1, len(self.dataset_json["modality"]),
+                               torch.rand((1, self.num_input_channels,
                                            *self.plans['configurations'][self.configuration]['patch_size']),
                                           device=self.device),
                                transforms=None)
@@ -420,17 +438,21 @@ class nnUNetTrainer(object):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=1,
             use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
-            is_cascaded=False, all_labels=self.labels, regions=self.regions)
+            is_cascaded=self.is_cascaded, all_labels=self.labels, regions=self.regions, ignore_label=self.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
-                                                        is_cascaded=False,
+                                                        is_cascaded=self.is_cascaded,
                                                         all_labels=self.labels,
-                                                        regions=self.regions)
+                                                        regions=self.regions,
+                                                        ignore_label=self.ignore_label)
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
         allowed_num_processes = get_allowed_n_proc_DA()
+        # mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
+        # a = next(mt_gen_train)
+        # import IPython;IPython.embed()
         mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
                                          allowed_num_processes, 1, None, True, 0.02)
         mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
@@ -477,7 +499,8 @@ class nnUNetTrainer(object):
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
                                 all_labels: Union[Tuple[int, ...], List[int]] = None,
-                                regions: List[Union[List[int], Tuple[int, ...]]] = None) -> AbstractTransform:
+                                regions: List[Union[List[int], Tuple[int, ...]]] = None,
+                                ignore_label: int = None) -> AbstractTransform:
         if is_cascaded and regions is not None:
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
 
@@ -528,17 +551,20 @@ class nnUNetTrainer(object):
         tr_transforms.append(RemoveLabelTransform(-1, 0))
 
         if is_cascaded:
+            if ignore_label is not None:
+                raise NotImplementedError('ignore label not yet supported in cascade')
             assert all_labels is not None, 'We need all_labels for cascade augmentations'
-            tr_transforms.append(MoveSegAsOneHotToData(1, all_labels, 'seg', 'data'))
+            use_labels = [i for i in all_labels if i != 0]
+            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
             tr_transforms.append(ApplyRandomBinaryOperatorTransform(
-                channel_idx=list(range(-len(all_labels), 0)),
+                channel_idx=list(range(-len(use_labels), 0)),
                 p_per_sample=0.4,
                 key="data",
                 strel_size=(1, 8),
                 p_per_label=1))
             tr_transforms.append(
                 RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-                    channel_idx=list(range(-len(all_labels), 0)),
+                    channel_idx=list(range(-len(use_labels), 0)),
                     key="data",
                     p_per_sample=0.2,
                     fill_with_other_class_p=0,
@@ -560,7 +586,8 @@ class nnUNetTrainer(object):
     def get_validation_transforms(deep_supervision_scales: Union[List, Tuple],
                                   is_cascaded: bool = False,
                                   all_labels: Union[Tuple[int, ...], List[int]] = None,
-                                  regions: List[Union[List[int], Tuple[int, ...]]] = None) -> AbstractTransform:
+                                  regions: List[Union[List[int], Tuple[int, ...]]] = None,
+                                  ignore_label: int = None) -> AbstractTransform:
         if is_cascaded and regions is not None:
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
 
@@ -568,7 +595,9 @@ class nnUNetTrainer(object):
         val_transforms.append(RemoveLabelTransform(-1, 0))
 
         if is_cascaded:
-            val_transforms.append(MoveSegAsOneHotToData(1, all_labels, 'seg', 'data'))
+            if ignore_label is not None:
+                raise NotImplementedError('Ignore label not supported in cascade!')
+            val_transforms.append(MoveSegAsOneHotToData(1, [i for i in all_labels if i != 0], 'seg', 'data'))
 
         val_transforms.append(RenameTransform('seg', 'target', True))
 
@@ -584,12 +613,12 @@ class nnUNetTrainer(object):
         return val_transforms
 
     def on_train_start(self):
+        maybe_mkdir_p(self.output_folder)
+
         self.print_plans()
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-
-        maybe_mkdir_p(self.output_folder)
 
         # maybe unpack
         if self.unpack_dataset:
@@ -771,6 +800,7 @@ class nnUNetTrainer(object):
             'init_args': self.my_init_kwargs,
             'trainer_name': self.__class__.__name__,
             'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
+            'inference_nonlinearity': self.inference_nonlinearity,
         }
         torch.save(checkpoint, filename)
 
@@ -791,7 +821,10 @@ class nnUNetTrainer(object):
         self.my_fantastic_logging = checkpoint['logging']
         self._best_ema = checkpoint['_best_ema']
         self._ema_pseudo_dice = checkpoint['_current_ema']
-        self.inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
+        self.inference_allowed_mirroring_axes = checkpoint[
+            'inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
+        self.inference_nonlinearity = checkpoint[
+            'inference_nonlinearity'] if 'inference_nonlinearity' in checkpoint.keys() else self.inference_nonlinearity
 
         self.network.load_state_dict(new_state_dict)
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
@@ -831,7 +864,8 @@ class nnUNetTrainer(object):
                                                               precomputed_gaussian=inference_gaussian,
                                                               perform_everything_on_gpu=self.inference_parameters[
                                                                   'perform_everything_on_gpu'],
-                                                              verbose=self.inference_parameters['verbose']).cpu().numpy()
+                                                              verbose=self.inference_parameters[
+                                                                  'verbose']).cpu().numpy()
             """There is a problem with python process communication that prevents us from communicating objects
             larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
             communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
@@ -859,14 +893,16 @@ class nnUNetTrainer(object):
             # if needed, export the softmax prediction for the next stage
             if next_stages is not None:
                 for n in next_stages:
-                    expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans['dataset_name'], self.plans['configurations'][n]['data_identifier'])
+                    expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans['dataset_name'],
+                                                        self.plans['configurations'][n]['data_identifier'])
 
                     try:
                         # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
                         tmp = nnUNetDataset(expected_preprocessed_folder, [k])
                         d, s, p = tmp.load_case(k)
                     except FileNotFoundError:
-                        self.print_to_log_file(f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! Run the preprocessing for this configuration!")
+                        self.print_to_log_file(
+                            f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! Run the preprocessing for this configuration!")
                         continue
 
                     target_shape = d.shape[1:]
@@ -882,7 +918,8 @@ class nnUNetTrainer(object):
                     #                   self.dataset_json, n)
                     results.append(segmentation_export_pool.starmap_async(
                         resample_and_save, (
-                            (prediction_for_export, target_shape, output_file, self.plans, self.configuration, properties,
+                            (prediction_for_export, target_shape, output_file, self.plans, self.configuration,
+                             properties,
                              self.dataset_json, n),
                         )
                     ))
@@ -926,7 +963,6 @@ class nnUNetTrainer(object):
         self.on_train_end()
 
     def _plot_progress_png(self):
-        import IPython;IPython.embed()
         sns.set(font_scale=2.5)
         fig, ax_all = plt.subplots(3, 1, figsize=(30, 54))
         # regular progress.png as we are used to from previous nnU-Net versions
@@ -935,8 +971,8 @@ class nnUNetTrainer(object):
         x_values = list(range(self.current_epoch + 1))
         ax.plot(x_values, self.my_fantastic_logging['train_losses'], color='b', ls='-', label="loss_tr", linewidth=4)
         ax.plot(x_values, self.my_fantastic_logging['val_losses'], color='r', ls='-', label="loss_val", linewidth=4)
-        ax2.plot(x_values, self.my_fantastic_logging['mean_fg_dice'], color='g', ls='--', label="pseudo dice",
-                 linewidth=4)
+        ax2.plot(x_values, self.my_fantastic_logging['mean_fg_dice'], color='g', ls='dotted', label="pseudo dice",
+                 linewidth=3)
         ax2.plot(x_values, self.my_fantastic_logging['ema_fg_dice'], color='g', ls='-', label="pseudo dice (mov. avg.)",
                  linewidth=4)
         ax.set_xlabel("epoch")

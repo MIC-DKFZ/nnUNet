@@ -89,7 +89,7 @@ class nnUNetDataset(object):
                 seg_prev = np.load(entry['seg_from_prev_stage_file'][:-4] + ".npy", 'r')
             else:
                 seg_prev = np.load(entry['seg_from_prev_stage_file'])['seg']
-            seg = np.vstack((seg, seg_prev))
+            seg = np.vstack((seg, seg_prev[None]))
         return data, seg, entry['properties']
 
 
