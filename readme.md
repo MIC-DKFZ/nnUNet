@@ -1,3 +1,13 @@
+**Momo's notes:** This repo includes notes on the application of nnU-Net for segmentation of Vestibular Schwannoma tumors.
+
+The study publishing the dataset is: Shapey, J., Kujawa, A., Dorent, R., Wang, G., Dimitriadis, A., Grishchuk, D., Paddick, I., Kitchen, N., Bradford, R., Saeed, S. R., Bisdas, S., Ourselin, S., & Vercauteren, T. (2021). Segmentation of vestibular schwannoma from MRI, an open annotated dataset and baseline algorithm. In Scientific Data (Vol. 8, Issue 1). Springer Science and Business Media LLC.
+
+The data is available on: [TCIA website](https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=70229053)
+
+The model used in this project: 3D Fullres U-Net
+
+The following documentation has the original documentation of the nnU-Net repo + my notes from my experience.
+
 **[2020_10_21] Update:** We now have documentation for [common questions](documentation/common_questions.md) and
 [common issues](documentation/common_problems_and_solutions.md). We now also provide [reference epoch times for
 several datasets and tips on how to identify bottlenecks](documentation/expected_epoch_times.md).
