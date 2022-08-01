@@ -454,9 +454,9 @@ class nnUNetTrainer(object):
         # a = next(mt_gen_train)
         # import IPython;IPython.embed()
         mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                         allowed_num_processes, 1, None, True, 0.02)
+                                         allowed_num_processes, 6, None, True, 0.02)
         mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                       max(1, allowed_num_processes // 2), 1, None, True, 0.02)
+                                       max(1, allowed_num_processes // 2), 3, None, True, 0.02)
 
         return mt_gen_train, mt_gen_val
 

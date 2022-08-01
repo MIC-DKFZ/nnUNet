@@ -1,10 +1,10 @@
 from typing import Union, List, Tuple, Callable
 
 import numpy as np
-from batchgenerators.transforms.abstract_transforms import AbstractTransform
-from skimage.morphology import label, ball
-from skimage.morphology.binary import binary_erosion, binary_dilation, binary_closing, binary_opening
 from acvl_utils.morphology.morphology_helper import label_with_component_sizes
+from batchgenerators.transforms.abstract_transforms import AbstractTransform
+from skimage.morphology import ball
+from skimage.morphology.binary import binary_erosion, binary_dilation, binary_closing, binary_opening
 
 
 class MoveSegAsOneHotToData(AbstractTransform):
@@ -23,7 +23,8 @@ class MoveSegAsOneHotToData(AbstractTransform):
     def __call__(self, **data_dict):
         seg = data_dict[self.key_origin][:, self.index_in_origin:self.index_in_origin+1]
 
-        seg_onehot = np.zeros((seg.shape[0], len(self.all_labels), *seg.shape[2:]), dtype=seg.dtype)
+        seg_onehot = np.zeros((seg.shape[0], len(self.all_labels), *seg.shape[2:]),
+                              dtype=data_dict[self.key_target].dtype)
         for i, l in enumerate(self.all_labels):
             seg_onehot[:, i][seg[:, 0] == l] = 1
 
