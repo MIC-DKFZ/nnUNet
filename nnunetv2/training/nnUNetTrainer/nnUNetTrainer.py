@@ -49,7 +49,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import handle_labels
+from nnunetv2.utilities.label_handling import handle_labels, convert_labelmap_to_one_hot
 from sklearn.model_selection import KFold
 from torch import autocast
 from torch.cuda.amp import GradScaler
@@ -849,7 +849,11 @@ class nnUNetTrainer(object):
 
         results = []
         for k in dataset_val.keys():
-            data, _, properties = dataset_val.load_case(k)
+            data, seg, properties = dataset_val.load_case(k)
+
+            if self.is_cascaded:
+                data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], [i for i in self.labels if i != 0], output_dtype=data.dtype)))
+
             output_filename_truncated = join(validation_output_folder, k)
 
             prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),

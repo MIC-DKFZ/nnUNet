@@ -43,11 +43,17 @@ class PreprocessAdapter(DataLoader):
         return {'data': data, 'data_properites': data_properites, 'ofile': ofile}
 
 
-def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[str]]], output_folder: str,
-                          model_training_output_dir: str, use_folds: Union[Tuple[int], str] = None,
-                          tile_step_size: float = 0.5, use_gaussian: bool = True,
-                          use_mirroring: bool = True, perform_everything_on_gpu: bool = False,
-                          verbose: bool = True, save_probabilities: bool = False, overwrite: bool = True,
+def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[str]]],
+                          output_folder: str,
+                          model_training_output_dir: str,
+                          use_folds: Union[Tuple[int], str] = None,
+                          tile_step_size: float = 0.5,
+                          use_gaussian: bool = True,
+                          use_mirroring: bool = True,
+                          perform_everything_on_gpu: bool = False,
+                          verbose: bool = True,
+                          save_probabilities: bool = False,
+                          overwrite: bool = True,
                           checkpoint_name: str = 'checkpoint_final.pth',
                           num_processes_preprocessing: int = default_num_processes,
                           num_processes_segmentation_export: int = default_num_processes):
