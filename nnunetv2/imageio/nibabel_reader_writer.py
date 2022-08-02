@@ -99,8 +99,8 @@ class NibabelIO(BaseReaderWriter):
         }
         return stacked_images.astype(np.float32), dict
 
-    def read_seg(self, image_fname: str) -> Tuple[np.ndarray, dict]:
-        return self.read_images((image_fname, ))
+    def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
+        return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # revert transpose

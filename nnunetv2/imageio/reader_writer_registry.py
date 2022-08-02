@@ -1,3 +1,4 @@
+import traceback
 from typing import Type
 
 from batchgenerators.utilities.file_and_folder_operations import join
@@ -44,6 +45,8 @@ def auto_find_reader_writer(file_ending: str, file: str = None):
                     print('Using %s as reader/writer' % rw)
                     return rw
                 except:
+                    print(f'Failed to open file {file} with reader {rw}:')
+                    traceback.print_exc()
                     pass
             else:
                 print('Using %s as reader/writer' % rw)
