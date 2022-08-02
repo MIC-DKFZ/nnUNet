@@ -12,12 +12,12 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+import os.path
 from typing import Tuple, Union, List
 import numpy as np
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 import tifffile
-from batchgenerators.utilities.file_and_folder_operations import isfile, load_json
+from batchgenerators.utilities.file_and_folder_operations import isfile, load_json, save_json, split_path, join
 
 
 class Tiff3DIO(BaseReaderWriter):
@@ -71,6 +71,10 @@ class Tiff3DIO(BaseReaderWriter):
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # not ideal but I really have no clue how to set spacing/resolution information properly in tif files haha
         tifffile.imwrite(output_fname, data=seg.astype(np.uint8), compression='zlib')
+        file = os.path.basename(output_fname)
+        out_dir = os.path.dirname(output_fname)
+        ending = file.split('.')[-1]
+        save_json({'spacing': properties['spacing']}, join(out_dir, file[:-(len(ending) + 1)] + '.json'))
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         # figure out file ending used here
