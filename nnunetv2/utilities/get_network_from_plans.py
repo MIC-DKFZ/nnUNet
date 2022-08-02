@@ -1,12 +1,18 @@
 from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
+
+from nnunetv2.utilities.label_handling import handle_labels
 from nnunetv2.utilities.network_initialization import InitWeights_He
 from torch import nn
 
 
-def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, deep_supervision: bool = True):
+def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, num_input_channels: int,
+                           deep_supervision: bool = True):
     """
     we may have to change this in the future to accommodate other plans -> network mappings
+
+    num_input_channels can differ depending on whether we do cascade. Its best to make this info available in the
+    trainer rather than inferring it again from the plans here
     """
     max_features = plans["configurations"][configuration]["unet_max_num_features"]
     initial_features = plans["configurations"][configuration]["UNet_base_num_features"]
@@ -45,7 +51,7 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
 
     # network class name!!
     model = network_class(
-        input_channels=len(dataset_json["modality"]),
+        input_channels=num_input_channels,
         n_stages=num_stages,
         features_per_stage=[min(initial_features * 2 ** i, max_features) for i in range(num_stages)],
         conv_op=conv_op,

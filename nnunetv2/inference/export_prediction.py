@@ -127,4 +127,4 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
     else:
         segmentation = predicted_array_or_file.argmax(0)
 
-    np.savez_compressed(output_file, data=segmentation.astype(np.uint8))
+    np.savez_compressed(output_file, seg=segmentation.astype(np.uint8))

@@ -50,12 +50,15 @@ def compute_steps_for_sliding_window(image_size: Tuple[int, ...], tile_size: Tup
     return steps
 
 
-def get_sliding_window_generator(image_size: Tuple[int, ...], tile_size: Tuple[int, ...], tile_step_size: float):
+def get_sliding_window_generator(image_size: Tuple[int, ...], tile_size: Tuple[int, ...], tile_step_size: float,
+                                 verbose: bool = False):
     if len(tile_size) < len(image_size):
         assert len(tile_size) == len(image_size) - 1, 'if tile_size has less entries than image_size, len(tile_size) ' \
                                                       'must be one shorter than len(image_size) (only dimension ' \
                                                       'discrepancy of 1 allowed).'
         steps = compute_steps_for_sliding_window(image_size[1:], tile_size, tile_step_size)
+        if verbose: print(f'n_steps {image_size[0] * len(steps[0]) * len(steps[1])}, image size is {image_size}, tile_size {tile_size}, '
+                          f'tile_step_size {tile_step_size}\nsteps:\n{steps}')
         for d in range(image_size[0]):
             for sx in steps[0]:
                 for sy in steps[1]:
@@ -63,6 +66,8 @@ def get_sliding_window_generator(image_size: Tuple[int, ...], tile_size: Tuple[i
                     yield slicer
     else:
         steps = compute_steps_for_sliding_window(image_size, tile_size, tile_step_size)
+        if verbose: print(f'n_steps {np.prod([len(i) for i in steps])}, image size is {image_size}, tile_size {tile_size}, '
+                          f'tile_step_size {tile_step_size}\nsteps:\n{steps}')
         for sx in steps[0]:
             for sy in steps[1]:
                 for sz in steps[2]:
@@ -133,7 +138,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
             else:
                 gaussian = gaussian.to('cpu', non_blocking=False)
 
-        slicers = get_sliding_window_generator(data.shape[1:], tile_size, tile_step_size)
+        slicers = get_sliding_window_generator(data.shape[1:], tile_size, tile_step_size, verbose=verbose)
 
         # preallocate results and num_predictions
         # RuntimeError: "softmax_kernel_impl" not implemented for 'Half'. F.U.

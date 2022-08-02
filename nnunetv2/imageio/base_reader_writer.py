@@ -61,13 +61,13 @@ class BaseReaderWriter(ABC):
         pass
 
     @abstractmethod
-    def read_seg(self, image_fname: str) -> Tuple[np.ndarray, dict]:
+    def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         """
         Same requirements as ImageReaderWriter.read_image. Returned segmentations must have shape 1,x,y,z. Multiple
         segmentations are not (yet?) allowed
 
         If images and segmentations can be read the same way you can just `return self.read_image((image_fname,))`
-        :param image_fname:
+        :param seg_fname:
         :return:
         """
         pass

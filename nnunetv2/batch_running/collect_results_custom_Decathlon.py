@@ -6,8 +6,8 @@ from nnunetv2.utilities.file_path_utilities import get_output_folder
 
 if __name__ == '__main__':
     use_these_modules = {
-        'nnUNetModule': ('nnUNetPlans', ),
-        'nnUNetTrainer': ('nnUNetPlans',),
+        'nnUNetModule': ('nnUNetPlans', ),  # lightning variant
+        'nnUNetTrainer': ('nnUNetPlans', ),  # my trainer
     }
 
     results_dirs = (nnUNet_results, )

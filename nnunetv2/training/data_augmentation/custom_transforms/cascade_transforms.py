@@ -1,8 +1,9 @@
 from typing import Union, List, Tuple, Callable
 
 import numpy as np
+from acvl_utils.morphology.morphology_helper import label_with_component_sizes
 from batchgenerators.transforms.abstract_transforms import AbstractTransform
-from skimage.morphology import label, ball
+from skimage.morphology import ball
 from skimage.morphology.binary import binary_erosion, binary_dilation, binary_closing, binary_opening
 
 
@@ -22,7 +23,8 @@ class MoveSegAsOneHotToData(AbstractTransform):
     def __call__(self, **data_dict):
         seg = data_dict[self.key_origin][:, self.index_in_origin:self.index_in_origin+1]
 
-        seg_onehot = np.zeros((seg.shape[0], len(self.all_labels), *seg.shape[2:]), dtype=seg.dtype)
+        seg_onehot = np.zeros((seg.shape[0], len(self.all_labels), *seg.shape[2:]),
+                              dtype=data_dict[self.key_target].dtype)
         for i, l in enumerate(self.all_labels):
             seg_onehot[:, i][seg[:, 0] == l] = 1
 
@@ -59,17 +61,18 @@ class RemoveRandomConnectedComponentFromOneHotEncodingTransform(AbstractTransfor
             if np.random.uniform() < self.p_per_sample:
                 for c in self.channel_idx:
                     if np.random.uniform() < self.p_per_label:
-                        workon = np.copy(data[b, c])
+                        # print(np.unique(data[b, c])) ## should be [0, 1]
+                        workon = data[b, c].astype(bool)
+                        if not np.any(workon):
+                            continue
                         num_voxels = np.prod(workon.shape, dtype=np.uint64)
-                        lab, num_comp = label(workon, return_num=True)
-                        if num_comp > 0:
-                            component_ids = []
-                            component_sizes = []
-                            for i in range(1, num_comp + 1):
-                                component_ids.append(i)
-                                component_sizes.append(np.sum(lab == i))
-                            valid_component_ids = [i for i, j in zip(component_ids, component_sizes) if j <
+                        lab, component_sizes = label_with_component_sizes(workon.astype(bool))
+                        if len(component_sizes) > 0:
+                            valid_component_ids = [i for i, j in component_sizes.items() if j <
                                                    num_voxels*self.dont_do_if_covers_more_than_x_percent]
+                            # print('RemoveRandomConnectedComponentFromOneHotEncodingTransform', c,
+                            # np.unique(data[b, c]), len(component_sizes), valid_component_ids,
+                            # len(valid_component_ids))
                             if len(valid_component_ids) > 0:
                                 random_component = np.random.choice(valid_component_ids)
                                 data[b, c][lab == random_component] = 0
@@ -114,9 +117,12 @@ class ApplyRandomBinaryOperatorTransform(AbstractTransform):
                     if np.random.uniform() < self.p_per_label:
                         operation = np.random.choice(self.any_of_these)
                         selem = ball(np.random.uniform(*self.strel_size))
-                        workon = np.copy(data_dict[self.key][b, c]).astype(int)
-                        res = operation(workon, selem).astype(workon.dtype)
-
+                        workon = data_dict[self.key][b, c].astype(bool)
+                        if not np.any(workon):
+                            continue
+                        # print(np.unique(workon))
+                        res = operation(workon, selem).astype(data_dict[self.key].dtype)
+                        # print('ApplyRandomBinaryOperatorTransform', c, operation, np.sum(workon), np.sum(res))
                         data_dict[self.key][b, c] = res
 
                         # if class was added, we need to remove it in ALL other channels to keep one hot encoding
