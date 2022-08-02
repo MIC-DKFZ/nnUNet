@@ -1,32 +1,138 @@
 from time import time
-from typing import Tuple, Union, List
+from typing import Union, List
 
 import numpy as np
 import torch
-from nnunetv2.utilities.utils import extract_unique_classes_from_dataset_json_labels
 
 
-def handle_labels(dataset_json) -> Tuple[List, Union[List, None], Union[int, None]]:
-    # first we need to check if we have to run region-based training
-    region_needed = any([isinstance(i, tuple) and len(i) > 1 for i in dataset_json['labels'].values()])
-    if region_needed:
-        assert 'regions_class_order' in dataset_json.keys(), 'if region-based training is requested via ' \
-                                                                  'dataset.json then you need to define ' \
-                                                                  'regions_class_order as well, ' \
-                                                                  'see documentation!'  # TODO add this
-        regions = list(dataset_json['labels'].values())
-        assert len(dataset_json['regions_class_order']) == len(regions), 'regions_class_order must have ans ' \
-                                                                              'many entries as there are ' \
-                                                                              'regions'
-    else:
-        regions = None
-    all_labels = extract_unique_classes_from_dataset_json_labels(dataset_json['labels'])
+class LabelManager(object):
+    def __init__(self, dataset_json: dict):
+        self.dataset_json = dataset_json
 
-    ignore_label = dataset_json['labels'].get('ignore')
-    if ignore_label is not None:
-        assert isinstance(ignore_label, int), f'Ignore label has to be an integer. It cannot be a region ' \
-                                              f'(list/tuple). Got {type(ignore_label)}.'
-    return all_labels, regions, ignore_label
+        self._has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in self.dataset_json['labels'].values()])
+        self._ignore_label: Union[None, int] = self._determine_ignore_label()
+        self._all_labels: List[int] = self._get_all_labels()
+        self._regions: Union[None, List[Union[int, tuple[int, ...]]]] = self._get_regions()
+
+    def _get_all_labels(self) -> List[int]:
+        all_labels = []
+        for k, r in self.dataset_json['labels'].items():
+            # ignore label is not going to be used, hence the name. Duh.
+            if k == 'ignore':
+                continue
+            if isinstance(r, (tuple, list)):
+                for ri in r:
+                    all_labels.append(int(ri))
+            else:
+                all_labels.append(int(r))
+        all_labels = list(np.unique(all_labels))
+        all_labels.sort()
+        return all_labels
+
+    def _get_regions(self) -> Union[None, List[Union[int, tuple[int, ...]]]]:
+        if not self._has_regions:
+            return None
+        else:
+            assert 'regions_class_order' in self.dataset_json.keys(), 'if region-based training is requested via ' \
+                                                                 'dataset.json then you need to define ' \
+                                                                 'regions_class_order as well, ' \
+                                                                 'see documentation!'  # TODO add this
+            regions = []
+            for k, r in self.dataset_json['labels'].items():
+                # ignore ignore label
+                if k == 'ignore':
+                    continue
+                # ignore regions that are background
+                if (isinstance(r, int) and r == 0) \
+                        or \
+                        (isinstance(r, (tuple, list)) and len(np.unique(r)) == 1 and np.unique(r)[0] == 0):
+                    continue
+                if isinstance(r, list):
+                    r = tuple(r)
+                regions.append(r)
+            assert len(self.dataset_json['regions_class_order']) == len(regions), 'regions_class_order must have as ' \
+                                                                             'many entries as there are ' \
+                                                                             'regions'
+            return regions
+
+    def _determine_ignore_label(self) -> Union[None, int]:
+        ignore_label = self.dataset_json['labels'].get('ignore')
+        if ignore_label is not None:
+            assert isinstance(ignore_label, int), f'Ignore label has to be an integer. It cannot be a region ' \
+                                                  f'(list/tuple). Got {type(ignore_label)}.'
+        return ignore_label
+
+    @property
+    def has_regions(self) -> bool:
+        return self._has_regions
+
+    @property
+    def all_regions(self) -> Union[None, List[Union[int, tuple[int, ...]]]]:
+        return self._regions
+
+    @property
+    def all_labels(self) -> List[int]:
+        return self._all_labels
+
+    @property
+    def ignore_label(self) -> Union[None, int]:
+        return self._ignore_label
+
+    def convert_logits_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \
+            Union[np.ndarray, torch.Tensor]:
+        """
+        assumes that inference_nonlinearity was already applied!
+
+        predicted_probabilities has to have shape (c, x, y(, z)) where c is the number of classes/regions
+        """
+        if not isinstance(predicted_probabilities, (np.ndarray, torch.Tensor)):
+            raise RuntimeError(f"Unexpected input type. Expected np.ndarray or torch.Tensor,"
+                               f" got {type(predicted_probabilities)}")
+
+        # check correct number of outputs
+        assert predicted_probabilities.shape[0] == self.num_segmentation_heads, \
+            f'unexpected number of channels in predicted_probabilities. Expected {self.num_segmentation_heads}, ' \
+            f'got {predicted_probabilities.shape[0]}. Remeber that predicted_probabilities should have shape ' \
+            f'(c, x, y(, z)).'
+
+        if self.has_regions:
+            regions_class_order = self.dataset_json['regions_class_order']
+            if isinstance(predicted_probabilities, np.ndarray):
+                segmentation = np.zeros(predicted_probabilities.shape[1:], dtype=np.uint8)
+            else:
+                segmentation = torch.zeros(predicted_probabilities.shape[1:], dtype=torch.uint8,
+                                           device=predicted_probabilities.device)
+            for i, c in enumerate(regions_class_order):
+                segmentation[predicted_probabilities[i] > 0.5] = c
+        else:
+            segmentation = predicted_probabilities.argmax(0)
+
+        return segmentation
+
+    @staticmethod
+    def _filter_background(classes_or_regions: Union[List[int], List[Union[int, tuple[int, ...]]]]):
+        # heck yeah
+        # This is definitely taking list comprehension too far. Enjoy.
+        return [i for i in classes_or_regions if
+                ((not isinstance(i, (tuple, list))) and i != 0)
+                or
+                (isinstance(i, (tuple, list)) and not (
+                        len(np.unique(i)) == 1 and np.unique(i)[0] != 0))]
+
+    @property
+    def foreground_regions(self):
+        return self._filter_background(self.all_regions)
+
+    @property
+    def foreground_labels(self):
+        return self._filter_background(self.all_labels)
+
+    @property
+    def num_segmentation_heads(self):
+        if self.has_regions:
+            return len(self.foreground_regions)
+        else:
+            return len(self.all_labels)
 
 
 def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
@@ -64,13 +170,19 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
     return result
 
 
-def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict, all_labels: List[int],
-                                 regions: List = None, ignore_label: int = None) -> int:
+def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict,
+                                 label_manager: LabelManager = None) -> int:
+    """
+    if label_manager is None we create one from dataset_json. Not recommended.
+    """
+    if label_manager is None:
+        label_manager = LabelManager(dataset_json)
+
     # cascade has different number of input channels
     if 'previous_stage' in plans['configurations'][configuration].keys():
-        if regions is not None:
+        if label_manager.has_regions:
             raise NotImplemented('Cascade not yet implemented region-based training')
-        num_label_inputs = len(all_labels) - 1 if ignore_label is None else len(all_labels) - 2
+        num_label_inputs = len(label_manager.foreground_labels)
         num_input_channels = len(dataset_json["modality"]) + num_label_inputs
     else:
         num_input_channels = len(dataset_json["modality"])
@@ -91,7 +203,8 @@ if __name__ == '__main__':
     time_torch = time()
     onehot_torch2 = convert_labelmap_to_one_hot(seg_torch, np.arange(num_labels))
     time_torch2 = time()
-    print(f'np: {time_1-st}, np2: {time_2-time_1}, torch: {time_torch-time_2}, torch2: {time_torch2 - time_torch}')
+    print(
+        f'np: {time_1 - st}, np2: {time_2 - time_1}, torch: {time_torch - time_2}, torch2: {time_torch2 - time_torch}')
     onehot_torch = onehot_torch.numpy()
     onehot_torch2 = onehot_torch2.numpy()
     print(np.all(onehot_torch == onehot_npy))

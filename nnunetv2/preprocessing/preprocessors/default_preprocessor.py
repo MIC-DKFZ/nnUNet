@@ -27,8 +27,9 @@ from nnunetv2.preprocessing.resampling.default_resampling import compute_new_sha
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from nnunetv2.utilities.label_handling import handle_labels
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
-    create_lists_from_splitted_dataset_folder, extract_unique_classes_from_dataset_json_labels
+    create_lists_from_splitted_dataset_folder
 
 
 class DefaultPreprocessor(object):
@@ -106,8 +107,11 @@ class DefaultPreprocessor(object):
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
-            classes = [j for i, j in dataset_json['labels'].items() if i != 'background']
-            data_properites['class_locations'] = self._sample_foreground_locations(seg, classes)
+            all_labels, regions, ignore_label = handle_labels(dataset_json)
+            all_labels = [i for i in all_labels if i != 0]
+            # no need to filter background in regions because it is already filtered in handle_labels
+            print(all_labels, regions)
+            data_properites['class_locations'] = self._sample_foreground_locations(seg, regions if regions is not None else all_labels)
 
         return data, seg.astype(np.int8), data_properites
 
@@ -121,14 +125,16 @@ class DefaultPreprocessor(object):
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
-    def _sample_foreground_locations(seg: np.ndarray, classes: List[int], seed: int = 1234):
+    def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[tuple[int, ...]]],
+                                     seed: int = 1234):
         num_samples = 10000
         min_percent_coverage = 0.01  # at least 1% of the class voxels need to be selected, otherwise it may be too
         # sparse
         rndst = np.random.RandomState(seed)
         class_locs = {}
-        for c in classes:
-            if isinstance(c, tuple):
+        for c in classes_or_regions:
+            k = c if not isinstance(c, list) else tuple(c)
+            if isinstance(c, (tuple, list)):
                 mask = seg == c[0]
                 for cc in c[1:]:
                     mask = mask | (seg == cc)
@@ -136,13 +142,13 @@ class DefaultPreprocessor(object):
             else:
                 all_locs = np.argwhere(seg == c)
             if len(all_locs) == 0:
-                class_locs[c] = []
+                class_locs[k] = []
                 continue
             target_num_samples = min(num_samples, len(all_locs))
             target_num_samples = max(target_num_samples, int(np.ceil(len(all_locs) * min_percent_coverage)))
 
             selected = all_locs[rndst.choice(len(all_locs), target_num_samples, replace=False)]
-            class_locs[c] = selected
+            class_locs[k] = selected
             # print(c, target_num_samples)
         return class_locs
 
@@ -181,7 +187,7 @@ class DefaultPreprocessor(object):
 
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
-        classes = extract_unique_classes_from_dataset_json_labels(dataset_json['labels'])
+        classes, _, _ = handle_labels(dataset_json)
         if max(classes) > 127:
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')

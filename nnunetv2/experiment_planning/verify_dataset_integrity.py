@@ -22,8 +22,8 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.paths import nnUNet_raw
-from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
-    extract_unique_classes_from_dataset_json_labels
+from nnunetv2.utilities.label_handling import handle_labels
+from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
 
 
 def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected_labels: List[int]) -> bool:
@@ -166,7 +166,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
             for ll in l:
                 assert isinstance(ll, int), 'values of labels dict in dataset.json must either be int or tuple of int'
 
-    expected_labels = extract_unique_classes_from_dataset_json_labels(dataset_json['labels'])
+    expected_labels, _, _ = handle_labels(dataset_json)
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1
     assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
 

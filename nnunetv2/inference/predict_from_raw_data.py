@@ -14,7 +14,8 @@ from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import determine_num_input_channels, handle_labels
+from nnunetv2.utilities.label_handling import determine_num_input_channels, handle_labels, \
+    determine_num_segmentation_heads
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
@@ -133,8 +134,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
     # restore network
     labels, regions, ignore_label = handle_labels(dataset_json)
-    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json,
-                                 labels, regions, ignore_label)
+    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json, labels, regions, ignore_label)
     network = get_network_from_plans(plans, dataset_json, configuration, num_input_channels, deep_supervision=True)
     network.decoder.deep_supervision = False
     if torch.cuda.is_available():
@@ -144,6 +144,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     inference_gaussian = torch.from_numpy(compute_gaussian(plans['configurations'][configuration]['patch_size']))
     if perform_everything_on_gpu:
         inference_gaussian = inference_gaussian.to('cuda:0')
+
+    num_seg_heads = determine_num_segmentation_heads(dataset_json)
 
     # go go go
     export_pool = Pool(num_processes_segmentation_export)
@@ -165,7 +167,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 network.load_state_dict(params)
                 if prediction is None:
                     predicted_logits = predict_sliding_window_return_logits(
-                        network, data, len(dataset_json["labels"]),
+                        network, data, num_seg_heads,
                         plans['configurations'][configuration]['patch_size'],
                         mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
                         tile_step_size=tile_step_size,
@@ -175,7 +177,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                         verbose=verbose)
                 else:
                     prediction += predict_sliding_window_return_logits(
-                        network, data, len(dataset_json["labels"]),
+                        network, data, num_seg_heads,
                         plans['configurations'][configuration]['patch_size'],
                         mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
                         tile_step_size=tile_step_size,

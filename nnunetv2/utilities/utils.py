@@ -42,19 +42,3 @@ def create_lists_from_splitted_dataset_folder(folder: str, suffix: str, case_ids
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists
 
-
-def extract_unique_classes_from_dataset_json_labels(dataset_json_labels: dict[str, Union[tuple[int, ...], int]]) \
-        -> List[int]:
-    """
-    classes are re
-    """
-    all_labels = []
-    for r in dataset_json_labels.values():
-        if isinstance(r, tuple):
-            for ri in r:
-                all_labels.append(ri)
-        else:
-            all_labels.append(r)
-    all_labels = np.unique(all_labels)
-    all_labels.sort()
-    return list(all_labels)

@@ -45,6 +45,7 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
                                             properties_dict['spacing'],
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
 
+    import IPython;IPython.embed()
     # create segmentation (argmax, regions, etc)
     use_regions = any([isinstance(i, tuple) and len(i) > 1 for i in dataset_json_dict_or_file['labels'].values()])
     if use_regions:

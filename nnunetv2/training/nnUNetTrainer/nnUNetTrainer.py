@@ -49,7 +49,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import handle_labels, convert_labelmap_to_one_hot, determine_num_input_channels
+from nnunetv2.utilities.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels, LabelManager
 from sklearn.model_selection import KFold
 from torch import autocast
 from torch.cuda.amp import GradScaler
@@ -125,16 +125,16 @@ class nnUNetTrainer(object):
         self.current_epoch = 0
 
         ### Dealing with labels/regions
+        self.label_manager = LabelManager(self.dataset_json)
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
-        self.labels, self.regions, self.ignore_label = handle_labels(self.dataset_json)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
-        self.inference_nonlinearity = torch.sigmoid if self.regions is not None else softmax_helper_dim0
+        self.inference_nonlinearity = torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim0
 
         # if you want to swap out the network architecture you need to change that here. You do not need to use the
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
         self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json,
-                                                               self.labels, self.regions, self.ignore_label)
+                                                               self.label_manager)
         self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration,
                                               self.num_input_channels, deep_supervision=True).to(self.device)
         self.optimizer, self.lr_scheduler = self.configure_optimizers()
@@ -149,6 +149,8 @@ class nnUNetTrainer(object):
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
+
+        # todo: move this into a separate class, just like self._log
         self.my_fantastic_logging = {
             'mean_fg_dice': list(),
             'ema_fg_dice': list(),
@@ -186,20 +188,32 @@ class nnUNetTrainer(object):
         self.save_every = 50
         self.disable_checkpointing = False
 
+    def _log(self, key, value):
+        assert key in self.my_fantastic_logging.keys() and isinstance(self.my_fantastic_logging[key], list), \
+            'This function is only intended to log stuff to lists and to have one entry per epoch'
+
+        if len(self.my_fantastic_logging[key]) < (self.current_epoch + 1):
+            self.my_fantastic_logging[key].append(value)
+        else:
+            assert len(self.my_fantastic_logging[key]) == (self.current_epoch + 1), 'something went horribly wrong'
+            print(f'maybe some logging issue!? logging {key} and {value}')
+            self.my_fantastic_logging[key][self.current_epoch] = value
+
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
             self.plans['configurations'][self.configuration]['pool_op_kernel_sizes']), axis=0))[:-1]
         return deep_supervision_scales
 
     def _build_loss(self):
-        if self.regions is None:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                   'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.ignore_label)
-        else:
+        if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
                                    {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                    'do_bg': True, 'smooth': 1e-5}, ignore_label=self.ignore_label)
+                                    'do_bg': True, 'smooth': 1e-5}, ignore_label=self.label_manager.ignore_label)
+        else:
+            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
+                                  ignore_label=self.label_manager.ignore_label)
+
         deep_supervision_scales = self._get_deep_supervision_scales()
 
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
@@ -425,14 +439,15 @@ class nnUNetTrainer(object):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=1,
             use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
-            is_cascaded=self.is_cascaded, all_labels=self.labels, regions=self.regions, ignore_label=self.ignore_label)
+            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            regions=self.label_manager.foreground_regions, ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.labels,
-                                                        regions=self.regions,
-                                                        ignore_label=self.ignore_label)
+                                                        all_labels=self.label_manager.all_labels,
+                                                        regions=self.label_manager.foreground_regions,
+                                                        ignore_label=self.label_manager.ignore_label)
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
@@ -644,7 +659,7 @@ class nnUNetTrainer(object):
         self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
             f"Current learning rate: {np.round(self.optimizer.param_groups[0]['lr'], decimals=5)}")
-        self.my_fantastic_logging['lrs'].append(self.optimizer.param_groups[0]['lr'])
+        self._log('lrs', self.optimizer.param_groups[0]['lr'])
 
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -673,7 +688,7 @@ class nnUNetTrainer(object):
     def on_train_epoch_end(self, train_outputs: List[dict]):
         outputs = collate_outputs(train_outputs)
         average_loss = np.mean(outputs['loss'])
-        self.my_fantastic_logging['train_losses'].append(average_loss)
+        self._log('train_losses', average_loss)
 
     def on_validation_epoch_start(self):
         pass
@@ -702,21 +717,29 @@ class nnUNetTrainer(object):
         # the following is needed for online evaluation. Fake dice (green line)
         axes = [0] + list(range(2, len(output.shape)))
 
-        if self.regions is None:
+        if self.label_manager.has_regions:
+            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
+        else:
             # no need for softmax
             output_seg = output.argmax(1)[:, None]
             predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
             del output_seg
-        else:
-            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes)
 
-        # [1:] in order to remove background
-        tp_hard = tp.detach().cpu().numpy()[1:]
-        fp_hard = fp.detach().cpu().numpy()[1:]
-        fn_hard = fn.detach().cpu().numpy()[1:]
+        tp_hard = tp.detach().cpu().numpy()
+        fp_hard = fp.detach().cpu().numpy()
+        fn_hard = fn.detach().cpu().numpy()
+        if not self.label_manager.has_regions:
+            # if we train with regions all segmentation heads predict some kind of foreground. In conventional
+            # (softmax training) there needs tobe one output for the background. We are not interested in the
+            # background Dice
+            # [1:] in order to remove background
+            tp_hard = tp_hard[1:]
+            fp_hard = fp_hard[1:]
+            fn_hard = fn_hard[1:]
+
         return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
 
     def on_validation_epoch_end(self, val_outputs: List[dict]):
@@ -727,18 +750,18 @@ class nnUNetTrainer(object):
         global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
                                            zip(tp, fp, fn)]]
         mean_fg_dice = np.nanmean(global_dc_per_class)
-        self.my_fantastic_logging['mean_fg_dice'].append(mean_fg_dice)
-        self.my_fantastic_logging['dice_per_class_or_region'].append(global_dc_per_class)
-        self.my_fantastic_logging['val_losses'].append(np.mean(outputs_collated['loss']))
+        self._log('mean_fg_dice', mean_fg_dice)
+        self._log('dice_per_class_or_region', global_dc_per_class)
+        self._log('val_losses', np.mean(outputs_collated['loss']))
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
     def on_epoch_start(self):
-        self.my_fantastic_logging['epoch_start_timestamps'].append(time())
+        self._log('epoch_start_timestamps', time())
 
     def on_epoch_end(self):
-        self.my_fantastic_logging['epoch_end_timestamps'].append(time())
+        self._log('epoch_end_timestamps', time())
 
         self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
         self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
@@ -764,7 +787,7 @@ class nnUNetTrainer(object):
         self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
             if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
 
-        self.my_fantastic_logging['ema_fg_dice'].append(self._ema_pseudo_dice)
+        self._log('ema_fg_dice', self._ema_pseudo_dice)
 
         if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
             self._best_ema = self._ema_pseudo_dice
@@ -783,7 +806,7 @@ class nnUNetTrainer(object):
             'logging': self.my_fantastic_logging,
             '_best_ema': self._best_ema,
             '_current_ema': self._ema_pseudo_dice,
-            'current_epoch': self.current_epoch,
+            'current_epoch': self.current_epoch + 1,
             'init_args': self.my_init_kwargs,
             'trainer_name': self.__class__.__name__,
             'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
@@ -819,6 +842,7 @@ class nnUNetTrainer(object):
 
     def perform_actual_validation(self):
         self.network.decoder.deep_supervision = False
+        num_seg_heads = self.label_manager.num_segmentation_heads
 
         inference_gaussian = torch.from_numpy(
             compute_gaussian(self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
@@ -839,12 +863,12 @@ class nnUNetTrainer(object):
             data, seg, properties = dataset_val.load_case(k)
 
             if self.is_cascaded:
-                data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], [i for i in self.labels if i != 0],
+                data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
                                                                     output_dtype=data.dtype)))
 
             output_filename_truncated = join(validation_output_folder, k)
 
-            prediction = predict_sliding_window_return_logits(self.network, data, len(self.dataset_json["labels"]),
+            prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
                                                               tile_size=
                                                               self.plans['configurations'][self.configuration][
                                                                   'patch_size'],
@@ -872,15 +896,19 @@ class nnUNetTrainer(object):
                 prediction_for_export = prediction
 
             # this needs to go into background processes
-            results.append(
-                segmentation_export_pool.starmap_async(
-                    export_prediction, (
-                        (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
+            # results.append(
+            #     segmentation_export_pool.starmap_async(
+            #         export_prediction, (
+            #             (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
+            #              output_filename_truncated,
+            #              self.inference_parameters['save_probabilities']),
+            #         )
+            #     )
+            # )
+            # for debug purposes
+            export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
                          output_filename_truncated,
-                         self.inference_parameters['save_probabilities']),
-                    )
-                )
-            )
+                         self.inference_parameters['save_probabilities'])
 
             # if needed, export the softmax prediction for the next stage
             if next_stages is not None:
@@ -927,7 +955,7 @@ class nnUNetTrainer(object):
                                   recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
                                   self.dataset_json["file_ending"],
                                   self.regions if self.regions is not None else labels_to_list_of_regions(self.labels),
-                                  self.ignore_label)
+                                  self.label_manager.ignore_label)
 
         self.network.decoder.deep_supervision = True
 

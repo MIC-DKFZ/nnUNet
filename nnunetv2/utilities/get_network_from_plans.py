@@ -1,7 +1,7 @@
 from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
 
-from nnunetv2.utilities.label_handling import handle_labels
+from nnunetv2.utilities.label_handling import handle_labels, determine_num_segmentation_heads
 from nnunetv2.utilities.network_initialization import InitWeights_He
 from torch import nn
 
@@ -12,7 +12,7 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
     we may have to change this in the future to accommodate other plans -> network mappings
 
     num_input_channels can differ depending on whether we do cascade. Its best to make this info available in the
-    trainer rather than inferring it again from the plans here
+    trainer rather than inferring it again from the plans here.
     """
     max_features = plans["configurations"][configuration]["unet_max_num_features"]
     initial_features = plans["configurations"][configuration]["UNet_base_num_features"]
@@ -58,7 +58,7 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
         kernel_sizes=plans["configurations"][configuration]["conv_kernel_sizes"],
         strides=plans["configurations"][configuration]["pool_op_kernel_sizes"],
         n_conv_per_stage=2,
-        num_classes=len(dataset_json["labels"]),
+        num_classes=determine_num_segmentation_heads(dataset_json),
         n_conv_per_stage_decoder=2,
         deep_supervision=deep_supervision,
         **kwargs[segmentation_network_class_name]

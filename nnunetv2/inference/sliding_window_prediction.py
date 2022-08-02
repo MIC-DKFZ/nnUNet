@@ -105,7 +105,7 @@ def maybe_mirror_and_predict(network: nn.Module, x: torch.Tensor, mirror_axes: T
 
 def predict_sliding_window_return_logits(network: nn.Module,
                                          input_image: Union[np.ndarray, torch.Tensor],
-                                         num_classes: int,
+                                         num_segmentation_heads: int,
                                          tile_size: Tuple[int, ...],
                                          mirror_axes: Tuple[int, ...] = None,
                                          tile_step_size: float = 0.5,
@@ -142,7 +142,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
 
         # preallocate results and num_predictions
         # RuntimeError: "softmax_kernel_impl" not implemented for 'Half'. F.U.
-        predicted_logits = torch.zeros((num_classes, *data.shape[1:]), dtype=torch.float32,
+        predicted_logits = torch.zeros((num_segmentation_heads, *data.shape[1:]), dtype=torch.float32,
                                        device='cpu' if not perform_everything_on_gpu else 'cuda:0')
         n_predictions = torch.zeros(data.shape[1:], dtype=torch.float32,
                                     device='cpu' if not perform_everything_on_gpu else 'cuda:0')

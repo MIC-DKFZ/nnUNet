@@ -1,8 +1,8 @@
 from multiprocessing import Pool
 from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
-from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json
+from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json
 from nnunetv2.configuration import default_num_processes
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 import numpy as np
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
@@ -14,10 +14,13 @@ def labels_to_list_of_regions(labels: List[int]):
     return [(i, ) for i in labels]
 
 
-def region_to_mask(segmentation: np.ndarray, region: Tuple[int, ...]) -> np.ndarray:
-    mask = np.zeros_like(segmentation, dtype=bool)
-    for r in region:
-        mask[segmentation == r] = True
+def region_or_label_to_mask(segmentation: np.ndarray, region_or_label: Union[int, Tuple[int, ...]]) -> np.ndarray:
+    if isinstance(region_or_label, int):
+        return segmentation == region_or_label
+    else:
+        mask = np.zeros_like(segmentation, dtype=bool)
+        for r in region_or_label:
+            mask[segmentation == r] = True
     return mask
 
 
@@ -34,7 +37,8 @@ def compute_tp_fp_fn_tn(mask_ref: np.ndarray, mask_pred: np.ndarray, ignore_mask
 
 
 def compute_metrics(reference_file: str, prediction_file: str, image_reader_writer: BaseReaderWriter,
-                    regions: List[Tuple[int, ...]], ignore_label: int = None) -> dict:
+                    labels_or_regions: Union[List[int], List[Union[int, Tuple[int, ...]]]],
+                    ignore_label: int = None) -> dict:
     # load images
     seg_ref, seg_ref_dict = image_reader_writer.read_seg(reference_file)
     seg_pred, seg_pred_dict = image_reader_writer.read_seg(prediction_file)
@@ -46,26 +50,26 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     results['reference_file'] = reference_file
     results['prediction_file'] = prediction_file
     results['metrics'] = {}
-    for r in regions:
-        k = r[0] if len(r) == 1 else r
-        results['metrics'][k] = {}
-        mask_ref = region_to_mask(seg_ref, r)
-        mask_pred = region_to_mask(seg_pred, r)
+    for r in labels_or_regions:
+        results['metrics'][r] = {}
+        mask_ref = region_or_label_to_mask(seg_ref, r)
+        mask_pred = region_or_label_to_mask(seg_pred, r)
         tp, fp, fn, tn = compute_tp_fp_fn_tn(mask_ref, mask_pred, ignore_mask)
-        results['metrics'][k]['Dice'] = 2 * tp / (2 * tp + fp + fn)
-        results['metrics'][k]['IoU'] = tp / (tp + fp + fn)
-        results['metrics'][k]['FP'] = fp
-        results['metrics'][k]['TP'] = tp
-        results['metrics'][k]['FN'] = fn
-        results['metrics'][k]['TN'] = tn
-        results['metrics'][k]['n_pred'] = fp + tp
-        results['metrics'][k]['n_ref'] = fn + tp
+        results['metrics'][r]['Dice'] = 2 * tp / (2 * tp + fp + fn)
+        results['metrics'][r]['IoU'] = tp / (tp + fp + fn)
+        results['metrics'][r]['FP'] = fp
+        results['metrics'][r]['TP'] = tp
+        results['metrics'][r]['FN'] = fn
+        results['metrics'][r]['TN'] = tn
+        results['metrics'][r]['n_pred'] = fp + tp
+        results['metrics'][r]['n_ref'] = fn + tp
     return results
 
 
 def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: str, image_reader_writer: BaseReaderWriter,
                               suffix: str,
-                              regions: List[Tuple[int, ...]], ignore_label: int = None,
+                              regions_or_labels: Union[List[int], List[Union[int, Tuple[int, ...]]]],
+                              ignore_label: int = None,
                               num_processes: int = default_num_processes) -> None:
     """
     output_file must end with .json
@@ -80,20 +84,18 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     pool = Pool(num_processes)
     results = pool.starmap(
         compute_metrics,
-        list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions] * len(files_pred), [ignore_label] * len(files_pred)))
+        list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred), [ignore_label] * len(files_pred)))
     )
     pool.close()
     pool.join()
 
     # mean metric per class
-    k = regions[0][0] if len(regions[0]) == 1 else regions[0]
-    metric_list = list(results[0]['metrics'][k].keys())
+    metric_list = list(results[0]['metrics'][regions_or_labels[0]].keys())
     means = {}
-    for r in regions:
-        k = r[0] if len(r) == 1 else r
-        means[k] = {}
+    for r in regions_or_labels:
+        means[r] = {}
         for m in metric_list:
-            means[k][m] = np.nanmean([i['metrics'][k][m] for i in results])
+            means[r][m] = np.nanmean([i['metrics'][r][m] for i in results])
 
     # foreground mean
     foreground_mean = {}
@@ -108,7 +110,7 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     [recursive_fix_for_json_export(i) for i in results]
     recursive_fix_for_json_export(means)
     recursive_fix_for_json_export(foreground_mean)
-    write_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
+    save_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
 
 
 if __name__ == '__main__':

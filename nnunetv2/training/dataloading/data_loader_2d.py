@@ -1,6 +1,7 @@
 import numpy as np
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.utilities.label_handling import filter_background_class_or_region
 
 
 class nnUNetDataLoader2D(nnUNetDataLoaderBase):
@@ -19,11 +20,12 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             data, seg, properties = self._data.load_case(current_key)
 
             # select a class first, then a slice where this class is present, then crop to that area
-            available_classes = [i for i in properties['class_locations'].keys() if
-                                 len(properties['class_locations'][i]) > 0]
-            selected_class = np.random.choice(available_classes) if len(available_classes) > 0 else None
-            if force_fg and selected_class is not None:
-                selected_slice = np.random.choice(properties['class_locations'][selected_class][:, 1])
+            classes_or_regions = filter_background_class_or_region(properties['class_locations'])
+
+            selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
+                len(classes_or_regions) > 0 else None
+            if force_fg and selected_class_or_region is not None:
+                selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
             else:
                 selected_slice = np.random.choice(len(data[0]))
 
@@ -34,13 +36,13 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # this needs to be a separate variable because we could otherwise permanently overwrite
             # properties['class_locations']
             class_locations = {
-                selected_class: properties['class_locations'][selected_class][properties['class_locations'][selected_class][:, 1] == selected_slice][:, (0, 2, 3)]
+                selected_class_or_region: properties['class_locations'][selected_class_or_region][properties['class_locations'][selected_class_or_region][:, 1] == selected_slice][:, (0, 2, 3)]
             } if force_fg else None
 
             # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, class_locations, overwrite_class=selected_class)
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, class_locations, overwrite_class=selected_class_or_region)
 
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.

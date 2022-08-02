@@ -4,6 +4,7 @@ from batchgenerators.dataloading.data_loader import DataLoader
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.utilities.label_handling import filter_background_class_or_region
 
 
 class nnUNetDataLoaderBase(DataLoader):
@@ -75,16 +76,17 @@ class nnUNetDataLoaderBase(DataLoader):
                 assert overwrite_class in class_locations.keys(), 'desired class ("overwrite_class") does not ' \
                                                                   'have class_locations (missing key)'
             # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
-            foreground_classes = np.array(
-                [i for i in class_locations.keys() if len(class_locations[i]) != 0])
-            foreground_classes = foreground_classes[foreground_classes > 0]
+            # class_locations keys can also be tuple, so we need to flatten what we get
+            classes_or_regions = filter_background_class_or_region(list(class_locations.keys()))
 
-            if len(foreground_classes) == 0:
+            if len(classes_or_regions) == 0:
                 # this only happens if some image does not contain foreground voxels at all
                 voxels_of_that_class = None
-                # print('case does not contain any foreground classes', i)
+                print('case does not contain any foreground classes')
             else:
-                selected_class = np.random.choice(foreground_classes) if overwrite_class is None else overwrite_class
+                # I hate myself. Future me aint gonna ba happy to read this
+                selected_class = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
+                    (overwrite_class is None or (overwrite_class not in classes_or_regions)) else overwrite_class
                 voxels_of_that_class = class_locations[selected_class]
 
             if voxels_of_that_class is not None:
