@@ -49,7 +49,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import handle_labels, convert_labelmap_to_one_hot
+from nnunetv2.utilities.label_handling import handle_labels, convert_labelmap_to_one_hot, determine_num_input_channels
 from sklearn.model_selection import KFold
 from torch import autocast
 from torch.cuda.amp import GradScaler
@@ -133,8 +133,8 @@ class nnUNetTrainer(object):
         # if you want to swap out the network architecture you need to change that here. You do not need to use the
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
-        self.num_input_channels = self.determine_num_input_channels(self.plans, self.configuration, self.dataset_json,
-                                                                    self.labels, self.regions, self.ignore_label)
+        self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json,
+                                                               self.labels, self.regions, self.ignore_label)
         self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration,
                                               self.num_input_channels, deep_supervision=True).to(self.device)
         self.optimizer, self.lr_scheduler = self.configure_optimizers()
@@ -185,19 +185,6 @@ class nnUNetTrainer(object):
         ### checkpoint saving stuff
         self.save_every = 50
         self.disable_checkpointing = False
-
-    @staticmethod
-    def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict, all_labels: List[int],
-                                     regions: List = None, ignore_label: int = None) -> int:
-        # cascade has different number of input channels
-        if 'previous_stage' in plans['configurations'][configuration].keys():
-            if regions is not None:
-                raise NotImplemented('Cascade not yet implemented region-based training')
-            num_label_inputs = len(all_labels) - 1 if ignore_label is None else len(all_labels) - 2
-            num_input_channels = len(dataset_json["modality"]) + num_label_inputs
-        else:
-            num_input_channels = len(dataset_json["modality"])
-        return num_input_channels
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -852,7 +839,8 @@ class nnUNetTrainer(object):
             data, seg, properties = dataset_val.load_case(k)
 
             if self.is_cascaded:
-                data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], [i for i in self.labels if i != 0], output_dtype=data.dtype)))
+                data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], [i for i in self.labels if i != 0],
+                                                                    output_dtype=data.dtype)))
 
             output_filename_truncated = join(validation_output_folder, k)
 

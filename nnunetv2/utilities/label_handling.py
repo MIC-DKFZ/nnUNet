@@ -64,6 +64,19 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
     return result
 
 
+def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict, all_labels: List[int],
+                                 regions: List = None, ignore_label: int = None) -> int:
+    # cascade has different number of input channels
+    if 'previous_stage' in plans['configurations'][configuration].keys():
+        if regions is not None:
+            raise NotImplemented('Cascade not yet implemented region-based training')
+        num_label_inputs = len(all_labels) - 1 if ignore_label is None else len(all_labels) - 2
+        num_input_channels = len(dataset_json["modality"]) + num_label_inputs
+    else:
+        num_input_channels = len(dataset_json["modality"])
+    return num_input_channels
+
+
 if __name__ == '__main__':
     # this code used to be able to differentiate variant 1 and 2 to measure time.
     num_labels = 7

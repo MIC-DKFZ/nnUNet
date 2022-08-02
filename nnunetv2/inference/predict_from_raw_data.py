@@ -14,6 +14,7 @@ from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
+from nnunetv2.utilities.label_handling import determine_num_input_channels, handle_labels
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
@@ -131,7 +132,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
 
     # restore network
-    network = get_network_from_plans(plans, dataset_json, configuration, deep_supervision=True)
+    labels, regions, ignore_label = handle_labels(dataset_json)
+    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json,
+                                 labels, regions, ignore_label)
+    network = get_network_from_plans(plans, dataset_json, configuration, num_input_channels, deep_supervision=True)
     network.decoder.deep_supervision = False
     if torch.cuda.is_available():
         network = network.to('cuda:0')
@@ -205,13 +209,13 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
 
 if __name__ == '__main__':
-    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs',
-                          '/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_prednnUNetRemake',
-                          '/home/fabian/results/nnUNet_remake/Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_lowres',
+    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset073_Fluo_C3DH_A549_SIM/imagesTs',
+                          '/media/fabian/data/nnUNet_raw/Dataset073_Fluo_C3DH_A549_SIM/imagesTs_prednnUNetRemakeDeleteme',
+                          '/home/fabian/results/nnUNet_remake/Dataset073_Fluo_C3DH_A549_SIM/nnUNetTrainer__nnUNetPlans__3d_fullres',
                           (0,),
                           0.5,
                           use_gaussian=True,
-                          use_mirroring=True,
+                          use_mirroring=False,
                           perform_everything_on_gpu=True,
                           verbose=True,
                           save_probabilities=False,
