@@ -70,7 +70,6 @@ Please also cite this paper if you are using nnU-Net for your research!
   - [Examples](#examples)
 - [Extending or Changing nnU-Net](#extending-or-changing-nnu-net)
 - [Information on run time and potential performance bottlenecks.](#information-on-run-time-and-potential-performance-bottlenecks)
-- [Colab example] Google Colab example of training and applying the Unet to CTC data
 - [Common questions and issues](#common-questions-and-issues)
 - [Useful Resources](#useful-resources)
 - [Acknowledgements](#acknowledgements)
@@ -463,11 +462,6 @@ to do about them.
 
 Click [here](documentation/expected_epoch_times.md).
 
-# Colab example
-
-A Google Colab notebook example has been added to the repository allowing to train and apply a model to CTC data. You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook for the process to work. 
-https://github.com/pdelgado248/nnUNet/blob/master/documentation/celltrackingchallenge/MIC-DKFZ.ipynb
-
 # Common questions and issues
 
 We have collected solutions to common [questions](documentation/common_questions.md) and
@@ -480,6 +474,11 @@ results using MITK. Regarding nnU-Net, it includes training and inference exampl
 The workshop itself is a jupyter notebook, which can be executed in GoogleColab.
 
 * This RSNA 2021 Deep Learning Lab [notebook](https://github.com/RSNA/AI-Deep-Learning-Lab-2021/blob/main/sessions/tcia-idc/RSNA_2021_IDC_and_TCIA.ipynb) demonstrates how nnU-Net can be used to analyze public DICOM datasets available in US National Cancer Institute [Imaging Data Commons (IDC)](https://imaging.datacommons.cancer.gov). This notebook demonstrates how datasets suitable for the analysis with nnU-Net can be identified within IDC, how they can be preprocessed from the DICOM format to be usable with nnU-Net, and how the results of the analysis can be visualized in the notebook without having to download anything. NCI Imaging Data Commons is a cloud-based repository of publicly available cancer imaging data co-located with the analysis and exploration tools and resources. IDC is a node within the broader NCI [Cancer Research Data Commons (CRDC)](https://datacommons.cancer.gov/) infrastructure that provides secure access to a large, comprehensive, and expanding collection of cancer research data.
+
+* A [Google Colab notebook](documentation/celltrackingchallenge/MIC-DKFZ.ipynb) example has been added to the repository allowing to train and apply a model to some of the 
+[cell tracking challenge](http://celltrackingchallenge.net/) datasets. 
+You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook 
+for the process to work.
 
 # Acknowledgements
 
