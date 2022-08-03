@@ -6,12 +6,18 @@ import torch
 
 
 class LabelManager(object):
-    def __init__(self, dataset_json: dict):
+    def __init__(self, dataset_json: dict, force_use_labels: bool = False):
         self.dataset_json = dataset_json
+        self._force_use_labels = force_use_labels
 
-        self._has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in self.dataset_json['labels'].values()])
+        if force_use_labels:
+            self._has_regions = False
+        else:
+            self._has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in self.dataset_json['labels'].values()])
+
         self._ignore_label: Union[None, int] = self._determine_ignore_label()
         self._all_labels: List[int] = self._get_all_labels()
+
         self._regions: Union[None, List[Union[int, tuple[int, ...]]]] = self._get_regions()
 
     def _get_all_labels(self) -> List[int]:
@@ -30,7 +36,7 @@ class LabelManager(object):
         return all_labels
 
     def _get_regions(self) -> Union[None, List[Union[int, tuple[int, ...]]]]:
-        if not self._has_regions:
+        if not self._has_regions or self._force_use_labels:
             return None
         else:
             assert 'regions_class_order' in self.dataset_json.keys(), 'if region-based training is requested via ' \
