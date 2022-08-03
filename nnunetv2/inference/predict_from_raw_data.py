@@ -14,8 +14,7 @@ from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import determine_num_input_channels, handle_labels, \
-    determine_num_segmentation_heads
+from nnunetv2.utilities.label_handling import determine_num_input_channels, LabelManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
@@ -66,6 +65,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     plans = load_json(join(model_training_output_dir, 'plans.json'))
     dataset_fingerprint = load_json(join(model_training_output_dir, 'dataset_fingerprint.json'))
 
+    label_manager = LabelManager(dataset_json)
+
     maybe_mkdir_p(output_folder)
 
     # todo auto detect folds
@@ -104,6 +105,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
             parameters.append(checkpoint['network_weights'])
 
+    if verbose: print(f'inference_nonlinearity: {inference_nonlinearity}')
+
     if isinstance(list_of_lists_or_source_folder, str):
         list_of_lists_or_source_folder = create_lists_from_splitted_dataset_folder(list_of_lists_or_source_folder,
                                                                                    dataset_json['file_ending'])
@@ -133,8 +136,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
 
     # restore network
-    labels, regions, ignore_label = handle_labels(dataset_json)
-    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json, labels, regions, ignore_label)
+    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json, label_manager)
     network = get_network_from_plans(plans, dataset_json, configuration, num_input_channels, deep_supervision=True)
     network.decoder.deep_supervision = False
     if torch.cuda.is_available():
@@ -145,7 +147,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     if perform_everything_on_gpu:
         inference_gaussian = inference_gaussian.to('cuda:0')
 
-    num_seg_heads = determine_num_segmentation_heads(dataset_json)
+    num_seg_heads = label_manager.num_segmentation_heads
 
     # go go go
     export_pool = Pool(num_processes_segmentation_export)

@@ -1,5 +1,3 @@
-import torch
-
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
 import os
@@ -10,6 +8,7 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, isfile
 
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
+from nnunetv2.utilities.label_handling import LabelManager
 
 
 def export_prediction(predicted_array_or_file: Union[np.ndarray, str], properties_dict: dict,
@@ -45,16 +44,8 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
                                             properties_dict['spacing'],
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
 
-    import IPython;IPython.embed()
-    # create segmentation (argmax, regions, etc)
-    use_regions = any([isinstance(i, tuple) and len(i) > 1 for i in dataset_json_dict_or_file['labels'].values()])
-    if use_regions:
-        regions_class_order = dataset_json_dict_or_file['regions_class_order']
-        segmentation = np.zeros(predicted_array_or_file.shape[1:], dtype=np.uint8)
-        for i, c in enumerate(regions_class_order):
-            segmentation[predicted_array_or_file[i] > 0.5] = c
-    else:
-        segmentation = predicted_array_or_file.argmax(0)
+    label_manager = LabelManager(dataset_json_dict_or_file)
+    segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
     # put result in bbox (revert cropping)
     segmentation_reverted_cropping = np.zeros(properties_dict['shape_before_cropping'], dtype=np.uint8)
@@ -118,14 +109,7 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
 
     # create segmentation (argmax, regions, etc)
-    # TODO make this code a separate function
-    use_regions = any([isinstance(i, tuple) and len(i) > 1 for i in dataset_json_dict_or_file['labels'].values()])
-    if use_regions:
-        regions_class_order = dataset_json_dict_or_file['regions_class_order']
-        segmentation = np.zeros(predicted_array_or_file.shape[1:], dtype=np.uint8)
-        for i, c in enumerate(regions_class_order):
-            segmentation[predicted_array_or_file[i] > 0.5] = c
-    else:
-        segmentation = predicted_array_or_file.argmax(0)
+    label_manager = LabelManager(dataset_json_dict_or_file)
+    segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
     np.savez_compressed(output_file, seg=segmentation.astype(np.uint8))

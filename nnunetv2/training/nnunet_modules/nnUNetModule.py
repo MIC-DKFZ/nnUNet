@@ -57,6 +57,7 @@ from sklearn.model_selection import KFold
 class nnUNetModule(pl.LightningModule):
     def __init__(self, dataset_name_or_id: Union[int, str], plans_name: str, configuration: str, fold: int,
                  unpack_dataset: bool = True, folder_with_segs_from_previous_stage: str = None):
+        raise DeprecationWarning('this shit aint working anymore')
         """
         This trainer should work with single and multi GPU training. Important! If you want to train multi-node
         multi-GPU then the data should be in the same physical location! (can have different paths, but must be the

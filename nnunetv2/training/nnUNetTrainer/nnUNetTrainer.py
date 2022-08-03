@@ -954,7 +954,8 @@ class nnUNetTrainer(object):
                                   join(validation_output_folder, 'summary.json'),
                                   recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
                                   self.dataset_json["file_ending"],
-                                  self.regions if self.regions is not None else labels_to_list_of_regions(self.labels),
+                                  self.label_manager.foreground_regions if self.label_manager.has_regions else
+                                  self.label_manager.foreground_labels,
                                   self.label_manager.ignore_label)
 
         self.network.decoder.deep_supervision = True

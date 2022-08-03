@@ -1,6 +1,7 @@
+from copy import deepcopy
 from multiprocessing import Pool
 from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
-from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json
+from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json, load_json
 from nnunetv2.configuration import default_num_processes
 from typing import Tuple, List, Union
 
@@ -8,6 +9,48 @@ import numpy as np
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 # the Evaluator class of the previous nnU-Net was great and all but man was it overengineered. Keep it simple
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
+
+
+def label_or_region_to_key(label_or_region: Union[int, Tuple[int]]):
+    return str(label_or_region)
+
+
+def key_to_label_or_region(key: str):
+    try:
+        return int(key)
+    except ValueError:
+        key = key.replace('(', '')
+        key = key.replace(')', '')
+        splitted = key.split(',')
+        return tuple([int(i) for i in splitted])
+
+
+def save_summary_json(results: dict, output_file: str):
+    """
+    stupid json does not support tuples as keys (why does it have to be so shitty) so we need to convert that shit
+    ourselves
+    """
+    results_converted = deepcopy(results)
+    # convert keys in mean metrics
+    results_converted['mean'] = {label_or_region_to_key(k): results['mean'][k] for k in results['mean'].keys()}
+    # convert metric_per_case
+    for i in range(len(results_converted["metric_per_case"])):
+        results_converted["metric_per_case"][i]['metrics'] = \
+            {label_or_region_to_key(k): results["metric_per_case"][i]['metrics'][k]
+             for k in results["metric_per_case"][i]['metrics'].keys()}
+    save_json(results_converted, output_file)
+
+
+def load_summary_json(filename: str):
+    results = load_json(filename)
+    # convert keys in mean metrics
+    results['mean'] = {key_to_label_or_region(k): results['mean'][k] for k in results['mean'].keys()}
+    # convert metric_per_case
+    for i in range(len(results["metric_per_case"])):
+        results["metric_per_case"][i]['metrics'] = \
+            {key_to_label_or_region(k): results["metric_per_case"][i]['metrics'][k]
+             for k in results["metric_per_case"][i]['metrics'].keys()}
+    return results
 
 
 def labels_to_list_of_regions(labels: List[int]):
@@ -110,7 +153,7 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     [recursive_fix_for_json_export(i) for i in results]
     recursive_fix_for_json_export(means)
     recursive_fix_for_json_export(foreground_mean)
-    save_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
+    save_summary_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
 
 
 if __name__ == '__main__':

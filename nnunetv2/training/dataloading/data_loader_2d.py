@@ -1,7 +1,7 @@
 import numpy as np
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.utilities.label_handling import filter_background_class_or_region
+from nnunetv2.utilities.label_handling import LabelManager
 
 
 class nnUNetDataLoader2D(nnUNetDataLoaderBase):
@@ -20,7 +20,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             data, seg, properties = self._data.load_case(current_key)
 
             # select a class first, then a slice where this class is present, then crop to that area
-            classes_or_regions = filter_background_class_or_region(properties['class_locations'])
+            classes_or_regions = LabelManager.filter_background(properties['class_locations'])
 
             selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
                 len(classes_or_regions) > 0 else None

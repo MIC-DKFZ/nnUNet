@@ -4,7 +4,7 @@ from batchgenerators.dataloading.data_loader import DataLoader
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.utilities.label_handling import filter_background_class_or_region
+from nnunetv2.utilities.label_handling import LabelManager
 
 
 class nnUNetDataLoaderBase(DataLoader):
@@ -77,7 +77,7 @@ class nnUNetDataLoaderBase(DataLoader):
                                                                   'have class_locations (missing key)'
             # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
             # class_locations keys can also be tuple, so we need to flatten what we get
-            classes_or_regions = filter_background_class_or_region(list(class_locations.keys()))
+            classes_or_regions = LabelManager.filter_background(list(class_locations.keys()))
 
             if len(classes_or_regions) == 0:
                 # this only happens if some image does not contain foreground voxels at all

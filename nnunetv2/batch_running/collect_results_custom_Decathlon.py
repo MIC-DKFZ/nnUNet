@@ -1,5 +1,7 @@
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+
+from nnunetv2.evaluation.evaluate_predictions import load_summary_json
 from nnunetv2.paths import nnUNet_results
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name, convert_dataset_name_to_id
 from nnunetv2.utilities.file_path_utilities import get_output_folder
@@ -32,7 +34,7 @@ if __name__ == '__main__':
                                         print('expected output file not found:', expected_summary_file)
                                         f.write(",")
                                     else:
-                                        foreground_mean = load_json(expected_summary_file)['foreground_mean']['Dice']
+                                        foreground_mean = load_summary_json(expected_summary_file)['foreground_mean']['Dice']
                                         results_folds.append(foreground_mean)
                                         f.write(",%02.4f" % foreground_mean)
                                 f.write(",%02.4f\n" % np.mean(results_folds))

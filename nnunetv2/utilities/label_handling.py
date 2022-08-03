@@ -110,7 +110,7 @@ class LabelManager(object):
         return segmentation
 
     @staticmethod
-    def _filter_background(classes_or_regions: Union[List[int], List[Union[int, tuple[int, ...]]]]):
+    def filter_background(classes_or_regions: Union[List[int], List[Union[int, tuple[int, ...]]]]):
         # heck yeah
         # This is definitely taking list comprehension too far. Enjoy.
         return [i for i in classes_or_regions if
@@ -121,11 +121,11 @@ class LabelManager(object):
 
     @property
     def foreground_regions(self):
-        return self._filter_background(self.all_regions)
+        return self.filter_background(self.all_regions)
 
     @property
     def foreground_labels(self):
-        return self._filter_background(self.all_labels)
+        return self.filter_background(self.all_labels)
 
     @property
     def num_segmentation_heads(self):
