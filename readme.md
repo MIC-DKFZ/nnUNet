@@ -465,7 +465,8 @@ Click [here](documentation/expected_epoch_times.md).
 
 # Colab example
 
-A Google Colab notebook example has been added to the repository allowing to train and apply a model to CTC data. You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook for the process to work. https://github.com/pdelgado248/nnUNet/tree/master/documentation/celltrackingchallenge
+A Google Colab notebook example has been added to the repository allowing to train and apply a model to CTC data. You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook for the process to work. 
+https://github.com/pdelgado248/nnUNet/blob/master/documentation/celltrackingchallenge/MIC-DKFZ.ipynb
 
 # Common questions and issues
 
