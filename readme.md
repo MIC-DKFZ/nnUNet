@@ -70,6 +70,7 @@ Please also cite this paper if you are using nnU-Net for your research!
   - [Examples](#examples)
 - [Extending or Changing nnU-Net](#extending-or-changing-nnu-net)
 - [Information on run time and potential performance bottlenecks.](#information-on-run-time-and-potential-performance-bottlenecks)
+- [Colab example] Google Colab example of training and applying the Unet to CTC data
 - [Common questions and issues](#common-questions-and-issues)
 - [Useful Resources](#useful-resources)
 - [Acknowledgements](#acknowledgements)
@@ -461,6 +462,10 @@ to verify that your system is performing as expected. There are also tips on how
 to do about them.
 
 Click [here](documentation/expected_epoch_times.md).
+
+# Colab example
+
+A Google Colab notebook example has been added to the repository allowing to train and apply a model to CTC data. You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook for the process to work. https://github.com/pdelgado248/nnUNet/tree/master/documentation/celltrackingchallenge
 
 # Common questions and issues
 
