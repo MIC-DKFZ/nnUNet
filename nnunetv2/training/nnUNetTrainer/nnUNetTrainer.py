@@ -440,13 +440,15 @@ class nnUNetTrainer(object):
             order_resampling_data=3, order_resampling_seg=1,
             use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
             is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
-            regions=self.label_manager.foreground_regions, ignore_label=self.label_manager.ignore_label)
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
                                                         all_labels=self.label_manager.all_labels,
-                                                        regions=self.label_manager.foreground_regions,
+                                                        regions=self.label_manager.foreground_regions if
+                                                        self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
@@ -726,7 +728,14 @@ class nnUNetTrainer(object):
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
             del output_seg
 
-        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes)
+        if self.label_manager.ignore_label is not None:
+            mask = (target != self.label_manager.ignore_label).float()
+            # CAREFUL that you don't rely on target after this line!
+            target[target == self.label_manager.ignore_label] = 0
+        else:
+            mask = None
+
+        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
 
         tp_hard = tp.detach().cpu().numpy()
         fp_hard = fp.detach().cpu().numpy()

@@ -20,6 +20,11 @@ class LabelManager(object):
 
         self._regions: Union[None, List[Union[int, tuple[int, ...]]]] = self._get_regions()
 
+        if self.ignore_label is not None:
+            assert self.ignore_label == max(self.all_labels), 'If you use the ignore label it must have the highest ' \
+                                                              'label value! It cannot be 0 or in between other labels. ' \
+                                                              'Sorry bro.'
+
     def _get_all_labels(self) -> List[int]:
         all_labels = []
         for k, r in self.dataset_json['labels'].items():
@@ -49,7 +54,7 @@ class LabelManager(object):
                 if k == 'ignore':
                     continue
                 # ignore regions that are background
-                if (isinstance(r, int) and r == 0) \
+                if (np.isscalar(r) and r == 0) \
                         or \
                         (isinstance(r, (tuple, list)) and len(np.unique(r)) == 1 and np.unique(r)[0] == 0):
                     continue

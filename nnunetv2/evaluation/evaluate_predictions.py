@@ -58,7 +58,7 @@ def labels_to_list_of_regions(labels: List[int]):
 
 
 def region_or_label_to_mask(segmentation: np.ndarray, region_or_label: Union[int, Tuple[int, ...]]) -> np.ndarray:
-    if isinstance(region_or_label, int):
+    if np.isscalar(region_or_label):
         return segmentation == region_or_label
     else:
         mask = np.zeros_like(segmentation, dtype=bool)
@@ -87,7 +87,7 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     seg_pred, seg_pred_dict = image_reader_writer.read_seg(prediction_file)
     # spacing = seg_ref_dict['spacing']
 
-    ignore_mask = reference_file == ignore_label if ignore_label is not None else None
+    ignore_mask = seg_ref == ignore_label if ignore_label is not None else None
 
     results = {}
     results['reference_file'] = reference_file
@@ -123,8 +123,9 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     assert all([i in files_ref for i in files_pred]), "Not all files in folder_pred exist in folder_ref"
     files_ref = [join(folder_ref, i) for i in files_pred]
     files_pred = [join(folder_pred, i) for i in files_pred]
-
     pool = Pool(num_processes)
+    # for i in list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred), [ignore_label] * len(files_pred))):
+    #     compute_metrics(*i)
     results = pool.starmap(
         compute_metrics,
         list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred), [ignore_label] * len(files_pred)))
