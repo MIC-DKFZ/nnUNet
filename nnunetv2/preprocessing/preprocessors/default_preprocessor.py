@@ -27,7 +27,7 @@ from nnunetv2.preprocessing.resampling.default_resampling import compute_new_sha
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.label_handling import handle_labels
+from nnunetv2.utilities.label_handling import LabelManager
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
 
@@ -40,7 +40,8 @@ class DefaultPreprocessor(object):
         CAREFUL! WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL!
         """
 
-    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: Union[dict, str], configuration_name: str,
+    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: Union[dict, str],
+                 configuration_name: str,
                  dataset_json: Union[dict, str], dataset_fingerprint: Union[dict, str]):
         """
         seg file can be none (test cases)
@@ -107,11 +108,19 @@ class DefaultPreprocessor(object):
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
-            all_labels, regions, ignore_label = handle_labels(dataset_json)
-            all_labels = [i for i in all_labels if i != 0]
+            # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
+            # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
+            # LabelManager is pretty light computation-wise.
+            label_manager = LabelManager(dataset_json)
+            foreground_labels = label_manager.foreground_labels
+            foreground_regions = label_manager.foreground_regions
+
             # no need to filter background in regions because it is already filtered in handle_labels
-            print(all_labels, regions)
-            data_properites['class_locations'] = self._sample_foreground_locations(seg, regions if regions is not None else all_labels)
+            # print(all_labels, regions)
+            data_properites['class_locations'] = self._sample_foreground_locations(seg,
+                                                                                   foreground_regions
+                                                                                   if label_manager.has_regions
+                                                                                   else foreground_labels)
 
         return data, seg.astype(np.int8), data_properites
 
@@ -166,7 +175,8 @@ class DefaultPreprocessor(object):
             data[c] = normalizer.run(data[c], seg[0])
         return data
 
-    def run(self, dataset_name_or_id: Union[int, str], configuration_name: str, plans_identifier: str, num_processes: int):
+    def run(self, dataset_name_or_id: Union[int, str], configuration_name: str, plans_identifier: str,
+            num_processes: int):
         """
         data identifier = configuration name in plans. EZ.
         """
@@ -187,7 +197,7 @@ class DefaultPreprocessor(object):
 
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
-        classes, _, _ = handle_labels(dataset_json)
+        classes = LabelManager(dataset_json).all_labels
         if max(classes) > 127:
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')
@@ -231,7 +241,8 @@ def example_test_case_preprocessing():
     plans_file = default_plans_identifier + '.json'
     dataset_json_file = 'dataset.json'
     dataset_fingerprint_file = 'dataset_fingerprint.json'
-    input_images = ['prostate_00_0000.nii.gz', 'prostate_00_0001.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
+    input_images = ['prostate_00_0000.nii.gz',
+                    'prostate_00_0001.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
 
     configuration = '2d'
     pp = DefaultPreprocessor()
@@ -254,5 +265,3 @@ if __name__ == '__main__':
     ###########################################################################################################
     # how to process a test cases? This is an example:
     # example_test_case_preprocessing()
-
-
