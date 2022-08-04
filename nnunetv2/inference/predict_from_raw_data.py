@@ -1,30 +1,39 @@
 import os
 from multiprocessing import Pool
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Type
 
 import numpy as np
 import torch
 from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
+from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p
 from nnunetv2.configuration import default_num_processes
+from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
+from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
+from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import determine_num_input_channels, LabelManager
+from nnunetv2.utilities.label_handling import determine_num_input_channels, LabelManager, convert_labelmap_to_one_hot
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
 class PreprocessAdapter(DataLoader):
-    def __init__(self, list_of_lists, preprocessor, output_filename_truncated, plans, dataset_json, configuration,
-                 dataset_fingerprint, num_threads_in_multithreaded=1):
+    def __init__(self, list_of_lists: List[List[str]], list_of_segs_from_prev_stage_files: Union[List[None], List[str]],
+                 preprocessor: Type[DefaultPreprocessor], output_filenames_truncated: List[str],
+                 plans: dict, dataset_json: dict, configuration: str, dataset_fingerprint: dict,
+                 num_threads_in_multithreaded: int = 1):
         self.preprocessor, self.plans, self.configuration, self.dataset_json, self.dataset_fingerprint = \
             preprocessor, plans, configuration, dataset_json, dataset_fingerprint
 
-        super().__init__(list(zip(list_of_lists, output_filename_truncated)), 1, num_threads_in_multithreaded,
+        self.label_manager = LabelManager(dataset_json)
+
+        super().__init__(list(zip(list_of_lists, list_of_segs_from_prev_stage_files, output_filenames_truncated)),
+                         1, num_threads_in_multithreaded,
                          seed_for_shuffle=1, return_incomplete=True,
                          shuffle=False, infinite=False, sampling_probabilities=None)
 
@@ -33,9 +42,23 @@ class PreprocessAdapter(DataLoader):
     def generate_train_batch(self):
         idx = self.get_indices()[0]
         files = self._data[idx][0]
-        ofile = self._data[idx][1]
+        seg_prev_stage = self._data[idx][1]
+        ofile = self._data[idx][2]
         data, _, data_properites = self.preprocessor.run_case(files, None, self.plans, self.configuration,
                                                               self.dataset_json, self.dataset_fingerprint)
+        if seg_prev_stage is not None:
+            rw = recursive_find_reader_writer_by_name(self.plans['image_reader_writer'])()
+            seg, seg_properties = rw.read_seg(seg_prev_stage)
+            resampling_fn = recursive_find_resampling_fn_by_name(
+                self.plans['configurations'][self.configuration]['resampling_fn_seg']
+            )
+            source_spacing = seg_properties['spacing']
+            target_spacing = self.plans['configurations'][self.configuration]['spacing']
+            seg_resampled = resampling_fn(seg, data.shape[1:], source_spacing, target_spacing,
+                                          **self.plans['configurations'][self.configuration]['resampling_fn_seg_kwargs'])
+            seg_onehot = convert_labelmap_to_one_hot(seg_resampled[0], self.label_manager.foreground_labels, data.dtype)
+            data = np.vstack((data, seg_onehot))
+
         if np.prod(data.shape) > (2e9 / 4 * 0.85):
             # we need to temporarily save the preprocessed image due to process-process communication restrictions
             np.save(ofile + '.npy', data)
@@ -57,9 +80,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           overwrite: bool = True,
                           checkpoint_name: str = 'checkpoint_final.pth',
                           num_processes_preprocessing: int = default_num_processes,
-                          num_processes_segmentation_export: int = default_num_processes):
+                          num_processes_segmentation_export: int = default_num_processes,
+                          folder_with_segs_from_prev_stage: str = None):
     # we could also load plans and dataset_json from the init arguments in the checkpoint but then would still have to
-    # load the filgerprint from file. Not quite sure what is the best method so we leave things as they are for the
+    # load the fingerprint from file. Not quite sure what is the best method so we leave things as they are for the
     # moment.
     dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
     plans = load_json(join(model_training_output_dir, 'plans.json'))
@@ -114,14 +138,17 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     caseids = [os.path.basename(i[0])[:-(len(dataset_json['file_ending']) + 5)] for i in list_of_lists_or_source_folder]
 
     output_filename_truncated = [join(output_folder, i) for i in caseids]
+    seg_from_prev_stage_files = [join(folder_with_segs_from_prev_stage, i + dataset_json['file_ending']) if
+                                 folder_with_segs_from_prev_stage is not None else None for i in caseids]
 
     if not overwrite:
         tmp = [isfile(i + dataset_json['file_ending']) for i in output_filename_truncated]
-        output_filename_truncated = [output_filename_truncated[i] for i in range(len(output_filename_truncated)) if
-                                     not tmp[i]]
-        list_of_lists_or_source_folder = [list_of_lists_or_source_folder[i] for i in
-                                          range(len(list_of_lists_or_source_folder)) if not tmp[i]]
-        # caseids = [caseids[i] for i in range(len(caseids)) if not tmp[i]]
+        not_existing_indices = [i for i, j in enumerate(tmp) if not j]
+
+        output_filename_truncated = [output_filename_truncated[i] for i in not_existing_indices]
+        list_of_lists_or_source_folder = [list_of_lists_or_source_folder[i] for i in not_existing_indices]
+        seg_from_prev_stage_files = [seg_from_prev_stage_files[i] for i in not_existing_indices]
+        # caseids = [caseids[i] for i in not_existing_indices]
 
     # we need to somehow get the configuration. We could do this via the path but I think this is not ideal. Maybe we
     # need to save an extra file?
@@ -130,10 +157,12 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # hijack batchgenerators, yo
     # we use the multiprocessing of the batchgenerators dataloader to handle all the background worker stuff. This
     # way we don't have to reinvent the wheel here.
-    num_processes = min(num_processes_preprocessing, len(list_of_lists_or_source_folder))
-    ppa = PreprocessAdapter(list_of_lists_or_source_folder, preprocessor, output_filename_truncated, plans,
-                            dataset_json, configuration, dataset_fingerprint, num_processes)
+    num_processes = max(1, min(num_processes_preprocessing, len(list_of_lists_or_source_folder)))
+    ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
+                            output_filename_truncated, plans, dataset_json, configuration, dataset_fingerprint,
+                            num_processes)
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
+    # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
     # restore network
     num_input_channels = determine_num_input_channels(plans, configuration, dataset_json, label_manager)
@@ -161,6 +190,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 os.remove(delfile)
 
             ofile = preprocessed['ofile']
+            print(f'\nPredicting {os.path.basename(ofile)}:')
+            print(f'perform_everything_on_gpu: {perform_everything_on_gpu}')
 
             properties = preprocessed['data_properites']
 
@@ -192,30 +223,49 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
             # apply nonlinearity
             prediction = inference_nonlinearity(predicted_logits)
+            print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
 
             if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                print('output is too large for python process-process communication. Saving to file...')
                 np.save(ofile + '.npy', prediction)
                 prediction = ofile + '.npy'
 
             # this needs to go into background processes
             # export_prediction(prediction, properties, configuration, plans, dataset_json, ofile,
             #                   save_probabilities)
+            print('sending off prediction to background worker for resampling and export')
             r.append(
                 export_pool.starmap_async(
                     export_prediction, ((prediction, properties, configuration, plans, dataset_json, ofile,
                                          save_probabilities),)
                 )
             )
+            print(f'done with {os.path.basename(ofile)}')
     [i.get() for i in r]
     export_pool.close()
     export_pool.join()
 
 
 if __name__ == '__main__':
-    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset073_Fluo_C3DH_A549_SIM/imagesTs',
-                          '/media/fabian/data/nnUNet_raw/Dataset073_Fluo_C3DH_A549_SIM/imagesTs_prednnUNetRemakeDeleteme',
-                          '/home/fabian/results/nnUNet_remake/Dataset073_Fluo_C3DH_A549_SIM/nnUNetTrainer__nnUNetPlans__3d_fullres',
+    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs',
+                          '/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_predlowres',
+                          '/home/fabian/results/nnUNet_remake/Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_lowres',
+                          (0,),
+                          0.5,
+                          use_gaussian=True,
+                          use_mirroring=False,
+                          perform_everything_on_gpu=True,
+                          verbose=True,
+                          save_probabilities=False,
+                          overwrite=False,
+                          checkpoint_name='checkpoint_final.pth',
+                          num_processes_preprocessing=3,
+                          num_processes_segmentation_export=3)
+
+    predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs',
+                          '/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_predCascade',
+                          '/home/fabian/results/nnUNet_remake/Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_cascade_fullres',
                           (0,),
                           0.5,
                           use_gaussian=True,
@@ -225,5 +275,8 @@ if __name__ == '__main__':
                           save_probabilities=False,
                           overwrite=True,
                           checkpoint_name='checkpoint_final.pth',
-                          num_processes_preprocessing=3,
-                          num_processes_segmentation_export=3)
+                          num_processes_preprocessing=2,
+                          num_processes_segmentation_export=2,
+                          folder_with_segs_from_prev_stage='/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_predlowres')
+
+

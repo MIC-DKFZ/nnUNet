@@ -113,6 +113,9 @@ def predict_sliding_window_return_logits(network: nn.Module,
                                          precomputed_gaussian: torch.Tensor = None,
                                          perform_everything_on_gpu: bool = True,
                                          verbose: bool = True) -> Union[np.ndarray, torch.Tensor]:
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     with torch.no_grad():
         assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
@@ -162,6 +165,8 @@ def predict_sliding_window_return_logits(network: nn.Module,
             n_predictions[sl[1:]] += (gaussian if use_gaussian else 1)
 
         predicted_logits /= n_predictions
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
 
 

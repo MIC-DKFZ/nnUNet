@@ -72,7 +72,8 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
     return data_reshaped
 
 
-def resample_data_or_seg_to_shape(data: np.ndarray, new_shape: Union[Tuple[int, ...], List[int], np.ndarray],
+def resample_data_or_seg_to_shape(data: np.ndarray,
+                                  new_shape: Union[Tuple[int, ...], List[int], np.ndarray],
                                   current_spacing: Union[Tuple[float, ...], List[float], np.ndarray],
                                   new_spacing: Union[Tuple[float, ...], List[float], np.ndarray], is_seg: bool = False,
                                   order: int = 3, order_z: int = 0,
