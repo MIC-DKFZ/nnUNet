@@ -5,7 +5,8 @@ import numpy as np
 
 
 class ConvertSegmentationToRegionsTransform(AbstractTransform):
-    def __init__(self, regions: Union[Tuple, List], seg_key: str = "seg", output_key: str = "seg", seg_channel: int = 0):
+    def __init__(self, regions: Union[List, Tuple],
+                 seg_key: str = "seg", output_key: str = "seg", seg_channel: int = 0):
         """
         regions are tuple of tuples where each inner tuple holds the class indices that are merged into one region,
         example:

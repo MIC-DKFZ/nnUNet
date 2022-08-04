@@ -121,7 +121,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 5
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -208,7 +208,7 @@ class nnUNetTrainer(object):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
                                    {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                    'do_bg': True, 'smooth': 1e-5}, ignore_label=self.label_manager.ignore_label)
+                                    'do_bg': True, 'smooth': 1e-5}, use_ignore_label=self.label_manager.ignore_label is not None)
         else:
             loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
                                    'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
@@ -503,7 +503,7 @@ class nnUNetTrainer(object):
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
                                 all_labels: Union[Tuple[int, ...], List[int]] = None,
-                                regions: List[Union[List[int], Tuple[int, ...]]] = None,
+                                regions: List[Union[List[int], Tuple[int, ...], int]] = None,
                                 ignore_label: int = None) -> AbstractTransform:
         if is_cascaded and regions is not None:
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
@@ -577,7 +577,10 @@ class nnUNetTrainer(object):
         tr_transforms.append(RenameTransform('seg', 'target', True))
 
         if regions is not None:
-            tr_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+            # the ignore label must also be converted
+            tr_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
+                                                                       if ignore_label is not None else regions,
+                                                                       'target', 'target'))
 
         if deep_supervision_scales is not None:
             tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
@@ -590,7 +593,7 @@ class nnUNetTrainer(object):
     def get_validation_transforms(deep_supervision_scales: Union[List, Tuple],
                                   is_cascaded: bool = False,
                                   all_labels: Union[Tuple[int, ...], List[int]] = None,
-                                  regions: List[Union[List[int], Tuple[int, ...]]] = None,
+                                  regions: List[Union[List[int], Tuple[int, ...], int]] = None,
                                   ignore_label: int = None) -> AbstractTransform:
         if is_cascaded and regions is not None:
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
@@ -606,7 +609,10 @@ class nnUNetTrainer(object):
         val_transforms.append(RenameTransform('seg', 'target', True))
 
         if regions is not None:
-            val_transforms.append(ConvertSegmentationToRegionsTransform(regions, 'target', 'target'))
+            # the ignore label must also be converted
+            val_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
+                                                                       if ignore_label is not None else regions,
+                                                                       'target', 'target'))
 
         if deep_supervision_scales is not None:
             val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
@@ -729,9 +735,14 @@ class nnUNetTrainer(object):
             del output_seg
 
         if self.label_manager.ignore_label is not None:
-            mask = (target != self.label_manager.ignore_label).float()
-            # CAREFUL that you don't rely on target after this line!
-            target[target == self.label_manager.ignore_label] = 0
+            if not self.label_manager.has_regions:
+                mask = (target != self.label_manager.ignore_label).float()
+                # CAREFUL that you don't rely on target after this line!
+                target[target == self.label_manager.ignore_label] = 0
+            else:
+                mask = 1 - target[:, -1:]
+                # CAREFUL that you don't rely on target after this line!
+                target = target[:, :-1]
         else:
             mask = None
 

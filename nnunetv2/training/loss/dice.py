@@ -134,8 +134,7 @@ class DC_and_CE_loss(nn.Module):
         if self.ignore_label is not None:
             assert target.shape[1] == 1, 'ignore label is not implemented for one hot encoded target variables ' \
                                          '(DC_and_CE_loss)'
-            mask = target != self.ignore_label
-            mask = mask.float()
+            mask = (target != self.ignore_label).float()
             # remove ignore label from target, replace with one of the known labels. It doesn't matter because we
             # ignore gradients in those areas anyways
             target_dice = torch.clone(target)
@@ -152,40 +151,45 @@ class DC_and_CE_loss(nn.Module):
 
 
 class DC_and_BCE_loss(nn.Module):
-    def __init__(self, bce_kwargs, soft_dice_kwargs, weight_ce=1, weight_dice=1, ignore_label=None):
+    def __init__(self, bce_kwargs, soft_dice_kwargs, weight_ce=1, weight_dice=1, use_ignore_label: bool = False):
         """
         DO NOT APPLY NONLINEARITY IN YOUR NETWORK!
 
-        THIS LOSS IS INTENDED TO BE USED FOR BRATS REGIONS ONLY
+        target mut be one hot encoded
+        IMPORTANT: We assume use_ignore_label is located in target[:, -1]!!!
+
         :param soft_dice_kwargs:
         :param bce_kwargs:
         :param aggregate:
         """
         super(DC_and_BCE_loss, self).__init__()
-        if ignore_label is not None:
+        if use_ignore_label:
             bce_kwargs['reduction'] = 'none'
-
-        if ignore_label is not None:
-            raise NotImplementedError
 
         self.weight_dice = weight_dice
         self.weight_ce = weight_ce
-        self.ignore_label = ignore_label
+        self.use_ignore_label = use_ignore_label
 
         self.ce = nn.BCEWithLogitsLoss(**bce_kwargs)
         self.dc = SoftDiceLoss(apply_nonlin=torch.sigmoid, **soft_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
-        if self.ignore_label is not None:
+        if self.use_ignore_label:
             # target is one hot encoded here. invert it so that it is True wherever we can compute the loss
-            mask = ~target[self.ignore_label]
+            mask = 1 - target[:, -1:]
+            # remove ignore channel now that we have the mask
+            target_regions = torch.clone(target[:, :-1])
         else:
+            target_regions = target
             mask = None
 
-        dc_loss = self.dc(net_output, target, loss_mask=mask)
-        ce_loss = self.ce(net_output, target)
+        dc_loss = self.dc(net_output, target_regions, loss_mask=mask)
+        ce_loss = self.ce(net_output, target_regions)
         if mask is not None:
-            ce_loss = ce_loss[mask].mean()
+            # todo loss attribution of samples depends on loss mask! samples with a lot of ignore will contribute
+            #  less. Is this a problem?
+            # todo let's use the same principle as batch dice here!
+            ce_loss = (ce_loss * mask).sum() / mask.sum()
 
         result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         return result
