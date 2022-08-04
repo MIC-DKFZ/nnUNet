@@ -112,15 +112,13 @@ class DefaultPreprocessor(object):
             # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
             # LabelManager is pretty light computation-wise.
             label_manager = LabelManager(dataset_json)
-            foreground_labels = label_manager.foreground_labels
-            foreground_regions = label_manager.foreground_regions
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
             data_properites['class_locations'] = self._sample_foreground_locations(seg,
-                                                                                   foreground_regions
+                                                                                   label_manager.foreground_regions
                                                                                    if label_manager.has_regions
-                                                                                   else foreground_labels)
+                                                                                   else label_manager.foreground_labels)
 
         return data, seg.astype(np.int8), data_properites
 
