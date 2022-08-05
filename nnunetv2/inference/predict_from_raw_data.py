@@ -1,4 +1,5 @@
 import os
+import traceback
 from multiprocessing import Pool
 from typing import Tuple, Union, List, Type
 
@@ -75,7 +76,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           tile_step_size: float = 0.5,
                           use_gaussian: bool = True,
                           use_mirroring: bool = True,
-                          perform_everything_on_gpu: bool = False,
+                          perform_everything_on_gpu: bool = True,
                           verbose: bool = True,
                           save_probabilities: bool = False,
                           overwrite: bool = True,
@@ -200,34 +201,77 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
             properties = preprocessed['data_properites']
 
+            # we have some code duplication here but this allows us to run with perform_everything_on_gpu=True as
+            # default and not have the entire program crash in case of GPU out of memory. Neat. That should make
+            # things a lot faster for some datasets.
             prediction = None
-            for params in parameters:
-                network.load_state_dict(params)
-                if prediction is None:
-                    predicted_logits = predict_sliding_window_return_logits(
-                        network, data, num_seg_heads,
-                        plans['configurations'][configuration]['patch_size'],
-                        mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
-                        tile_step_size=tile_step_size,
-                        use_gaussian=use_gaussian,
-                        precomputed_gaussian=inference_gaussian,
-                        perform_everything_on_gpu=perform_everything_on_gpu,
-                        verbose=verbose)
-                else:
-                    prediction += predict_sliding_window_return_logits(
-                        network, data, num_seg_heads,
-                        plans['configurations'][configuration]['patch_size'],
-                        mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
-                        tile_step_size=tile_step_size,
-                        use_gaussian=use_gaussian,
-                        precomputed_gaussian=inference_gaussian,
-                        perform_everything_on_gpu=perform_everything_on_gpu,
-                        verbose=verbose)
-                if len(parameters) > 1:
-                    prediction /= len(parameters)
+            overwrite_perform_everything_on_gpu = perform_everything_on_gpu
+            if perform_everything_on_gpu:
+                try:
+                    for params in parameters:
+                        network.load_state_dict(params)
+                        if prediction is None:
+                            predicted_logits = predict_sliding_window_return_logits(
+                                network, data, num_seg_heads,
+                                plans['configurations'][configuration]['patch_size'],
+                                mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
+                                tile_step_size=tile_step_size,
+                                use_gaussian=use_gaussian,
+                                precomputed_gaussian=inference_gaussian,
+                                perform_everything_on_gpu=perform_everything_on_gpu,
+                                verbose=verbose)
+                        else:
+                            prediction += predict_sliding_window_return_logits(
+                                network, data, num_seg_heads,
+                                plans['configurations'][configuration]['patch_size'],
+                                mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
+                                tile_step_size=tile_step_size,
+                                use_gaussian=use_gaussian,
+                                precomputed_gaussian=inference_gaussian,
+                                perform_everything_on_gpu=perform_everything_on_gpu,
+                                verbose=verbose)
+                        if len(parameters) > 1:
+                            prediction /= len(parameters)
 
-            # apply nonlinearity
-            prediction = inference_nonlinearity(predicted_logits)
+                    # apply nonlinearity
+                    prediction = inference_nonlinearity(predicted_logits)
+                except RuntimeError:
+                    print('Predicton with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
+                          'Falling back to perform_everything_on_gpu=False. Not a big deal, just slower...')
+                    print('Error:')
+                    traceback.print_exc()
+                    prediction = None
+                    overwrite_perform_everything_on_gpu = False
+
+            if prediction is None:
+                for params in parameters:
+                    network.load_state_dict(params)
+                    if prediction is None:
+                        predicted_logits = predict_sliding_window_return_logits(
+                            network, data, num_seg_heads,
+                            plans['configurations'][configuration]['patch_size'],
+                            mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
+                            tile_step_size=tile_step_size,
+                            use_gaussian=use_gaussian,
+                            precomputed_gaussian=inference_gaussian,
+                            perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
+                            verbose=verbose)
+                    else:
+                        prediction += predict_sliding_window_return_logits(
+                            network, data, num_seg_heads,
+                            plans['configurations'][configuration]['patch_size'],
+                            mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
+                            tile_step_size=tile_step_size,
+                            use_gaussian=use_gaussian,
+                            precomputed_gaussian=inference_gaussian,
+                            perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
+                            verbose=verbose)
+                    if len(parameters) > 1:
+                        prediction /= len(parameters)
+
+                # apply nonlinearity
+                prediction = inference_nonlinearity(predicted_logits)
+
             print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
 
@@ -306,7 +350,7 @@ def predict_entry_point_modelfolder():
                           args.step_size,
                           use_gaussian=True,
                           use_mirroring=not args.disable_tta,
-                          perform_everything_on_gpu=False,
+                          perform_everything_on_gpu=True,
                           verbose=args.verbose,
                           save_probabilities=args.save_probabilities,
                           overwrite=not args.continue_prediction,
@@ -379,7 +423,7 @@ def predict_entry_point():
                           args.step_size,
                           use_gaussian=True,
                           use_mirroring=not args.disable_tta,
-                          perform_everything_on_gpu=False,
+                          perform_everything_on_gpu=True,
                           verbose=args.verbose,
                           save_probabilities=args.save_probabilities,
                           overwrite=not args.continue_prediction,
