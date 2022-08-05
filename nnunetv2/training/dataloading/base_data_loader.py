@@ -8,8 +8,12 @@ from nnunetv2.utilities.label_handling import LabelManager
 
 
 class nnUNetDataLoaderBase(DataLoader):
-    def __init__(self, data: nnUNetDataset, batch_size: int, patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+    def __init__(self,
+                 data: nnUNetDataset,
+                 batch_size: int,
+                 patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
                  final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 label_manager: LabelManager,
                  oversample_foreground_percent: float = 0.0,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None):
@@ -32,6 +36,8 @@ class nnUNetDataLoaderBase(DataLoader):
         self.pad_sides = pad_sides
         self.data_shape, self.seg_shape = self.determine_shapes()
         self.sampling_probabilities = sampling_probabilities
+        self.annotated_classes_key = tuple(label_manager.all_labels)
+        self.has_ignore = label_manager.has_ignore_label
 
     def get_do_oversample(self, sample_idx: int) -> bool:
         """
@@ -68,26 +74,35 @@ class nnUNetDataLoaderBase(DataLoader):
 
         # if not force_fg then we can just sample the bbox randomly from lb and ub. Else we need to make sure we get
         # at least one of the foreground classes in the patch
-        if not force_fg:
+        if not force_fg and not self.has_ignore:
             bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]
+            # print('I want a random location')
         else:
-            assert class_locations is not None, 'if force_fg is set class_locations cannot be None'
-            if overwrite_class is not None:
-                assert overwrite_class in class_locations.keys(), 'desired class ("overwrite_class") does not ' \
-                                                                  'have class_locations (missing key)'
-            # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
-            # class_locations keys can also be tuple, so we need to flatten what we get
-            classes_or_regions = LabelManager.filter_background(list(class_locations.keys()))
+            if not force_fg and self.has_ignore:
+                selected_class = self.annotated_classes_key
+                # print(f'I have ignore labels and want to pick a labeled area. annotated_classes_key: {self.annotated_classes_key}')
+            elif force_fg:
+                assert class_locations is not None, 'if force_fg is set class_locations cannot be None'
+                if overwrite_class is not None:
+                    assert overwrite_class in class_locations.keys(), 'desired class ("overwrite_class") does not ' \
+                                                                      'have class_locations (missing key)'
+                # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
+                # class_locations keys can also be tuple
+                classes_or_regions = [i for i in class_locations.keys() if not isinstance(i, (tuple, list)) or i != self.annotated_classes_key]
 
-            if len(classes_or_regions) == 0:
-                # this only happens if some image does not contain foreground voxels at all
-                voxels_of_that_class = None
-                print('case does not contain any foreground classes')
+                if len(classes_or_regions) == 0:
+                    # this only happens if some image does not contain foreground voxels at all
+                    selected_class = None
+                    print('case does not contain any foreground classes')
+                else:
+                    # I hate myself. Future me aint gonna ba happy to read this
+                    selected_class = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
+                        (overwrite_class is None or (overwrite_class not in classes_or_regions)) else overwrite_class
+                # print(f'I want to have foreground, selected class: {selected_class}')
             else:
-                # I hate myself. Future me aint gonna ba happy to read this
-                selected_class = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
-                    (overwrite_class is None or (overwrite_class not in classes_or_regions)) else overwrite_class
-                voxels_of_that_class = class_locations[selected_class]
+                raise RuntimeError('lol what!?')
+
+            voxels_of_that_class = class_locations[selected_class] if selected_class is not None else None
 
             if voxels_of_that_class is not None:
                 selected_voxel = voxels_of_that_class[np.random.choice(len(voxels_of_that_class))]

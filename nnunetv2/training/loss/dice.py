@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim0, softmax_helper_dim1
@@ -139,12 +140,15 @@ class DC_and_CE_loss(nn.Module):
             # ignore gradients in those areas anyways
             target_dice = torch.clone(target)
             target_dice[target == self.ignore_label] = 0
+            num_fg = mask.sum()
         else:
-            target_dice = torch
+            target_dice = target
             mask = None
 
-        dc_loss = self.dc(net_output, target_dice, loss_mask=mask) if self.weight_dice != 0 else 0
-        ce_loss = self.ce(net_output, target[:, 0].long()) if self.weight_ce != 0 else 0
+        dc_loss = self.dc(net_output, target_dice, loss_mask=mask) \
+            if self.weight_dice != 0 else 0
+        ce_loss = self.ce(net_output, target[:, 0].long()) \
+            if self.weight_ce != 0 and (self.ignore_label is not None and num_fg > 0) else 0
 
         result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         return result
@@ -189,7 +193,7 @@ class DC_and_BCE_loss(nn.Module):
             # todo loss attribution of samples depends on loss mask! samples with a lot of ignore will contribute
             #  less. Is this a problem?
             # todo let's use the same principle as batch dice here!
-            ce_loss = (ce_loss * mask).sum() / mask.sum()
+            ce_loss = (ce_loss * mask).sum() / torch.clip(mask.sum(), 1e-8)
 
         result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         return result

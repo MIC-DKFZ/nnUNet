@@ -20,7 +20,7 @@ class LabelManager(object):
 
         self._regions: Union[None, List[Union[int, tuple[int, ...]]]] = self._get_regions()
 
-        if self.ignore_label is not None:
+        if self.has_ignore_label:
             assert self.ignore_label == max(self.all_labels) + 1, 'If you use the ignore label it must have the highest ' \
                                                               'label value! It cannot be 0 or in between other labels. ' \
                                                               'Sorry bro.'
@@ -76,6 +76,10 @@ class LabelManager(object):
     @property
     def has_regions(self) -> bool:
         return self._has_regions
+
+    @property
+    def has_ignore_label(self) -> bool:
+        return self.ignore_label is not None
 
     @property
     def all_regions(self) -> Union[None, List[Union[int, tuple[int, ...]]]]:

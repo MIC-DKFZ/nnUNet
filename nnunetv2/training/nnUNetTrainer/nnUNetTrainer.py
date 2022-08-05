@@ -121,7 +121,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 5
+        self.num_epochs = 10
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -471,22 +471,26 @@ class nnUNetTrainer(object):
             dl_tr = nnUNetDataLoader2D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
                                        initial_patch_size,
                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None)
             dl_val = nnUNetDataLoader2D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
                                         self.plans['configurations'][self.configuration]['patch_size'],
                                         self.plans['configurations'][self.configuration]['patch_size'],
+                                        self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None)
         else:
             dl_tr = nnUNetDataLoader3D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
                                        initial_patch_size,
                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None)
             dl_val = nnUNetDataLoader3D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
                                         self.plans['configurations'][self.configuration]['patch_size'],
                                         self.plans['configurations'][self.configuration]['patch_size'],
+                                        self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None)
         return dl_tr, dl_val
@@ -734,7 +738,7 @@ class nnUNetTrainer(object):
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
             del output_seg
 
-        if self.label_manager.ignore_label is not None:
+        if self.label_manager.has_ignore_label:
             if not self.label_manager.has_regions:
                 mask = (target != self.label_manager.ignore_label).float()
                 # CAREFUL that you don't rely on target after this line!

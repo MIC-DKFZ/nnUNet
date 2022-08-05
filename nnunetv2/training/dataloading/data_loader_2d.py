@@ -20,10 +20,12 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             data, seg, properties = self._data.load_case(current_key)
 
             # select a class first, then a slice where this class is present, then crop to that area
-            classes_or_regions = LabelManager.filter_background(properties['class_locations'])
-
-            selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
-                len(classes_or_regions) > 0 else None
+            if not force_fg and self.has_ignore:
+                selected_class_or_region = self.annotated_classes_key
+            else:
+                classes_or_regions = [i for i in properties['class_locations'].keys() if not isinstance(i, (tuple, list)) or i != self.annotated_classes_key]
+                selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
+                    len(classes_or_regions) > 0 else None
             if force_fg and selected_class_or_region is not None:
                 selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
             else:
