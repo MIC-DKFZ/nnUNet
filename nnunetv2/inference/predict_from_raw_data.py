@@ -21,7 +21,7 @@ from nnunetv2.utilities.file_path_utilities import get_output_folder
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.utilities.label_handling import determine_num_input_channels, LabelManager, convert_labelmap_to_one_hot
-from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder, get_caseIDs_from_splitted_dataset_folder
 
 
 class PreprocessAdapter(DataLoader):
@@ -83,7 +83,9 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           checkpoint_name: str = 'checkpoint_final.pth',
                           num_processes_preprocessing: int = default_num_processes,
                           num_processes_segmentation_export: int = default_num_processes,
-                          folder_with_segs_from_prev_stage: str = None):
+                          folder_with_segs_from_prev_stage: str = None,
+                          num_parts: int = 1,
+                          part_id: int = 0):
     # we could also load plans and dataset_json from the init arguments in the checkpoint but then would still have to
     # load the fingerprint from file. Not quite sure what is the best method so we leave things as they are for the
     # moment.
@@ -141,7 +143,11 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         list_of_lists_or_source_folder = create_lists_from_splitted_dataset_folder(list_of_lists_or_source_folder,
                                                                                    dataset_json['file_ending'])
 
+    print(f'There are {len(list_of_lists_or_source_folder)} cases in the source folder')
+    list_of_lists_or_source_folder = list_of_lists_or_source_folder[part_id::num_parts]
     caseids = [os.path.basename(i[0])[:-(len(dataset_json['file_ending']) + 5)] for i in list_of_lists_or_source_folder]
+    print(f'I am process {part_id} out of {num_parts} (max process ID is {num_parts - 1}, we start counting with 0!)')
+    print(f'There are {len(caseids)} cases that I would like to predict')
 
     output_filename_truncated = [join(output_folder, i) for i in caseids]
     seg_from_prev_stage_files = [join(folder_with_segs_from_prev_stage, i + dataset_json['file_ending']) if
@@ -154,6 +160,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         output_filename_truncated = [output_filename_truncated[i] for i in not_existing_indices]
         list_of_lists_or_source_folder = [list_of_lists_or_source_folder[i] for i in not_existing_indices]
         seg_from_prev_stage_files = [seg_from_prev_stage_files[i] for i in not_existing_indices]
+        print(f'overwrite was set to {overwrite}, so I am only working on cases that haven\'t been predicted yet. '
+              f'That\'s {len(not_existing_indices)} cases.')
         # caseids = [caseids[i] for i in not_existing_indices]
 
     # we need to somehow get the configuration. We could do this via the path but I think this is not ideal. Maybe we
@@ -409,12 +417,25 @@ def predict_entry_point():
                              'out-of-RAM issues. Default: 3')
     parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
+    parser.add_argument('-num_parts', type=int, required=False, default=1,
+                        help='Number of separate nnUNetv2_predict call that you will be making. Default: 1 (= this one '
+                             'call predicts everything)')
+    parser.add_argument('-part_id', type=int, required=False, default=0,
+                        help='If multiple nnUNetv2_predict exist, which one is this? IDs start with 0 can end with '
+                             'num_parts - 1. So when you submit 5 nnUNetv2_predict calls you need to set -num_parts '
+                             '5 and use -part_id 0, 1, 2, 3 and 4. Simple, right? Note: You are yourself responsible '
+                             'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
+
+
     args = parser.parse_args()
 
     model_folder = get_output_folder(args.d, args.tr, args.p, args.c)
 
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
+
+    # slightly passive agressive haha
+    assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
 
     predict_from_raw_data(args.i,
                           args.o,
@@ -430,7 +451,9 @@ def predict_entry_point():
                           checkpoint_name=args.chk,
                           num_processes_preprocessing=args.npp,
                           num_processes_segmentation_export=args.nps,
-                          folder_with_segs_from_prev_stage=args.prev_stage_predictions)
+                          folder_with_segs_from_prev_stage=args.prev_stage_predictions,
+                          num_parts=args.num_parts,
+                          part_id=args.part_id)
 
 
 if __name__ == '__main__':
