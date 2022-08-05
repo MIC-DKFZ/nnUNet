@@ -117,7 +117,8 @@ class DefaultPreprocessor(object):
 
             # when using the ignore label we want to sample only from annotated regions. Therefore we also need to
             # collect samples uniformly from all classes (incl background)
-            collect_for_this.append(label_manager.all_labels)
+            if label_manager.has_ignore_label:
+                collect_for_this.append(label_manager.all_labels)
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
@@ -137,7 +138,7 @@ class DefaultPreprocessor(object):
     @staticmethod
     def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[tuple[int, ...]]],
                                      seed: int = 1234):
-        num_samples = 25000
+        num_samples = 10000
         min_percent_coverage = 0.01  # at least 1% of the class voxels need to be selected, otherwise it may be too
         # sparse
         rndst = np.random.RandomState(seed)

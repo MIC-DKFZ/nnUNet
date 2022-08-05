@@ -8,7 +8,7 @@ from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction
@@ -16,6 +16,7 @@ from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
+from nnunetv2.utilities.file_path_utilities import get_output_folder
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.utilities.label_handling import determine_num_input_channels, LabelManager, convert_labelmap_to_one_hot
@@ -247,6 +248,143 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     export_pool.join()
 
 
+def predict_entry_point_modelfolder():
+    import argparse
+    parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
+                                                 'you want to manually specify a folder containing a trained nnU-Net '
+                                                 'model. This is useful when the nnunet environment variables '
+                                                 '(nnUNet_results) are not set.')
+    parser.add_argument('-i', type=str, required=True,
+                        help='input folder. Remember to use the correct suffixes for your files (_0000 etc). '
+                             'File endings must be the same as the training dataset!')
+    parser.add_argument('-o', type=str, required=True,
+                        help='Output folder. If it does not exist it will be created. Predicted segmentations will '
+                             'have the same name as their source images.')
+    parser.add_argument('-m', type=str, required=True,
+                        help='Folder in which the trained model is. Must have subfolders fold_X for the different '
+                             'folds you trained')
+    parser.add_argument('-f', nargs='+', type=int, required=False, default=(0, 1, 2, 3, 4),
+                        help='Specify the folds of the trained model that should be used for prediction. '
+                             'Default: (0, 1, 2, 3, 4)')
+    parser.add_argument('-step_size', type=float, required=False, default=0.5,
+                        help='Step size for sliding window prediction. The larger it is the faster but less accurate '
+                             'the prediction. Default: 0.5. Cannot be larger than 1. We recommend the default.')
+    parser.add_argument('--disable_tta', action='store_true', required=False, default=False,
+                        help='Set this flag to disable test time data augmentation in the form of mirroring. Faster, '
+                             'but less accurate inference. Not recommended.')
+    # todo all in gpu as default
+    parser.add_argument('--verbose', action='store_true', help="Set this if you like being talked to. You will have "
+                                                               "to be a good listener/reader.")
+    parser.add_argument('--save_probabilities', action='store_true',
+                        help='Set this to export predicted class "probabilities". Required if you want to ensemble '
+                             'multiple configurations.')
+    parser.add_argument('--continue_prediction', '--c', action='store_true',
+                        help='Continue an aborted previous prediction (will not overwrite existing files)')
+    parser.add_argument('-chk', type=str, required=False, default='checkpoint_final.pth',
+                        help='Name of the checkpoint you want to use. Default: checkpoint_final.pth')
+    parser.add_argument('-npp', type=int, required=False, default=3,
+                        help='Number of processes used for preprocessing. More is not always better. Beware of '
+                             'out-of-RAM issues. Default: 3')
+    parser.add_argument('-nps', type=int, required=False, default=3,
+                        help='Number of processes used for segmentation export. More is not always better. Beware of '
+                             'out-of-RAM issues. Default: 3')
+    parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
+                        help='Folder containing the predictions of the previous stage. Required for cascaded models.')
+    args = parser.parse_args()
+
+    if not isdir(args.o):
+        maybe_mkdir_p(args.o)
+
+    predict_from_raw_data(args.i,
+                          args.o,
+                          args.m,
+                          args.f,
+                          args.step_size,
+                          use_gaussian=True,
+                          use_mirroring=not args.disable_tta,
+                          perform_everything_on_gpu=False,
+                          verbose=args.verbose,
+                          save_probabilities=args.save_probabilities,
+                          overwrite=not args.continue_prediction,
+                          checkpoint_name=args.chk,
+                          num_processes_preprocessing=args.npp,
+                          num_processes_segmentation_export=args.nps,
+                          folder_with_segs_from_prev_stage=args.prev_stage_predictions)
+
+
+def predict_entry_point():
+    import argparse
+    parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
+                                                 'you want to manually specify a folder containing a trained nnU-Net '
+                                                 'model. This is useful when the nnunet environment variables '
+                                                 '(nnUNet_results) are not set.')
+    parser.add_argument('-i', type=str, required=True,
+                        help='input folder. Remember to use the correct suffixes for your files (_0000 etc). '
+                             'File endings must be the same as the training dataset!')
+    parser.add_argument('-o', type=str, required=True,
+                        help='Output folder. If it does not exist it will be created. Predicted segmentations will '
+                             'have the same name as their source images.')
+    parser.add_argument('-d', type=str, required=True,
+                        help='Dataset with which you would like to predict. You can specify either dataset name or id')
+    parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
+                        help='Plans identifier. Specify the plans in which the desired configuration is located. '
+                             'Default: nnUNetPlans')
+    parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainer',
+                        help='What nnU-Net trainer class was used for training? Default: nnUNetTrainer')
+    parser.add_argument('-c', type=str, required=True,
+                        help='nnU-Net configuration that should be used for prediction. Config must be located '
+                             'in the plans specified with -p')
+    parser.add_argument('-f', nargs='+', type=int, required=False, default=(0, 1, 2, 3, 4),
+                        help='Specify the folds of the trained model that should be used for prediction. '
+                             'Default: (0, 1, 2, 3, 4)')
+    parser.add_argument('-step_size', type=float, required=False, default=0.5,
+                        help='Step size for sliding window prediction. The larger it is the faster but less accurate '
+                             'the prediction. Default: 0.5. Cannot be larger than 1. We recommend the default.')
+    parser.add_argument('--disable_tta', action='store_true', required=False, default=False,
+                        help='Set this flag to disable test time data augmentation in the form of mirroring. Faster, '
+                             'but less accurate inference. Not recommended.')
+    # todo all in gpu as default
+    parser.add_argument('--verbose', action='store_true', help="Set this if you like being talked to. You will have "
+                                                               "to be a good listener/reader.")
+    parser.add_argument('--save_probabilities', action='store_true',
+                        help='Set this to export predicted class "probabilities". Required if you want to ensemble '
+                             'multiple configurations.')
+    parser.add_argument('--continue_prediction', action='store_true',
+                        help='Continue an aborted previous prediction (will not overwrite existing files)')
+    parser.add_argument('-chk', type=str, required=False, default='checkpoint_final.pth',
+                        help='Name of the checkpoint you want to use. Default: checkpoint_final.pth')
+    parser.add_argument('-npp', type=int, required=False, default=3,
+                        help='Number of processes used for preprocessing. More is not always better. Beware of '
+                             'out-of-RAM issues. Default: 3')
+    parser.add_argument('-nps', type=int, required=False, default=3,
+                        help='Number of processes used for segmentation export. More is not always better. Beware of '
+                             'out-of-RAM issues. Default: 3')
+    parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
+                        help='Folder containing the predictions of the previous stage. Required for cascaded models.')
+    args = parser.parse_args()
+
+    model_folder = get_output_folder(args.d, args.tr, args.p, args.c)
+
+    if not isdir(args.o):
+        maybe_mkdir_p(args.o)
+
+    predict_from_raw_data(args.i,
+                          args.o,
+                          model_folder,
+                          args.f,
+                          args.step_size,
+                          use_gaussian=True,
+                          use_mirroring=not args.disable_tta,
+                          perform_everything_on_gpu=False,
+                          verbose=args.verbose,
+                          save_probabilities=args.save_probabilities,
+                          overwrite=not args.continue_prediction,
+                          checkpoint_name=args.chk,
+                          num_processes_preprocessing=args.npp,
+                          num_processes_segmentation_export=args.nps,
+                          folder_with_segs_from_prev_stage=args.prev_stage_predictions)
+
+
 if __name__ == '__main__':
     predict_from_raw_data('/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs',
                           '/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_predlowres',
@@ -278,5 +416,3 @@ if __name__ == '__main__':
                           num_processes_preprocessing=2,
                           num_processes_segmentation_export=2,
                           folder_with_segs_from_prev_stage='/media/fabian/data/nnUNet_raw/Dataset003_Liver/imagesTs_predlowres')
-
-
