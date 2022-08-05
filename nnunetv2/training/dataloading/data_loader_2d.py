@@ -24,6 +24,9 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
                 selected_class_or_region = self.annotated_classes_key
             else:
                 classes_or_regions = [i for i in properties['class_locations'].keys() if not isinstance(i, (tuple, list)) or i != self.annotated_classes_key]
+                # only pick classes that are actually present in this case!
+                classes_or_regions = [i for i in classes_or_regions if len(properties['class_locations'][i]) > 0]
+
                 selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
                     len(classes_or_regions) > 0 else None
             if force_fg and selected_class_or_region is not None:

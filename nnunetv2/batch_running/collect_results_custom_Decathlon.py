@@ -13,7 +13,7 @@ if __name__ == '__main__':
     }
 
     results_dirs = (nnUNet_results, )
-    datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
+    datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82, 83]
     datasets_names = [maybe_convert_to_dataset_name(i) for i in datasets]
     configurations = ("2d", "3d_fullres", "3d_lowres", "3d_cascade_fullres")
     folds = tuple(np.arange(5))
