@@ -37,7 +37,7 @@ def convert(source_folder, target_dataset_name):
     save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'))
 
 
-if __name__ == '__main__':
+def convert_entry_point():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("input_folder", type=str)
