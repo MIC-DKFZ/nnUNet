@@ -21,7 +21,7 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
     dim = len(plans["configurations"][configuration]["conv_kernel_sizes"][0])
     conv_op = convert_dim_to_conv_op(dim)
 
-    label_manager = LabelManager(dataset_json)
+    label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
 
     segmentation_network_class_name = plans["configurations"][configuration]["UNet_class_name"]
     mapping = {

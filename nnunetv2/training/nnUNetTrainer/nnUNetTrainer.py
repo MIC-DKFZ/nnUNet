@@ -125,7 +125,7 @@ class nnUNetTrainer(object):
         self.current_epoch = 0
 
         ### Dealing with labels/regions
-        self.label_manager = LabelManager(self.dataset_json)
+        self.label_manager = LabelManager(self.dataset_json['labels'], regions_class_order=self.dataset_json.get('regions_class_order'))
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
         self.inference_nonlinearity = torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim0

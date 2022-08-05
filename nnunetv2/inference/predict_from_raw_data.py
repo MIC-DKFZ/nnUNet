@@ -32,7 +32,7 @@ class PreprocessAdapter(DataLoader):
         self.preprocessor, self.plans, self.configuration, self.dataset_json, self.dataset_fingerprint = \
             preprocessor, plans, configuration, dataset_json, dataset_fingerprint
 
-        self.label_manager = LabelManager(dataset_json)
+        self.label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
 
         super().__init__(list(zip(list_of_lists, list_of_segs_from_prev_stage_files, output_filenames_truncated)),
                          1, num_threads_in_multithreaded,
@@ -93,7 +93,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     plans = load_json(join(model_training_output_dir, 'plans.json'))
     dataset_fingerprint = load_json(join(model_training_output_dir, 'dataset_fingerprint.json'))
 
-    label_manager = LabelManager(dataset_json)
+    label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
 
     maybe_mkdir_p(output_folder)
 

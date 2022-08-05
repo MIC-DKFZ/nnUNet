@@ -44,7 +44,7 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
                                             properties_dict['spacing'],
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
 
-    label_manager = LabelManager(dataset_json_dict_or_file)
+    label_manager = LabelManager(dataset_json_dict_or_file['labels'], regions_class_order=dataset_json_dict_or_file.get('regions_class_order'))
     segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
     # put result in bbox (revert cropping)
@@ -109,7 +109,7 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
 
     # create segmentation (argmax, regions, etc)
-    label_manager = LabelManager(dataset_json_dict_or_file)
+    label_manager = LabelManager(dataset_json_dict_or_file['labels'], regions_class_order=dataset_json_dict_or_file.get('regions_class_order'))
     segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
     np.savez_compressed(output_file, seg=segmentation.astype(np.uint8))

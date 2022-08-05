@@ -6,14 +6,15 @@ import torch
 
 
 class LabelManager(object):
-    def __init__(self, dataset_json: dict, force_use_labels: bool = False):
-        self.dataset_json = dataset_json
+    def __init__(self, label_dict: dict, regions_class_order: Union[List[int], None], force_use_labels: bool = False):
+        self.label_dict = label_dict
+        self.regions_class_order = regions_class_order
         self._force_use_labels = force_use_labels
 
         if force_use_labels:
             self._has_regions = False
         else:
-            self._has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in self.dataset_json['labels'].values()])
+            self._has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in self.label_dict.values()])
 
         self._ignore_label: Union[None, int] = self._determine_ignore_label()
         self._all_labels: List[int] = self._get_all_labels()
@@ -27,7 +28,7 @@ class LabelManager(object):
 
     def _get_all_labels(self) -> List[int]:
         all_labels = []
-        for k, r in self.dataset_json['labels'].items():
+        for k, r in self.label_dict.items():
             # ignore label is not going to be used, hence the name. Duh.
             if k == 'ignore':
                 continue
@@ -44,12 +45,10 @@ class LabelManager(object):
         if not self._has_regions or self._force_use_labels:
             return None
         else:
-            assert 'regions_class_order' in self.dataset_json.keys(), 'if region-based training is requested via ' \
-                                                                 'dataset.json then you need to define ' \
-                                                                 'regions_class_order as well, ' \
-                                                                 'see documentation!'  # TODO add this
+            assert self.regions_class_order is not None, 'if region-based training is requested then you need to ' \
+                                                         'define regions_class_order!'
             regions = []
-            for k, r in self.dataset_json['labels'].items():
+            for k, r in self.label_dict.items():
                 # ignore ignore label
                 if k == 'ignore':
                     continue
@@ -61,13 +60,13 @@ class LabelManager(object):
                 if isinstance(r, list):
                     r = tuple(r)
                 regions.append(r)
-            assert len(self.dataset_json['regions_class_order']) == len(regions), 'regions_class_order must have as ' \
+            assert len(self.regions_class_order) == len(regions), 'regions_class_order must have as ' \
                                                                              'many entries as there are ' \
                                                                              'regions'
             return regions
 
     def _determine_ignore_label(self) -> Union[None, int]:
-        ignore_label = self.dataset_json['labels'].get('ignore')
+        ignore_label = self.label_dict.get('ignore')
         if ignore_label is not None:
             assert isinstance(ignore_label, int), f'Ignore label has to be an integer. It cannot be a region ' \
                                                   f'(list/tuple). Got {type(ignore_label)}.'
@@ -104,20 +103,22 @@ class LabelManager(object):
             raise RuntimeError(f"Unexpected input type. Expected np.ndarray or torch.Tensor,"
                                f" got {type(predicted_probabilities)}")
 
-        # check correct number of outputs
+        if self.has_regions:
+            assert self.regions_class_order is not None, 'if region-based training is requested then you need to ' \
+                                                     'define regions_class_order!'
+            # check correct number of outputs
         assert predicted_probabilities.shape[0] == self.num_segmentation_heads, \
             f'unexpected number of channels in predicted_probabilities. Expected {self.num_segmentation_heads}, ' \
             f'got {predicted_probabilities.shape[0]}. Remeber that predicted_probabilities should have shape ' \
             f'(c, x, y(, z)).'
 
         if self.has_regions:
-            regions_class_order = self.dataset_json['regions_class_order']
             if isinstance(predicted_probabilities, np.ndarray):
                 segmentation = np.zeros(predicted_probabilities.shape[1:], dtype=np.uint8)
             else:
                 segmentation = torch.zeros(predicted_probabilities.shape[1:], dtype=torch.uint8,
                                            device=predicted_probabilities.device)
-            for i, c in enumerate(regions_class_order):
+            for i, c in enumerate(self.regions_class_order):
                 segmentation[predicted_probabilities[i] > 0.5] = c
         else:
             segmentation = predicted_probabilities.argmax(0)
@@ -191,7 +192,7 @@ def determine_num_input_channels(plans: dict, configuration: str, dataset_json: 
     if label_manager is None we create one from dataset_json. Not recommended.
     """
     if label_manager is None:
-        label_manager = LabelManager(dataset_json)
+        label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
 
     # cascade has different number of input channels
     if 'previous_stage' in plans['configurations'][configuration].keys():

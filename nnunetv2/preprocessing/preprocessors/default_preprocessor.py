@@ -111,7 +111,7 @@ class DefaultPreprocessor(object):
             # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
             # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
             # LabelManager is pretty light computation-wise.
-            label_manager = LabelManager(dataset_json)
+            label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
             collect_for_this = label_manager.foreground_regions if label_manager.has_regions \
                 else label_manager.foreground_labels
 
@@ -199,7 +199,7 @@ class DefaultPreprocessor(object):
 
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
-        classes = LabelManager(dataset_json).all_labels
+        classes = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order')).all_labels
         if max(classes) > 127:
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')

@@ -166,7 +166,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
             for ll in l:
                 assert isinstance(ll, int), 'values of labels dict in dataset.json must either be int or tuple of int'
 
-    label_manager = LabelManager(dataset_json)
+    label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
     expected_labels = label_manager.all_labels
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1
     assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
