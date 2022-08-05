@@ -8,7 +8,7 @@ from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction
@@ -94,9 +94,13 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
     maybe_mkdir_p(output_folder)
 
-    # todo auto detect folds
     if use_folds is None:
-        raise NotImplementedError
+        print('use_folds is None, attempting to auto detect available folds')
+        fold_folders = subdirs(output_folder, prefix='fold_', join=False)
+        fold_folders = [i for i in fold_folders if i != 'fold_all']
+        fold_folders = [i for i in fold_folders if isfile(join(output_folder, i, checkpoint_name))]
+        use_folds = [int(i.split('_')[-1]) for i in fold_folders]
+        print(f'found the following folds: {use_folds}')
 
     # load parameters
     parameters = []
