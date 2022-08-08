@@ -26,7 +26,7 @@ from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder, 
 
 class PreprocessAdapter(DataLoader):
     def __init__(self, list_of_lists: List[List[str]], list_of_segs_from_prev_stage_files: Union[List[None], List[str]],
-                 preprocessor: Type[DefaultPreprocessor], output_filenames_truncated: List[str],
+                 preprocessor: DefaultPreprocessor, output_filenames_truncated: List[str],
                  plans: dict, dataset_json: dict, configuration: str, dataset_fingerprint: dict,
                  num_threads_in_multithreaded: int = 1):
         self.preprocessor, self.plans, self.configuration, self.dataset_json, self.dataset_fingerprint = \
@@ -46,19 +46,13 @@ class PreprocessAdapter(DataLoader):
         files = self._data[idx][0]
         seg_prev_stage = self._data[idx][1]
         ofile = self._data[idx][2]
-        data, _, data_properites = self.preprocessor.run_case(files, None, self.plans, self.configuration,
+        # if we have a segmentation from the previous stage we have to process it together with the images so that we
+        # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
+        # preprocessing and then there might be misalignments
+        data, seg, data_properites = self.preprocessor.run_case(files, seg_prev_stage, self.plans, self.configuration,
                                                               self.dataset_json, self.dataset_fingerprint)
         if seg_prev_stage is not None:
-            rw = recursive_find_reader_writer_by_name(self.plans['image_reader_writer'])()
-            seg, seg_properties = rw.read_seg(seg_prev_stage)
-            resampling_fn = recursive_find_resampling_fn_by_name(
-                self.plans['configurations'][self.configuration]['resampling_fn_seg']
-            )
-            source_spacing = seg_properties['spacing']
-            target_spacing = self.plans['configurations'][self.configuration]['spacing']
-            seg_resampled = resampling_fn(seg, data.shape[1:], source_spacing, target_spacing,
-                                          **self.plans['configurations'][self.configuration]['resampling_fn_seg_kwargs'])
-            seg_onehot = convert_labelmap_to_one_hot(seg_resampled[0], self.label_manager.foreground_labels, data.dtype)
+            seg_onehot = convert_labelmap_to_one_hot(seg[0], self.label_manager.foreground_labels, data.dtype)
             data = np.vstack((data, seg_onehot))
 
         if np.prod(data.shape) > (2e9 / 4 * 0.85):
@@ -172,7 +166,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # we use the multiprocessing of the batchgenerators dataloader to handle all the background worker stuff. This
     # way we don't have to reinvent the wheel here.
     num_processes = max(1, min(num_processes_preprocessing, len(list_of_lists_or_source_folder)))
-    ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
+    ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor(),
                             output_filename_truncated, plans, dataset_json, configuration, dataset_fingerprint,
                             num_processes)
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
