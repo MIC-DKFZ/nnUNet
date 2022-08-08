@@ -498,8 +498,20 @@ class ExperimentPlanner(object):
 
         recursive_fix_for_json_export(plans)
 
+        plans_file = join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json')
+
+        # we don't want to overwrite potentially existing custom configurations every time this is executed. So let's
+        # read the plans file if it already exists and keep any non-default configurations
+        if isfile(plans_file):
+            old_plans = load_json(plans_file)
+            old_configurations = old_plans['configurations']
+            for c in plans['configurations'].keys():
+                if c in old_configurations.keys():
+                    del(old_configurations[c])
+            plans['configurations'].update(old_configurations)
+
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
-        save_json(plans, join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json'))
+        save_json(plans, plans_file)
         print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json'))
         self.plans = plans
 
