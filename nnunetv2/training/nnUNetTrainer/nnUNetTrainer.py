@@ -890,19 +890,18 @@ class nnUNetTrainer(object):
                 prediction_for_export = prediction
 
             # this needs to go into background processes
-            # results.append(
-            #     segmentation_export_pool.starmap_async(
-            #         export_prediction, (
-            #             (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-            #              output_filename_truncated,
-            #              self.inference_parameters['save_probabilities']),
-            #         )
-            #     )
-            # )
-            # for debug purposes
-            export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
+            results.append(
+                segmentation_export_pool.starmap_async(
+                    export_prediction, (
+                        (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
                          output_filename_truncated,
-                         self.inference_parameters['save_probabilities'])
+                         self.inference_parameters['save_probabilities']),
+                    )
+                )
+            )
+            # for debug purposes
+            # export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
+            #              output_filename_truncated, self.inference_parameters['save_probabilities'])
 
             # if needed, export the softmax prediction for the next stage
             if next_stages is not None:

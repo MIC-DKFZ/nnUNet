@@ -242,7 +242,7 @@ class ExperimentPlanner(object):
                                     spacing: Union[np.ndarray, Tuple[float, ...], List[float]],
                                     median_shape: Union[np.ndarray, Tuple[int, ...], List[int]],
                                     data_identifier: str,
-                                    approximate_n_voxels_dataset: float):
+                                    approximate_n_voxels_dataset: float) -> dict:
         # print(spacing, median_shape, approximate_n_voxels_dataset)
         # find an initial patch size
         # we first use the spacing to get an aspect ratio

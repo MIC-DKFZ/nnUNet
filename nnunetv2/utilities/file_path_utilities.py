@@ -5,11 +5,19 @@ from nnunetv2.paths import nnUNet_results
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 
 
+def convert_trainer_plans_config_to_identifier(trainer_name, plans_identifier, configuration):
+    return f'{trainer_name}__{plans_identifier}__{configuration}'
+
+
+def convert_identifier_to_trainer_plans_config(identifier: str):
+    return identifier.split('__')
+
+
 def get_output_folder(dataset_name_or_id: Union[str, int], trainer_name: str = 'nnUNetTrainer',
                       plans_identifier: str = 'nnUNetPlans', configuration: str = '3d_fullres',
                       fold: Union[str, int] = None) -> str:
     tmp = join(nnUNet_results, maybe_convert_to_dataset_name(dataset_name_or_id),
-               f'{trainer_name}__{plans_identifier}__{configuration}')
+               convert_trainer_plans_config_to_identifier(trainer_name, plans_identifier, configuration))
     if fold is not None:
         tmp = join(tmp, f'fold_{fold}')
     return tmp
