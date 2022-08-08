@@ -42,6 +42,7 @@ from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
+from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss, get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
@@ -149,25 +150,12 @@ class nnUNetTrainer(object):
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
-
-        # todo: move this into a separate class, just like self._log
-        self.my_fantastic_logging = {
-            'mean_fg_dice': list(),
-            'ema_fg_dice': list(),
-            'dice_per_class_or_region': list(),
-            'train_losses': list(),
-            'val_losses': list(),
-            'lrs': list(),
-            'epoch_start_timestamps': list(),
-            'epoch_end_timestamps': list()
-        }
-        # shut up, this logging is great
+        self.logger = nnUNetLogger()
 
         ### placeholders
         self.dataloader_train = self.dataloader_val = None  # see on_train_start
 
         ### initializing stuff for remembering things and such
-        self._ema_pseudo_dice = None
         self._best_ema = None
 
         ### inference things
@@ -187,17 +175,6 @@ class nnUNetTrainer(object):
         ### checkpoint saving stuff
         self.save_every = 50
         self.disable_checkpointing = False
-
-    def _log(self, key, value):
-        assert key in self.my_fantastic_logging.keys() and isinstance(self.my_fantastic_logging[key], list), \
-            'This function is only intended to log stuff to lists and to have one entry per epoch'
-
-        if len(self.my_fantastic_logging[key]) < (self.current_epoch + 1):
-            self.my_fantastic_logging[key].append(value)
-        else:
-            assert len(self.my_fantastic_logging[key]) == (self.current_epoch + 1), 'something went horribly wrong'
-            print(f'maybe some logging issue!? logging {key} and {value}')
-            self.my_fantastic_logging[key][self.current_epoch] = value
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -671,7 +648,7 @@ class nnUNetTrainer(object):
         self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
             f"Current learning rate: {np.round(self.optimizer.param_groups[0]['lr'], decimals=5)}")
-        self._log('lrs', self.optimizer.param_groups[0]['lr'])
+        self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -700,7 +677,7 @@ class nnUNetTrainer(object):
     def on_train_epoch_end(self, train_outputs: List[dict]):
         outputs = collate_outputs(train_outputs)
         average_loss = np.mean(outputs['loss'])
-        self._log('train_losses', average_loss)
+        self.logger.log('train_losses', average_loss, self.current_epoch)
 
     def on_validation_epoch_start(self):
         pass
@@ -774,25 +751,26 @@ class nnUNetTrainer(object):
         global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
                                            zip(tp, fp, fn)]]
         mean_fg_dice = np.nanmean(global_dc_per_class)
-        self._log('mean_fg_dice', mean_fg_dice)
-        self._log('dice_per_class_or_region', global_dc_per_class)
-        self._log('val_losses', np.mean(outputs_collated['loss']))
+        self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
+        self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
+        self.logger.log('val_losses', np.mean(outputs_collated['loss']), self.current_epoch)
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
     def on_epoch_start(self):
-        self._log('epoch_start_timestamps', time())
+        self.logger.log('epoch_start_timestamps', time(), self.current_epoch)
 
     def on_epoch_end(self):
-        self._log('epoch_end_timestamps', time())
+        self.logger.log('epoch_end_timestamps', time(), self.current_epoch)
 
-        self.print_to_log_file('train_loss', np.round(self.my_fantastic_logging['train_losses'][-1], decimals=4))
-        self.print_to_log_file('val_loss', np.round(self.my_fantastic_logging['val_losses'][-1], decimals=4))
+        # todo find a solution for this stupid shit
+        self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
-                                               self.my_fantastic_logging['dice_per_class_or_region'][-1]])
+                                               self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
         self.print_to_log_file(
-            f"Epoch time: {np.round(self.my_fantastic_logging['epoch_end_timestamps'][-1] - self.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+            f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 
         # handling periodic checkpointing
         current_epoch = self.current_epoch
@@ -806,19 +784,13 @@ class nnUNetTrainer(object):
             if isfile(join(self.output_folder, 'checkpoint_latest.pth')):
                 os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
 
-        # handle 'best' checkpointing
-        # exponential moving average of pseudo dice to determine 'best' model (use with caution)
-        self._ema_pseudo_dice = self._ema_pseudo_dice * 0.9 + 0.1 * self.my_fantastic_logging['mean_fg_dice'][-1] \
-            if self._ema_pseudo_dice is not None else self.my_fantastic_logging['mean_fg_dice'][-1]
-
-        self._log('ema_fg_dice', self._ema_pseudo_dice)
-
-        if self._best_ema is None or self._ema_pseudo_dice > self._best_ema:
-            self._best_ema = self._ema_pseudo_dice
+        # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
+        if self._best_ema is None or self.logger.my_fantastic_logging['ema_fg_dice'][-1] > self._best_ema:
+            self._best_ema = self.logger.my_fantastic_logging['ema_fg_dice'][-1]
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
-        self._plot_progress_png()
+        self.logger.plot_progress_png(self.output_folder)
 
         self.current_epoch += 1
 
@@ -827,9 +799,8 @@ class nnUNetTrainer(object):
             'network_weights': self.network.state_dict(),
             'optimizer_state': self.optimizer.state_dict(),
             'grad_scaler_state': self.grad_scaler.state_dict(),
-            'logging': self.my_fantastic_logging,
+            'logging': self.logger.get_checkpoint(),
             '_best_ema': self._best_ema,
-            '_current_ema': self._ema_pseudo_dice,
             'current_epoch': self.current_epoch + 1,
             'init_args': self.my_init_kwargs,
             'trainer_name': self.__class__.__name__,
@@ -852,9 +823,8 @@ class nnUNetTrainer(object):
 
         self.my_init_kwargs = checkpoint['init_args']
         self.current_epoch = checkpoint['current_epoch']
-        self.my_fantastic_logging = checkpoint['logging']
+        self.logger.load_checkpoint(checkpoint['logging'])
         self._best_ema = checkpoint['_best_ema']
-        self._ema_pseudo_dice = checkpoint['_current_ema']
         self.inference_allowed_mirroring_axes = checkpoint[
             'inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
         self.inference_nonlinearity = checkpoint[
@@ -1007,46 +977,4 @@ class nnUNetTrainer(object):
 
         self.on_train_end()
 
-    def _plot_progress_png(self):
-        sns.set(font_scale=2.5)
-        fig, ax_all = plt.subplots(3, 1, figsize=(30, 54))
-        # regular progress.png as we are used to from previous nnU-Net versions
-        ax = ax_all[0]
-        ax2 = ax.twinx()
-        x_values = list(range(self.current_epoch + 1))
-        ax.plot(x_values, self.my_fantastic_logging['train_losses'], color='b', ls='-', label="loss_tr", linewidth=4)
-        ax.plot(x_values, self.my_fantastic_logging['val_losses'], color='r', ls='-', label="loss_val", linewidth=4)
-        ax2.plot(x_values, self.my_fantastic_logging['mean_fg_dice'], color='g', ls='dotted', label="pseudo dice",
-                 linewidth=3)
-        ax2.plot(x_values, self.my_fantastic_logging['ema_fg_dice'], color='g', ls='-', label="pseudo dice (mov. avg.)",
-                 linewidth=4)
-        ax.set_xlabel("epoch")
-        ax.set_ylabel("loss")
-        ax2.set_ylabel("pseudo dice")
-        ax.legend(loc=(0, 1))
-        ax2.legend(loc=(0.2, 1))
 
-        # epoch times to see whether the training speed is consistent
-        ax = ax_all[1]
-        x_values = list(range(self.current_epoch + 1))
-        ax.plot(x_values, [i - j for i, j in zip(self.my_fantastic_logging['epoch_end_timestamps'],
-                                                 self.my_fantastic_logging['epoch_start_timestamps'])], color='b',
-                ls='-', label="epoch duration", linewidth=4)
-        ylim = [0] + [ax.get_ylim()[1]]
-        ax.set(ylim=ylim)
-        ax.set_xlabel("epoch")
-        ax.set_ylabel("time [s]")
-        ax.legend(loc=(0, 1))
-
-        # learning rate
-        ax = ax_all[2]
-        x_values = list(range(self.current_epoch + 1))
-        ax.plot(x_values, self.my_fantastic_logging['lrs'], color='b', ls='-', label="learning rate", linewidth=4)
-        ax.set_xlabel("epoch")
-        ax.set_ylabel("learning rate")
-        ax.legend(loc=(0, 1))
-
-        plt.tight_layout()
-
-        fig.savefig(join(self.output_folder, "progress.png"))
-        plt.close()

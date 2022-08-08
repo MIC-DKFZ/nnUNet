@@ -24,6 +24,8 @@ setup(name='nnunetv2',
             'tifffile',
             'requests',
             "nibabel",
+            "matplotlib",
+            "seaborn",
             "pytorch_lightning",
       ],
       entry_points={
