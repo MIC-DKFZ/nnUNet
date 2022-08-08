@@ -11,8 +11,10 @@ class nnUNetLogger(object):
     This class is really trivial. Don't expect cool functionality here. This is my makeshift solution to problems
     arising from out-of-sync epoch numbers and numbers of logged loss values. It also simplifies the trainer class a
     little
+
+    YOU MUST LOG EXACTLY ONE VALUE PER EPOCH FOR EACH OF THE LOGGING ITEMS! DONT FUCK IT UP
     """
-    def __init__(self):
+    def __init__(self, verbose: bool = False):
         self.my_fantastic_logging = {
             'mean_fg_dice': list(),
             'ema_fg_dice': list(),
@@ -23,16 +25,17 @@ class nnUNetLogger(object):
             'epoch_start_timestamps': list(),
             'epoch_end_timestamps': list()
         }
+        self.verbose = verbose
         # shut up, this logging is great
 
-    def log(self, key, value, epoch: int, verbose: bool = True):
+    def log(self, key, value, epoch: int):
         """
         sometimes shit gets messed up. We try to catch that here
         """
         assert key in self.my_fantastic_logging.keys() and isinstance(self.my_fantastic_logging[key], list), \
             'This function is only intended to log stuff to lists and to have one entry per epoch'
 
-        if verbose: print(f'logging {key}: {value} for epoch {epoch}')
+        if self.verbose: print(f'logging {key}: {value} for epoch {epoch}')
 
         if len(self.my_fantastic_logging[key]) < (epoch + 1):
             self.my_fantastic_logging[key].append(value)
