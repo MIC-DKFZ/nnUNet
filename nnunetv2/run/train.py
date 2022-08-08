@@ -2,9 +2,9 @@ import nnunetv2
 import pytorch_lightning as pl
 from batchgenerators.utilities.file_and_folder_operations import join, isfile
 
-from nnunetv2.training.callbacks.nnUNetCheckpoint import nnUNetCheckpoint
-from nnunetv2.training.callbacks.nnUNetPlottingCallbacks import nnUNetProgressPngCallback
-from nnunetv2.training.nnunet_modules.nnUNetModule import nnUNetModule
+from nnunetv2.training.deprecated.callbacks import nnUNetCheckpoint
+from nnunetv2.training.deprecated.callbacks.nnUNetPlottingCallbacks import nnUNetProgressPngCallback
+from nnunetv2.training.deprecated.nnunet_modules.nnUNetModule import nnUNetModule
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 
 

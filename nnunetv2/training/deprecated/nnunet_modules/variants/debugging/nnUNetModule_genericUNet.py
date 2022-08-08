@@ -10,7 +10,7 @@ from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from torch import nn
 
-from nnunetv2.training.nnunet_modules.nnUNetModule import nnUNetModule
+from nnunetv2.training.deprecated.nnunet_modules.nnUNetModule import nnUNetModule
 from nnunetv2.utilities.network_initialization import InitWeights_He
 
 
