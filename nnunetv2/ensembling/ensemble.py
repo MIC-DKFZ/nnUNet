@@ -3,7 +3,7 @@ from multiprocessing import Pool
 from typing import List, Union, Tuple
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import load_pickle, save_pickle, load_json, join, subfiles, \
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, subfiles, \
     maybe_mkdir_p, isdir
 
 from nnunetv2.configuration import default_num_processes
@@ -35,14 +35,13 @@ def merge_files(list_of_files,
                 save_probabilities: bool = False):
     raise NotImplementedError('check that we are getting a labelmanager')
     # load the pkl file associated with the first file in list_of_files
-    properties = load_pickle(list_of_files[0][:-4] + '.pkl')
+    properties = np.load(list_of_files[0])['properties']
     # load and average predictions
     probabilities = average_probabilities(list_of_files)
     segmentation = label_manager.convert_logits_to_segmentation(probabilities)
     image_reader_writer.write_seg(segmentation, output_filename_truncated + output_file_ending, properties)
     if save_probabilities:
-        np.savez_compressed(output_filename_truncated + '.npz', probabilities=probabilities)
-        save_pickle(probabilities, output_filename_truncated + '.pkl')
+        np.savez_compressed(output_filename_truncated + '.npz', probabilities=probabilities, properties=properties)
 
 
 def ensemble_folders(list_of_input_folders: List[str],
