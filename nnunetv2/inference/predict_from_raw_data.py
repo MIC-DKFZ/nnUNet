@@ -1,27 +1,26 @@
 import os
 import traceback
 from multiprocessing import Pool
-from typing import Tuple, Union, List, Type
+from typing import Tuple, Union, List
 
 import numpy as np
 import torch
 from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
-from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs
+
 from nnunetv2.configuration import default_num_processes
-from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
-from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import determine_num_input_channels, LabelManager, convert_labelmap_to_one_hot
-from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder, get_caseIDs_from_splitted_dataset_folder
+from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, convert_labelmap_to_one_hot
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
 class PreprocessAdapter(DataLoader):
@@ -32,7 +31,7 @@ class PreprocessAdapter(DataLoader):
         self.preprocessor, self.plans, self.configuration, self.dataset_json, self.dataset_fingerprint = \
             preprocessor, plans, configuration, dataset_json, dataset_fingerprint
 
-        self.label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
+        self.label_manager = get_labelmanager(plans, dataset_json)
 
         super().__init__(list(zip(list_of_lists, list_of_segs_from_prev_stage_files, output_filenames_truncated)),
                          1, num_threads_in_multithreaded,
@@ -87,7 +86,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     plans = load_json(join(model_training_output_dir, 'plans.json'))
     dataset_fingerprint = load_json(join(model_training_output_dir, 'dataset_fingerprint.json'))
 
-    label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
+    label_manager = get_labelmanager(plans, dataset_json)
 
     maybe_mkdir_p(output_folder)
 
@@ -173,7 +172,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
     # restore network
-    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json, label_manager)
+    num_input_channels = determine_num_input_channels(plans, configuration, dataset_json)
     network = get_network_from_plans(plans, dataset_json, configuration, num_input_channels, deep_supervision=True)
     network.decoder.deep_supervision = False
     if torch.cuda.is_available():

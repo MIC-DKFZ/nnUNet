@@ -1,7 +1,6 @@
 import numpy as np
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.utilities.label_handling import LabelManager
 
 
 class nnUNetDataLoader2D(nnUNetDataLoaderBase):

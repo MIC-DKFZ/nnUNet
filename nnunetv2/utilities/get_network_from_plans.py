@@ -1,7 +1,7 @@
 from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
 
-from nnunetv2.utilities.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.network_initialization import InitWeights_He
 from torch import nn
 
@@ -21,7 +21,7 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
     dim = len(plans["configurations"][configuration]["conv_kernel_sizes"][0])
     conv_op = convert_dim_to_conv_op(dim)
 
-    label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
+    label_manager = get_labelmanager(plans, dataset_json)
 
     segmentation_network_class_name = plans["configurations"][configuration]["UNet_class_name"]
     mapping = {

@@ -27,7 +27,7 @@ from nnunetv2.preprocessing.resampling.default_resampling import compute_new_sha
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
 
@@ -111,7 +111,7 @@ class DefaultPreprocessor(object):
             # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
             # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
             # LabelManager is pretty light computation-wise.
-            label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
+            label_manager = get_labelmanager(plans, dataset_json)
             collect_for_this = label_manager.foreground_regions if label_manager.has_regions \
                 else label_manager.foreground_labels
 
@@ -199,7 +199,10 @@ class DefaultPreprocessor(object):
 
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
-        classes = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order')).all_labels
+
+        label_manager = get_labelmanager(plans, dataset_json)
+        classes = label_manager.all_labels
+
         if max(classes) > 127:
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')

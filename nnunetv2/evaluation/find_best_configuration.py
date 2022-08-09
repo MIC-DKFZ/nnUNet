@@ -11,7 +11,7 @@ from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, 
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
     convert_identifier_to_trainer_plans_config
-from nnunetv2.utilities.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 default_trained_models = tuple([
     {'plans': 'nnUNetPlans', 'configuration': '2d', 'trainer': 'nnUNetTrainer'},
@@ -82,7 +82,7 @@ def accumulate_cv_results(trained_model_folder,
                 did_we_copy_something = True
 
     if did_we_copy_something or not isfile(join(merged_output_folder, 'summary.json')):
-        label_manager = LabelManager(dataset_json['labels'], dataset_json.get('regions_class_order'))
+        label_manager = get_labelmanager(plans, dataset_json)
         compute_metrics_on_folder(join(nnUNet_raw, 'labelsTr'), merged_output_folder, join(merged_output_folder, 'summary.json'),
                                   plans['image_reader_writer'], dataset_json['file_ending'],
                                   label_manager.foreground_regions if label_manager.has_regions else

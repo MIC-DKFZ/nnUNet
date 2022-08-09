@@ -49,11 +49,12 @@ from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-from nnunetv2.utilities.helpers import softmax_helper_dim0
-from nnunetv2.utilities.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels, LabelManager
+from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from sklearn.model_selection import KFold
 from torch import autocast
 from torch.cuda.amp import GradScaler
+
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 matplotlib.use('agg')
 import seaborn as sns
@@ -126,16 +127,14 @@ class nnUNetTrainer(object):
         self.current_epoch = 0
 
         ### Dealing with labels/regions
-        self.label_manager = LabelManager(self.dataset_json['labels'], regions_class_order=self.dataset_json.get('regions_class_order'))
+        self.label_manager = get_labelmanager(self.plans, self.dataset_json)
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
-        self.inference_nonlinearity = torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim0
 
         # if you want to swap out the network architecture you need to change that here. You do not need to use the
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
-        self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json,
-                                                               self.label_manager)
+        self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
         self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration,
                                               self.num_input_channels, deep_supervision=True).to(self.device)
         self.optimizer, self.lr_scheduler = self.configure_optimizers()
@@ -162,15 +161,6 @@ class nnUNetTrainer(object):
         self.inference_allowed_mirroring_axes = None  # this variable is set in
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
         # prediction it is set back to None in self.on_predict_end
-        self.inference_parameters = {
-            'tile_step_size': 0.5,
-            'use_gaussian': True,
-            'use_mirroring': True,
-            'perform_everything_on_gpu': False,
-            'verbose': True,
-            'save_probabilities': False,
-            'n_processes_segmentation_export': 4,
-        }
 
         ### checkpoint saving stuff
         self.save_every = 50
@@ -805,7 +795,6 @@ class nnUNetTrainer(object):
             'init_args': self.my_init_kwargs,
             'trainer_name': self.__class__.__name__,
             'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
-            'inference_nonlinearity': self.inference_nonlinearity,
         }
         torch.save(checkpoint, filename)
 
@@ -827,20 +816,18 @@ class nnUNetTrainer(object):
         self._best_ema = checkpoint['_best_ema']
         self.inference_allowed_mirroring_axes = checkpoint[
             'inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
-        self.inference_nonlinearity = checkpoint[
-            'inference_nonlinearity'] if 'inference_nonlinearity' in checkpoint.keys() else self.inference_nonlinearity
 
         self.network.load_state_dict(new_state_dict)
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
-    def perform_actual_validation(self):
+    def perform_actual_validation(self, save_probabilities: bool = True):
         self.network.decoder.deep_supervision = False
         num_seg_heads = self.label_manager.num_segmentation_heads
 
         inference_gaussian = torch.from_numpy(
             compute_gaussian(self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
-        segmentation_export_pool = Pool(self.inference_parameters['n_processes_segmentation_export'])
+        segmentation_export_pool = Pool(default_num_processes)
         validation_output_folder = join(self.output_folder, 'validation')
         maybe_mkdir_p(validation_output_folder)
 
@@ -866,16 +853,12 @@ class nnUNetTrainer(object):
                                                               tile_size=
                                                               self.plans['configurations'][self.configuration][
                                                                   'patch_size'],
-                                                              mirror_axes=self.inference_allowed_mirroring_axes if
-                                                              self.inference_parameters['use_mirroring'] else None,
-                                                              tile_step_size=self.inference_parameters[
-                                                                  'tile_step_size'],
-                                                              use_gaussian=self.inference_parameters['use_gaussian'],
+                                                              mirror_axes=self.inference_allowed_mirroring_axes,
+                                                              tile_step_size=0.5,
+                                                              use_gaussian=True,
                                                               precomputed_gaussian=inference_gaussian,
-                                                              perform_everything_on_gpu=self.inference_parameters[
-                                                                  'perform_everything_on_gpu'],
-                                                              verbose=self.inference_parameters[
-                                                                  'verbose']).cpu().numpy()
+                                                              perform_everything_on_gpu=True,
+                                                              verbose=False).cpu().numpy()
             """There is a problem with python process communication that prevents us from communicating objects
             larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
             communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
@@ -894,14 +877,13 @@ class nnUNetTrainer(object):
                 segmentation_export_pool.starmap_async(
                     export_prediction, (
                         (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-                         output_filename_truncated,
-                         self.inference_parameters['save_probabilities']),
+                         output_filename_truncated, save_probabilities),
                     )
                 )
             )
             # for debug purposes
             # export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-            #              output_filename_truncated, self.inference_parameters['save_probabilities'])
+            #              output_filename_truncated, save_probabilities)
 
             # if needed, export the softmax prediction for the next stage
             if next_stages is not None:

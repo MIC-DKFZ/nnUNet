@@ -1,12 +1,19 @@
 from time import time
-from typing import Union, List
+from typing import Union, List, Tuple, Type
 
 import numpy as np
 import torch
+from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
+from batchgenerators.utilities.file_and_folder_operations import join
+
+import nnunetv2
+from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from nnunetv2.utilities.helpers import softmax_helper_dim0
 
 
 class LabelManager(object):
-    def __init__(self, label_dict: dict, regions_class_order: Union[List[int], None], force_use_labels: bool = False):
+    def __init__(self, label_dict: dict, regions_class_order: Union[List[int], None], force_use_labels: bool = False,
+                 inference_nonlin=None):
         self.label_dict = label_dict
         self.regions_class_order = regions_class_order
         self._force_use_labels = force_use_labels
@@ -14,7 +21,8 @@ class LabelManager(object):
         if force_use_labels:
             self._has_regions = False
         else:
-            self._has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in self.label_dict.values()])
+            self._has_regions: bool = any(
+                [isinstance(i, (tuple, list)) and len(i) > 1 for i in self.label_dict.values()])
 
         self._ignore_label: Union[None, int] = self._determine_ignore_label()
         self._all_labels: List[int] = self._get_all_labels()
@@ -22,9 +30,15 @@ class LabelManager(object):
         self._regions: Union[None, List[Union[int, tuple[int, ...]]]] = self._get_regions()
 
         if self.has_ignore_label:
-            assert self.ignore_label == max(self.all_labels) + 1, 'If you use the ignore label it must have the highest ' \
-                                                              'label value! It cannot be 0 or in between other labels. ' \
-                                                              'Sorry bro.'
+            assert self.ignore_label == max(
+                self.all_labels) + 1, 'If you use the ignore label it must have the highest ' \
+                                      'label value! It cannot be 0 or in between other labels. ' \
+                                      'Sorry bro.'
+
+        if inference_nonlin is None:
+            self.inference_nonlin = torch.sigmoid if self.has_regions else softmax_helper_dim0
+        else:
+            self.inference_nonlin = inference_nonlin
 
     def _get_all_labels(self) -> List[int]:
         all_labels = []
@@ -61,8 +75,8 @@ class LabelManager(object):
                     r = tuple(r)
                 regions.append(r)
             assert len(self.regions_class_order) == len(regions), 'regions_class_order must have as ' \
-                                                                             'many entries as there are ' \
-                                                                             'regions'
+                                                                  'many entries as there are ' \
+                                                                  'regions'
             return regions
 
     def _determine_ignore_label(self) -> Union[None, int]:
@@ -92,7 +106,21 @@ class LabelManager(object):
     def ignore_label(self) -> Union[None, int]:
         return self._ignore_label
 
-    def convert_logits_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \
+    def apply_inference_nonlin(self, logits: Union[np.ndarray, torch.Tensor]) -> \
+            Union[np.ndarray, torch.Tensor]:
+        """
+        logits has to have shape (c, x, y(, z)) where c is the number of classes/regions
+        """
+        is_numpy = isinstance(logits, np.ndarray)
+        if is_numpy:
+            logits = torch.from_numpy(logits)
+        probabilities = self.inference_nonlin(logits)
+        if is_numpy:
+            probabilities = probabilities.numpy()
+            logits.numpy()
+        return probabilities
+
+    def convert_probabilities_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \
             Union[np.ndarray, torch.Tensor]:
         """
         assumes that inference_nonlinearity was already applied!
@@ -105,7 +133,7 @@ class LabelManager(object):
 
         if self.has_regions:
             assert self.regions_class_order is not None, 'if region-based training is requested then you need to ' \
-                                                     'define regions_class_order!'
+                                                         'define regions_class_order!'
             # check correct number of outputs
         assert predicted_probabilities.shape[0] == self.num_segmentation_heads, \
             f'unexpected number of channels in predicted_probabilities. Expected {self.num_segmentation_heads}, ' \
@@ -124,6 +152,31 @@ class LabelManager(object):
             segmentation = predicted_probabilities.argmax(0)
 
         return segmentation
+
+    def convert_logits_to_segmentation(self, predicted_logits: Union[np.ndarray, torch.Tensor]) -> \
+            Union[np.ndarray, torch.Tensor]:
+        probabilities = self.apply_inference_nonlin(predicted_logits)
+        return self.convert_probabilities_to_segmentation(probabilities)
+
+    def revert_cropping(self, predicted_probabilities: np.ndarray,
+                        bbox: List[List[int]],
+                        original_shape: Union[List[int], Tuple[int, ...]]):
+        """
+        ONLY USE THIS WITH PROBABILITIES, DO NOT USE LOGITS AND DO NOT USE FOR SEGMENTATION MAPS!!!
+
+        predicted_probabilities must be (c, x, y(, z))
+
+        Why do we do this here? Well if we pad probabilities we need to make sure that convert_logits_to_segmentation
+        correctly returns background in the padded areas. Also we want to ba able to look at the padded probabilities
+        and not have strange artifacts.
+        Only LabelManager knows how this needs to be done. So let's let him/her do it, ok?
+        """
+        # revert cropping
+        probs_reverted_cropping = np.zeros((predicted_probabilities.shape[0], *original_shape),
+                                           dtype=predicted_probabilities.dtype)
+        slicer = bounding_box_to_slice(bbox)
+        probs_reverted_cropping[tuple([slice(None)] + list(slicer))] = predicted_probabilities
+        return probs_reverted_cropping
 
     @staticmethod
     def filter_background(classes_or_regions: Union[List[int], List[Union[int, tuple[int, ...]]]]):
@@ -149,6 +202,31 @@ class LabelManager(object):
             return len(self.foreground_regions)
         else:
             return len(self.all_labels)
+
+
+def get_labelmanager_class_from_plans(plans: dict) -> Type[LabelManager]:
+    if 'label_manager' not in plans.keys():
+        print('No label manager specified in plans. Using default: LabelManager')
+        return LabelManager
+    else:
+        labelmanager_class = recursive_find_python_class(join(nnunetv2.__path__[0], "utilities", "label_handling"),
+                                                         plans['label_manager'],
+                                                         current_module="nnunetv2.utilities.label_handling")
+        return labelmanager_class
+
+
+def get_labelmanager(plans: dict, dataset_json: dict, **kwargs) -> LabelManager:
+    lm = get_labelmanager_class_from_plans(plans)
+    return lm(label_dict=dataset_json['labels'],
+              regions_class_order=dataset_json.get('regions_class_order'),
+              **kwargs)
+
+
+def get_labelmanager_labeldict(plans: dict, label_dict: dict, regions_class_order: dict = None, **kwargs):
+    lm = get_labelmanager_class_from_plans(plans)
+    return lm(label_dict=label_dict,
+              regions_class_order=regions_class_order,
+              **kwargs)
 
 
 def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
@@ -186,13 +264,11 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
     return result
 
 
-def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict,
-                                 label_manager: LabelManager = None) -> int:
+def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict) -> int:
     """
     if label_manager is None we create one from dataset_json. Not recommended.
     """
-    if label_manager is None:
-        label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
+    label_manager = get_labelmanager(plans, dataset_json)
 
     # cascade has different number of input channels
     if 'previous_stage' in plans['configurations'][configuration].keys():

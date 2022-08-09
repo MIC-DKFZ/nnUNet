@@ -22,7 +22,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.paths import nnUNet_raw
-from nnunetv2.utilities.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
 
 
@@ -166,6 +166,8 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
             for ll in l:
                 assert isinstance(ll, int), 'values of labels dict in dataset.json must either be int or tuple of int'
 
+    # no plans exist yet, so we can't use get_labelmanager and gotta roll with the default. It's unlikely to cause
+    # problems anyway
     label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
     expected_labels = label_manager.all_labels
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1

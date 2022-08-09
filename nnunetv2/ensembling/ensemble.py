@@ -9,7 +9,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_pickle, sa
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.utilities.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 
 def average_probabilities(list_of_files: List[str]) -> np.ndarray:
@@ -31,10 +31,9 @@ def merge_files(list_of_files,
                 output_filename_truncated: str,
                 output_file_ending: str,
                 image_reader_writer: BaseReaderWriter,
-                labels_dict: dict,
-                regions_class_order: Union[None, List[int]],
+                label_manager: LabelManager,
                 save_probabilities: bool = False):
-    label_manager = LabelManager(labels_dict, regions_class_order)
+    raise NotImplementedError('check that we are getting a labelmanager')
     # load the pkl file associated with the first file in list_of_files
     properties = load_pickle(list_of_files[0][:-4] + '.pkl')
     # load and average predictions

@@ -5,10 +5,10 @@ from copy import deepcopy
 from typing import Union, List
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import load_json, isfile
+from batchgenerators.utilities.file_and_folder_operations import load_json, isfile, save_pickle
 
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
-from nnunetv2.utilities.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 
 def export_prediction(predicted_array_or_file: Union[np.ndarray, str], properties_dict: dict,
@@ -43,8 +43,7 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
                                             current_spacing,
                                             properties_dict['spacing'],
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
-
-    label_manager = LabelManager(dataset_json_dict_or_file['labels'], regions_class_order=dataset_json_dict_or_file.get('regions_class_order'))
+    label_manager = get_labelmanager(plans_dict_or_file, dataset_json_dict_or_file)
     segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
     # put result in bbox (revert cropping)
@@ -67,7 +66,8 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
         # $revert transpose
         probs_reverted_cropping = probs_reverted_cropping.transpose([0] + [i + 1 for i in
                                                                            plans_dict_or_file['transpose_backward']])
-        np.savez_compressed(output_file_truncated + '.npz', probabilities=probs_reverted_cropping)
+        np.savez_compressed(output_file_truncated + '.npz', probabilities=probs_reverted_cropping, properties=properties_dict)
+        # save_pickle(properties_dict, output_file_truncated + '.pkl')
         del probs_reverted_cropping
     del predicted_array_or_file
 
@@ -109,7 +109,7 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
                                             **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
 
     # create segmentation (argmax, regions, etc)
-    label_manager = LabelManager(dataset_json_dict_or_file['labels'], regions_class_order=dataset_json_dict_or_file.get('regions_class_order'))
+    label_manager = get_labelmanager(plans_dict_or_file, dataset_json_dict_or_file)
     segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
     np.savez_compressed(output_file, seg=segmentation.astype(np.uint8))

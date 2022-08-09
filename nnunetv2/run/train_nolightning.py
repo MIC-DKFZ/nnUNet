@@ -70,12 +70,12 @@ def nnUNet_train_from_args():
     assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
     if args.c:
-        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
+        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
-            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
+            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
         # special case where --c is used to run a previously aborted validation
         if not isfile(expected_checkpoint_file):
-            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
+            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
         if not isfile(expected_checkpoint_file):
             raise RuntimeError(f"Cannot continue training because there seems to be no checkpoint available to "
                                f"continue from. Please run without the --c flag.")

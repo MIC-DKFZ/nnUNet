@@ -478,7 +478,8 @@ class ExperimentPlanner(object):
             'transpose_forward': [int(i) for i in transpose_forward],
             'transpose_backward': [int(i) for i in transpose_backward],
             'configurations': {'2d': plan_2d},
-            'experiment_planner_used': self.__class__.__name__}
+            'experiment_planner_used': self.__class__.__name__,
+            'label_manager': 'LabelManager'}
 
         if plan_3d_lowres is not None:
             plans['configurations']['3d_lowres'] = plan_3d_lowres
