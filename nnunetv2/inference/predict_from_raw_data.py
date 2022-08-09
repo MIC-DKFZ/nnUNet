@@ -106,11 +106,6 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         configuration = checkpoint['init_args']['configuration']
         inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
             'inference_allowed_mirroring_axes' in checkpoint.keys() else None
-        if 'inference_nonlinearity' not in checkpoint.keys():
-            print('WARNING using old checkpoint without saved inference_nonlinearity. Assuming softmax...')
-            inference_nonlinearity = softmax_helper_dim0
-        else:
-            inference_nonlinearity = checkpoint['inference_nonlinearity']
 
         parameters.append(checkpoint['network_weights'])
     else:
@@ -122,15 +117,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 configuration = checkpoint['init_args']['configuration']
                 inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
                     'inference_allowed_mirroring_axes' in checkpoint.keys() else None
-                if 'inference_nonlinearity' not in checkpoint.keys():
-                    print('WARNING using old checkpoint without saved inference_nonlinearity. Assuming softmax...')
-                    inference_nonlinearity = softmax_helper_dim0
-                else:
-                    inference_nonlinearity = checkpoint['inference_nonlinearity']
 
             parameters.append(checkpoint['network_weights'])
-
-    if verbose: print(f'inference_nonlinearity: {inference_nonlinearity}')
 
     if isinstance(list_of_lists_or_source_folder, str):
         list_of_lists_or_source_folder = create_lists_from_splitted_dataset_folder(list_of_lists_or_source_folder,
@@ -212,7 +200,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                     for params in parameters:
                         network.load_state_dict(params)
                         if prediction is None:
-                            predicted_logits = predict_sliding_window_return_logits(
+                            prediction = predict_sliding_window_return_logits(
                                 network, data, num_seg_heads,
                                 plans['configurations'][configuration]['patch_size'],
                                 mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
@@ -235,7 +223,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                             prediction /= len(parameters)
 
                     # apply nonlinearity
-                    prediction = inference_nonlinearity(predicted_logits)
+                    prediction = label_manager.apply_inference_nonlin(prediction)
                 except RuntimeError:
                     print('Predicton with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
                           'Falling back to perform_everything_on_gpu=False. Not a big deal, just slower...')
@@ -248,7 +236,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 for params in parameters:
                     network.load_state_dict(params)
                     if prediction is None:
-                        predicted_logits = predict_sliding_window_return_logits(
+                        prediction = predict_sliding_window_return_logits(
                             network, data, num_seg_heads,
                             plans['configurations'][configuration]['patch_size'],
                             mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
@@ -271,7 +259,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                         prediction /= len(parameters)
 
                 # apply nonlinearity
-                prediction = inference_nonlinearity(predicted_logits)
+                prediction = label_manager.apply_inference_nonlin(prediction)
 
             print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
