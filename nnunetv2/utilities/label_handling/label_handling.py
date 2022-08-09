@@ -112,12 +112,16 @@ class LabelManager(object):
         logits has to have shape (c, x, y(, z)) where c is the number of classes/regions
         """
         is_numpy = isinstance(logits, np.ndarray)
+
         if is_numpy:
-            logits = torch.from_numpy(logits)
-        probabilities = self.inference_nonlin(logits)
+            logits_torch = torch.from_numpy(logits)
+        else:
+            logits_torch = logits
+
+        probabilities = self.inference_nonlin(logits_torch)
+
         if is_numpy:
             probabilities = probabilities.numpy()
-            logits.numpy()
         return probabilities
 
     def convert_probabilities_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \

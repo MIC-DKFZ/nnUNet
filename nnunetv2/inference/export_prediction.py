@@ -59,10 +59,13 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
     if save_probabilities:
         # probabilities are already resampled
 
+        # apply nonlinearity
+        predicted_array_or_file = label_manager.apply_inference_nonlin(predicted_array_or_file)
+
         # revert cropping
-        probs_reverted_cropping = np.zeros((predicted_array_or_file.shape[0], *properties_dict['shape_before_cropping']), dtype=np.float16)
-        slicer = bounding_box_to_slice(properties_dict['bbox_used_for_cropping'])
-        probs_reverted_cropping[tuple([slice(None)] + list(slicer))] = predicted_array_or_file
+        probs_reverted_cropping = label_manager.revert_cropping(predicted_array_or_file,
+                                                                properties_dict['bbox_used_for_cropping'],
+                                                                properties_dict['shape_before_cropping'])
         # $revert transpose
         probs_reverted_cropping = probs_reverted_cropping.transpose([0] + [i + 1 for i in
                                                                            plans_dict_or_file['transpose_backward']])
