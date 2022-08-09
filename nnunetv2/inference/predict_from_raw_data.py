@@ -17,7 +17,6 @@ from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPre
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, convert_labelmap_to_one_hot
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
@@ -153,7 +152,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # we use the multiprocessing of the batchgenerators dataloader to handle all the background worker stuff. This
     # way we don't have to reinvent the wheel here.
     num_processes = max(1, min(num_processes_preprocessing, len(list_of_lists_or_source_folder)))
-    ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor(),
+    ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
                             output_filename_truncated, plans, dataset_json, configuration, dataset_fingerprint,
                             num_processes)
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
@@ -222,8 +221,6 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                         if len(parameters) > 1:
                             prediction /= len(parameters)
 
-                    # apply nonlinearity
-                    prediction = label_manager.apply_inference_nonlin(prediction)
                 except RuntimeError:
                     print('Predicton with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
                           'Falling back to perform_everything_on_gpu=False. Not a big deal, just slower...')
@@ -257,9 +254,6 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                             verbose=verbose)
                     if len(parameters) > 1:
                         prediction /= len(parameters)
-
-                # apply nonlinearity
-                prediction = label_manager.apply_inference_nonlin(prediction)
 
             print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
@@ -309,7 +303,6 @@ def predict_entry_point_modelfolder():
     parser.add_argument('--disable_tta', action='store_true', required=False, default=False,
                         help='Set this flag to disable test time data augmentation in the form of mirroring. Faster, '
                              'but less accurate inference. Not recommended.')
-    # todo all in gpu as default
     parser.add_argument('--verbose', action='store_true', help="Set this if you like being talked to. You will have "
                                                                "to be a good listener/reader.")
     parser.add_argument('--save_probabilities', action='store_true',
@@ -380,7 +373,6 @@ def predict_entry_point():
     parser.add_argument('--disable_tta', action='store_true', required=False, default=False,
                         help='Set this flag to disable test time data augmentation in the form of mirroring. Faster, '
                              'but less accurate inference. Not recommended.')
-    # todo all in gpu as default
     parser.add_argument('--verbose', action='store_true', help="Set this if you like being talked to. You will have "
                                                                "to be a good listener/reader.")
     parser.add_argument('--save_probabilities', action='store_true',

@@ -32,7 +32,7 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
 
     # resample to original shape
     resampling_fn = recursive_find_resampling_fn_by_name(
-        plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax"]
+        plans_dict_or_file['configurations'][configuration_name]["resampling_fn_probabilities"]
     )
     current_spacing = plans_dict_or_file['configurations'][configuration_name]["spacing"] if \
         len(plans_dict_or_file['configurations'][configuration_name]["spacing"]) == \
@@ -42,7 +42,7 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
                                             properties_dict['shape_after_cropping_and_before_resampling'],
                                             current_spacing,
                                             properties_dict['spacing'],
-                                            **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
+                                            **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_probabilities_kwargs"])
     label_manager = get_labelmanager(plans_dict_or_file, dataset_json_dict_or_file)
     segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
 
@@ -95,7 +95,7 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
 
     # resample to original shape
     resampling_fn = recursive_find_resampling_fn_by_name(
-        plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax"]
+        plans_dict_or_file['configurations'][configuration_name]["resampling_fn_probabilities"]
     )
     current_spacing = plans_dict_or_file['configurations'][configuration_name]["spacing"] if \
         len(plans_dict_or_file['configurations'][configuration_name]["spacing"]) == \
@@ -109,7 +109,7 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
                                             target_shape,
                                             current_spacing,
                                             target_spacing,
-                                            **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_softmax_kwargs"])
+                                            **plans_dict_or_file['configurations'][configuration_name]["resampling_fn_probabilities_kwargs"])
 
     # create segmentation (argmax, regions, etc)
     label_manager = get_labelmanager(plans_dict_or_file, dataset_json_dict_or_file)
