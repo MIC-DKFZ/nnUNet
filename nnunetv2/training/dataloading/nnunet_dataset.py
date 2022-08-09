@@ -39,7 +39,7 @@ class nnUNetDataset(object):
         if case_identifiers is None:
             case_identifiers = get_case_identifiers(folder)
         case_identifiers.sort()
-        # we ned to use super().__getitem__ so that we don't end up in a recursion problem because of our custom
+        # we need to use super().__getitem__ so that we don't end up in a recursion problem because of our custom
         # implementation of __getitem__
         self.dataset = {}
         for c in case_identifiers:
@@ -76,20 +76,33 @@ class nnUNetDataset(object):
 
     def load_case(self, key):
         entry = self[key]
-        if isfile(entry['data_file'][:-4] + ".npy"):
+        if 'open_data_file' in entry.keys():
+            data = entry['open_data_file']
+            # print('using open data file')
+        elif isfile(entry['data_file'][:-4] + ".npy"):
             data = np.load(entry['data_file'][:-4] + ".npy", 'r')
+            self.dataset[key]['open_data_file'] = data
+            # print('saving open data file')
         else:
             data = np.load(entry['data_file'])['data']
-        if isfile(entry['data_file'][:-4] + "_seg.npy"):
+
+        if 'open_seg_file' in entry.keys():
+            seg = entry['open_seg_file']
+            # print('using open data file')
+        elif isfile(entry['data_file'][:-4] + "_seg.npy"):
             seg = np.load(entry['data_file'][:-4] + "_seg.npy", 'r')
+            self.dataset[key]['open_seg_file'] = seg
+            # print('saving open seg file')
         else:
             seg = np.load(entry['data_file'])['seg']
+
         if 'seg_from_prev_stage_file' in entry.keys():
             if isfile(entry['seg_from_prev_stage_file'][:-4] + ".npy"):
                 seg_prev = np.load(entry['seg_from_prev_stage_file'][:-4] + ".npy", 'r')
             else:
                 seg_prev = np.load(entry['seg_from_prev_stage_file'])['seg']
             seg = np.vstack((seg, seg_prev[None]))
+
         return data, seg, entry['properties']
 
 
