@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     file = join(nnUNet_results, 'customDecResults.csv')
     output_file = join(nnUNet_results, 'customDecResults_summary.csv')
-    folds = (0, )
+    folds = (0, 1, 2, 3, 4)
     configs = ("3d_fullres", "3d_lowres")
     txt = np.loadtxt(file, dtype=str, delimiter=',')
     num_folds = txt.shape[1] - 6

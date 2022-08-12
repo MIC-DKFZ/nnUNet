@@ -141,14 +141,6 @@ def find_best_configuration(dataset_name_or_id,
     allowed_trained_models = filter_available_models(deepcopy(allowed_trained_models), dataset_name_or_id)
 
     for m in allowed_trained_models:
-        # load the plans file to see whether the trained model should even exist. Some datasets dont have 3d_lowres
-        # for example and we don't want to crash in this case
-        plans = load_json(join(nnUNet_preprocessed, dataset_name, m['plans'] + '.json'))
-        if m['configuration'] not in plans['configurations'].keys():
-            print(f'{dataset_name}: The plans with identifier {m["plans"]} do not have the requested '
-                  f'configuration: {m["configuration"]}. Inspected plans file was:'
-                  f' {join(nnUNet_preprocessed, dataset_name, m["plans"] + ".json")}')
-            continue
         output_folder = get_output_folder(dataset_name_or_id, m['trainer'], m['plans'], m['configuration'], fold=None)
         if not isdir(output_folder) and strict:
             raise RuntimeError(f'{dataset_name}: The output folder of plans {m["plans"]} configuration '

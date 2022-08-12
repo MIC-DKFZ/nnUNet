@@ -148,7 +148,7 @@ class DC_and_CE_loss(nn.Module):
         dc_loss = self.dc(net_output, target_dice, loss_mask=mask) \
             if self.weight_dice != 0 else 0
         ce_loss = self.ce(net_output, target[:, 0].long()) \
-            if self.weight_ce != 0 and (self.ignore_label is not None and num_fg > 0) else 0
+            if self.weight_ce != 0 and (self.ignore_label is None or num_fg > 0) else 0
 
         result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         return result
