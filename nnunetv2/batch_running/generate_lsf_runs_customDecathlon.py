@@ -53,14 +53,14 @@ if __name__ == "__main__":
 
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = "-gpu num=1:j_exclusive=yes:mode=exclusive_process:gmem=1G"
+    gpu_requirements = "-gpu num=1:j_exclusive=yes:mode=exclusive_process:gmem=32G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh &&"
     train_command = 'nnUNetv2_train'
 
     folds = (0, 1, 2, 3, 4)
     use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
-    use_this = merge(use_this, configurations_3d_c_only)
+    # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
         'nnUNetTrainer': ('nnUNetPlans',),
