@@ -4,12 +4,12 @@ from typing import List, Union, Tuple
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, subfiles, \
-    maybe_mkdir_p, isdir
+    maybe_mkdir_p, isdir, save_pickle, load_pickle, isfile
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.utilities.label_handling.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import LabelManager, get_labelmanager
 
 
 def average_probabilities(list_of_files: List[str]) -> np.ndarray:
@@ -33,15 +33,15 @@ def merge_files(list_of_files,
                 image_reader_writer: BaseReaderWriter,
                 label_manager: LabelManager,
                 save_probabilities: bool = False):
-    raise NotImplementedError('check that we are getting a labelmanager')
     # load the pkl file associated with the first file in list_of_files
-    properties = np.load(list_of_files[0])['properties']
+    properties = load_pickle(list_of_files[0][:-4] + '.pkl')
     # load and average predictions
     probabilities = average_probabilities(list_of_files)
     segmentation = label_manager.convert_logits_to_segmentation(probabilities)
     image_reader_writer.write_seg(segmentation, output_filename_truncated + output_file_ending, properties)
     if save_probabilities:
-        np.savez_compressed(output_filename_truncated + '.npz', probabilities=probabilities, properties=properties)
+        np.savez_compressed(output_filename_truncated + '.npz', probabilities=probabilities)
+        save_pickle(probabilities, output_filename_truncated + '.pkl')
 
 
 def ensemble_folders(list_of_input_folders: List[str],
@@ -71,6 +71,7 @@ def ensemble_folders(list_of_input_folders: List[str],
     output_files_truncated = [join(output_folder, fi[:-4]) for fi in s]
 
     image_reader_writer = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+    label_manager = get_labelmanager(plans, dataset_json)
 
     maybe_mkdir_p(output_folder)
 
@@ -79,9 +80,11 @@ def ensemble_folders(list_of_input_folders: List[str],
     _ = pool.starmap(
         merge_files,
         zip(
-            lists_of_lists_of_files, output_files_truncated, [dataset_json['file_ending']] * num_preds,
-            [image_reader_writer] * num_preds, [dataset_json['labels']] * num_preds,
-            [dataset_json.get('regions_class_order')] * num_preds,
+            lists_of_lists_of_files,
+            output_files_truncated,
+            [dataset_json['file_ending']] * num_preds,
+            [image_reader_writer] * num_preds,
+            [label_manager] * num_preds,
             [save_merged_probabilities] * num_preds
         )
     )
@@ -92,7 +95,8 @@ def ensemble_folders(list_of_input_folders: List[str],
 def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
                               output_folder: str,
                               folds: Union[Tuple[int, ...], List[int]] = (0, 1, 2, 3, 4),
-                              num_processes: int = default_num_processes) -> None:
+                              num_processes: int = default_num_processes,
+                              overwrite: bool = True) -> None:
     """
     Feature: different configurations can now have different splits
     """
@@ -137,16 +141,22 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
                 # check for duplicates
                 assert fi not in file_mapping[-1].keys(), f"Duplicate detected. Case {fi} is present in more than " \
                                                           f"one fold of model {tr}."
-                file_mapping[-1][fi] = join(tr, f'fold_{f}', 'validation')
+                file_mapping[-1][fi] = join(tr, f'fold_{f}', 'validation', fi)
 
-    lists_of_lists_of_files = [[fm[i] for i in unique_filenames] for fm in file_mapping]
+    lists_of_lists_of_files = [[fm[i] for fm in file_mapping] for i in unique_filenames]
     output_files_truncated = [join(output_folder, fi[:-4]) for fi in unique_filenames]
 
     image_reader_writer = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
     maybe_mkdir_p(output_folder)
+    label_manager = get_labelmanager(plans, dataset_json)
+
+    if not overwrite:
+        tmp = [isfile(i + dataset_json['file_ending']) for i in output_files_truncated]
+        lists_of_lists_of_files = [lists_of_lists_of_files[i] for i in range(len(tmp)) if not tmp[i]]
+        output_files_truncated = [output_files_truncated[i] for i in range(len(tmp)) if not tmp[i]]
 
     pool = Pool(num_processes)
-    num_preds = len(unique_filenames)
+    num_preds = len(lists_of_lists_of_files)
     _ = pool.starmap(
         merge_files,
         zip(
@@ -154,8 +164,7 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
             output_files_truncated,
             [dataset_json['file_ending']] * num_preds,
             [image_reader_writer] * num_preds,
-            [dataset_json['labels']] * num_preds,
-            [dataset_json.get('regions_class_order')] * num_preds,
+            [label_manager] * num_preds,
             [False] * num_preds
         )
     )

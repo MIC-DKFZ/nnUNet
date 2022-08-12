@@ -1,5 +1,6 @@
 import os.path
 import shutil
+from copy import deepcopy
 
 from nnunetv2.configuration import default_num_processes
 from typing import Union, List, Tuple
@@ -8,6 +9,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
 
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, load_summary_json
+from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
     convert_identifier_to_trainer_plans_config
@@ -21,7 +23,7 @@ default_trained_models = tuple([
 ])
 
 
-def filter_available_models(model_dict: dict, dataset_name_or_id: Union[str, int]):
+def filter_available_models(model_dict: Union[List[dict], Tuple[dict, ...]], dataset_name_or_id: Union[str, int]):
     valid = []
     for trained_model in model_dict:
         plans = load_json(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id),
@@ -69,10 +71,13 @@ def accumulate_cv_results(trained_model_folder,
 
     dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
     plans = load_json(join(trained_model_folder, 'plans.json'))
+    rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
 
     did_we_copy_something = False
     for f in folds:
         expected_validation_folder = join(trained_model_folder, f'fold_{f}', 'validation')
+        if not isdir(expected_validation_folder):
+            raise RuntimeError(f"fold {f} of model {trained_model_folder} is missing. Please train it!")
         predicted_files = subfiles(expected_validation_folder, suffix=dataset_json['file_ending'], join=False)
         for pf in predicted_files:
             if overwrite and isfile(join(merged_output_folder, pf)):
@@ -83,10 +88,15 @@ def accumulate_cv_results(trained_model_folder,
 
     if did_we_copy_something or not isfile(join(merged_output_folder, 'summary.json')):
         label_manager = get_labelmanager(plans, dataset_json)
-        compute_metrics_on_folder(join(nnUNet_raw, 'labelsTr'), merged_output_folder, join(merged_output_folder, 'summary.json'),
-                                  plans['image_reader_writer'], dataset_json['file_ending'],
+        compute_metrics_on_folder(join(nnUNet_raw, plans['dataset_name'], 'labelsTr'),
+                                  merged_output_folder,
+                                  join(merged_output_folder, 'summary.json'),
+                                  rw,
+                                  dataset_json['file_ending'],
                                   label_manager.foreground_regions if label_manager.has_regions else
-                                  label_manager.foreground_labels, label_manager.ignore_label, num_processes)
+                                  label_manager.foreground_labels,
+                                  label_manager.ignore_label,
+                                  num_processes)
 
 
 def generate_inference_command(dataset_name_or_id: Union[int, str], configuration_name: str,
@@ -119,14 +129,30 @@ def generate_inference_command(dataset_name_or_id: Union[int, str], configuratio
 
 
 def find_best_configuration(dataset_name_or_id,
-                            allowed_trained_models: List[dict] = default_trained_models,
+                            allowed_trained_models: Union[List[dict], Tuple[dict, ...]] = default_trained_models,
                             allow_ensembling: bool = True,
                             num_processes: int = default_num_processes,
                             overwrite: bool = True,
-                            folds: Union[List[int], Tuple[int, ...]] = (0, 1, 2, 3, 4)):
+                            folds: Union[List[int], Tuple[int, ...]] = (0, 1, 2, 3, 4),
+                            strict: bool = False):
+    dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     all_results = {}
+
+    allowed_trained_models = filter_available_models(deepcopy(allowed_trained_models), dataset_name_or_id)
+
     for m in allowed_trained_models:
+        # load the plans file to see whether the trained model should even exist. Some datasets dont have 3d_lowres
+        # for example and we don't want to crash in this case
+        plans = load_json(join(nnUNet_preprocessed, dataset_name, m['plans'] + '.json'))
+        if m['configuration'] not in plans['configurations'].keys():
+            print(f'{dataset_name}: The plans with identifier {m["plans"]} do not have the requested '
+                  f'configuration: {m["configuration"]}. Inspected plans file was:'
+                  f' {join(nnUNet_preprocessed, dataset_name, m["plans"] + ".json")}')
+            continue
         output_folder = get_output_folder(dataset_name_or_id, m['trainer'], m['plans'], m['configuration'], fold=None)
+        if not isdir(output_folder) and strict:
+            raise RuntimeError(f'{dataset_name}: The output folder of plans {m["plans"]} configuration '
+                               f'{m["configuration"]} is missing. Please train the model (all requested folds!) first!')
         identifier = os.path.basename(output_folder)
         merged_output_folder = join(output_folder, f'crossval_results_folds_{folds_tuple_to_string(folds)}')
         accumulate_cv_results(output_folder, merged_output_folder, folds, num_processes, overwrite)
@@ -140,9 +166,26 @@ def find_best_configuration(dataset_name_or_id,
                 output_folder_2 = get_output_folder(dataset_name_or_id, m2['trainer'], m2['plans'], m2['configuration'], fold=None)
                 identifier = 'ensemble___' + os.path.basename(output_folder_1) + '___' + \
                               os.path.basename(output_folder_2) + '___' + folds_tuple_to_string(folds)
-                output_folder_ensemble = join(nnUNet_results, maybe_convert_to_dataset_name(dataset_name_or_id),
-                                              'ensembles', identifier)
-                ensemble_crossvalidations([output_folder_1, output_folder_2], output_folder_ensemble, folds, num_processes)
+                output_folder_ensemble = join(nnUNet_results, dataset_name, 'ensembles', identifier)
+                ensemble_crossvalidations([output_folder_1, output_folder_2], output_folder_ensemble, folds,
+                                          num_processes, overwrite=overwrite)
+
+                # evaluate ensembled predictions
+                plans = load_json(join(output_folder_1, 'plans.json'))
+                dataset_json = load_json(join(output_folder_1, 'dataset.json'))
+                label_manager = get_labelmanager(plans, dataset_json)
+                rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+
+                compute_metrics_on_folder(join(nnUNet_raw, dataset_name, 'labelsTr'),
+                                          output_folder_ensemble,
+                                          join(output_folder_ensemble, 'summary.json'),
+                                          rw,
+                                          dataset_json['file_ending'],
+                                          label_manager.foreground_regions if label_manager.has_regions else
+                                          label_manager.foreground_labels,
+                                          label_manager.ignore_label,
+                                          num_processes)
+
                 all_results[identifier] = load_summary_json(join(output_folder_ensemble, 'summary.json'))['foreground_mean']['Dice']
 
     # pick best and report inference command
@@ -153,7 +196,8 @@ def find_best_configuration(dataset_name_or_id,
     best_key = best_keys[0]
 
     print('All results:')
-    print(all_results)
+    for k, v in all_results.items():
+        print(f'{k}: {v}')
     print(f'\nBest: {best_key}: {all_results[best_key]}')
 
     # convert best key to inference command:
@@ -169,3 +213,12 @@ def find_best_configuration(dataset_name_or_id,
     else:
         tr, pl, c = convert_identifier_to_trainer_plans_config(best_key)
         print(generate_inference_command(dataset_name_or_id, c, pl, tr, folds))
+
+
+if __name__ == '__main__':
+    find_best_configuration(4,
+                            default_trained_models,
+                            True,
+                            8,
+                            False,
+                            (0, 1, 2, 3, 4))

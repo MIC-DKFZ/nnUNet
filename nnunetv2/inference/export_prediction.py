@@ -69,8 +69,8 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
         # $revert transpose
         probs_reverted_cropping = probs_reverted_cropping.transpose([0] + [i + 1 for i in
                                                                            plans_dict_or_file['transpose_backward']])
-        np.savez_compressed(output_file_truncated + '.npz', probabilities=probs_reverted_cropping, properties=properties_dict)
-        # save_pickle(properties_dict, output_file_truncated + '.pkl')
+        np.savez_compressed(output_file_truncated + '.npz', probabilities=probs_reverted_cropping)
+        save_pickle(properties_dict, output_file_truncated + '.pkl')
         del probs_reverted_cropping
     del predicted_array_or_file
 
