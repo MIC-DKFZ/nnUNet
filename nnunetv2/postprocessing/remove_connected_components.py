@@ -3,7 +3,8 @@ from multiprocessing import Pool
 from typing import Union, Tuple, List, Callable
 
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import load_json, subfiles, maybe_mkdir_p, join, isfile, isdir
+from batchgenerators.utilities.file_and_folder_operations import load_json, subfiles, maybe_mkdir_p, join, isfile, \
+    isdir, save_pickle, load_pickle
 
 from nnunetv2.evaluation.evaluate_predictions import region_or_label_to_mask, compute_metrics_on_folder, \
     load_summary_json
@@ -196,12 +197,64 @@ def determine_postprocessing(folder_predictions: str,
     return pp_fns, pp_fn_kwargs
 
 
+def apply_postprocessing_to_folder(input_folder: str,
+                                   output_folder: str,
+                                   pp_fns: List[Callable],
+                                   pp_fn_kwargs: List[dict],
+                                   plans_file_or_dict: Union[str, dict],
+                                   dataset_json_file_or_dict: Union[str, dict],
+                                   num_processes=8) -> None:
+    if not isinstance(plans_file_or_dict, dict):
+        plans = load_json(plans_file_or_dict)
+    else:
+        plans = plans_file_or_dict
+    if not isinstance(dataset_json_file_or_dict, dict):
+        dataset_json = load_json(dataset_json_file_or_dict)
+    else:
+        dataset_json = dataset_json_file_or_dict
+
+    rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+
+    maybe_mkdir_p(output_folder)
+    p = Pool(num_processes)
+    files = subfiles(input_folder, suffix=dataset_json['file_ending'], join=False)
+
+    _ = p.starmap(load_postprocess_save,
+                              zip(
+                                  [join(input_folder, i) for i in files],
+                                  [join(output_folder, i) for i in files],
+                                  [rw] * len(files),
+                                  [pp_fns] * len(files),
+                                  [pp_fn_kwargs] * len(files)
+                              )
+                        )
+    p.close()
+    p.join()
+
+
 if __name__ == '__main__':
     trained_model_folder = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetTrainer__nnUNetPlans__3d_fullres'
+    labelstr = join(nnUNet_raw, 'Dataset004_Hippocampus', 'labelsTr')
+    plans = load_json(join(trained_model_folder, 'plans.json'))
+    dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
     folds = (0, 1, 2, 3, 4)
-    merged_output_folder = join(trained_model_folder, f'crossval_results_folds_{folds_tuple_to_string(folds)}')
-    accumulate_cv_results(trained_model_folder, merged_output_folder, folds, 8, True)
+    label_manager = get_labelmanager(plans, dataset_json)
 
-    fns, kwargs = determine_postprocessing(merged_output_folder, join(nnUNet_raw, 'Dataset004_Hippocampus', 'labelsTr'),
-                             join(trained_model_folder, 'postprocessed'), join(trained_model_folder, 'plans.json'),
-                             join(trained_model_folder, 'dataset.json'), 8)
+    merged_output_folder = join(trained_model_folder, f'crossval_results_folds_{folds_tuple_to_string(folds)}')
+    accumulate_cv_results(trained_model_folder, merged_output_folder, folds, 8, False)
+
+    fns, kwargs = determine_postprocessing(merged_output_folder, labelstr,
+                                           join(trained_model_folder, 'postprocessed'), plans,
+                                           dataset_json, 8)
+    save_pickle((fns, kwargs), join(trained_model_folder, 'postprocessing.pkl'))
+    fns, kwargs = load_pickle(join(trained_model_folder, 'postprocessing.pkl'))
+
+    apply_postprocessing_to_folder(merged_output_folder, merged_output_folder + '_pp', fns, kwargs, plans, dataset_json, 8)
+    compute_metrics_on_folder(labelstr,
+                              merged_output_folder + '_pp',
+                              join(merged_output_folder + '_pp', 'summary.json'),
+                              recursive_find_reader_writer_by_name(plans["image_reader_writer"])(),
+                              dataset_json['file_ending'],
+                              label_manager.foreground_regions if label_manager.has_regions else label_manager.foreground_labels,
+                              label_manager.ignore_label,
+                              8)

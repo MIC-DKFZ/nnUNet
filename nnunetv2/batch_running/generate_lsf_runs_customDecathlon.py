@@ -58,12 +58,12 @@ if __name__ == "__main__":
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh &&"
     train_command = 'nnUNetv2_train'
 
-    folds = (0, 1, 2, 3, 4)
+    folds = (0, )
     use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetPlans',),
+        'nnUNetTrainer_switchToDiceep800': ('nnUNetPlans',),
     }
 
     additional_arguments = ''  # '' #  --disable_saving

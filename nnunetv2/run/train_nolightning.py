@@ -35,6 +35,9 @@ def nnUNet_train_from_args():
                         help='[OPTIONAL] Continue training from latest checkpoint')
     parser.add_argument('--val', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished.')
+    parser.add_argument('--disable_checkpointing', action='store_true', required=False,
+                        help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
+                             'you dont want to flood your hard drive with checkpoints.')
     args = parser.parse_args()
 
     # load nnunet class and do sanity checks
@@ -66,6 +69,9 @@ def nnUNet_train_from_args():
     dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
     nnunet_trainer = nnunet_trainer(plans=plans, configuration=args.configuration, fold=args.fold,
                                     dataset_json=dataset_json, unpack_dataset=not args.use_compressed)
+
+    if args.disable_checkpointing:
+        nnunet_trainer.disable_checkpointing = args.disable_checkpointing
 
     assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
 

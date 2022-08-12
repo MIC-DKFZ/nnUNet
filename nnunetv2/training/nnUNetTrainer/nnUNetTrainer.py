@@ -764,11 +764,9 @@ class nnUNetTrainer(object):
 
         # handling periodic checkpointing
         current_epoch = self.current_epoch
-        if not self.disable_checkpointing and \
-                (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
-        elif not self.disable_checkpointing and \
-                current_epoch == self.num_epochs - 1:
+        elif current_epoch == self.num_epochs - 1:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_final.pth'), )
             # delete latest checkpoint
             if isfile(join(self.output_folder, 'checkpoint_latest.pth')):
@@ -785,18 +783,21 @@ class nnUNetTrainer(object):
         self.current_epoch += 1
 
     def save_checkpoint(self, filename: str) -> None:
-        checkpoint = {
-            'network_weights': self.network.state_dict(),
-            'optimizer_state': self.optimizer.state_dict(),
-            'grad_scaler_state': self.grad_scaler.state_dict(),
-            'logging': self.logger.get_checkpoint(),
-            '_best_ema': self._best_ema,
-            'current_epoch': self.current_epoch + 1,
-            'init_args': self.my_init_kwargs,
-            'trainer_name': self.__class__.__name__,
-            'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
-        }
-        torch.save(checkpoint, filename)
+        if not self.disable_checkpointing:
+            checkpoint = {
+                'network_weights': self.network.state_dict(),
+                'optimizer_state': self.optimizer.state_dict(),
+                'grad_scaler_state': self.grad_scaler.state_dict(),
+                'logging': self.logger.get_checkpoint(),
+                '_best_ema': self._best_ema,
+                'current_epoch': self.current_epoch + 1,
+                'init_args': self.my_init_kwargs,
+                'trainer_name': self.__class__.__name__,
+                'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
+            }
+            torch.save(checkpoint, filename)
+        else:
+            self.print_to_log_file('No checkpoint written, checkpointing is disabled')
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         if isinstance(filename_or_checkpoint, str):
