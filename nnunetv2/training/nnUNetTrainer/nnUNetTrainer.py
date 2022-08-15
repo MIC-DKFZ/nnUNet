@@ -822,7 +822,7 @@ class nnUNetTrainer(object):
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
-    def perform_actual_validation(self, save_probabilities: bool = True):
+    def perform_actual_validation(self, save_probabilities: bool = False):
         self.network.decoder.deep_supervision = False
         num_seg_heads = self.label_manager.num_segmentation_heads
 

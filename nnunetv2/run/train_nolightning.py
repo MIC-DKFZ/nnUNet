@@ -83,8 +83,8 @@ def nnUNet_train_from_args():
         if not isfile(expected_checkpoint_file):
             expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
         if not isfile(expected_checkpoint_file):
-            raise RuntimeError(f"Cannot continue training because there seems to be no checkpoint available to "
-                               f"continue from. Please run without the --c flag.")
+            print(f"WARNING: Cannot continue training because there seems to be no checkpoint available to "
+                               f"continue from. Starting a new training...")
     elif args.val:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
@@ -102,7 +102,7 @@ def nnUNet_train_from_args():
     if not args.val:
         nnunet_trainer.run_training()
 
-    nnunet_trainer.perform_actual_validation()
+    nnunet_trainer.perform_actual_validation(args.npz)
 
 
 if __name__ == '__main__':
