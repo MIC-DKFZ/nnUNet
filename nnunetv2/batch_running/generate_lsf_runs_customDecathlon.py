@@ -66,7 +66,7 @@ if __name__ == "__main__":
         'nnUNetTrainer_switchToDiceep800': ('nnUNetPlans',),
     }
 
-    additional_arguments = ''  # '' #  --disable_saving
+    additional_arguments = '--disable_checkpointing'  # '' #  --disable_saving
 
     output_file = "/home/fabian/deleteme.txt"
     with open(output_file, 'w') as f:
