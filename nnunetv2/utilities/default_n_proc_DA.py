@@ -4,7 +4,7 @@ import os
 
 def get_allowed_n_proc_DA():
     """
-    This function is used to set the number of processes used on different Systemt. It is specific to our cluster
+    This function is used to set the number of processes used on different Systems. It is specific to our cluster
     infrastructure at DKFZ. You can modify it to suit your needs. Everything is allowed.
 
     IMPORTANT: if the environment variable nnUNet_n_proc_DA is set it will overwrite anything in this script
@@ -16,11 +16,11 @@ def get_allowed_n_proc_DA():
     systems and set the numbers accordingly. For example, a system with 4 GPUs and 48 threads can use 12 threads per
     GPU without overloading the CPU (technically 11 because we have a main process as well), so that's what we use.
     """
-    hostname = subprocess.getoutput(['hostname'])
 
     if 'nnUNet_n_proc_DA' in os.environ.keys():
         use_this = int(os.environ['nnUNet_n_proc_DA'])
     else:
+        hostname = subprocess.getoutput(['hostname'])
         if hostname.startswith('hdf19-gpu') or hostname.startswith('e071-gpu'):
             use_this = 12
         elif hostname in ['Fabian', ]:
