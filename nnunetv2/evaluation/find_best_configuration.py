@@ -238,8 +238,7 @@ def dumb_trainer_config_plans_to_trained_models_dict(trainers: List[str], config
 
 def find_best_configuration_entry_point():
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset_name_or_id', type=str, required=True,
-                        help='Dataset Name or id')
+    parser.add_argument('dataset_name_or_id', type=str, help='Dataset Name or id')
     parser.add_argument('-p', nargs='+', required=False, default=['nnUNetPlans'],
                         help='List of plan identifiers. Default: nnUNetPlans')
     parser.add_argument('-c', nargs='+', required=False, default=['2d', '3d_fullres', '3d_lowres', '3d_cascade_fullres'],
