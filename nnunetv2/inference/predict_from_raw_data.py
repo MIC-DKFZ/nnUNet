@@ -1,5 +1,8 @@
+import inspect
 import os
+import shutil
 import traceback
+from copy import deepcopy
 from multiprocessing import Pool
 from typing import Tuple, Union, List
 
@@ -8,7 +11,8 @@ import torch
 from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs, \
+    save_json
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction
@@ -17,6 +21,7 @@ from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPre
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, convert_labelmap_to_one_hot
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
@@ -78,6 +83,15 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           folder_with_segs_from_prev_stage: str = None,
                           num_parts: int = 1,
                           part_id: int = 0):
+    # let's store the input arguments so that its clear what was used to generate the prediction
+    my_init_kwargs = {}
+    for k in inspect.signature(predict_from_raw_data).parameters.keys():
+        my_init_kwargs[k] = locals()[k]
+    my_init_kwargs = deepcopy(my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
+    # safety precaution.
+    recursive_fix_for_json_export(my_init_kwargs)
+    save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
+
     # we could also load plans and dataset_json from the init arguments in the checkpoint but then would still have to
     # load the fingerprint from file. Not quite sure what is the best method so we leave things as they are for the
     # moment.
@@ -277,6 +291,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     [i.get() for i in r]
     export_pool.close()
     export_pool.join()
+
+    # we need these two if we want to do things with the predictions like for example apply postprocessing
+    shutil.copy(join(model_training_output_dir, 'dataset.json'), join(output_folder, 'dataset.json'))
+    shutil.copy(join(model_training_output_dir, 'plans.json'), join(output_folder, 'plans.json'))
 
 
 def predict_entry_point_modelfolder():
