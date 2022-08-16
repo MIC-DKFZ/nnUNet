@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import torch
 from typing import Union, Tuple, List
@@ -128,7 +130,11 @@ def predict_sliding_window_return_logits(network: nn.Module,
         if verbose: print("mirror_axes:", mirror_axes)
 
         if not isinstance(input_image, torch.Tensor):
-            input_image = torch.from_numpy(input_image)
+            # pytorch will warn about the numpy array not being writable. This doesnt matter though because we
+            # just want to read it. Suppress the warning in order to not confuse users...
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                input_image = torch.from_numpy(input_image)
 
         # if input_image is smaller than tile_size we need to pad it to tile_size.
         data, slicer_revert_padding = pad_nd_image(input_image, tile_size, 'constant', {'value': 0}, True, None)
