@@ -1,3 +1,4 @@
+import argparse
 import os.path
 import shutil
 from copy import deepcopy
@@ -205,6 +206,47 @@ def find_best_configuration(dataset_name_or_id,
     else:
         tr, pl, c = convert_identifier_to_trainer_plans_config(best_key)
         print(generate_inference_command(dataset_name_or_id, c, pl, tr, folds))
+
+
+def dumb_trainer_config_plans_to_trained_models_dict(trainers: List[str], configs: List[str], plans: List[str]):
+    ret = []
+    for t in trainers:
+        for c in configs:
+            for p in plans:
+                ret.append(
+                    {'plans': p, 'configuration': c, 'trainer': t}
+                )
+    return tuple(ret)
+
+
+def find_best_configuration_entry_point():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset_name_or_id', type=str, required=True,
+                        help='Dataset Name or id')
+    parser.add_argument('-p', nargs='+', required=False, default=['nnUNetPlans'],
+                        help='List of plan identifiers. Default: nnUNetPlans')
+    parser.add_argument('-c', nargs='+', required=False, default=['2d', '3d_fullres', '3d_lowres', '3d_cascade_fullres'],
+                        help="List of configurations. Default: ['2d', '3d_fullres', '3d_lowres', '3d_cascade_fullres']")
+    parser.add_argument('-tr', nargs='+', required=False, default=['nnUNetTrainer'],
+                        help='List of trainers. Default: nnUNetTrainer')
+    parser.add_argument('-np', required=False, default=default_num_processes, type=int,
+                        help='Number of processes to use for ensembling, postprocessing etc')
+    parser.add_argument('-f', nargs='+', type=int, default=(0, 1, 2, 3, 4),
+                        help='Folds to use. Default: 0 1 2 3 4')
+    parser.add_argument('--disable_ensembling', action='store_true', required=False,
+                        help='Set this flag to disable ensembling')
+    parser.add_argument('--no_overwrite', action='store_true',
+                        help='If set we will not overwrite already ensembled files etc. May speed up concecutive '
+                             'runs of this command (why would oyu want to do that?) at the risk of not updating '
+                             'outdated results.')
+    args = parser.parse_args()
+
+    model_dict = dumb_trainer_config_plans_to_trained_models_dict(args.tr, args.c, args.p)
+    dataset_name = maybe_convert_to_dataset_name(args.dataset_name_or_id)
+
+    find_best_configuration(dataset_name, model_dict, allow_ensembling=not args.disable_ensembling,
+                            num_processes=args.np, overwrite=not args.no_overwrite, folds=args.f,
+                            strict=False)
 
 
 if __name__ == '__main__':

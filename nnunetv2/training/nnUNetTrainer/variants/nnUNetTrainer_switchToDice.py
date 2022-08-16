@@ -33,9 +33,9 @@ class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
     def on_epoch_end(self):
         super().on_epoch_end()
         if self.current_epoch == 800:
-            self.build_loss_no_ce()
+            self.loss = self.build_loss_no_ce()
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         super().load_checkpoint(filename_or_checkpoint)
         if self.current_epoch >= 800:
-            self.build_loss_no_ce()
+            self.loss = self.build_loss_no_ce()
