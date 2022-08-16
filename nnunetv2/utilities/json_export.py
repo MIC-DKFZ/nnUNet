@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import numpy as np
 
 
@@ -30,14 +32,23 @@ def recursive_fix_for_json_export(my_dict: dict):
 
 
 def fix_types_iterable(iterable, output_type):
+    # this sh!t is hacky as hell and will break if you use it for anything outside nnunet. Keep you hands off of this.
     out = []
     for i in iterable:
         if type(i) in (np.int64, np.int32, np.int8, np.uint8):
             out.append(int(i))
+        elif isinstance(i, dict):
+            recursive_fix_for_json_export(i)
+            out.append(i)
         elif type(i) in (np.float32, np.float64, np.float16):
             out.append(float(i))
         elif type(i) in (np.bool_,):
             out.append(bool(i))
+        elif isinstance(i, str):
+            out.append(i)
+        elif isinstance(i, Iterable):
+            print('recursive call on', i, type(i))
+            out.append(fix_types_iterable(i, type(i)))
         else:
             out.append(i)
     return output_type(out)

@@ -73,6 +73,8 @@ def accumulate_cv_results(trained_model_folder,
     dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
     plans = load_json(join(trained_model_folder, 'plans.json'))
     rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+    shutil.copy(join(trained_model_folder, 'dataset.json'), join(merged_output_folder, 'dataset.json'))
+    shutil.copy(join(trained_model_folder, 'plans.json'), join(merged_output_folder, 'plans.json'))
 
     did_we_copy_something = False
     for f in folds:
@@ -149,7 +151,10 @@ def find_best_configuration(dataset_name_or_id,
         identifier = os.path.basename(output_folder)
         merged_output_folder = join(output_folder, f'crossval_results_folds_{folds_tuple_to_string(folds)}')
         accumulate_cv_results(output_folder, merged_output_folder, folds, num_processes, overwrite)
-        all_results[identifier] = load_summary_json(join(merged_output_folder, 'summary.json'))['foreground_mean']['Dice']
+        all_results[identifier] = {
+            'source': merged_output_folder,
+            'result': load_summary_json(join(merged_output_folder, 'summary.json'))['foreground_mean']['Dice']
+        }
 
     if allow_ensembling:
         for i in range(len(allowed_trained_models)):
@@ -178,12 +183,15 @@ def find_best_configuration(dataset_name_or_id,
                                           label_manager.foreground_labels,
                                           label_manager.ignore_label,
                                           num_processes)
-
-                all_results[identifier] = load_summary_json(join(output_folder_ensemble, 'summary.json'))['foreground_mean']['Dice']
+                all_results[identifier] = \
+                    {
+                    'source': output_folder_ensemble,
+                    'result': load_summary_json(join(output_folder_ensemble, 'summary.json'))['foreground_mean']['Dice']
+                    }
 
     # pick best and report inference command
-    best_score = max(all_results.values())
-    best_keys = [k for k in all_results.keys() if all_results[k] == best_score]  # may never happen but theoretically
+    best_score = max([i['result'] for i in all_results.values()])
+    best_keys = [k for k in all_results.keys() if all_results[k]['result'] == best_score]  # may never happen but theoretically
     # there can be a tie. Let's pick the first model in this case because it's going to be the simpler one (ensembles
     # come after single configs)
     best_key = best_keys[0]
@@ -191,10 +199,13 @@ def find_best_configuration(dataset_name_or_id,
     print('All results:')
     for k, v in all_results.items():
         print(f'{k}: {v}')
-    print(f'\nBest: {best_key}: {all_results[best_key]}')
+    print(f'\nBest: {best_key}: {all_results[best_key]["result"]}')
+
+    print('You should now run nnUNetv2_determine_postprocessing:')
+    print(f"nnUNetv2_determine_postprocessing -i {all_results[best_key]['source']} -ref {join(nnUNet_raw, dataset_name, 'labelsTr')} -np {num_processes}")
 
     # convert best key to inference command:
-    print('\nUse this for inference:')
+    print('\nAfter that you can use this for inference:')
     if best_key.startswith('ensemble___'):
         print('An ensemble won! What a surprise!')
         prefix, m1, m2 = best_key.split('___')
@@ -202,10 +213,16 @@ def find_best_configuration(dataset_name_or_id,
         tr2, pl2, c2 = convert_identifier_to_trainer_plans_config(m1)
         print(generate_inference_command(dataset_name_or_id, c1, pl1, tr1, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_1'))
         print(generate_inference_command(dataset_name_or_id, c2, pl2, tr2, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_2'))
-        raise RuntimeError('nnUNetv2_ensemble not yet implemented. Fabian wtf!?')
+        print('Now run ensembling with:')
+        print(f"nnUNetv2_ensemble -i OUTPUT_FOLDER_MODEL_1 OUTPUT_FOLDER_MODEL_2 -o OUTPUT_FOLDER_PP "
+              f"-np {default_num_processes}")
     else:
         tr, pl, c = convert_identifier_to_trainer_plans_config(best_key)
         print(generate_inference_command(dataset_name_or_id, c, pl, tr, folds))
+
+    print("Then apply the postprocessing with")
+    print(f"nnUNetv2_apply_postprocessing -i OUTPUT_FOLDER -o OUTPUT_FOLDER_PP "
+          f"-pp_pkl_file {join(all_results[best_key]['source'], 'postprocessing.pkl')} -np {num_processes}")
 
 
 def dumb_trainer_config_plans_to_trained_models_dict(trainers: List[str], configs: List[str], plans: List[str]):

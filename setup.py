@@ -39,6 +39,10 @@ setup(name='nnunetv2',
               'nnUNetv2_predict = nnunetv2.inference.predict_from_raw_data:predict_entry_point',
               'nnUNetv2_convert_old_nnUNet_dataset = nnunetv2.dataset_conversion.convert_raw_dataset_from_old_nnunet_format:convert_entry_point',
               'nnUNetv2_find_best_configuration = nnunetv2.evaluation.find_best_configuration:find_best_configuration_entry_point',
+              'nnUNetv2_determine_postprocessing = nnunetv2.postprocessing.remove_connected_components:entry_point_determine_postprocessing_folder',
+              'nnUNetv2_apply_postprocessing = nnunetv2.postprocessing.remove_connected_components:entry_point_apply_postprocessing',
+              'nnUNetv2_ensemble = nnunetv2.ensembling.ensemble:entry_point_ensemble_folders'
+
           ],
       },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',

@@ -1,3 +1,4 @@
+import argparse
 from copy import deepcopy
 from multiprocessing import Pool
 from typing import List, Union, Tuple
@@ -90,6 +91,20 @@ def ensemble_folders(list_of_input_folders: List[str],
     )
     pool.close()
     pool.join()
+
+
+def entry_point_ensemble_folders():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', nargs='+', type=str, required=True,
+                        help='list of input folders')
+    parser.add_argument('-o', type=str, required=True, help='output folder')
+    parser.add_argument('-np', type=int, required=False, default=default_num_processes,
+                        help=f"Numbers of processes used for ensembling. Default: {default_num_processes}")
+    parser.add_argument('--save_npz', action='store_true', required=False, help='Set this flag to store output '
+                                                                                'probabilities in separate .npz files')
+
+    args = parser.parse_args()
+    ensemble_folders(args.i, args.o, args.save_npz, args.np)
 
 
 def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
