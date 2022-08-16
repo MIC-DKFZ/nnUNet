@@ -34,6 +34,7 @@ class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
         super().on_epoch_end()
         if self.current_epoch == 800:
             self.loss = self.build_loss_no_ce()
+            self.print_to_log_file(f'Switched to Dice Loss only! {self.loss}, {self.loss.loss.weight_ce}')
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         super().load_checkpoint(filename_or_checkpoint)
