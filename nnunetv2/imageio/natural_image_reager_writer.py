@@ -27,8 +27,8 @@ class NaturalImage2DIO(BaseReaderWriter):
     # there are surely more we could add here. Everything that can be read by skimage.io should be supported
     supported_file_endings = [
         '.png',
-        '.jpg',
-        '.jpeg',
+        # '.jpg',
+        # '.jpeg', # jpg not supported because we cannot allow lossy compression! segmentation maps!
         '.bmp',
         'tif'
     ]
@@ -40,10 +40,11 @@ class NaturalImage2DIO(BaseReaderWriter):
             if len(npy_img.shape) == 3:
                 # rgb image, last dimension should be the color channel and the size of that channel should be 3
                 # (or 4 if we have alpha)
-                assert npy_img.shape[-1] == 3 or npy_img.shape[-1] == 4, "If image is 3d then the last dimension must " \
-                                                                         "have shape 3 or 4 (RGB or RGBA)"
+                assert npy_img.shape[-1] == 3 or npy_img.shape[-1] == 4, "If image has three dimensions then the last " \
+                                                                         "dimension must have shape 3 or 4 " \
+                                                                         f"(RGB or RGBA). Image shape here is {npy_img.shape}"
                 # move RGB(A) to front, add additional dim so that we have shape (1, c, X, Y), where c is either 3 or 4
-                images.append(npy_img.transpose((2, 0, 1))[None])
+                images.append(npy_img.transpose((2, 0, 1))[:, None])
             elif len(npy_img.shape) == 2:
                 # grayscale image
                 images.append(npy_img[None, None])
@@ -62,3 +63,11 @@ class NaturalImage2DIO(BaseReaderWriter):
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         io.imsave(output_fname, seg[0].astype(np.uint8))
+
+
+if __name__ == '__main__':
+    images = ('/media/fabian/data/nnUNet_raw/Dataset120_RoadSegmentation/imagesTr/img-11_0000.png',)
+    segmentation = '/media/fabian/data/nnUNet_raw/Dataset120_RoadSegmentation/labelsTr/img-11.png'
+    imgio = NaturalImage2DIO()
+    img, props = imgio.read_images(images)
+    seg, segprops = imgio.read_seg(segmentation)

@@ -55,6 +55,12 @@ class BaseReaderWriter(ABC):
         if the array has shape c,x,y,z and the spacing is (a,b,c) then a must be the spacing of x, b the spacing of y
         and c the spacing of z.
 
+        In the case of 2D images, the returned array should have shape (c, 1, x, y) and the spacing should be
+        (999, sp_x, sp_y). Make sure 999 is larger than sp_x and sp_y! Example: shape=(3, 1, 224, 224),
+        spacing=(999, 1, 1)
+
+        For images that don't have a spacing, set the spacing to 1 (2d exception applies!)
+
         :param image_fnames:
         :return:
         """
@@ -78,8 +84,12 @@ class BaseReaderWriter(ABC):
         Export the predicted segmentation to the desired file format. The given seg array will have the same shape and
         orientation as the corresponding image data, so you don't need to do any resampling or whatever. Just save :-)
 
+        properties is the same dictionary you created during read_images/read_seg so you can use the information here
+        to restore metadata
+
         IMPORTANT: Segmentations are always 3D! If your input images were 2d then the segmentation will have shape
-        1,x,y. You need to catch that when exporting!
+        1,x,y. You need to catch that and export accordingly (for 2d images you need to convert the 3d segmentation
+        to 2d via seg = seg[0])!
 
         :param seg:
         :param output_fname:

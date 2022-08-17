@@ -47,7 +47,7 @@ def fix_types_iterable(iterable, output_type):
         elif isinstance(i, str):
             out.append(i)
         elif isinstance(i, Iterable):
-            print('recursive call on', i, type(i))
+            # print('recursive call on', i, type(i))
             out.append(fix_types_iterable(i, type(i)))
         else:
             out.append(i)

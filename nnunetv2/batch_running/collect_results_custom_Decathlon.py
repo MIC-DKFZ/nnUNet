@@ -94,6 +94,7 @@ if __name__ == '__main__':
         'nnUNetModule': ('nnUNetPlans', ),  # lightning variant
         'nnUNetTrainer': ('nnUNetPlans', ),  # my trainer
         'nnUNetTrainer_switchToDiceep800': ('nnUNetPlans',),
+        'nnUNetTrainer_switchToDiceep100': ('nnUNetPlans',),
     }
     all_results_file = join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]

@@ -403,7 +403,7 @@ class ExperimentPlanner(object):
         approximate_n_voxels_dataset = float(np.prod(new_median_shape_transposed, dtype=np.float64) *
                                              self.dataset_json['numTraining'])
         # only run 3d if this is a 3d dataset
-        if new_median_shape_transposed.shape[0] != 1:
+        if new_median_shape_transposed[0] != 1:
             plan_3d_fullres = self.get_plans_for_configuration(fullres_spacing_transposed,
                                                                new_median_shape_transposed,
                                                                '3d_fullres',
