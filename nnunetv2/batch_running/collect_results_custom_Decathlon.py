@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 
@@ -6,22 +8,17 @@ from nnunetv2.paths import nnUNet_results
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name, convert_dataset_name_to_id
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 
-if __name__ == '__main__':
-    use_these_modules = {
-        'nnUNetModule': ('nnUNetPlans', ),  # lightning variant
-        'nnUNetTrainer': ('nnUNetPlans', ),  # my trainer
-    }
 
+def collect_results(trainers: dict, datasets: List, output_file: str):
     results_dirs = (nnUNet_results, )
-    datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82, 83]
     datasets_names = [maybe_convert_to_dataset_name(i) for i in datasets]
     configurations = ("2d", "3d_fullres", "3d_lowres", "3d_cascade_fullres")
     folds = tuple(np.arange(5))
-    with open(join(nnUNet_results, 'customDecResults.csv'), 'w') as f:
+    with open(output_file, 'w') as f:
         for i, d in zip(datasets, datasets_names):
             for c in configurations:
-                for module in use_these_modules.keys():
-                    for plans in use_these_modules[module]:
+                for module in trainers.keys():
+                    for plans in trainers[module]:
                         for r in results_dirs:
                             expected_output_folder = get_output_folder(d, module, plans, c)
                             if isdir(expected_output_folder):
@@ -39,11 +36,9 @@ if __name__ == '__main__':
                                         f.write(",%02.4f" % foreground_mean)
                                 f.write(",%02.4f\n" % np.mean(results_folds))
 
-    file = join(nnUNet_results, 'customDecResults.csv')
-    output_file = join(nnUNet_results, 'customDecResults_summary.csv')
-    folds = (0, 1, 2, 3, 4)
-    configs = ("3d_fullres", "3d_lowres")
-    txt = np.loadtxt(file, dtype=str, delimiter=',')
+
+def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[str, ...], datasets, trainers):
+    txt = np.loadtxt(input_file, dtype=str, delimiter=',')
     num_folds = txt.shape[1] - 6
     valid_configs = {}
     for d in datasets:
@@ -60,9 +55,9 @@ if __name__ == '__main__':
                 f.write(",%d_%s" % (convert_dataset_name_to_id(d), c[:4]))
         f.write(',mean\n')
         valid_entries = txt[:, 4] == nnUNet_results
-        for t in use_these_modules.keys():
+        for t in trainers.keys():
             trainer_locs = valid_entries & (txt[:, 2] == t)
-            for pl in use_these_modules[t]:
+            for pl in trainers[t]:
                 f.write("%s__%s" % (t, pl))
                 trainer_plan_locs = trainer_locs & (txt[:, 3] == pl)
                 r = []
@@ -92,3 +87,25 @@ if __name__ == '__main__':
                             f.write(",nan")
                             r.append(np.nan)
                 f.write(",%02.4f\n" % np.mean(r))
+
+
+if __name__ == '__main__':
+    use_these_trainers = {
+        'nnUNetModule': ('nnUNetPlans', ),  # lightning variant
+        'nnUNetTrainer': ('nnUNetPlans', ),  # my trainer
+        'nnUNetTrainer_switchToDiceep800': ('nnUNetPlans',),
+    }
+    all_results_file = join(nnUNet_results, 'customDecResults.csv')
+    datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
+    collect_results(use_these_trainers, datasets, all_results_file)
+
+    folds = (0, 1, 2, 3, 4)
+    configs = ("3d_fullres", "3d_lowres")
+    output_file = join(nnUNet_results, 'customDecResults_summary5fold.csv')
+    summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
+
+    folds = (0, )
+    configs = ("3d_fullres", "3d_lowres")
+    output_file = join(nnUNet_results, 'customDecResults_summaryfold0.csv')
+    summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
+

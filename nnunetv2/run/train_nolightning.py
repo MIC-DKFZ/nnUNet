@@ -6,9 +6,12 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
+import os
 
 
 def nnUNet_train_from_args():
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_name_or_id', type=str,

@@ -7,6 +7,11 @@ import numpy as np
 
 
 class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda:0'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.switch_epoch = 800
+
     def build_loss_no_ce(self):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
@@ -32,11 +37,18 @@ class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
 
     def on_epoch_end(self):
         super().on_epoch_end()
-        if self.current_epoch == 800:
+        if self.current_epoch == self.switch_epoch:
             self.loss = self.build_loss_no_ce()
             self.print_to_log_file(f'Switched to Dice Loss only! {self.loss}, {self.loss.loss.weight_ce}')
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         super().load_checkpoint(filename_or_checkpoint)
-        if self.current_epoch >= 800:
+        if self.current_epoch >= self.switch_epoch:
             self.loss = self.build_loss_no_ce()
+
+
+class nnUNetTrainer_switchToDiceep100(nnUNetTrainer_switchToDiceep800):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda:0'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.switch_epoch = 100
