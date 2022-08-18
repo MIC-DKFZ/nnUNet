@@ -63,7 +63,8 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer_switchToDiceep100noSmooth': ('nnUNetPlans',),
+        'nnUNetTrainer_DiceUseClip_noSmooth': ('nnUNetPlans',),
+        'nnUNetTrainer_DiceUseClip': ('nnUNetPlans',),
     }
 
     additional_arguments = '--disable_checkpointing'  # ''
