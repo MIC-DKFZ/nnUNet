@@ -8,7 +8,10 @@ nnUNetv2 depends on acvl_utils which is located on the Helmholtz GitLab. You nee
 [log in](https://gitlab.hzdr.de/users/sign_in?redirect_to_referer=yes) there once with your AD credentials, then 
 contact me to get access!
 
-Clone acvl_utils and then isntall with `pip install -e .`
+Clone [acvl_utils](https://gitlab.hzdr.de/hi-dkfz/applied-computer-vision-lab/tools/acvl_utils) and then install
+with `pip install -e .`
+
+Ah and the same applies to [dynamic-network-architectures](https://gitlab.hzdr.de/hi-dkfz/applied-computer-vision-lab/tools/dynamic-network-architectures).
 
 Then checkout the nnunet repository from phabricator
 - http: https://phabricator.mitk.org/source/nnunet.git
