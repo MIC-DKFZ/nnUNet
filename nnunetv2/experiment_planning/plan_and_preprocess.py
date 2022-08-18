@@ -265,5 +265,6 @@ def plan_and_preprocess():
             maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
             [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
 
+
 if __name__ == '__main__':
     plan_and_preprocess()

@@ -114,8 +114,7 @@ If you set `export nnUNet_raw=[...]E132-Rohdaten/nnUNetv2` then you can just use
 
 # List of major new features (no particular order)
 - No longer explicitly crops the raw data during planning and preprocessing. Saving some space
-- Explicit separation of fingerprint extraction, experiment planning and preprocesing (not yet exposed, but it's 
-there I promise)
+- Explicit separation of fingerprint extraction, experiment planning and preprocessing. See `nnUNetv2_extract_fingerprint`, `nnUNetv2_plan_experiment` and `nnUNetv2_preprocess` 
 - Region based training (as in BraTS) is now natively supported
 - We now support an ignore label. Name one of your labels 'ignore' to unlock this achievement
 - Multiple input and output file formats are now supported:
@@ -125,7 +124,7 @@ there I promise)
   - (planned, Karol): HDF5, Zarr
   - (we still need the _0000 channel identifiers. Sorry.)
 - you can now specify certain configurations (spacing, normalization, preprocessor) in the plans and then just 
-preprocess them (no need to create custom experiment planners for everything). This feature is not yet exposed.
+preprocess them (no need to create custom experiment planners for everything). see `nnUNetv2_preprocess`
 - you can swap out resampling functions for data, segmentation and probabilities (see plans file)
 - cascade stage linking is now part of the plans and can be modified
 - one lowres configuration can be linked to multiple fullres configurations
