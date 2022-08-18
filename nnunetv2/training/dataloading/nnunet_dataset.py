@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 import numpy as np
@@ -53,6 +54,10 @@ class nnUNetDataset(object):
             for i in self.dataset.keys():
                 self.dataset[i]['properties'] = load_pickle(self.dataset[i]['properties_file'])
 
+        self.keep_files_open = ('nnUNet_keep_files_open' in os.environ.keys()) and \
+                               (os.environ['nnUNet_keep_files_open'].lower() in ('true', '1', 't'))
+        print(f'nnUNetDataset.keep_files_open: {self.keep_files_open}')
+
     def __getitem__(self, key):
         ret = {**self.dataset[key]}
         if 'properties' not in ret.keys():
@@ -81,8 +86,9 @@ class nnUNetDataset(object):
             # print('using open data file')
         elif isfile(entry['data_file'][:-4] + ".npy"):
             data = np.load(entry['data_file'][:-4] + ".npy", 'r')
-            self.dataset[key]['open_data_file'] = data
-            # print('saving open data file')
+            if self.keep_files_open:
+                self.dataset[key]['open_data_file'] = data
+                # print('saving open data file')
         else:
             data = np.load(entry['data_file'])['data']
 
@@ -91,8 +97,9 @@ class nnUNetDataset(object):
             # print('using open data file')
         elif isfile(entry['data_file'][:-4] + "_seg.npy"):
             seg = np.load(entry['data_file'][:-4] + "_seg.npy", 'r')
-            self.dataset[key]['open_seg_file'] = seg
-            # print('saving open seg file')
+            if self.keep_files_open:
+                self.dataset[key]['open_seg_file'] = seg
+                # print('saving open seg file')
         else:
             seg = np.load(entry['data_file'])['seg']
 

@@ -19,9 +19,15 @@ Then checkout the nnunet repository from phabricator
 
 Checkout the `nnunet_remake` branch. Pull and install with `pip install -e .`
 
-IMPORTANT: Right now nnU-Net opens a lot of file handles! Make sure you increase your ulimit!
-`ulimit -n` gives your current limit. It should not be 1024. 65535 wroks for me. 
-[Link](https://kupczynski.info/posts/ubuntu-18-10-ulimits/) (works for Ubuntu 18, google for your Ubuntu version!)
+IMPORTANT: Some datasets can be really slow if files from the training dataset are being opened over and over again. 
+This only affects datasets with very high batch size, such as a 2d training of Hippocampus. Here, ~10k files are 
+opened and closed per second. No, this is not a nnU-Net-specific problem.
+You can circumvent this by setting `export nnUNet_keep_files_open=True` in your .bashrc. 
+BUT you need to have permission to open sufficient files!
+`ulimit -n` gives your current limit. It should not be 1024. 65535 works for me. See here how to change these limits:
+[Link](https://kupczynski.info/posts/ubuntu-18-10-ulimits/) (works for Ubuntu 18, google for your Ubuntu version!).
+
+Increasing the number of open file handles does not affect 99% of training, so it's optional.
 
 # Set up paths
 Paths are called differently now!
