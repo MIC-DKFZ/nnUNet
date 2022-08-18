@@ -100,6 +100,9 @@ There are some sample datasets in `E132-Rohdaten/nnUNetv2` that you can use for 
 - `Dataset997_sparseLiver`: training nnU-Net from scribbles. This was just an experiment, but a fun one. Toy dataset 
 with just one training image (replicated 5 times).
 
+If you set `export nnUNet_raw=[...]E132-Rohdaten/nnUNetv2` then you can just use the raw data located there. No need to copy.
+
+
 # List of major new features (no particular order)
 - No longer explicitly crops the raw data during planning and preprocessing. Saving some space
 - Explicit separation of fingerprint extraction, experiment planning and preprocesing (not yet exposed, but it's 
