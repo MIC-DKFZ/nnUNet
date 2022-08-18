@@ -62,7 +62,7 @@ class NaturalImage2DIO(BaseReaderWriter):
         return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
-        io.imsave(output_fname, seg[0].astype(np.uint8))
+        io.imsave(output_fname, seg[0].astype(np.uint8), check_contrast=False)
 
 
 if __name__ == '__main__':
