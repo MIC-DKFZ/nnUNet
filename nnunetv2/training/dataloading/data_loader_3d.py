@@ -16,6 +16,7 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
             # (Lung for example)
             force_fg = self.get_do_oversample(j)
+
             data, seg, properties = self._data.load_case(i)
 
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
