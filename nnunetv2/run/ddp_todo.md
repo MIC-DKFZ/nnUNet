@@ -1,17 +1,11 @@
 verify all ranks have the same initial parameters
 
-dice loss needs all_gather
-
-checkpoint save fix key dicts (network.)
-
-
-verify that all_reduce does not increase gradient magnitude too much. Maybe divide result by world size
-(average instead of sum)?
-
-
 save debug information? 
 
+dist.get_rank() instead of using local_rank in trainer? -> yes!
 
-dist.get_rank()
-
-checkpoint loading before or after DDP?
+evaluate all_gather variants
+https://discuss.pytorch.org/t/do-gradients-propagate-through-all-reduce-all-gather/159572
+https://discuss.pytorch.org/t/will-dist-all-gather-break-the-auto-gradient-graph/47350/6
+awesome_allgather_function
+https://github.com/vlkit/vlkit/blob/master/vlkit/ops/distributed.py#L4-L25

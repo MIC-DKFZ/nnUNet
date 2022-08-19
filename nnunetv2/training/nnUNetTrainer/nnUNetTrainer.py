@@ -908,7 +908,7 @@ class nnUNetTrainer(object):
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         if isinstance(filename_or_checkpoint, str):
-            checkpoint = torch.load(filename_or_checkpoint, map_location=torch.device('cpu'))
+            checkpoint = torch.load(filename_or_checkpoint, map_location=self.device)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
@@ -925,7 +925,10 @@ class nnUNetTrainer(object):
         self.inference_allowed_mirroring_axes = checkpoint[
             'inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
 
-        self.network.load_state_dict(new_state_dict)
+        if self.is_ddp:
+            self.network.module.load_state_dict(new_state_dict)
+        else:
+            self.network.load_state_dict(new_state_dict)
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
