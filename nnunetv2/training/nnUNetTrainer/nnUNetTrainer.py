@@ -63,7 +63,7 @@ import matplotlib.pyplot as plt
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0'):
+                 device: str = 'cuda:0', local_rank: int = 0, is_ddp: bool = False):
         # From https://grugbrain.dev/. Worth a read ya filthy big brains ;-)
 
         # apex predator of grug is complexity
@@ -76,6 +76,9 @@ class nnUNetTrainer(object):
         # complexity is spirit demon that enter codebase through well-meaning but ultimately very clubbable non grug-brain developers and project managers who not fear complexity spirit demon or even know about sometime
         # one day code base understandable and grug can get work done, everything good!
         # next day impossible: complexity demon spirit has entered code and very dangerous situation!
+
+        self.local_rank = local_rank
+        self.is_ddp = is_ddp
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
