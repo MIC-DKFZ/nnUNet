@@ -98,6 +98,7 @@ if __name__ == '__main__':
         'nnUNetTrainer_switchToDiceep100noSmooth': ('nnUNetPlans',),
         'nnUNetTrainer_DiceUseClip_noSmooth': ('nnUNetPlans',),
         'nnUNetTrainer_DiceUseClip': ('nnUNetPlans',),
+        'nnUNetTrainer_probabilisticOversampling': ('nnUNetPlans',),
     }
     all_results_file = join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]

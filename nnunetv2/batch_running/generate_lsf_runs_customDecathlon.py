@@ -51,7 +51,7 @@ if __name__ == "__main__":
         i: ("2d", ) for i in configurations_all if "2d" in configurations_all[i]
     }
 
-    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\""
+    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgxa100-2']\""
     resources = "-R \"tensorcore\""
     gpu_requirements = "-gpu num=1:j_exclusive=yes:mode=exclusive_process:gmem=32G"
     queue = "-q gpu-lowprio"
@@ -63,8 +63,7 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer_DiceUseClip_noSmooth': ('nnUNetPlans',),
-        'nnUNetTrainer_DiceUseClip': ('nnUNetPlans',),
+        'nnUNetTrainer_probabilisticOversampling': ('nnUNetPlans',),
     }
 
     additional_arguments = '--disable_checkpointing'  # ''

@@ -52,3 +52,19 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
         return dl_tr, dl_val
+
+
+class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda:0'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.oversample_foreground_percent = 0.33
+
+
+class nnUNetTrainer_probabilisticOversampling_010(nnUNetTrainer_probabilisticOversampling):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda:0'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.oversample_foreground_percent = 0.1
+
+
