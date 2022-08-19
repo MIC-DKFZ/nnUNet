@@ -16,7 +16,8 @@ class nnUNetDataLoaderBase(DataLoader):
                  label_manager: LabelManager,
                  oversample_foreground_percent: float = 0.0,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
-                 pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None):
+                 pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
+                 probabilistic_oversampling: bool = False):
         super().__init__(data, batch_size, 1, None, True, False, True, sampling_probabilities)
         assert isinstance(data, nnUNetDataset), 'nnUNetDataLoaderBase only supports dictionaries as data'
         self.indices = list(data.keys())
@@ -38,12 +39,18 @@ class nnUNetDataLoaderBase(DataLoader):
         self.sampling_probabilities = sampling_probabilities
         self.annotated_classes_key = tuple(label_manager.all_labels)
         self.has_ignore = label_manager.has_ignore_label
+        self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
+            else self._probabilistic_oversampling
 
-    def get_do_oversample(self, sample_idx: int) -> bool:
+    def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
         determines whether sample sample_idx in a minibatch needs to be guaranteed foreground
         """
         return not sample_idx < round(self.batch_size * (1 - self.oversample_foreground_percent))
+
+    def _probabilistic_oversampling(self, sample_idx: int) -> bool:
+        # print('YEAH BOIIIIII')
+        return np.random.uniform() < self.oversample_foreground_percent
 
     def determine_shapes(self):
         # load one case

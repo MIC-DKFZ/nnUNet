@@ -103,7 +103,8 @@ def nnUNet_train_from_args():
                              'you dont want to flood your hard drive with checkpoints.')
     args = parser.parse_args()
 
-    nnunet_trainer = get_trainer_from_args(args.d, args.configuration, args.f, args.tr, args.p, args.use_compressed)
+    nnunet_trainer = get_trainer_from_args(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
+                                           args.use_compressed)
 
     if args.disable_checkpointing:
         nnunet_trainer.disable_checkpointing = args.disable_checkpointing
