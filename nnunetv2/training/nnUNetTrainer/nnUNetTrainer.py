@@ -8,7 +8,6 @@ from multiprocessing import Pool
 from time import time, sleep
 from typing import Union, Tuple, List
 
-import matplotlib
 import numpy as np
 import torch
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
@@ -21,7 +20,7 @@ from batchgenerators.transforms.spatial_transforms import SpatialTransform, Mirr
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
-from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
+from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction, resample_and_save
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
@@ -50,17 +49,12 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from sklearn.model_selection import KFold
 from torch import autocast
+from torch import distributed as dist
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch import distributed as dist
-
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
-
-matplotlib.use('agg')
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 
 class nnUNetTrainer(object):
@@ -78,6 +72,9 @@ class nnUNetTrainer(object):
         # complexity is spirit demon that enter codebase through well-meaning but ultimately very clubbable non grug-brain developers and project managers who not fear complexity spirit demon or even know about sometime
         # one day code base understandable and grug can get work done, everything good!
         # next day impossible: complexity demon spirit has entered code and very dangerous situation!
+
+        # OK OK I am guilty. But I tried. http://tiny.cc/gzgwuz
+        # not complicated for me. me big-brain (or maybe just the author of this piece of content)
 
         self.local_rank = local_rank
         self.is_ddp = is_ddp
@@ -97,6 +94,8 @@ class nnUNetTrainer(object):
 
         ###  Saving all the init args into class variables for later access
         self.plans = plans
+        self.batch_size = None  # we need to change the batch size in DDP because we don't use any of those
+        # distributed samplers
         self.dataset_json = dataset_json
         self.configuration = configuration
         self.fold = fold
@@ -183,6 +182,51 @@ class nnUNetTrainer(object):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
             self.plans['configurations'][self.configuration]['pool_op_kernel_sizes']), axis=0))[:-1]
         return deep_supervision_scales
+
+    def _set_batch_size_and_oversample(self):
+        if not self.is_ddp:
+            # set batch size to what the plan says, leave oversample untouched
+            self.batch_size = self.plans['configurations'][self.configuration]['batch_size']
+        else:
+            # batch size is distributed over DDP workers and we need to change oversample_percent for each worker
+            batch_sizes = []
+            oversample_percents = []
+
+            world_size = dist.get_world_size()
+            my_rank = dist.get_rank()
+
+            global_batch_size = self.plans['configurations'][self.configuration]['batch_size']
+            assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
+                                                    'GPUs... Duh.'
+
+            batch_size_per_GPU = np.ceil(self.batch_size / world_size).astype(int)
+
+            for rank in range(world_size):
+                if (rank + 1) * batch_size_per_GPU > self.batch_size:
+                    batch_size = batch_size_per_GPU - ((rank + 1) * batch_size_per_GPU - self.batch_size)
+                else:
+                    batch_size = batch_size_per_GPU
+
+                batch_sizes.append(batch_size)
+
+                sample_id_low = 0 if len(batch_sizes) == 0 else np.sum(batch_sizes[:-1])
+                sample_id_high = np.sum(batch_sizes)
+
+                if sample_id_high / global_batch_size < (1 - self.oversample_foreground_percent):
+                    oversample_percents.append(0.0)
+                elif sample_id_low / global_batch_size > (1 - self.oversample_foreground_percent):
+                    oversample_percents.append(1.0)
+                else:
+                    percent_covered_by_this_rank = sample_id_high / global_batch_size - sample_id_low / global_batch_size
+                    oversample_percent_here = 1 - (((1 - self.oversample_foreground_percent) -
+                                                    sample_id_low / global_batch_size) / percent_covered_by_this_rank)
+                    oversample_percents.append(oversample_percent_here)
+
+            print("worker", my_rank, "oversample", oversample_percents[my_rank])
+            print("worker", my_rank, "batch_size", batch_sizes[my_rank])
+
+            self.batch_size = batch_sizes[my_rank]
+            self.oversample_foreground_percent = oversample_percents[my_rank]
 
     def _build_loss(self):
         if self.label_manager.has_regions:
@@ -454,26 +498,26 @@ class nnUNetTrainer(object):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         if dim == 2:
-            dl_tr = nnUNetDataLoader2D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
                                        initial_patch_size,
                                        self.plans['configurations'][self.configuration]['patch_size'],
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader2D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
                                         self.plans['configurations'][self.configuration]['patch_size'],
                                         self.plans['configurations'][self.configuration]['patch_size'],
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None)
         else:
-            dl_tr = nnUNetDataLoader3D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
                                        initial_patch_size,
                                        self.plans['configurations'][self.configuration]['patch_size'],
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader3D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
                                         self.plans['configurations'][self.configuration]['patch_size'],
                                         self.plans['configurations'][self.configuration]['patch_size'],
                                         self.label_manager,
@@ -997,14 +1041,15 @@ class nnUNetTrainer(object):
         if self.is_ddp:
             dist.barrier()
 
-        compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
-                                  validation_output_folder,
-                                  join(validation_output_folder, 'summary.json'),
-                                  recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
-                                  self.dataset_json["file_ending"],
-                                  self.label_manager.foreground_regions if self.label_manager.has_regions else
-                                  self.label_manager.foreground_labels,
-                                  self.label_manager.ignore_label)
+        if not self.is_ddp or self.local_rank == 0:
+            compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
+                                      validation_output_folder,
+                                      join(validation_output_folder, 'summary.json'),
+                                      recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
+                                      self.dataset_json["file_ending"],
+                                      self.label_manager.foreground_regions if self.label_manager.has_regions else
+                                      self.label_manager.foreground_labels,
+                                      self.label_manager.ignore_label)
 
         if self.is_ddp:
             self.network.network.decoder.deep_supervision = True

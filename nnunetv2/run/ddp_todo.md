@@ -10,3 +10,6 @@ verify that all_reduce does not increase gradient magnitude too much. Maybe divi
 
 
 save debug information? 
+
+
+dist.get_rank()
