@@ -27,7 +27,7 @@ BUT you need to have permission to open sufficient files!
 `ulimit -n` gives your current limit. It should not be 1024. 65535 works for me. See here how to change these limits:
 [Link](https://kupczynski.info/posts/ubuntu-18-10-ulimits/) (works for Ubuntu 18, google for your Ubuntu version!).
 
-Increasing the number of open file handles does not affect 99% of training, so it's optional.
+Keeping file handles open does not affect 99% of trainings, so it's optional.
 
 # Set up paths
 Paths are called differently now!
