@@ -1,13 +1,18 @@
+from typing import Callable
+
 import numpy as np
 import torch
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim0, softmax_helper_dim1
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from torch import nn
+import torch.distributed as dist
+from torch._C._distributed_c10d import ReduceOp
 
 
 class SoftDiceLoss(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.):
+    def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
+                 ddp: bool = True):
         """
         """
         super(SoftDiceLoss, self).__init__()
@@ -16,6 +21,7 @@ class SoftDiceLoss(nn.Module):
         self.batch_dice = batch_dice
         self.apply_nonlin = apply_nonlin
         self.smooth = smooth
+        self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
         shp_x = x.shape
@@ -29,6 +35,10 @@ class SoftDiceLoss(nn.Module):
             x = self.apply_nonlin(x)
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+        if self.ddp and self.batch_dice:
+            tp = dist.all_reduce(tp, op=ReduceOp.SUM)
+            fp = dist.all_reduce(fp, op=ReduceOp.SUM)
+            fn = dist.all_reduce(fn, op=ReduceOp.SUM)
 
         nominator = 2 * tp + self.smooth
         denominator = 2 * tp + fp + fn + self.smooth
@@ -47,9 +57,9 @@ class SoftDiceLoss(nn.Module):
 
 
 class SoftDiceLoss2(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.):
+    def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
+                 ddp: bool = True):
         """
-        torch.clip(denominator, 1e-8) instead of + 1e-8
         """
         super().__init__()
 
@@ -57,6 +67,7 @@ class SoftDiceLoss2(nn.Module):
         self.batch_dice = batch_dice
         self.apply_nonlin = apply_nonlin
         self.smooth = smooth
+        self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
         shp_x = x.shape
@@ -70,6 +81,10 @@ class SoftDiceLoss2(nn.Module):
             x = self.apply_nonlin(x)
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+        if self.ddp and self.batch_dice:
+            tp = dist.all_reduce(tp, op=ReduceOp.SUM)
+            fp = dist.all_reduce(fp, op=ReduceOp.SUM)
+            fn = dist.all_reduce(fn, op=ReduceOp.SUM)
 
         nominator = 2 * tp + self.smooth
         denominator = 2 * tp + fp + fn + self.smooth

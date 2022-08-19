@@ -53,6 +53,8 @@ from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to
 from sklearn.model_selection import KFold
 from torch import autocast
 from torch.cuda.amp import GradScaler
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch import distributed as dist
 
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
@@ -63,7 +65,7 @@ import matplotlib.pyplot as plt
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0', local_rank: int = 0, is_ddp: bool = False):
+                 device: str = 'cuda', local_rank: int = 0, is_ddp: bool = False):
         # From https://grugbrain.dev/. Worth a read ya filthy big brains ;-)
 
         # apex predator of grug is complexity
@@ -79,6 +81,12 @@ class nnUNetTrainer(object):
 
         self.local_rank = local_rank
         self.is_ddp = is_ddp
+        if is_ddp:
+            assert device == 'cuda', 'DDP is only implemented for single host multi GPU'
+            self.device = device + f":{self.local_rank}"
+
+        if torch.cuda.is_available():
+            torch.cuda.set_device(local_rank)
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
@@ -93,9 +101,8 @@ class nnUNetTrainer(object):
         self.configuration = configuration
         self.fold = fold
         self.unpack_dataset = unpack_dataset
-        self.device = device
         # autograd needs this
-        self.device_type = device[:-2] if device.startswith('cuda') else device
+        self.device_type = device
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -141,6 +148,9 @@ class nnUNetTrainer(object):
         self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration,
                                               self.num_input_channels, deep_supervision=True).to(self.device)
         self.optimizer, self.lr_scheduler = self.configure_optimizers()
+        # if ddp, wrap in DDP wrapper
+        if self.is_ddp:
+            self.network = DDP(self.network, device_ids=[self.local_rank])
         self.grad_scaler = GradScaler() if self.device_type == 'cuda' else None
 
         self.loss = self._build_loss()
@@ -178,10 +188,11 @@ class nnUNetTrainer(object):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
                                    {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                    'do_bg': True, 'smooth': 1e-5}, use_ignore_label=self.label_manager.ignore_label is not None)
+                                    'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
+                                   use_ignore_label=self.label_manager.ignore_label is not None)
         else:
             loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                   'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=1, weight_dice=1,
+                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
 
         deep_supervision_scales = self._get_deep_supervision_scales()
@@ -255,36 +266,39 @@ class nnUNetTrainer(object):
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        timestamp = time()
-        dt_object = datetime.fromtimestamp(timestamp)
+        if not self.is_ddp or self.local_rank == 0:
+            timestamp = time()
+            dt_object = datetime.fromtimestamp(timestamp)
 
-        if add_timestamp:
-            args = ("%s:" % dt_object, *args)
+            if add_timestamp:
+                args = ("%s:" % dt_object, *args)
 
-        successful = False
-        max_attempts = 5
-        ctr = 0
-        while not successful and ctr < max_attempts:
-            try:
-                with open(self.log_file, 'a+') as f:
-                    for a in args:
-                        f.write(str(a))
-                        f.write(" ")
-                    f.write("\n")
-                successful = True
-            except IOError:
-                print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
-                sleep(0.5)
-                ctr += 1
-        if also_print_to_console:
-            print(*args)
+            successful = False
+            max_attempts = 5
+            ctr = 0
+            while not successful and ctr < max_attempts:
+                try:
+                    with open(self.log_file, 'a+') as f:
+                        for a in args:
+                            f.write(str(a))
+                            f.write(" ")
+                        f.write("\n")
+                    successful = True
+                except IOError:
+                    print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
+                    sleep(0.5)
+                    ctr += 1
+            if also_print_to_console:
+                print(*args)
 
     def print_plans(self):
-        dct = deepcopy(self.plans)
-        config = dct['configurations'][self.configuration]
-        del dct['configurations']
-        self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n', config, '\n')
-        self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
+        if not self.is_ddp or self.local_rank == 0:
+            dct = deepcopy(self.plans)
+            config = dct['configurations'][self.configuration]
+            del dct['configurations']
+            self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n', config,
+                                   '\n')
+            self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
@@ -293,26 +307,27 @@ class nnUNetTrainer(object):
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
-        try:
-            from batchgenerators.utilities.file_and_folder_operations import join
-            import hiddenlayer as hl
-            g = hl.build_graph(self.network,
-                               torch.rand((1, self.num_input_channels,
-                                           *self.plans['configurations'][self.configuration]['patch_size']),
-                                          device=self.device),
-                               transforms=None)
-            g.save(join(self.output_folder, "network_architecture.pdf"))
-            del g
-        except Exception as e:
-            self.print_to_log_file("Unable to plot network architecture:")
-            self.print_to_log_file(e)
+        if not self.is_ddp or self.local_rank == 0:
+            try:
+                from batchgenerators.utilities.file_and_folder_operations import join
+                import hiddenlayer as hl
+                g = hl.build_graph(self.network,
+                                   torch.rand((1, self.num_input_channels,
+                                               *self.plans['configurations'][self.configuration]['patch_size']),
+                                              device=self.device),
+                                   transforms=None)
+                g.save(join(self.output_folder, "network_architecture.pdf"))
+                del g
+            except Exception as e:
+                self.print_to_log_file("Unable to plot network architecture:")
+                self.print_to_log_file(e)
 
-            self.print_to_log_file("\nprinting the network instead:\n")
-            self.print_to_log_file(self.network)
-            self.print_to_log_file("\n")
-        finally:
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+                self.print_to_log_file("\nprinting the network instead:\n")
+                self.print_to_log_file(self.network)
+                self.print_to_log_file("\n")
+            finally:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
     def do_split(self):
         """
@@ -586,8 +601,8 @@ class nnUNetTrainer(object):
         if regions is not None:
             # the ignore label must also be converted
             val_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
-                                                                       if ignore_label is not None else regions,
-                                                                       'target', 'target'))
+                                                                        if ignore_label is not None else regions,
+                                                                        'target', 'target'))
 
         if deep_supervision_scales is not None:
             val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
@@ -600,17 +615,24 @@ class nnUNetTrainer(object):
     def on_train_start(self):
         maybe_mkdir_p(self.output_folder)
 
+        # make sure deep supervision is on in the network
+        if self.is_ddp:
+            self.network.network.decoder.deep_supervision = True
+        else:
+            self.network.decoder.deep_supervision = True
+
         self.print_plans()
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
         # maybe unpack
-        if self.unpack_dataset:
+        if self.unpack_dataset and (not self.is_ddp or self.local_rank == 0):
             self.print_to_log_file('unpacking dataset...')
             unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
                            num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
             self.print_to_log_file('unpacking done...')
+        dist.barrier()
 
         # dataloaders must be instantiated here because they need access to the training data which may not be present
         # when doing inference
@@ -642,6 +664,7 @@ class nnUNetTrainer(object):
         self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
             f"Current learning rate: {np.round(self.optimizer.param_groups[0]['lr'], decimals=5)}")
+        # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
     def train_step(self, batch: dict) -> dict:
@@ -670,8 +693,15 @@ class nnUNetTrainer(object):
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
         outputs = collate_outputs(train_outputs)
-        average_loss = np.mean(outputs['loss'])
-        self.logger.log('train_losses', average_loss, self.current_epoch)
+
+        if self.is_ddp:
+            losses_tr = [None for _ in range(dist.get_world_size())]
+            dist.all_gather_object(losses_tr, outputs['loss'])
+            loss_here = np.vstack(losses_tr).mean(0)
+        else:
+            loss_here = np.mean(outputs['loss'])
+
+        self.logger.log('train_losses', loss_here, self.current_epoch)
 
     def on_validation_epoch_start(self):
         pass
@@ -742,12 +772,34 @@ class nnUNetTrainer(object):
         tp = np.sum(outputs_collated['tp_hard'], 0)
         fp = np.sum(outputs_collated['fp_hard'], 0)
         fn = np.sum(outputs_collated['fn_hard'], 0)
+
+        if self.is_ddp:
+            world_size = dist.get_world_size()
+
+            tps = [None for _ in range(world_size)]
+            dist.all_gather_object(tps, tp)
+            tp = np.vstack([i[None] for i in tps]).sum(0)
+
+            fps = [None for _ in range(world_size)]
+            dist.all_gather_object(fps, fp)
+            fp = np.vstack([i[None] for i in fps]).sum(0)
+
+            fns = [None for _ in range(world_size)]
+            dist.all_gather_object(fns, fn)
+            fn = np.vstack([i[None] for i in fns]).sum(0)
+
+            losses_val = [None for _ in range(world_size)]
+            dist.all_gather_object(losses_val, outputs_collated['loss'])
+            loss_here = np.vstack(losses_val).mean(0)
+        else:
+            loss_here = np.mean(outputs_collated['loss'])
+
         global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
                                            zip(tp, fp, fn)]]
         mean_fg_dice = np.nanmean(global_dc_per_class)
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
-        self.logger.log('val_losses', np.mean(outputs_collated['loss']), self.current_epoch)
+        self.logger.log('val_losses', loss_here, self.current_epoch)
 
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -782,26 +834,29 @@ class nnUNetTrainer(object):
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
-        self.logger.plot_progress_png(self.output_folder)
+        if not self.is_ddp or self.local_rank == 0:
+            self.logger.plot_progress_png(self.output_folder)
 
         self.current_epoch += 1
 
     def save_checkpoint(self, filename: str) -> None:
-        if not self.disable_checkpointing:
-            checkpoint = {
-                'network_weights': self.network.state_dict(),
-                'optimizer_state': self.optimizer.state_dict(),
-                'grad_scaler_state': self.grad_scaler.state_dict(),
-                'logging': self.logger.get_checkpoint(),
-                '_best_ema': self._best_ema,
-                'current_epoch': self.current_epoch + 1,
-                'init_args': self.my_init_kwargs,
-                'trainer_name': self.__class__.__name__,
-                'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
-            }
-            torch.save(checkpoint, filename)
-        else:
-            self.print_to_log_file('No checkpoint written, checkpointing is disabled')
+        if not self.is_ddp or self.local_rank == 0:
+            if not self.disable_checkpointing:
+
+                checkpoint = {
+                    'network_weights': self.network.state_dict(),
+                    'optimizer_state': self.optimizer.state_dict(),
+                    'grad_scaler_state': self.grad_scaler.state_dict(),
+                    'logging': self.logger.get_checkpoint(),
+                    '_best_ema': self._best_ema,
+                    'current_epoch': self.current_epoch + 1,
+                    'init_args': self.my_init_kwargs,
+                    'trainer_name': self.__class__.__name__,
+                    'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
+                }
+                torch.save(checkpoint, filename)
+            else:
+                self.print_to_log_file('No checkpoint written, checkpointing is disabled')
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         if isinstance(filename_or_checkpoint, str):
@@ -827,7 +882,10 @@ class nnUNetTrainer(object):
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
     def perform_actual_validation(self, save_probabilities: bool = False):
-        self.network.decoder.deep_supervision = False
+        if self.is_ddp:
+            self.network.network.decoder.deep_supervision = False
+        else:
+            self.network.decoder.deep_supervision = False
         num_seg_heads = self.label_manager.num_segmentation_heads
 
         inference_gaussian = torch.from_numpy(
@@ -836,7 +894,14 @@ class nnUNetTrainer(object):
         validation_output_folder = join(self.output_folder, 'validation')
         maybe_mkdir_p(validation_output_folder)
 
-        _, dataset_val = self.get_tr_and_val_datasets()
+        # we cannot use self.get_tr_and_val_datasets() here because we might be DDP and then we have to distribute
+        # the validation keys across the workers.
+        _, val_keys = self.do_split()
+        if self.is_ddp:
+            val_keys = val_keys[self.local_rank:: dist.get_world_size()]
+
+        dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
 
         next_stages = self.plans['configurations'][self.configuration].get('next_stage')
         if isinstance(next_stages, str):
@@ -929,6 +994,9 @@ class nnUNetTrainer(object):
         segmentation_export_pool.close()
         segmentation_export_pool.join()
 
+        if self.is_ddp:
+            dist.barrier()
+
         compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
                                   validation_output_folder,
                                   join(validation_output_folder, 'summary.json'),
@@ -938,7 +1006,10 @@ class nnUNetTrainer(object):
                                   self.label_manager.foreground_labels,
                                   self.label_manager.ignore_label)
 
-        self.network.decoder.deep_supervision = True
+        if self.is_ddp:
+            self.network.network.decoder.deep_supervision = True
+        else:
+            self.network.decoder.deep_supervision = True
 
     def run_training(self):
         self.on_train_start()
@@ -962,5 +1033,3 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()
-
-
