@@ -13,3 +13,5 @@ save debug information?
 
 
 dist.get_rank()
+
+checkpoint loading before or after DDP?

@@ -31,7 +31,7 @@ def run_ddp(rank, args, world_size):
     setup(rank, world_size, args.master_port)
 
     nnunet_trainer = get_trainer_from_args(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
-                                           args.use_compressed)
+                                           args.use_compressed, local_rank=rank, is_ddp=True)
 
     if args.disable_checkpointing:
         nnunet_trainer.disable_checkpointing = args.disable_checkpointing

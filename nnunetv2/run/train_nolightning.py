@@ -16,7 +16,9 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           fold: int,
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
-                          use_compressed: bool = False):
+                          use_compressed: bool = False,
+                          local_rank: int = 0,
+                          is_ddp: bool = False):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -45,7 +47,9 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     plans = load_json(plans_file)
     dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
     nnunet_trainer = nnunet_trainer(plans=plans, configuration=configuration, fold=fold,
-                                    dataset_json=dataset_json, unpack_dataset=not use_compressed)
+                                    dataset_json=dataset_json, unpack_dataset=not use_compressed,
+                                    local_rank=local_rank,
+                                    is_ddp=is_ddp)
     return nnunet_trainer
 
 

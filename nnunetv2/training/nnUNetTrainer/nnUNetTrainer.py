@@ -81,6 +81,8 @@ class nnUNetTrainer(object):
         if is_ddp:
             assert device == 'cuda', 'DDP is only implemented for single host multi GPU'
             self.device = device + f":{self.local_rank}"
+        else:
+            self.device = device + f":{0}"
 
         if torch.cuda.is_available():
             torch.cuda.set_device(local_rank)
@@ -94,8 +96,6 @@ class nnUNetTrainer(object):
 
         ###  Saving all the init args into class variables for later access
         self.plans = plans
-        self.batch_size = None  # we need to change the batch size in DDP because we don't use any of those
-        # distributed samplers
         self.dataset_json = dataset_json
         self.configuration = configuration
         self.fold = fold
@@ -178,6 +178,10 @@ class nnUNetTrainer(object):
         self.save_every = 50
         self.disable_checkpointing = False
 
+        ## DDP batch size and oversampling can differ between workers and needs adaptation
+        # we need to change the batch size in DDP because we don't use any of those distributed samplers
+        self._set_batch_size_and_oversample()
+
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
             self.plans['configurations'][self.configuration]['pool_op_kernel_sizes']), axis=0))[:-1]
@@ -199,11 +203,11 @@ class nnUNetTrainer(object):
             assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
                                                     'GPUs... Duh.'
 
-            batch_size_per_GPU = np.ceil(self.batch_size / world_size).astype(int)
+            batch_size_per_GPU = np.ceil(global_batch_size / world_size).astype(int)
 
             for rank in range(world_size):
-                if (rank + 1) * batch_size_per_GPU > self.batch_size:
-                    batch_size = batch_size_per_GPU - ((rank + 1) * batch_size_per_GPU - self.batch_size)
+                if (rank + 1) * batch_size_per_GPU > global_batch_size:
+                    batch_size = batch_size_per_GPU - ((rank + 1) * batch_size_per_GPU - global_batch_size)
                 else:
                     batch_size = batch_size_per_GPU
 
@@ -222,8 +226,8 @@ class nnUNetTrainer(object):
                                                     sample_id_low / global_batch_size) / percent_covered_by_this_rank)
                     oversample_percents.append(oversample_percent_here)
 
-            print("worker", my_rank, "oversample", oversample_percents[my_rank])
-            print("worker", my_rank, "batch_size", batch_sizes[my_rank])
+            self.print_to_log_file("worker", my_rank, "oversample", oversample_percents[my_rank])
+            self.print_to_log_file("worker", my_rank, "batch_size", batch_sizes[my_rank])
 
             self.batch_size = batch_sizes[my_rank]
             self.oversample_foreground_percent = oversample_percents[my_rank]
@@ -661,7 +665,7 @@ class nnUNetTrainer(object):
 
         # make sure deep supervision is on in the network
         if self.is_ddp:
-            self.network.network.decoder.deep_supervision = True
+            self.network.module.decoder.deep_supervision = True
         else:
             self.network.decoder.deep_supervision = True
 
@@ -888,7 +892,7 @@ class nnUNetTrainer(object):
             if not self.disable_checkpointing:
 
                 checkpoint = {
-                    'network_weights': self.network.state_dict(),
+                    'network_weights': self.network.module.state_dict(),
                     'optimizer_state': self.optimizer.state_dict(),
                     'grad_scaler_state': self.grad_scaler.state_dict(),
                     'logging': self.logger.get_checkpoint(),
@@ -927,7 +931,7 @@ class nnUNetTrainer(object):
 
     def perform_actual_validation(self, save_probabilities: bool = False):
         if self.is_ddp:
-            self.network.network.decoder.deep_supervision = False
+            self.network.module.decoder.deep_supervision = False
         else:
             self.network.decoder.deep_supervision = False
         num_seg_heads = self.label_manager.num_segmentation_heads
@@ -1052,7 +1056,7 @@ class nnUNetTrainer(object):
                                       self.label_manager.ignore_label)
 
         if self.is_ddp:
-            self.network.network.decoder.deep_supervision = True
+            self.network.module.decoder.deep_supervision = True
         else:
             self.network.decoder.deep_supervision = True
 
