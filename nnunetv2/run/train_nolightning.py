@@ -1,3 +1,5 @@
+from typing import Union
+
 import nnunetv2
 import torch.cuda
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
@@ -9,9 +11,67 @@ from torch.backends import cudnn
 import os
 
 
-def nnUNet_train_from_args():
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+def get_trainer_from_args(dataset_name_or_id: Union[int, str],
+                          configuration: str,
+                          fold: int,
+                          trainer_name: str = 'nnUNetTrainer',
+                          plans_identifier: str = 'nnUNetPlans',
+                          use_compressed: bool = False):
+    # load nnunet class and do sanity checks
+    nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
+                                                trainer_name, 'nnunetv2.training.nnUNetTrainer')
+    if nnunet_trainer is None:
+        raise RuntimeError(f'Could not find requested nnunet trainer {trainer_name} in '
+                           f'nnunetv2.training.nnUNetTrainer ('
+                           f'{join(nnunetv2.__path__[0], "training", "nnUNetTrainer")}). If it is located somewhere '
+                           f'else, please move it there.')
+    assert issubclass(nnunet_trainer, nnUNetTrainer), 'The requested nnunet trainer class must inherit from ' \
+                                                    'nnUNetTrainer'
 
+    # handle dataset input. If it's an ID we need to convert to int from string
+    if dataset_name_or_id.startswith('Dataset'):
+        pass
+    else:
+        try:
+            dataset_name_or_id = int(dataset_name_or_id)
+        except ValueError:
+            raise ValueError(f'dataset_name_or_id must either be an integer or a valid dataset name with the pattern '
+                             f'DatasetXXX_YYY where XXX are the three(!) task ID digits. Your '
+                             f'input: {dataset_name_or_id}')
+
+    # initialize nnunet trainer
+    preprocessed_dataset_folder_base = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id))
+    plans_file = join(preprocessed_dataset_folder_base, plans_identifier + '.json')
+    plans = load_json(plans_file)
+    dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
+    nnunet_trainer = nnunet_trainer(plans=plans, configuration=configuration, fold=fold,
+                                    dataset_json=dataset_json, unpack_dataset=not use_compressed)
+    return nnunet_trainer
+
+
+def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool):
+    if continue_training:
+        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
+        if not isfile(expected_checkpoint_file):
+            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
+        # special case where --c is used to run a previously aborted validation
+        if not isfile(expected_checkpoint_file):
+            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
+        if not isfile(expected_checkpoint_file):
+            print(f"WARNING: Cannot continue training because there seems to be no checkpoint available to "
+                               f"continue from. Starting a new training...")
+    elif validation_only:
+        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
+        if not isfile(expected_checkpoint_file):
+            raise RuntimeError(f"Cannot run validation because the training is not finished yet!")
+    else:
+        expected_checkpoint_file = None
+
+    if expected_checkpoint_file is not None:
+        nnunet_trainer.load_checkpoint(expected_checkpoint_file)
+
+
+def nnUNet_train_from_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_name_or_id', type=str,
@@ -43,60 +103,14 @@ def nnUNet_train_from_args():
                              'you dont want to flood your hard drive with checkpoints.')
     args = parser.parse_args()
 
-    # load nnunet class and do sanity checks
-    nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
-                                                args.tr, 'nnunetv2.training.nnUNetTrainer')
-    if nnunet_trainer is None:
-        raise RuntimeError(f'Could not find requested nnunet trainer {args.tr} in '
-                           f'nnunetv2.training.nnUNetTrainer ('
-                           f'{join(nnunetv2.__path__[0], "training", "nnUNetTrainer")}). If it is located somewhere '
-                           f'else, please move it there.')
-    assert issubclass(nnunet_trainer, nnUNetTrainer), 'The requested nnunet trainer class must inherit from ' \
-                                                    'nnUNetTrainer'
-
-    # handle dataset input. If it's an ID we need to convert to int from string
-    if args.dataset_name_or_id.startswith('Dataset'):
-        dataset_name_or_id = args.dataset_name_or_id
-    else:
-        try:
-            dataset_name_or_id = int(args.dataset_name_or_id)
-        except ValueError:
-            raise ValueError(f'dataset_name_or_id must either be an integer or a valid dataset name with the pattern '
-                             f'DatasetXXX_YYY where XXX are the three(!) task ID digits. Your '
-                             f'input: {args.dataset_name_or_id}')
-
-    # initialize nnunet trainer
-    preprocessed_dataset_folder_base = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id))
-    plans_file = join(preprocessed_dataset_folder_base, args.p + '.json')
-    plans = load_json(plans_file)
-    dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
-    nnunet_trainer = nnunet_trainer(plans=plans, configuration=args.configuration, fold=args.fold,
-                                    dataset_json=dataset_json, unpack_dataset=not args.use_compressed)
+    nnunet_trainer = get_trainer_from_args(args.d, args.configuration, args.f, args.tr, args.p, args.use_compressed)
 
     if args.disable_checkpointing:
         nnunet_trainer.disable_checkpointing = args.disable_checkpointing
 
     assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
-    if args.c:
-        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
-        if not isfile(expected_checkpoint_file):
-            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
-        # special case where --c is used to run a previously aborted validation
-        if not isfile(expected_checkpoint_file):
-            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
-        if not isfile(expected_checkpoint_file):
-            print(f"WARNING: Cannot continue training because there seems to be no checkpoint available to "
-                               f"continue from. Starting a new training...")
-    elif args.val:
-        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
-        if not isfile(expected_checkpoint_file):
-            raise RuntimeError(f"Cannot run validation because the training is not finished yet!")
-    else:
-        expected_checkpoint_file = None
-
-    if expected_checkpoint_file is not None:
-        nnunet_trainer.load_checkpoint(expected_checkpoint_file)
+    maybe_load_checkpoint(nnunet_trainer, args.c, args.val)
 
     if torch.cuda.is_available():
         cudnn.deterministic = False
