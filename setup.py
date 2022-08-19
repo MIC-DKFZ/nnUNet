@@ -42,6 +42,7 @@ setup(name='nnunetv2',
               'nnUNetv2_determine_postprocessing = nnunetv2.postprocessing.remove_connected_components:entry_point_determine_postprocessing_folder',
               'nnUNetv2_apply_postprocessing = nnunetv2.postprocessing.remove_connected_components:entry_point_apply_postprocessing',
               'nnUNetv2_ensemble = nnunetv2.ensembling.ensemble:entry_point_ensemble_folders',
+              'nnUNetv2_accumulate_crossval_results = nnunetv2.evaluation.find_best_configuration:accumulate_crossval_results_entry_point'
           ],
       },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',

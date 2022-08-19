@@ -265,6 +265,33 @@ def find_best_configuration_entry_point():
                             strict=False)
 
 
+def accumulate_crossval_results_entry_point():
+    parser = argparse.ArgumentParser('Copies all predicted segmentations from the individual folds into one joint '
+                                     'folder and evaluates them')
+    parser.add_argument('dataset_name_or_id', type=str, help='Dataset Name or id')
+    parser.add_argument('-c', type=str, required=True,
+                        default='3d_fullres',
+                        help="Configuration")
+    parser.add_argument('-o', type=str, required=False, default=None,
+                        help="Output folder. If not specified, the output folder will be located in the trained " \
+                             "model directory (named crossval_results_folds_XXX).")
+    parser.add_argument('-f', nargs='+', type=int, default=(0, 1, 2, 3, 4),
+                        help='Folds to use. Default: 0 1 2 3 4')
+    parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
+                        help='Plan identifier in which to search for the specified configuration. Default: nnUNetPlans')
+    parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainer',
+                        help='Trainer class. Default: nnUNetTrainer')
+    args = parser.parse_args()
+    trained_model_folder = get_output_folder(args.dataset_name_or_id, args.tr, args.p, args.c)
+
+    if args.o is None:
+        merged_output_folder = join(trained_model_folder, f'crossval_results_folds_{folds_tuple_to_string(args.f)}')
+    else:
+        merged_output_folder = args.o
+
+    accumulate_cv_results(trained_model_folder, merged_output_folder, args.f)
+
+
 if __name__ == '__main__':
     find_best_configuration(4,
                             default_trained_models,
