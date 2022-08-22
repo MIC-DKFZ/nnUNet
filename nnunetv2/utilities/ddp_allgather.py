@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+from typing import Any, Optional, Tuple
 
 import torch
 from torch import distributed
@@ -46,6 +46,60 @@ class awesome_allgather_function(autograd.Function):
         # return only the slice that corresponds to this process's input:
         sl = slice(rank * grads_per_rank, (rank + 1) * grads_per_rank)
         return grad_output[sl]
+
+
+class AllGatherGrad(torch.autograd.Function):
+    # stolen from pytorch lightning
+    @staticmethod
+    def forward(
+        ctx: Any,
+        tensor: torch.Tensor,
+        group: Optional["torch.distributed.ProcessGroup"] = None,
+    ) -> torch.Tensor:
+        ctx.group = group
+
+        gathered_tensor = [torch.zeros_like(tensor) for _ in range(torch.distributed.get_world_size())]
+
+        torch.distributed.all_gather(gathered_tensor, tensor, group=group)
+        gathered_tensor = torch.stack(gathered_tensor, dim=0)
+
+        return gathered_tensor
+
+    @staticmethod
+    def backward(ctx: Any, *grad_output: torch.Tensor) -> Tuple[torch.Tensor, None]:
+        grad_output = torch.cat(grad_output)
+
+        torch.distributed.all_reduce(grad_output, op=torch.distributed.ReduceOp.SUM, async_op=False, group=ctx.group)
+
+        return grad_output[torch.distributed.get_rank()], None
+
+
+def all_gather_ddp_if_available(
+    tensor: torch.Tensor, group: Optional["torch.distributed.ProcessGroup"] = None, sync_grads: bool = False
+) -> torch.Tensor:
+    """Function to gather a tensor from several distributed processes.
+
+    Args:
+        tensor: tensor of shape (batch, ...)
+        group: the process group to gather results from. Defaults to all processes (world)
+        sync_grads: flag that allows users to synchronize gradients for all_gather op
+
+    Return:
+        A tensor of shape (world_size, batch, ...)
+    """
+    # stolen from pytorch lightning
+    group = group if group is not None else torch.distributed.group.WORLD
+    if distributed_available():
+        if sync_grads:
+            return AllGatherGrad.apply(tensor, group)
+        with torch.no_grad():
+            return AllGatherGrad.apply(tensor, group)
+    return tensor
+
+
+def distributed_available() -> bool:
+    # stolen from pytorch lightning
+    return torch.distributed.is_available() and torch.distributed.is_initialized() or tpu_distributed()
 
 
 if __name__ == "__main__":

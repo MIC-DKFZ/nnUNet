@@ -3,11 +3,10 @@ from typing import Callable
 import numpy as np
 import torch
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss
-from nnunetv2.utilities.helpers import softmax_helper_dim0, softmax_helper_dim1
+from nnunetv2.utilities.ddp_allgather import AllGatherGrad
+from nnunetv2.utilities.helpers import softmax_helper_dim1
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from torch import nn
-import torch.distributed as dist
-from torch._C._distributed_c10d import ReduceOp
 
 
 class SoftDiceLoss(nn.Module):
@@ -35,15 +34,15 @@ class SoftDiceLoss(nn.Module):
             x = self.apply_nonlin(x)
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+
+        nominator = 2 * tp
+        denominator = 2 * tp + fp + fn
+
         if self.ddp and self.batch_dice:
-            tp = dist.all_reduce(tp, op=ReduceOp.SUM)
-            fp = dist.all_reduce(fp, op=ReduceOp.SUM)
-            fn = dist.all_reduce(fn, op=ReduceOp.SUM)
+            nominator = AllGatherGrad.apply(nominator).sum(0)
+            denominator = AllGatherGrad.apply(denominator).sum(0)
 
-        nominator = 2 * tp + self.smooth
-        denominator = 2 * tp + fp + fn + self.smooth
-
-        dc = nominator / torch.clip(denominator, 1e-8)
+        dc = (nominator + self.smooth) / (torch.clip(denominator + self.smooth, 1e-8))
 
         if not self.do_bg:
             if self.batch_dice:
