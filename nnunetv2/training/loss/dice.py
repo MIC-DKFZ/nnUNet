@@ -7,6 +7,8 @@ from nnunetv2.utilities.ddp_allgather import AllGatherGrad
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 from nnunetv2.utilities.tensor_utilities import sum_tensor
 from torch import nn
+from torch._C._distributed_c10d import ReduceOp
+from torch.distributed import all_reduce
 
 
 class SoftDiceLoss(nn.Module):
@@ -34,6 +36,11 @@ class SoftDiceLoss(nn.Module):
             x = self.apply_nonlin(x)
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+
+        # if self.ddp and self.batch_dice:
+        #     tp = all_reduce(tp, op=ReduceOp.SUM)
+        #     fp = all_reduce(fp, op=ReduceOp.SUM)
+        #     fn = all_reduce(fn, op=ReduceOp.SUM)
 
         nominator = 2 * tp
         denominator = 2 * tp + fp + fn
