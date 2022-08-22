@@ -680,7 +680,9 @@ class nnUNetTrainer(object):
             unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
                            num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
             self.print_to_log_file('unpacking done...')
-        dist.barrier()
+
+        if self.is_ddp:
+            dist.barrier()
 
         # dataloaders must be instantiated here because they need access to the training data which may not be present
         # when doing inference
@@ -745,7 +747,7 @@ class nnUNetTrainer(object):
         if self.is_ddp:
             losses_tr = [None for _ in range(dist.get_world_size())]
             dist.all_gather_object(losses_tr, outputs['loss'])
-            loss_here = np.vstack(losses_tr).mean(0)
+            loss_here = np.vstack(losses_tr).mean()
         else:
             loss_here = np.mean(outputs['loss'])
 
@@ -838,7 +840,7 @@ class nnUNetTrainer(object):
 
             losses_val = [None for _ in range(world_size)]
             dist.all_gather_object(losses_val, outputs_collated['loss'])
-            loss_here = np.vstack(losses_val).mean(0)
+            loss_here = np.vstack(losses_val).mean()
         else:
             loss_here = np.mean(outputs_collated['loss'])
 
@@ -892,7 +894,7 @@ class nnUNetTrainer(object):
             if not self.disable_checkpointing:
 
                 checkpoint = {
-                    'network_weights': self.network.module.state_dict(),
+                    'network_weights': self.network.module.state_dict() if self.is_ddp else self.network.state_dict(),
                     'optimizer_state': self.optimizer.state_dict(),
                     'grad_scaler_state': self.grad_scaler.state_dict(),
                     'logging': self.logger.get_checkpoint(),
