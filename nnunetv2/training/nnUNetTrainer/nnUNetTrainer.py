@@ -80,11 +80,12 @@ class nnUNetTrainer(object):
         self.is_ddp = is_ddp
         if is_ddp:
             assert device == 'cuda', 'DDP is only implemented for single host multi GPU'
-            self.device = device + f":{self.local_rank}"
+            self.device = device + f"{device}:{self.local_rank}"
         else:
-            self.device = device + f":{0}"
+            self.device = device + f"{device}:{0}"
 
         if torch.cuda.is_available():
+            print(f"Setting device to {local_rank}")
             torch.cuda.set_device(local_rank)
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
