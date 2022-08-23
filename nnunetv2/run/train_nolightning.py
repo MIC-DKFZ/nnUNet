@@ -11,6 +11,20 @@ from torch.backends import cudnn
 import os
 import torch.multiprocessing as mp
 import torch.distributed as dist
+import socket
+
+
+def find_free_network_port() -> int:
+    """Finds a free port on localhost.
+
+    It is useful in single-node training when we don't want to connect to a real main node but have to set the
+    `MASTER_PORT` environment variable.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
 
 
 def get_trainer_from_args(dataset_name_or_id: Union[int, str],
@@ -18,9 +32,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           fold: int,
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
-                          use_compressed: bool = False,
-                          local_rank: int = 0,
-                          is_ddp: bool = False):
+                          use_compressed: bool = False):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -75,11 +87,7 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         nnunet_trainer.load_checkpoint(expected_checkpoint_file)
 
 
-def setup_ddp(rank, world_size, port):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = str(port)
-    #os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
-
+def setup_ddp(rank, world_size):
     # initialize the process group
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
@@ -89,7 +97,7 @@ def cleanup_ddp():
 
 
 def run_ddp(rank, args, world_size):
-    setup_ddp(rank, world_size, args.master_port)
+    setup_ddp(rank, world_size)
 
     nnunet_trainer = get_trainer_from_args(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
                                            args.use_compressed)
@@ -129,10 +137,7 @@ def nnUNet_train_from_args():
                         help='[OPTIONAL] path to nnU-Net checkpoint file to be used as pretrained model. Will only '
                              'be used when actually training. Beta. Use with caution.')
     parser.add_argument('-num_gpus', type=int, default=1, required=False,
-                        help='Specify the number of GPUs to use for training. If > 1, setting -master_port is '
-                             'mandatory!')
-    parser.add_argument('-master_port', required=False, type=int, default=None,
-                        help='Master port to use for DDP communication. Can be any free port on your system')
+                        help='Specify the number of GPUs to use for training')
     parser.add_argument("--use_compressed", default=False, action="store_true", required=False,
                         help="[OPTIONAL] If you set this flag the training cases will not be decompressed. Reading compressed "
                              "data is much more CPU and (potentially) RAM intensive and should only be used if you "
@@ -150,7 +155,11 @@ def nnUNet_train_from_args():
     args = parser.parse_args()
 
     if args.num_gpus > 1:
-        assert args.master_port is not None, 'If you request more than one GPU, make sure to set -master_port!'
+        os.environ['MASTER_ADDR'] = 'localhost'
+        if 'MASTER_PORT' not in os.environ.keys():
+            port = str(find_free_network_port())
+            print(f"using port {port}")
+            os.environ['MASTER_PORT'] = port  # str(port)
 
         mp.spawn(run_ddp,
                  args=(args, args.num_gpus),

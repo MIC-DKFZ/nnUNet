@@ -362,6 +362,8 @@ class nnUNetTrainer(object):
             try:
                 from batchgenerators.utilities.file_and_folder_operations import join
                 import hiddenlayer as hl
+                raise NotImplementedError('Hiddenlayer does not work with pytorch 1.12.1 and produces a huge, '
+                                          'unreadable error message...')
                 # hiddenlayer does no longer work with pytorch 1.12.1 :-( Todo fix this
                 g = hl.build_graph(self.network,
                                    torch.rand((1, self.num_input_channels,
@@ -702,6 +704,9 @@ class nnUNetTrainer(object):
 
         # produces a pdf in output folder
         self.plot_network_architecture()
+
+        print(f"batch size: {self.batch_size}")
+        print(f"oversample: {self.oversample_foreground_percent}")
 
     def on_train_end(self):
         self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
