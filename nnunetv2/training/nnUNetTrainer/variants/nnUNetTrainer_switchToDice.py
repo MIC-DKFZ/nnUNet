@@ -8,7 +8,7 @@ import numpy as np
 
 class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0'):
+                 device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.switch_epoch = 800
 

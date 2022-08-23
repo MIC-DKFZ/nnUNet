@@ -59,8 +59,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda', local_rank: int = 0, is_ddp: bool = False):
-        # From https://grugbrain.dev/. Worth a read ya filthy big brains ;-)
+                 device: str = 'cuda'):
+        # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
         # complexity bad
@@ -74,11 +74,11 @@ class nnUNetTrainer(object):
         # next day impossible: complexity demon spirit has entered code and very dangerous situation!
 
         # OK OK I am guilty. But I tried. http://tiny.cc/gzgwuz
-        # not complicated for me. me big-brain (or maybe just the author of this piece of content)
 
-        self.local_rank = local_rank
-        self.is_ddp = is_ddp
-        if is_ddp:
+        self.is_ddp = dist.is_available() and dist.is_initialized()
+        self.local_rank = 0 if not self.is_ddp else dist.get_rank()
+
+        if self.is_ddp:
             assert device == 'cuda', 'DDP is only implemented for single host multi GPU'
             self.device = f"{device}:{self.local_rank}"
         else:
@@ -86,7 +86,7 @@ class nnUNetTrainer(object):
 
         if torch.cuda.is_available():
             print(f"Setting device to {self.device}")
-            torch.cuda.set_device(local_rank)
+            torch.cuda.set_device(self.local_rank)
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
@@ -362,6 +362,7 @@ class nnUNetTrainer(object):
             try:
                 from batchgenerators.utilities.file_and_folder_operations import join
                 import hiddenlayer as hl
+                # hiddenlayer does no longer work with pytorch 1.12.1 :-( Todo fix this
                 g = hl.build_graph(self.network,
                                    torch.rand((1, self.num_input_channels,
                                                *self.plans['configurations'][self.configuration]['patch_size']),

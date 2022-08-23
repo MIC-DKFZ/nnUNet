@@ -15,7 +15,7 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
     If we switch to this oversampling then we can keep it at a constant 0.33 or whatever.
     """
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0'):
+                 device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = float(np.mean(
             [not sample_idx < round(self.plans['configurations'][self.configuration]['batch_size'] * (1 - self.oversample_foreground_percent))
@@ -56,14 +56,14 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
 
 class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0'):
+                 device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = 0.33
 
 
 class nnUNetTrainer_probabilisticOversampling_010(nnUNetTrainer_probabilisticOversampling):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0'):
+                 device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = 0.1
 
