@@ -18,6 +18,7 @@ from time import time
 
 import requests
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, isdir
+from tqdm import tqdm
 
 from nnunet.paths import network_training_output_dir
 
@@ -290,16 +291,22 @@ def download_and_install_from_url(url):
             os.remove(tempfile)
 
 
-def download_file(url: str, local_filename: str, chunk_size: Optional[int] = None) -> str:
+def download_file(url: str, local_filename: str, chunk_size: Optional[int] = 8192 * 16) -> str:
     # borrowed from https://stackoverflow.com/questions/16694907/download-large-file-in-python-with-requests
     # NOTE the stream=True parameter below
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
-        with open(local_filename, 'wb') as f:
+        # with open(local_filename, 'wb') as f:
+        #     for chunk in r.iter_content(chunk_size=chunk_size):
+        #         # If you have chunk encoded response uncomment if
+        #         # and set chunk_size parameter to None.
+        #         #if chunk:
+        #         f.write(chunk)
+        with tqdm.wrapattr(open(local_filename, 'wb'), "write", total=int(r.headers.get("Content-Length"))) as f:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 # If you have chunk encoded response uncomment if
                 # and set chunk_size parameter to None.
-                #if chunk:
+                # if chunk:
                 f.write(chunk)
     return local_filename
 
