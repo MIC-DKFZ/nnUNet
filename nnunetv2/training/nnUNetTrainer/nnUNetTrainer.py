@@ -672,6 +672,7 @@ class nnUNetTrainer(object):
         # make sure deep supervision is on in the network
         if self.is_ddp:
             self.network.module.decoder.deep_supervision = True
+            # print(self.network.module.encoder.stages[0][0].convs[0].conv.weight[0])
         else:
             self.network.decoder.deep_supervision = True
 
@@ -705,8 +706,8 @@ class nnUNetTrainer(object):
         # produces a pdf in output folder
         self.plot_network_architecture()
 
-        print(f"batch size: {self.batch_size}")
-        print(f"oversample: {self.oversample_foreground_percent}")
+        # print(f"batch size: {self.batch_size}")
+        # print(f"oversample: {self.oversample_foreground_percent}")
 
     def on_train_end(self):
         self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
@@ -859,9 +860,6 @@ class nnUNetTrainer(object):
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
         self.logger.log('val_losses', loss_here, self.current_epoch)
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
     def on_epoch_start(self):
         self.logger.log('epoch_start_timestamps', time(), self.current_epoch)

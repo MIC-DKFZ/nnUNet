@@ -7,7 +7,7 @@ from nnunetv2.training.deprecated.callbacks.nnUNetPlottingCallbacks import nnUNe
 from nnunetv2.training.deprecated.nnunet_modules.nnUNetModule import nnUNetModule
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 
-
+from skimage.transform import resize
 def nnUNet_train_from_args():
     import argparse
     parser = argparse.ArgumentParser()

@@ -51,11 +51,12 @@ if __name__ == "__main__":
         i: ("2d", ) for i in configurations_all if "2d" in configurations_all[i]
     }
 
+    num_gpus = 2
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgxa100-2']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = "-gpu num=1:j_exclusive=yes:mode=exclusive_process:gmem=32G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=32G"
     queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh &&"
+    preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && nnUNet_results=/dkfz/cluster/gpu/checkpoints/OE0441/isensee/nnUNet_results_remake_ddp"
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
@@ -63,11 +64,10 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetPlans',),
-        'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetPlans',),
+        'nnUNetTrainer': ('nnUNetPlans',),
     }
 
-    additional_arguments = '--disable_checkpointing'  # ''
+    additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
 
     output_file = "/home/fabian/deleteme.txt"
     with open(output_file, 'w') as f:
