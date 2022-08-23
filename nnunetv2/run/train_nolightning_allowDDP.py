@@ -10,7 +10,7 @@ import torch.multiprocessing as mp
 def setup(rank, world_size, port):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = str(port)
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
+    #os.environ['CUDA_VISIBLE_DEVICES'] = str(rank)
 
     # initialize the process group
     dist.init_process_group("nccl", rank=rank, world_size=world_size)

@@ -80,12 +80,12 @@ class nnUNetTrainer(object):
         self.is_ddp = is_ddp
         if is_ddp:
             assert device == 'cuda', 'DDP is only implemented for single host multi GPU'
-            self.device = device + f"{device}:{self.local_rank}"
+            self.device = f"{device}:{self.local_rank}"
         else:
-            self.device = device + f"{device}:{0}"
+            self.device = f"{device}:{0}"
 
         if torch.cuda.is_available():
-            print(f"Setting device to {local_rank}")
+            print(f"Setting device to {self.device}")
             torch.cuda.set_device(local_rank)
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
@@ -227,8 +227,10 @@ class nnUNetTrainer(object):
                                                     sample_id_low / global_batch_size) / percent_covered_by_this_rank)
                     oversample_percents.append(oversample_percent_here)
 
-            self.print_to_log_file("worker", my_rank, "oversample", oversample_percents[my_rank])
-            self.print_to_log_file("worker", my_rank, "batch_size", batch_sizes[my_rank])
+            print("worker", my_rank, "oversample", oversample_percents[my_rank])
+            print("worker", my_rank, "batch_size", batch_sizes[my_rank])
+            # self.print_to_log_file("worker", my_rank, "oversample", oversample_percents[my_rank])
+            # self.print_to_log_file("worker", my_rank, "batch_size", batch_sizes[my_rank])
 
             self.batch_size = batch_sizes[my_rank]
             self.oversample_foreground_percent = oversample_percents[my_rank]
