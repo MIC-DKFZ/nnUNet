@@ -1,11 +1,12 @@
 import numpy as np
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import DC_and_BCE_loss, DC_and_CE_loss2
+from nnunetv2.training.loss.dice import DC_and_BCE_loss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
 
 class nnUNetTrainer_DiceUseClip(nnUNetTrainer):
     def _build_loss(self):
+        raise DeprecationWarning('DC_and_CE_loss2 (using clip instead of +1e-8) is now standard')
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
                                    {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
@@ -30,6 +31,9 @@ class nnUNetTrainer_DiceUseClip(nnUNetTrainer):
 
 class nnUNetTrainer_DiceUseClip_noSmooth(nnUNetTrainer):
     def _build_loss(self):
+        raise DeprecationWarning('DC_and_CE_loss2 (using clip instead of +1e-8) is now standard. Also this trainer '
+                                 'performed worse, so we need smooth')
+
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
                                    {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],

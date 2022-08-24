@@ -33,47 +33,6 @@ class SoftDiceLoss(nn.Module):
         nominator = 2 * tp + self.smooth
         denominator = 2 * tp + fp + fn + self.smooth
 
-        # todo use clip!
-        dc = nominator / (denominator + 1e-8)
-
-        if not self.do_bg:
-            if self.batch_dice:
-                dc = dc[1:]
-            else:
-                dc = dc[:, 1:]
-        dc = dc.mean()
-
-        return -dc
-
-
-class SoftDiceLoss2(nn.Module):
-    def __init__(self, apply_nonlin=None, batch_dice=False, do_bg=True, smooth=1.):
-        """
-        torch.clip(denominator, 1e-8) instead of + 1e-8
-        """
-        super().__init__()
-
-        self.do_bg = do_bg
-        self.batch_dice = batch_dice
-        self.apply_nonlin = apply_nonlin
-        self.smooth = smooth
-
-    def forward(self, x, y, loss_mask=None):
-        shp_x = x.shape
-
-        if self.batch_dice:
-            axes = [0] + list(range(2, len(shp_x)))
-        else:
-            axes = list(range(2, len(shp_x)))
-
-        if self.apply_nonlin is not None:
-            x = self.apply_nonlin(x)
-
-        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
-
-        nominator = 2 * tp + self.smooth
-        denominator = 2 * tp + fp + fn + self.smooth
-
         dc = nominator / torch.clip(denominator, 1e-8)
 
         if not self.do_bg:
@@ -164,51 +123,6 @@ class DC_and_CE_loss(nn.Module):
 
         self.ce = RobustCrossEntropyLoss(**ce_kwargs)
         self.dc = SoftDiceLoss(apply_nonlin=softmax_helper_dim1, **soft_dice_kwargs)
-
-    def forward(self, net_output: torch.Tensor, target: torch.Tensor):
-        """
-        target must be b, c, x, y(, z) with c=1
-        :param net_output:
-        :param target:
-        :return:
-        """
-        if self.ignore_label is not None:
-            assert target.shape[1] == 1, 'ignore label is not implemented for one hot encoded target variables ' \
-                                         '(DC_and_CE_loss)'
-            mask = (target != self.ignore_label).float()
-            # remove ignore label from target, replace with one of the known labels. It doesn't matter because we
-            # ignore gradients in those areas anyways
-            target_dice = torch.clone(target)
-            target_dice[target == self.ignore_label] = 0
-            num_fg = mask.sum()
-        else:
-            target_dice = target
-            mask = None
-
-        dc_loss = self.dc(net_output, target_dice, loss_mask=mask) \
-            if self.weight_dice != 0 else 0
-        ce_loss = self.ce(net_output, target[:, 0].long()) \
-            if self.weight_ce != 0 and (self.ignore_label is None or num_fg > 0) else 0
-
-        result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
-        return result
-
-
-class DC_and_CE_loss2(nn.Module):
-    def __init__(self, soft_dice_kwargs, ce_kwargs, weight_ce=1, weight_dice=1, ignore_label=None):
-        """
-        uses SoftDiceLoss2 instead of SoftDiceLoss
-        """
-        super().__init__()
-        if ignore_label is not None:
-            ce_kwargs['ignore_index'] = ignore_label
-
-        self.weight_dice = weight_dice
-        self.weight_ce = weight_ce
-        self.ignore_label = ignore_label
-
-        self.ce = RobustCrossEntropyLoss(**ce_kwargs)
-        self.dc = SoftDiceLoss2(apply_nonlin=softmax_helper_dim1, **soft_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
         """
