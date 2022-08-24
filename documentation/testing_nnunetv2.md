@@ -78,7 +78,7 @@ This will generate the dataset fingerprint (explicitly this time), plans and pre
 Now train the desired configuration(s). Available: 2d, 3d_fullres, 3d_lowres, 3d_cascade fullres. The latter two of 
 course only for datasets where they exist.
 ```bash
-nnUNetv2_train DATASET_NAME_OR_ID CONFIGURATION 
+nnUNetv2_train DATASET_NAME_OR_ID CONFIGURATION FOLD
 ```
 
 After training is completed, find the best configuration
