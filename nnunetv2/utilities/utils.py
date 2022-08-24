@@ -42,3 +42,5 @@ def create_lists_from_splitted_dataset_folder(folder: str, suffix: str, case_ids
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists
 
+
+def 
