@@ -40,16 +40,13 @@ def convert_id_to_dataset_name(dataset_id: int):
         raise RuntimeError("More than one dataset name found for dataset id %d. Please correct that. (I looked in the "
                            "following folders:\n%s\n%s\n%s" % (dataset_id, nnUNet_raw, nnUNet_preprocessed, nnUNet_results))
     if len(unique_candidates) == 0:
-        raise RuntimeError("Could not find a dataset with the ID %d. Make sure the requested dataset ID exists and that "
-                           "nnU-Net knows where raw and preprocessed data are located (see Documentation - "
-                           "Installation). Here are your currently defined folders:\nnnUNet_preprocessed=%s\nRESULTS_"
-                           "FOLDER=%s\nnnUNet_raw_data_base=%s\nIf something is not right, adapt your environemnt "
-                           "variables." %
-                           (dataset_id,
-                            os.environ.get('nnUNet_preprocessed') if os.environ.get('nnUNet_preprocessed') is not None else 'None',
-                            os.environ.get('RESULTS_FOLDER') if os.environ.get('RESULTS_FOLDER') is not None else 'None',
-                            os.environ.get('nnUNet_raw') if os.environ.get('nnUNet_raw') is not None else 'None',
-                            ))
+        raise RuntimeError(f"Could not find a dataset with the ID {dataset_id}. Make sure the requested dataset ID "
+                           f"exists and that nnU-Net knows where raw and preprocessed data are located "
+                           f"(see Documentation - Installation). Here are your currently defined folders:\n"
+                           f"nnUNet_preprocessed={os.environ.get('nnUNet_preprocessed') if os.environ.get('nnUNet_preprocessed') is not None else 'None'}\n"
+                           f"nnUNet_results={os.environ.get('nnUNet_results') if os.environ.get('nnUNet_results') is not None else 'None'}\n"
+                           f"nnUNet_raw={os.environ.get('nnUNet_raw') if os.environ.get('nnUNet_raw') is not None else 'None'}\n"
+                           f"If something is not right, adapt your environment variables.")
     return unique_candidates[0]
 
 
