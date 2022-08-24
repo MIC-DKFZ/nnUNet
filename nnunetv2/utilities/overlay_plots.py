@@ -19,6 +19,7 @@ import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder, get_caseIDs_from_splitted_dataset_folder
@@ -128,8 +129,10 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
                  overlay_intensity: float = 0.6):
     import matplotlib.pyplot as plt
 
-    image, props = image_reader_writer.read_images((image_file, ))[0]
-    seg, props_seg = image_reader_writer.read_seg(image_file)[0]
+    image, props = image_reader_writer.read_images((image_file, ))
+    image = image[0]
+    seg, props_seg = image_reader_writer.read_seg(segmentation_file)
+    seg = seg[0]
 
     assert all([i == j for i, j in zip(image.shape, seg.shape)]), "image and seg do not have the same shape: %s, %s" % (
         image_file, segmentation_file)
@@ -137,6 +140,7 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
     assert len(image.shape) == 3, 'only 3D images/segs are supported'
 
     selected_slice = select_slice_to_plot2(image, seg)
+    # print(image.shape, selected_slice)
 
     overlay = generate_overlay(image[selected_slice], seg[selected_slice], overlay_intensity=overlay_intensity)
 
@@ -145,7 +149,7 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
 
 def plot_overlay_preprocessed(case_file: str, output_file: str, overlay_intensity: float = 0.6, channel_idx=0):
     import matplotlib.pyplot as plt
-    data = np.load(case_file)['data'][0]
+    data = np.load(case_file)['data']
     seg = np.load(case_file)['seg'][0]
 
     assert channel_idx < (data.shape[0]), 'This dataset only supports modality index up to %d' % (data.shape[0] - 1)
@@ -160,11 +164,13 @@ def plot_overlay_preprocessed(case_file: str, output_file: str, overlay_intensit
     plt.imsave(output_file, overlay)
 
 
-def multiprocessing_plot_overlay(list_of_image_files, list_of_seg_files, list_of_output_files, overlay_intensity,
+def multiprocessing_plot_overlay(list_of_image_files, list_of_seg_files, image_reader_writer,
+                                 list_of_output_files, overlay_intensity,
                                  num_processes=8):
     p = Pool(num_processes)
     r = p.starmap_async(plot_overlay, zip(
-        list_of_image_files, list_of_seg_files, list_of_output_files, [overlay_intensity] * len(list_of_output_files)
+        list_of_image_files, list_of_seg_files, [image_reader_writer] * len(list_of_output_files),
+        list_of_output_files, [overlay_intensity] * len(list_of_output_files)
     ))
     r.get()
     p.close()
@@ -184,11 +190,11 @@ def multiprocessing_plot_overlay_preprocessed(list_of_case_files, list_of_output
 
 
 def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folder: str,
-                               num_processes: int = 8, channel_idx: int = 0):
+                               num_processes: int = 8, channel_idx: int = 0, overlay_intensity: float = 0.6):
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     folder = join(nnUNet_raw, dataset_name)
     dataset_json = load_json(join(folder, 'dataset.json'))
-    identifiers = get_caseIDs_from_splitted_dataset_folder(folder, dataset_json['file_ending'])
+    identifiers = get_caseIDs_from_splitted_dataset_folder(join(folder, 'imagesTr'), dataset_json['file_ending'])
 
     image_files = [join(folder, 'imagesTr', i + "_%04.0d.nii.gz" % channel_idx) for i in identifiers]
     seg_files = [join(folder, 'labelsTr', i + ".nii.gz") for i in identifiers]
@@ -198,13 +204,16 @@ def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folde
 
     maybe_mkdir_p(output_folder)
     output_files = [join(output_folder, i + '.png') for i in identifiers]
-    multiprocessing_plot_overlay(image_files, seg_files, output_files, 0.6, num_processes)
+
+    image_reader_writer = determine_reader_writer(dataset_json, image_files[0])()
+    multiprocessing_plot_overlay(image_files, seg_files, image_reader_writer, output_files, overlay_intensity, num_processes)
 
 
 def generate_overlays_from_preprocessed(dataset_name_or_id: Union[int, str], output_folder: str,
                                         num_processes: int = 8, channel_idx: int = 0,
                                         configuration: str = None,
-                                        plans_identifier: str = 'nnUNetPlans'):
+                                        plans_identifier: str = 'nnUNetPlans',
+                                        overlay_intensity: float = 0.6):
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     folder = join(nnUNet_preprocessed, dataset_name)
     if not isdir(folder): raise RuntimeError("run preprocessing for that task first")
@@ -223,13 +232,13 @@ def generate_overlays_from_preprocessed(dataset_name_or_id: Union[int, str], out
                            f"{plans_identifier} ({dataset_name}) does not exist. Run preprocessing for this "
                            f"configuration first!")
 
-    identifiers = [i[:-4] for i in subfiles(folder, suffix='.npz', join=False)]
+    identifiers = [i[:-4] for i in subfiles(preprocessed_folder, suffix='.npz', join=False)]
 
     output_files = [join(output_folder, i + '.png') for i in identifiers]
-    image_files = [join(folder, i + ".npz") for i in identifiers]
+    image_files = [join(preprocessed_folder, i + ".npz") for i in identifiers]
 
     maybe_mkdir_p(output_folder)
-    multiprocessing_plot_overlay_preprocessed(image_files, output_files, overlay_intensity=0.6,
+    multiprocessing_plot_overlay_preprocessed(image_files, output_files, overlay_intensity=overlay_intensity,
                                               num_processes=num_processes, channel_idx=channel_idx)
 
 
@@ -250,10 +259,19 @@ def entry_point_generate_overlay():
     parser.add_argument('-c', type=str, required=False, default=None,
                         help='configuration name. Only used if --use_raw is not set! Default: None = '
                              '3d_fullres if available, else 2d')
+    parser.add_argument('-overlay_intensity', type=float, required=False, default=0.6,
+                        help='overlay intensity. Higher = brighter/less transparent')
+
 
     args = parser.parse_args()
 
     if args.use_raw:
-        generate_overlays_from_raw(args.d, args.o, args.np, args.channel_idx)
+        generate_overlays_from_raw(args.d, args.o, args.np, args.channel_idx,
+                                   overlay_intensity=args.overlay_intensity)
     else:
-        generate_overlays_from_preprocessed(args.d, args.o, args.np, args.channel_idx, args.c, args.p)
+        generate_overlays_from_preprocessed(args.d, args.o, args.np, args.channel_idx, args.c, args.p,
+                                            overlay_intensity=args.overlay_intensity)
+
+
+if __name__ == '__main__':
+    entry_point_generate_overlay()

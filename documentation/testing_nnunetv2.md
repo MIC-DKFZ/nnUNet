@@ -118,7 +118,7 @@ IMPORTANT: ALL nnUNetv2* commands have a `-h` option. Use it!
 - We now support an ignore label. Name one of your labels 'ignore' to unlock this achievement
 - Multiple input and output file formats are now supported:
   - Anything SimpleITK and nibabel can read/write
-  - tif (requires separate) .json file for each image/segmentation specifying spacing. Tif is a nightmare.
+  - tif (requires separate .json file for each image/segmentation specifying spacing. Tif is a nightmare.)
   - png, bmp etc (lossless compression only, so no jpg (fck that shit))
   - (planned, Karol): HDF5, Zarr
   - (we still need the _0000 channel identifiers. Sorry.)
