@@ -27,7 +27,7 @@ class LabelManager(object):
         self._ignore_label: Union[None, int] = self._determine_ignore_label()
         self._all_labels: List[int] = self._get_all_labels()
 
-        self._regions: Union[None, List[Union[int, tuple[int, ...]]]] = self._get_regions()
+        self._regions: Union[None, List[Union[int, Tuple[int, ...]]]] = self._get_regions()
 
         if self.has_ignore_label:
             assert self.ignore_label == max(
@@ -95,7 +95,7 @@ class LabelManager(object):
         return self.ignore_label is not None
 
     @property
-    def all_regions(self) -> Union[None, List[Union[int, tuple[int, ...]]]]:
+    def all_regions(self) -> Union[None, List[Union[int, Tuple[int, ...]]]]:
         return self._regions
 
     @property
@@ -183,7 +183,7 @@ class LabelManager(object):
         return probs_reverted_cropping
 
     @staticmethod
-    def filter_background(classes_or_regions: Union[List[int], List[Union[int, tuple[int, ...]]]]):
+    def filter_background(classes_or_regions: Union[List[int], List[Union[int, Tuple[int, ...]]]]):
         # heck yeah
         # This is definitely taking list comprehension too far. Enjoy.
         return [i for i in classes_or_regions if

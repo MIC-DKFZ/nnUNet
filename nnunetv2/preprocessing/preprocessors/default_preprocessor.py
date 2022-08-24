@@ -13,7 +13,7 @@
 #    limitations under the License.
 import shutil
 from multiprocessing import Pool
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -136,7 +136,7 @@ class DefaultPreprocessor(object):
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
-    def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[tuple[int, ...]]],
+    def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[Tuple[int, ...]]],
                                      seed: int = 1234):
         num_samples = 10000
         min_percent_coverage = 0.01  # at least 1% of the class voxels need to be selected, otherwise it may be too
