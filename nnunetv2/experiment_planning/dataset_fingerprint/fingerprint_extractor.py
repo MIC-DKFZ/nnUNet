@@ -51,17 +51,19 @@ class DatasetFingerprintExtractor(object):
 
         for i in range(len(images)):
             foreground_pixels = images[i][foreground_mask]
+            num_fg = len(foreground_pixels)
             # sample with replacement so that we don't get issues with cases that have less than num_samples
             # foreground_pixels. We could also just sample less in those cases but that would than cause these
             # training cases to be underrepresented
-            intensities_per_modality.append(rs.choice(foreground_pixels, num_samples, replace=True))
+            intensities_per_modality.append(
+                rs.choice(foreground_pixels, num_samples, replace=True) if num_fg > 0 else [])
             intensity_statistics_by_modality.append({
-                'mean': np.mean(foreground_pixels),
-                'median': np.median(foreground_pixels),
-                'min': np.min(foreground_pixels),
-                'max': np.max(foreground_pixels),
-                'percentile_99_5': np.percentile(foreground_pixels, 99.5),
-                'percentile_00_5': np.percentile(foreground_pixels, 0.5),
+                'mean': np.mean(foreground_pixels) if num_fg > 0 else np.nan,
+                'median': np.median(foreground_pixels) if num_fg > 0 else np.nan,
+                'min': np.min(foreground_pixels) if num_fg > 0 else np.nan,
+                'max': np.max(foreground_pixels) if num_fg > 0 else np.nan,
+                'percentile_99_5': np.percentile(foreground_pixels, 99.5) if num_fg > 0 else np.nan,
+                'percentile_00_5': np.percentile(foreground_pixels, 0.5) if num_fg > 0 else np.nan,
 
             })
 

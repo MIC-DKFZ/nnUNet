@@ -41,12 +41,13 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # properties['class_locations']
             class_locations = {
                 selected_class_or_region: properties['class_locations'][selected_class_or_region][properties['class_locations'][selected_class_or_region][:, 1] == selected_slice][:, (0, 2, 3)]
-            } if force_fg else None
+            } if force_fg and (selected_class_or_region is not None) else None
 
             # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, class_locations, overwrite_class=selected_class_or_region)
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg if selected_class_or_region is not None else None,
+                                               class_locations, overwrite_class=selected_class_or_region)
 
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
