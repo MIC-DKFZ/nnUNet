@@ -55,7 +55,7 @@ class LabelManager(object):
         all_labels.sort()
         return all_labels
 
-    def _get_regions(self) -> Union[None, List[Union[int, tuple[int, ...]]]]:
+    def _get_regions(self) -> Union[None, List[Union[int, Tuple[int, ...]]]]:
         if not self._has_regions or self._force_use_labels:
             return None
         else:
