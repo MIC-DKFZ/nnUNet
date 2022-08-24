@@ -17,6 +17,7 @@ from typing import Tuple, Union
 import numpy as np
 import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
@@ -217,33 +218,42 @@ def generate_overlays_from_preprocessed(dataset_name_or_id: Union[int, str], out
     data_identifier = plans['configurations'][configuration]["data_identifier"]
     preprocessed_folder = join(folder, data_identifier)
 
-    if not isdir:
+    if not isdir(preprocessed_folder):
         raise RuntimeError(f"Preprocessed data folder for configuration {configuration} of plans identifier "
                            f"{plans_identifier} ({dataset_name}) does not exist. Run preprocessing for this "
                            f"configuration first!")
 
-
     identifiers = [i[:-4] for i in subfiles(folder, suffix='.npz', join=False)]
-    maybe_mkdir_p(output_folder)
+
     output_files = [join(output_folder, i + '.png') for i in identifiers]
     image_files = [join(folder, i + ".npz") for i in identifiers]
+
     maybe_mkdir_p(output_folder)
     multiprocessing_plot_overlay_preprocessed(image_files, output_files, overlay_intensity=0.6,
                                               num_processes=num_processes, channel_idx=channel_idx)
-
 
 
 def entry_point_generate_overlay():
     import argparse
     parser = argparse.ArgumentParser("Plots png overlays of the slice with the most foreground. Note that this "
                                      "disregards spacing information!")
-    parser.add_argument('-t', type=str, help="task name or task ID", required=True)
+    parser.add_argument('-d', type=str, help="Dataset name or id", required=True)
     parser.add_argument('-o', type=str, help="output folder", required=True)
-    parser.add_argument('-num_processes', type=int, default=8, required=False, help="number of processes used. Default: 8")
-    parser.add_argument('-modality_idx', type=int, default=0, required=False,
-                        help="modality index used (0 = _0000.nii.gz). Default: 0")
+    parser.add_argument('-np', type=int, default=default_num_processes, required=False,
+                        help=f"number of processes used. Default: {default_num_processes}")
+    parser.add_argument('-channel_idx', type=int, default=0, required=False,
+                        help="channel index used (0 = _0000). Default: 0")
     parser.add_argument('--use_raw', action='store_true', required=False, help="if set then we use raw data. else "
                                                                                "we use preprocessed")
+    parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
+                        help='plans identifier. Only used if --use_raw is not set! Default: nnUNetPlans')
+    parser.add_argument('-c', type=str, required=False, default=None,
+                        help='configuration name. Only used if --use_raw is not set! Default: None = '
+                             '3d_fullres if available, else 2d')
+
     args = parser.parse_args()
 
-    generate_overlays_for_task(args.t, args.o, args.num_processes, args.modality_idx, use_preprocessed=not args.use_raw)
+    if args.use_raw:
+        generate_overlays_from_raw(args.d, args.o, args.np, args.channel_idx)
+    else:
+        generate_overlays_from_preprocessed(args.d, args.o, args.np, args.channel_idx, args.c, args.p)
