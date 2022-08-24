@@ -60,9 +60,11 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
     if len(image.shape) == 2:
         image = np.tile(image[:, :, None], (1, 1, 3))
     elif len(image.shape) == 3:
-        assert image.shape[2] == 3, 'if 3d image is given the last dimension must be the color channels ' \
-                                    '(3 channels). Only 2D images are supported'
-
+        if image.shape[2] == 1:
+            image = np.tile(image, (1, 1, 3))
+        else:
+            raise RuntimeError(f'if 3d image is given the last dimension must be the color channels (3 channels). '
+                               f'Only 2D images are supported. Your image shape: {image.shape}')
     else:
         raise RuntimeError("unexpected image shape. only 2D images and 2D images with color channels (color in "
                            "last dimension) are supported")
@@ -72,7 +74,6 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
     image = image / image.max() * 255
 
     # create output
-
     if mapping is None:
         uniques = np.unique(segmentation)
         mapping = {i: c for c, i in enumerate(uniques)}
@@ -85,6 +86,35 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
     return image.astype(np.uint8)
 
 
+def select_slice_to_plot(image: np.ndarray, segmentation: np.ndarray) -> int:
+    """
+    image and segmentation are expected to be 3D
+
+    selects the slice with the largest amount of fg (regardless of label)
+
+    we give image so that we can easily replace this function if needed
+    """
+    fg_mask = segmentation != 0
+    fg_per_slice = fg_mask.sum((1, 2))
+    selected_slice = int(np.argmax(fg_per_slice))
+    return selected_slice
+
+
+def select_slice_to_plot2(image: np.ndarray, segmentation: np.ndarray) -> int:
+    """
+    image and segmentation are expected to be 3D (or 1, x, y)
+
+    selects the slice with the largest amount of fg (average fg per class)
+
+    we give image so that we can easily replace this function if needed
+    """
+    classes = [i for i in np.unique(segmentation) if i != 0]
+    fg_per_slice = []
+    for c in classes:
+        fg_mask = segmentation == c
+        fg_per_slice = fg_mask.sum((1, 2))
+
+
 def plot_overlay(image_file: str, segmentation_file: str, output_file: str, overlay_intensity: float = 0.6):
     import matplotlib.pyplot as plt
 
@@ -95,9 +125,7 @@ def plot_overlay(image_file: str, segmentation_file: str, output_file: str, over
 
     assert len(image.shape) == 3, 'only 3D images/segs are supported'
 
-    fg_mask = seg != 0
-    fg_per_slice = fg_mask.sum((1, 2))
-    selected_slice = np.argmax(fg_per_slice)
+    selected_slice = select_slice_to_plot(image, seg)
 
     overlay = generate_overlay(image[selected_slice], seg[selected_slice], overlay_intensity=overlay_intensity)
 
