@@ -10,7 +10,7 @@ def convert_trainer_plans_config_to_identifier(trainer_name, plans_identifier, c
 
 
 def convert_identifier_to_trainer_plans_config(identifier: str):
-    return identifier.split('__')
+    return os.path.basename(identifier).split('__')
 
 
 def get_output_folder(dataset_name_or_id: Union[str, int], trainer_name: str = 'nnUNetTrainer',
@@ -68,7 +68,7 @@ def get_ensemble_name_from_d_tr_c(dataset, tr1, p1, c1, tr2, p2, c2, folds: Tupl
 
 
 def convert_ensemble_folder_to_model_identifiers_and_folds(ensemble_folder: str):
-    prefix, *models, folds = ensemble_folder.split('___')
+    prefix, *models, folds = os.path.basename(ensemble_folder).split('___')
     return models, folds
 
 

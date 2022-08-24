@@ -56,7 +56,7 @@ class nnUNetDataset(object):
 
         self.keep_files_open = ('nnUNet_keep_files_open' in os.environ.keys()) and \
                                (os.environ['nnUNet_keep_files_open'].lower() in ('true', '1', 't'))
-        print(f'nnUNetDataset.keep_files_open: {self.keep_files_open}')
+        # print(f'nnUNetDataset.keep_files_open: {self.keep_files_open}')
 
     def __getitem__(self, key):
         ret = {**self.dataset[key]}

@@ -54,6 +54,7 @@ def export_pretrained_model(dataset_name_or_id: str, output_file: str,
                     zipf.write(source_file, os.path.relpath(source_file, nnUNet_results))
 
                 # validation folder with all predicted segmentations etc
+                # todo skip npz files and their pkl counterparts!
                 if export_crossval_predictions:
                     source_folder = join(trainer_output_dir, fold_folder, "validation")
                     zipf.write(source_folder, os.path.relpath(source_folder, nnUNet_results))
@@ -77,18 +78,18 @@ def export_pretrained_model(dataset_name_or_id: str, output_file: str,
             source_file = join(trainer_output_dir, "plans.json")
             zipf.write(source_file, os.path.relpath(source_file, nnUNet_results))
 
-        ensemble_dir = join(nnUNet_results, dataset_name, 'ensembles', dataset_name_or_id)
+        ensemble_dir = join(nnUNet_results, dataset_name, 'ensembles')
 
         if not isdir(ensemble_dir):
             print("No ensemble directory found for task", dataset_name_or_id)
             return
         subd = subdirs(ensemble_dir, join=False)
-        valid = []
-        for s in subd:
-            v = check_if_valid(s, configurations, (trainer, nnunet_trainer_cascade), (plans_identifier))
-            if v:
-                valid.append(s)
-        for v in valid:
-            zipf.write(join(ensemble_dir, v, 'postprocessing.json'),
-                       os.path.relpath(join(ensemble_dir, v, 'postprocessing.json'),
-                                       nnUNet_results))
+                # figure out whether the models in the ensemble are all within the exported models here
+        for ens in subd:
+            identifiers, folds = convert_ensemble_folder_to_model_identifiers_and_folds(ens)
+            for i in identifiers:
+                tr, pl, c = convert_identifier_to_trainer_plans_config(i)
+                if tr == trainer and pl == plans_identifier and c in configurations:
+                    raise NotImplementedError
+                    pass
+
