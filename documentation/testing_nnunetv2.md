@@ -43,7 +43,7 @@ export nnUNet_results=/home/fabian/results/nnUNet_remake
 
 Planning and preprocessing
 ```bash
-nnUNetv2_plan_and_preprocess -d DATASET_NAME_OR_ID
+nnUNetv2_plan_and_preprocess -d DATASET_ID
 ```
 This will generate the dataset fingerprint (explicitly this time), plans and preprocessed data in 
 `$nnUNet_preprocessed`. Everything is json now, so you can just open it in an editor, take a look and modify things 
