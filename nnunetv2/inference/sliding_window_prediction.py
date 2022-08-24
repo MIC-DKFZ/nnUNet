@@ -114,7 +114,8 @@ def predict_sliding_window_return_logits(network: nn.Module,
                                          use_gaussian: bool = True,
                                          precomputed_gaussian: torch.Tensor = None,
                                          perform_everything_on_gpu: bool = True,
-                                         verbose: bool = True) -> Union[np.ndarray, torch.Tensor]:
+                                         verbose: bool = True,
+                                         device: str = 'cuda:0') -> Union[np.ndarray, torch.Tensor]:
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
@@ -143,7 +144,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
             gaussian = torch.from_numpy(
                 compute_gaussian(tile_size, sigma_scale=1. / 8)) if precomputed_gaussian is None else precomputed_gaussian
             if perform_everything_on_gpu:
-                gaussian = gaussian.to('cuda:0', non_blocking=False)
+                gaussian = gaussian.to(device, non_blocking=False)
             else:
                 gaussian = gaussian.to('cpu', non_blocking=False)
 
@@ -152,15 +153,13 @@ def predict_sliding_window_return_logits(network: nn.Module,
         # preallocate results and num_predictions
         # RuntimeError: "softmax_kernel_impl" not implemented for 'Half'. F.U.
         predicted_logits = torch.zeros((num_segmentation_heads, *data.shape[1:]), dtype=torch.float32,
-                                       device='cpu' if not perform_everything_on_gpu else 'cuda:0')
+                                       device='cpu' if not perform_everything_on_gpu else device)
         n_predictions = torch.zeros(data.shape[1:], dtype=torch.float32,
-                                    device='cpu' if not perform_everything_on_gpu else 'cuda:0')
+                                    device='cpu' if not perform_everything_on_gpu else device)
 
         for sl in slicers:
             workon = data[sl][None]
-
-            if torch.cuda.is_available():
-                workon = workon.to('cuda:0', non_blocking=False)
+            workon = workon.to(device, non_blocking=False)
 
             prediction = maybe_mirror_and_predict(network, workon, mirror_axes)[0]
 

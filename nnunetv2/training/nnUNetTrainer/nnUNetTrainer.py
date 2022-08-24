@@ -133,7 +133,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 5
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -988,7 +988,8 @@ class nnUNetTrainer(object):
                                                               use_gaussian=True,
                                                               precomputed_gaussian=inference_gaussian,
                                                               perform_everything_on_gpu=True,
-                                                              verbose=False).cpu().numpy()
+                                                              verbose=False,
+                                                              device=self.device).cpu().numpy()
             """There is a problem with python process communication that prevents us from communicating objects
             larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
             communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
