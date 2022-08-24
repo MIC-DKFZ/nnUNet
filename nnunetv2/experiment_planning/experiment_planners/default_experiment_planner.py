@@ -1,7 +1,6 @@
 import shutil
 from copy import deepcopy
-from copy import deepcopy
-from functools import cache
+from functools import lru_cache
 from typing import List, Union, Tuple
 
 import numpy as np
@@ -84,7 +83,7 @@ class ExperimentPlanner(object):
                                                                self.dataset_json['file_ending']))
 
     @staticmethod
-    @cache
+    @lru_cache(maxsize=None)
     def static_estimate_VRAM_usage(patch_size: Tuple[int],
                                    n_stages: int,
                                    strides: Union[int, List[int], Tuple[int, ...]], UNet_class,
