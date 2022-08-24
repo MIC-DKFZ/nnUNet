@@ -4,7 +4,7 @@ import nnunetv2
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
-from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name
+from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name, maybe_convert_to_dataset_name
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, maybe_mkdir_p, subfiles
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 

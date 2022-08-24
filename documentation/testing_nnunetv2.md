@@ -39,11 +39,37 @@ export nnUNet_raw=/media/fabian/data/nnUNet_raw
 export nnUNet_results=/home/fabian/results/nnUNet_remake
 ```
 
+# Dataset conversion
+Datasets are a bit different now than in the old nnU-Net. The easiest way to use your old nnU-Net datasets is to run
+```bash
+nnUNetv2_convert_old_nnUNet_dataset INPUT_FOLDER OUTPUT_DATASET_NAME
+```
+Important: nnUNetv2 datasets are now called DatasetXXX_NAME. TaskXXX was a bad naming imposed by the MSD. So your 
+dataset name should be Dataset004_Hippocampus, for example.
+
+You can of course also build your own dataset, maybe even with a different file format (see 
+[here](#list-of-major-new-features-no-particular-order)). No documentation on that yet, but sample datasets exist 
+(see below for link)
+
+When building your own dataset, use [generate_dataset_json](../nnunetv2/dataset_conversion/generate_dataset_json.py) 
+to generate the dataset.json file. Read its documentation to see what the input arguments have to look like!
+No headaches!
+
+There are some sample datasets in `E132-Rohdaten/nnUNetv2` that you can use for inspiration. Notable examples are:
+- `Dataset073_Fluo_C3DH_A549_SIM`: tif as input file format
+- `Dataset120_RoadSegmentation`: 2d png as input file format
+- `Dataset998_Hippocampus_ignore`: has an ignore label
+- `Dataset999_Hippocampus_regions`: demonstrates how to use region-based training
+- `Dataset997_sparseLiver`: training nnU-Net from scribbles. This was just an experiment, but a fun one. Toy dataset 
+with just one training image (replicated 5 times).
+
+If you set `export nnUNet_raw=[...]E132-Rohdaten/nnUNetv2` then you can just use the raw data located there. No need to copy.
+
 # Standard nnU-Net v2 training procedure
 
 Planning and preprocessing
 ```bash
-nnUNetv2_plan_and_preprocess -d DATASET_NAME_OR_ID
+nnUNetv2_plan_and_preprocess -d DATASET_ID
 ```
 This will generate the dataset fingerprint (explicitly this time), plans and preprocessed data in 
 `$nnUNet_preprocessed`. Everything is json now, so you can just open it in an editor, take a look and modify things 
@@ -84,33 +110,6 @@ nnUNetv2_ensemble
 ```
 
 IMPORTANT: ALL nnUNetv2* commands have a `-h` option. Use it!
-
-# Dataset conversion
-Datasets are a bit different now than in the old nnU-Net. The easiest way to use your old nnU-Net datasets is to run
-```bash
-nnUNetv2_convert_old_nnUNet_dataset INPUT_FOLDER OUTPUT_DATASET_NAME
-```
-Important: nnUNetv2 datasets are now called DatasetXXX_NAME. TaskXXX was a bad naming imposed by the MSD. So your 
-dataset name should be Dataset004_Hippocampus, for example.
-
-You can of course also build your own dataset, maybe even with a different file format (see 
-[here](#list-of-major-new-features-no-particular-order)). No documentation on that yet, but sample datasets exist 
-(see below for link)
-
-When building your own dataset, use [generate_dataset_json](../nnunetv2/dataset_conversion/generate_dataset_json.py) 
-to generate the dataset.json file. Read its documentation to see what the input arguments have to look like!
-No headaches!
-
-There are some sample datasets in `E132-Rohdaten/nnUNetv2` that you can use for inspiration. Notable examples are:
-- `Dataset073_Fluo_C3DH_A549_SIM`: tif as input file format
-- `Dataset120_RoadSegmentation`: 2d png as input file format
-- `Dataset998_Hippocampus_ignore`: has an ignore label
-- `Dataset999_Hippocampus_regions`: demonstrates how to use region-based training
-- `Dataset997_sparseLiver`: training nnU-Net from scribbles. This was just an experiment, but a fun one. Toy dataset 
-with just one training image (replicated 5 times).
-
-If you set `export nnUNet_raw=[...]E132-Rohdaten/nnUNetv2` then you can just use the raw data located there. No need to copy.
-
 
 # List of major new features (no particular order)
 - No longer explicitly crops the raw data during planning and preprocessing. Saving some space
