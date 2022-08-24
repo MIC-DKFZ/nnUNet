@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_results
@@ -52,6 +52,42 @@ def parse_dataset_trainer_plans_configuration_from_path(path: str):
             assert len(splitted) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                        'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
             return folders[idx], *splitted
+
+
+def get_ensemble_name(model1_folder, model2_folder, folds: Tuple[int, ...]):
+    identifier = 'ensemble___' + os.path.basename(model1_folder) + '___' + \
+                 os.path.basename(model2_folder) + '___' + folds_tuple_to_string(folds)
+    return identifier
+
+
+def get_ensemble_name_from_d_tr_c(dataset, tr1, p1, c1, tr2, p2, c2, folds: Tuple[int, ...]):
+    model1_folder = get_output_folder(dataset, tr1, p1, c1)
+    model2_folder = get_output_folder(dataset, tr2, p2, c2)
+
+    get_ensemble_name(model1_folder, model2_folder, folds)
+
+
+def convert_ensemble_folder_to_model_identifiers_and_folds(ensemble_folder: str):
+    prefix, *models, folds = ensemble_folder.split('___')
+    return models, folds
+
+
+def folds_tuple_to_string(folds: Union[List[int], Tuple[int, ...]]):
+    s = str(folds[0])
+    for f in folds[1:]:
+        s += f"_{f}"
+    return s
+
+
+def folds_string_to_tuple(folds_string: str):
+    folds = folds_string.split('_')
+    res = []
+    for f in folds:
+        try:
+            res.append(int(f))
+        except ValueError:
+            res.append(f)
+    return res
 
 
 if __name__ == '__main__':

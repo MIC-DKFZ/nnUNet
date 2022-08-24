@@ -1,4 +1,5 @@
 import argparse
+import shutil
 from copy import deepcopy
 from multiprocessing import Pool
 from typing import List, Union, Tuple
@@ -185,3 +186,6 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
     )
     pool.close()
     pool.join()
+
+    shutil.copy(join(list_of_trained_model_folders[0], 'plans.json'), join(output_folder, 'plans.json'))
+    shutil.copy(join(list_of_trained_model_folders[0], 'dataset.json'), join(output_folder, 'dataset.json'))

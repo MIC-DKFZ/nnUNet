@@ -2,18 +2,16 @@ import argparse
 import os.path
 import shutil
 from copy import deepcopy
-
-from nnunetv2.configuration import default_num_processes
 from typing import Union, List, Tuple
 
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isdir, maybe_mkdir_p, subfiles, isfile
-
+from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, load_summary_json
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
-    convert_identifier_to_trainer_plans_config
+    convert_identifier_to_trainer_plans_config, get_ensemble_name, folds_tuple_to_string
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 default_trained_models = tuple([
@@ -47,13 +45,6 @@ def filter_available_models(model_dict: Union[List[dict], Tuple[dict, ...]], dat
 
         valid.append(trained_model)
     return valid
-
-
-def folds_tuple_to_string(folds: Union[List[int], Tuple[int, ...]]):
-    s = str(folds[0])
-    for f in folds[1:]:
-        s += f"_{f}"
-    return s
 
 
 def accumulate_cv_results(trained_model_folder,
@@ -160,11 +151,13 @@ def find_best_configuration(dataset_name_or_id,
         for i in range(len(allowed_trained_models)):
             for j in range(i + 1, len(allowed_trained_models)):
                 m1, m2 = allowed_trained_models[i], allowed_trained_models[j]
+
                 output_folder_1 = get_output_folder(dataset_name_or_id, m1['trainer'], m1['plans'], m1['configuration'], fold=None)
                 output_folder_2 = get_output_folder(dataset_name_or_id, m2['trainer'], m2['plans'], m2['configuration'], fold=None)
-                identifier = 'ensemble___' + os.path.basename(output_folder_1) + '___' + \
-                              os.path.basename(output_folder_2) + '___' + folds_tuple_to_string(folds)
+                identifier = get_ensemble_name(output_folder_1, output_folder_2, folds)
+
                 output_folder_ensemble = join(nnUNet_results, dataset_name, 'ensembles', identifier)
+
                 ensemble_crossvalidations([output_folder_1, output_folder_2], output_folder_ensemble, folds,
                                           num_processes, overwrite=overwrite)
 
@@ -208,9 +201,9 @@ def find_best_configuration(dataset_name_or_id,
     print('\nAfter that you can use this for inference:')
     if best_key.startswith('ensemble___'):
         print('An ensemble won! What a surprise!')
-        prefix, m1, m2 = best_key.split('___')
+        prefix, m1, m2, folds_string = best_key.split('___')
         tr1, pl1, c1 = convert_identifier_to_trainer_plans_config(m1)
-        tr2, pl2, c2 = convert_identifier_to_trainer_plans_config(m1)
+        tr2, pl2, c2 = convert_identifier_to_trainer_plans_config(m2)
         print(generate_inference_command(dataset_name_or_id, c1, pl1, tr1, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_1'))
         print(generate_inference_command(dataset_name_or_id, c2, pl2, tr2, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_2'))
         print('Now run ensembling with:')
