@@ -75,7 +75,7 @@ class RescaleTo01Normalization(ImageNormalization):
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         image = image.astype(self.target_dtype)
         image = image - image.min()
-        image = image / max(image.max(), 1e-8)
+        image = image / np.clip(image.max(), a_min=1e-8, a_max=None)
         return image
 
 

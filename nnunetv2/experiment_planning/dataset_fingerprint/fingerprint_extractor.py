@@ -37,6 +37,9 @@ class DatasetFingerprintExtractor(object):
     @staticmethod
     def collect_foreground_intensities(segmentation: np.ndarray, images: np.ndarray, seed: int = 1234,
                                        num_samples: int = 10000):
+        """
+        images=image with multiple channels = shape (c, x, y(, z))
+        """
         assert len(images.shape) == 4
         assert len(segmentation.shape) == 4
 
@@ -51,6 +54,7 @@ class DatasetFingerprintExtractor(object):
 
         for i in range(len(images)):
             foreground_pixels = images[i][foreground_mask]
+            num_fg = len(foreground_pixels)
             # sample with replacement so that we don't get issues with cases that have less than num_samples
             # foreground_pixels. We could also just sample less in those cases but that would than cause these
             # training cases to be underrepresented
