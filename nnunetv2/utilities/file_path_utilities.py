@@ -119,8 +119,10 @@ def should_i_save_to_file(results_list: Union[None, List],
         bytes_per_element = 4
     elif prediction.dtype in (np.float, np.int, int, float, np.uint64):
         bytes_per_element = 8
-    elif prediction.dtype in (np.uint8, np.int8, np.char):
+    elif prediction.dtype in (np.float16, np.uint16, np.int16):
         bytes_per_element = 2
+    elif prediction.dtype in (np.uint8, np.int8, np.char):
+        bytes_per_element = 1
     elif prediction == np.bool:
         bytes_per_element = 1  # is that so? I don't know tbh but like this its not going to crash for sure.
     else:
