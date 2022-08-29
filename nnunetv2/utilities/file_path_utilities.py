@@ -93,9 +93,7 @@ def folds_string_to_tuple(folds_string: str):
     return res
 
 
-def should_i_save_to_file(results_list: Union[None, List],
-                          export_pool: Union[None, Pool],
-                          prediction: np.ndarray):
+def should_i_save_to_file(prediction: np.ndarray, results_list: List = None, export_pool: Pool = None):
     """
     There is a problem with python process communication that prevents us from communicating objects
     larger than 2 GB between processes (basically when the length of the pickle string that will be sent is

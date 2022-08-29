@@ -993,7 +993,7 @@ class nnUNetTrainer(object):
                                                               perform_everything_on_gpu=True,
                                                               verbose=False,
                                                               device=self.device).cpu().numpy()
-            if should_i_save_to_file(results, segmentation_export_pool, prediction):
+            if should_i_save_to_file(prediction, results, segmentation_export_pool):
                 np.save(output_filename_truncated + '.npy', prediction)
                 prediction_for_export = output_filename_truncated + '.npy'
             else:
@@ -1031,7 +1031,7 @@ class nnUNetTrainer(object):
                     output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                     output_file = join(output_folder, k + '.npz')
 
-                    if should_i_save_to_file(results, segmentation_export_pool, prediction):
+                    if should_i_save_to_file(prediction, results, segmentation_export_pool):
                         np.save(output_file[:-4] + '.npy', prediction)
                         prediction_for_export = output_file[:-4] + '.npy'
                     else:

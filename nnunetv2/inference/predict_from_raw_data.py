@@ -273,7 +273,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
             print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
 
-            if should_i_save_to_file(r, export_pool, prediction):
+            if should_i_save_to_file(prediction, r, export_pool):
                 print('output is too large for python process-process communication. Saving to file...')
                 np.save(ofile + '.npy', prediction)
                 prediction = ofile + '.npy'
