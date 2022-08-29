@@ -1,4 +1,5 @@
 import inspect
+import multiprocessing
 import os
 import shutil
 import sys
@@ -998,7 +999,7 @@ class nnUNetTrainer(object):
             patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
             then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
             filename or np.ndarray and will handle this automatically"""
-            if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            if self.save_to_file(results, segmentation_export_pool, prediction.shape):
                 np.save(output_filename_truncated + '.npy', prediction)
                 prediction_for_export = output_filename_truncated + '.npy'
             else:
@@ -1036,7 +1037,7 @@ class nnUNetTrainer(object):
                     output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                     output_file = join(output_folder, k + '.npz')
 
-                    if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                    if self.save_to_file(results, segmentation_export_pool, prediction.shape):
                         np.save(output_file[:-4] + '.npy', prediction)
                         prediction_for_export = output_file[:-4] + '.npy'
                     else:
@@ -1073,6 +1074,33 @@ class nnUNetTrainer(object):
             self.network.module.decoder.deep_supervision = True
         else:
             self.network.decoder.deep_supervision = True
+
+    @staticmethod
+    def save_to_file(results_list: Union[None, List],
+                     export_pool: Union[None, Pool],
+                     prediction_shape: Tuple[int, ...]):
+        if np.prod(prediction_shape) > (2e9 / 4 * 0.85):  # *0.85 just to be safe
+            print('INFO: Prediction is too large for python process-process communication. Saving to file...')
+            return True
+        if export_pool is not None:
+            is_alive = [i.is_alive for i in export_pool._pool]
+            if not all(is_alive):
+                raise RuntimeError("Some workers in the export pool are no longer alive. That should not happen. You "
+                                   "probably don't have enough RAM :-(")
+            if results_list is not None:
+                """
+                We should prevent the task queue from getting too long. This could cause lots of predictions being 
+                stuck in a queue and eating up memory. Best to save to disk instead in that case. Hopefully there 
+                will be less people with RAM issues in the future...
+                """
+                not_ready = [not i.ready() for i in results_list]
+                if sum(not_ready) > len(is_alive):
+                    print('INFO: Prediction is faster than your PC can resample the results. Results are temporarily '
+                          'saved to disk to prevent out of memory issues. If you have more RAM and CPU cores available, '
+                          f'consider setting nnUNet_def_n_proc to a larger number (default is 8, current is '
+                          f'{default_num_processes}).')
+                    return True
+        return False
 
     def run_training(self):
         self.on_train_start()

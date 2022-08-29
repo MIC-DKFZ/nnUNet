@@ -19,6 +19,7 @@ from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
@@ -272,7 +273,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
             print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
 
-            if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            if nnUNetTrainer.save_to_file(r, export_pool, prediction.shape):
                 print('output is too large for python process-process communication. Saving to file...')
                 np.save(ofile + '.npy', prediction)
                 prediction = ofile + '.npy'
