@@ -974,6 +974,7 @@ class nnUNetTrainer(object):
 
         results = []
         for k in dataset_val.keys():
+            self.print_to_log_file(f"predicting {k}")
             data, seg, properties = dataset_val.load_case(k)
 
             if self.is_cascaded:
