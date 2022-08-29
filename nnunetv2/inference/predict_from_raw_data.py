@@ -20,7 +20,7 @@ from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.file_path_utilities import get_output_folder
+from nnunetv2.utilities.file_path_utilities import get_output_folder, should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, convert_labelmap_to_one_hot
@@ -273,7 +273,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
             print('Prediction done, transferring to CPU if needed')
             prediction = prediction.to('cpu').numpy()
 
-            if nnUNetTrainer.save_to_file(r, export_pool, prediction.shape):
+            if should_i_save_to_file(r, export_pool, prediction):
                 print('output is too large for python process-process communication. Saving to file...')
                 np.save(ofile + '.npy', prediction)
                 prediction = ofile + '.npy'

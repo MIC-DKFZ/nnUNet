@@ -49,6 +49,7 @@ from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
@@ -992,14 +993,7 @@ class nnUNetTrainer(object):
                                                               perform_everything_on_gpu=True,
                                                               verbose=False,
                                                               device=self.device).cpu().numpy()
-            """There is a problem with python process communication that prevents us from communicating objects
-            larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-            communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
-            enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
-            patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
-            then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
-            filename or np.ndarray and will handle this automatically"""
-            if self.save_to_file(results, segmentation_export_pool, prediction.shape):
+            if should_i_save_to_file(results, segmentation_export_pool, prediction):
                 np.save(output_filename_truncated + '.npy', prediction)
                 prediction_for_export = output_filename_truncated + '.npy'
             else:
@@ -1037,7 +1031,7 @@ class nnUNetTrainer(object):
                     output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                     output_file = join(output_folder, k + '.npz')
 
-                    if self.save_to_file(results, segmentation_export_pool, prediction.shape):
+                    if should_i_save_to_file(results, segmentation_export_pool, prediction):
                         np.save(output_file[:-4] + '.npy', prediction)
                         prediction_for_export = output_file[:-4] + '.npy'
                     else:
@@ -1074,33 +1068,6 @@ class nnUNetTrainer(object):
             self.network.module.decoder.deep_supervision = True
         else:
             self.network.decoder.deep_supervision = True
-
-    @staticmethod
-    def save_to_file(results_list: Union[None, List],
-                     export_pool: Union[None, Pool],
-                     prediction_shape: Tuple[int, ...]):
-        if np.prod(prediction_shape) > (2e9 / 4 * 0.85):  # *0.85 just to be safe
-            print('INFO: Prediction is too large for python process-process communication. Saving to file...')
-            return True
-        if export_pool is not None:
-            is_alive = [i.is_alive for i in export_pool._pool]
-            if not all(is_alive):
-                raise RuntimeError("Some workers in the export pool are no longer alive. That should not happen. You "
-                                   "probably don't have enough RAM :-(")
-            if results_list is not None:
-                """
-                We should prevent the task queue from getting too long. This could cause lots of predictions being 
-                stuck in a queue and eating up memory. Best to save to disk instead in that case. Hopefully there 
-                will be less people with RAM issues in the future...
-                """
-                not_ready = [not i.ready() for i in results_list]
-                if sum(not_ready) > len(is_alive):
-                    print('INFO: Prediction is faster than your PC can resample the results. Results are temporarily '
-                          'saved to disk to prevent out of memory issues. If you have more RAM and CPU cores available, '
-                          f'consider setting nnUNet_def_n_proc to a larger number (default is 8, current is '
-                          f'{default_num_processes}).')
-                    return True
-        return False
 
     def run_training(self):
         self.on_train_start()
