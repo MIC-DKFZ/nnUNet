@@ -28,7 +28,9 @@ def recursive_fix_for_json_export(my_dict: dict):
         elif isinstance(my_dict[k], list):
             my_dict[k] = fix_types_iterable(my_dict[k], output_type=type(my_dict[k]))
         elif isinstance(my_dict[k], tuple):
-            raise RuntimeError('Tuples not supported')
+            my_dict[k] = fix_types_iterable(my_dict[k], output_type=tuple)
+        else:
+            pass  # pray it can be serialized
 
 
 def fix_types_iterable(iterable, output_type):
