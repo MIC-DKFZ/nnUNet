@@ -12,6 +12,10 @@ def load_pretrained_weights(network, fname, verbose=False):
     pretrained_dict = saved_model['network_weights']
     is_ddp = isinstance(network, DDP)
 
+    skip_strings_in_pretrained = [
+        '.seg_layers.',
+    ]
+
     model_dict = network.state_dict()
     # verify that all but the segmentation layers have the same shape
     for key, _ in model_dict.items():
@@ -19,20 +23,21 @@ def load_pretrained_weights(network, fname, verbose=False):
             key_pretrained = key[7:]
         else:
             key_pretrained = key
-        if '.seg_layers.' not in key:
+        if all([i not in key for i in skip_strings_in_pretrained]):
             assert key_pretrained in pretrained_dict, \
                 f"Key {key_pretrained} is missing in the pretrained model weights. The pretrained weights do not seem to be " \
                 f"compatible with your network."
             assert model_dict[key].shape == pretrained_dict[key_pretrained].shape, \
                 f"The shape of the parameters of key {key_pretrained} is not the same. Pretrained model: " \
-                f"{pretrained_dict[key_pretrained].shape}; your network: {model_dict[key]}"
+                f"{pretrained_dict[key_pretrained].shape}; your network: {model_dict[key]}. The pretrained model " \
+                f"does not seem to be compatible with your network."
 
     # fun fact this does allow loading from parameters that do not cover the entire network. For example pretrained
     # encoders
     # I didnt even know that you could put if statements into dict comprehensions. Damn am I good.
     pretrained_dict = {'module.' + k if is_ddp else k: v
                        for k, v in pretrained_dict.items()
-                       if (('module.' + k if is_ddp else k) in model_dict) and '.seg_layers.' not in k}
+                       if (('module.' + k if is_ddp else k) in model_dict) and all([i not in k for i in skip_strings_in_pretrained])}
     # yet another line of death right here...
 
     model_dict.update(pretrained_dict)
