@@ -51,12 +51,12 @@ if __name__ == "__main__":
         i: ("2d", ) for i in configurations_all if "2d" in configurations_all[i]
     }
 
-    num_gpus = 2
+    num_gpus = 1
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgxa100-2']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=32G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=1G"
     queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && nnUNet_results=/dkfz/cluster/gpu/checkpoints/OE0441/isensee/nnUNet_results_remake_ddp"
+    preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && "
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
@@ -64,7 +64,9 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetPlans',),
+        'nnUNetTrainerFocalLoss2': ('nnUNetPlans',),
+        'nnUNetTrainerFocalLoss': ('nnUNetPlans',),
+        'nnUNetTrainerFocalandDiceLoss': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

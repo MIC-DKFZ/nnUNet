@@ -101,6 +101,10 @@ if __name__ == '__main__':
         'nnUNetTrainer_probabilisticOversampling': ('nnUNetPlans',),
         'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetPlans',),
         'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetPlans',),
+        'nnUNetTrainerFocalLoss2': ('nnUNetPlans',),
+        'nnUNetTrainerFocalLoss': ('nnUNetPlans',),
+        'nnUNetTrainerFocalandDiceLoss': ('nnUNetPlans',),
+
     }
     all_results_file = join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
