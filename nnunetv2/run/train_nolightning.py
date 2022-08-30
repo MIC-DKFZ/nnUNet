@@ -4,6 +4,7 @@ import nnunetv2
 import torch.cuda
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
 from nnunetv2.paths import nnUNet_preprocessed
+from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
@@ -65,7 +66,8 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     return nnunet_trainer
 
 
-def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool):
+def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
+                          pretrained_weights_file: str = None):
     if continue_training:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
@@ -81,6 +83,8 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         if not isfile(expected_checkpoint_file):
             raise RuntimeError(f"Cannot run validation because the training is not finished yet!")
     else:
+        if pretrained_weights_file is not None:
+            load_pretrained_weights(nnunet_trainer.network, pretrained_weights_file, verbose=True)
         expected_checkpoint_file = None
 
     if expected_checkpoint_file is not None:
@@ -107,7 +111,7 @@ def run_ddp(rank, args, world_size):
 
     assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
-    maybe_load_checkpoint(nnunet_trainer, args.c, args.val)
+    maybe_load_checkpoint(nnunet_trainer, args.c, args.val, args.pretrained_weights)
 
     if torch.cuda.is_available():
         cudnn.deterministic = False
@@ -174,7 +178,7 @@ def nnUNet_train_from_args():
 
         assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
-        maybe_load_checkpoint(nnunet_trainer, args.c, args.val)
+        maybe_load_checkpoint(nnunet_trainer, args.c, args.val, args.pretrained_weights)
 
         if torch.cuda.is_available():
             cudnn.deterministic = False

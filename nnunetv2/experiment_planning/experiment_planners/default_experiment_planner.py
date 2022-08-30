@@ -107,25 +107,6 @@ class ExperimentPlanner(object):
                          norm_op=norm_op)
         return net.compute_conv_feature_map_size(patch_size)
 
-    def estimate_VRAM_usage(self, patch_size: Tuple[int],
-                            n_stages: int,
-                            strides: Union[int, List[int], Tuple[int, ...]]):
-        """
-        Works for PlainConvUNet, ResidualEncoderUNet
-        """
-        dim = len(patch_size)
-        conv_op = convert_dim_to_conv_op(dim)
-        norm_op = get_matching_instancenorm(conv_op)
-        max_features = self.UNet_max_features_2d if len(patch_size) == 2 else self.UNet_max_features_3d
-        net = self.UNet_class(len(self.dataset_json['modality'].keys()), n_stages,
-                              [min(max_features, self.UNet_reference_com_nfeatures * 2 ** i) for i in range(n_stages)],
-                              conv_op, 3, strides, self.UNet_blocks_per_stage,
-                              len(self.dataset_json['labels'].keys()),
-                              self.UNet_blocks_per_stage[::-1] if not isinstance(self.UNet_blocks_per_stage, int)
-                              else self.UNet_blocks_per_stage,
-                              norm_op=norm_op)
-        return net.compute_conv_feature_map_size(patch_size)
-
     def determine_resampling(self, *args, **kwargs):
         """
         returns what functions to use for resampling data and seg, respectively. Also returns kwargs
@@ -272,13 +253,6 @@ class ExperimentPlanner(object):
                                                              999999)
 
         # now estimate vram consumption
-        # net = self.UNet_class(len(self.dataset_json['modality'].keys()), n_stages,
-        #                       [min(max_features, self.UNet_reference_com_nfeatures * 2 ** i) for i in range(n_stages)],
-        #                       conv_op, 3, strides, self.UNet_blocks_per_stage,
-        #                       len(self.dataset_json['labels'].keys()),
-        #                       self.UNet_blocks_per_stage[::-1] if not isinstance(self.UNet_blocks_per_stage, int)
-        #                       else self.UNet_blocks_per_stage,
-        #                       norm_op=norm_op)
         estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
                                                    len(pool_op_kernel_sizes),
                                                    tuple([tuple(i) for i in pool_op_kernel_sizes]),
@@ -294,7 +268,8 @@ class ExperimentPlanner(object):
 
         # how large is the reference for us here (batch size etc)?
         # adapt for our vram target
-        reference = self.UNet_reference_val_2d if len(spacing) == 2 else self.UNet_reference_val_3d
+        reference = (self.UNet_reference_val_2d if len(spacing) == 2 else self.UNet_reference_val_3d) * \
+                    (self.UNet_vram_target_GB / self.UNet_reference_val_corresp_GB)
 
         while estimate > reference:
             # print(patch_size)
