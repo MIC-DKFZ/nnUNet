@@ -6,7 +6,7 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
@@ -108,8 +108,8 @@ class DatasetFingerprintExtractor(object):
             file_suffix = self.dataset_json['file_ending']
             training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),
                                                                             file_suffix)
-            reader_writer_class = determine_reader_writer(self.dataset_json,
-                                                          join(self.input_folder, 'imagesTr',
+            reader_writer_class = determine_reader_writer_from_dataset_json(self.dataset_json,
+                                                                            join(self.input_folder, 'imagesTr',
                                                                training_identifiers[0] + '_0000' + file_suffix))
 
             training_images_per_case = create_lists_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),

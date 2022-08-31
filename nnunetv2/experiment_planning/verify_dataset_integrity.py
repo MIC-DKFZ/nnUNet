@@ -20,7 +20,7 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
@@ -174,7 +174,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
 
     # determine reader/writer class
-    reader_writer_class = determine_reader_writer(dataset_json, join(folder, 'imagesTr', training_identifiers[0] + '_0000' + file_suffix))
+    reader_writer_class = determine_reader_writer_from_dataset_json(dataset_json, join(folder, 'imagesTr', training_identifiers[0] + '_0000' + file_suffix))
 
     # check whether only the desired labels are present
     p = Pool(num_processes)

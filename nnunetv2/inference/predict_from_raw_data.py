@@ -53,7 +53,7 @@ class PreprocessAdapter(DataLoader):
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
         data, seg, data_properites = self.preprocessor.run_case(files, seg_prev_stage, self.plans, self.configuration,
-                                                              self.dataset_json, self.dataset_fingerprint)
+                                                                self.dataset_json, self.dataset_fingerprint)
         if seg_prev_stage is not None:
             seg_onehot = convert_labelmap_to_one_hot(seg[0], self.label_manager.foreground_labels, data.dtype)
             data = np.vstack((data, seg_onehot))

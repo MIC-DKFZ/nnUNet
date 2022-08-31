@@ -10,7 +10,7 @@ from dynamic_network_architectures.building_blocks.helper import convert_dim_to_
 
 from nnunetv2.configuration import ANISO_THRESHOLD
 from nnunetv2.experiment_planning.experiment_planners.network_topology import get_pool_and_conv_props
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.normalization.map_modality_to_normalization import get_normalization_scheme
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
@@ -78,9 +78,9 @@ class ExperimentPlanner(object):
     def determine_reader_writer(self):
         training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(self.raw_dataset_folder, 'imagesTr'),
                                                                         self.dataset_json['file_ending'])
-        return determine_reader_writer(self.dataset_json, join(self.raw_dataset_folder, 'imagesTr',
-                                                               training_identifiers[0] + '_0000' +
-                                                               self.dataset_json['file_ending']))
+        return determine_reader_writer_from_dataset_json(self.dataset_json, join(self.raw_dataset_folder, 'imagesTr',
+                                                                                 training_identifiers[0] + '_0000' +
+                                                                                 self.dataset_json['file_ending']))
 
     @staticmethod
     @lru_cache(maxsize=None)

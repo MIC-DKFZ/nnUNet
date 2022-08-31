@@ -19,39 +19,54 @@ LIST_OF_IO_CLASSES = [
 ]
 
 
-def determine_reader_writer(dataset_json_content: dict, example_file: str = None) -> Type[BaseReaderWriter]:
+def determine_reader_writer_from_dataset_json(dataset_json_content: dict, example_file: str = None,
+                                              allow_nonmatching_filename: bool = False, verbose: bool = True
+                                              ) -> Type[BaseReaderWriter]:
     if 'overwrite_image_reader_writer' in dataset_json_content.keys() and \
             dataset_json_content['overwrite_image_reader_writer'] != 'None':
         ioclass_name = dataset_json_content['overwrite_image_reader_writer']
         # trying to find that class in the nnunetv2.imageio module
         try:
             ret = recursive_find_reader_writer_by_name(ioclass_name)
-            print('Using %s reader/writer' % ret)
+            if verbose: print('Using %s reader/writer' % ret)
             return ret
         except RuntimeError:
-            print('Warning: Unable to find ioclass specified in dataset.json: %s' % ioclass_name)
-            print('Trying to automatically determine desired class')
-    return auto_find_reader_writer(dataset_json_content['file_ending'], example_file)
+            if verbose: print('Warning: Unable to find ioclass specified in dataset.json: %s' % ioclass_name)
+            if verbose: print('Trying to automatically determine desired class')
+    return determine_reader_writer_from_file_ending(dataset_json_content['file_ending'], example_file,
+                                                    allow_nonmatching_filename, verbose)
 
 
-def auto_find_reader_writer(file_ending: str, file: str = None):
+def determine_reader_writer_from_file_ending(file_ending: str, example_file: str = None, allow_nonmatching_filename: bool = False,
+                                             verbose: bool = True):
     for rw in LIST_OF_IO_CLASSES:
-        if file_ending in rw.supported_file_endings:
-            if file is not None:
+        if file_ending.lower() in rw.supported_file_endings:
+            if example_file is not None:
                 # if an example file is provided, try if we can actually read it. If not move on to the next reader
                 try:
                     tmp = rw()
-                    _ = tmp.read_images((file,))
-                    print('Using %s as reader/writer' % rw)
+                    _ = tmp.read_images((example_file,))
+                    if verbose: print('Using %s as reader/writer' % rw)
                     return rw
                 except:
-                    print(f'Failed to open file {file} with reader {rw}:')
+                    if verbose: print(f'Failed to open file {example_file} with reader {rw}:')
                     traceback.print_exc()
                     pass
             else:
-                print('Using %s as reader/writer' % rw)
+                if verbose: print('Using %s as reader/writer' % rw)
                 return rw
-    raise RuntimeError("Unable to determine a reader for file ending %s and file %s (file None means no file provided)." % (file_ending, file))
+        else:
+            if allow_nonmatching_filename and example_file is not None:
+                try:
+                    tmp = rw()
+                    _ = tmp.read_images((example_file,))
+                    if verbose: print('Using %s as reader/writer' % rw)
+                    return rw
+                except:
+                    if verbose: print(f'Failed to open file {example_file} with reader {rw}:')
+                    traceback.print_exc()
+                    pass
+    raise RuntimeError("Unable to determine a reader for file ending %s and file %s (file None means no file provided)." % (file_ending, example_file))
 
 
 def recursive_find_reader_writer_by_name(rw_class_name: str) -> Type[BaseReaderWriter]:

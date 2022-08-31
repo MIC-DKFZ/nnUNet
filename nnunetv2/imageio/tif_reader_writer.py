@@ -38,7 +38,7 @@ class Tiff3DIO(BaseReaderWriter):
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
         # figure out file ending used here
         ending = '.' + image_fnames[0].split('.')[-1]
-        assert ending in self.supported_file_endings, f'Ending {ending} not supported by {self.__class__.__name__}'
+        assert ending.lower() in self.supported_file_endings, f'Ending {ending} not supported by {self.__class__.__name__}'
         ending_length = len(ending)
         truncate_length = ending_length + 5 # 5 comes from len(_0000)
 
@@ -79,7 +79,7 @@ class Tiff3DIO(BaseReaderWriter):
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         # figure out file ending used here
         ending = '.' + seg_fname.split('.')[-1]
-        assert ending in self.supported_file_endings, f'Ending {ending} not supported by {self.__class__.__name__}'
+        assert ending.lower() in self.supported_file_endings, f'Ending {ending} not supported by {self.__class__.__name__}'
         ending_length = len(ending)
 
         seg = tifffile.imread(seg_fname)

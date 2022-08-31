@@ -19,7 +19,7 @@ import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder, get_caseIDs_from_splitted_dataset_folder
@@ -205,7 +205,7 @@ def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folde
     maybe_mkdir_p(output_folder)
     output_files = [join(output_folder, i + '.png') for i in identifiers]
 
-    image_reader_writer = determine_reader_writer(dataset_json, image_files[0])()
+    image_reader_writer = determine_reader_writer_from_dataset_json(dataset_json, image_files[0])()
     multiprocessing_plot_overlay(image_files, seg_files, image_reader_writer, output_files, overlay_intensity, num_processes)
 
 
