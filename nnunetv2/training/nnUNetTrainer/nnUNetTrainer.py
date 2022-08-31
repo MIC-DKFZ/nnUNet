@@ -1,4 +1,5 @@
 import inspect
+import multiprocessing
 import os
 import shutil
 import sys
@@ -43,10 +44,12 @@ from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import DC_and_CE_loss, DC_and_BCE_loss, get_tp_fp_fn_tn
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
@@ -971,6 +974,7 @@ class nnUNetTrainer(object):
 
         results = []
         for k in dataset_val.keys():
+            self.print_to_log_file(f"predicting {k}")
             data, seg, properties = dataset_val.load_case(k)
 
             if self.is_cascaded:
@@ -990,14 +994,7 @@ class nnUNetTrainer(object):
                                                               perform_everything_on_gpu=True,
                                                               verbose=False,
                                                               device=self.device).cpu().numpy()
-            """There is a problem with python process communication that prevents us from communicating objects
-            larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-            communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
-            enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
-            patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
-            then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
-            filename or np.ndarray and will handle this automatically"""
-            if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+            if should_i_save_to_file(prediction, results, segmentation_export_pool):
                 np.save(output_filename_truncated + '.npy', prediction)
                 prediction_for_export = output_filename_truncated + '.npy'
             else:
@@ -1035,7 +1032,7 @@ class nnUNetTrainer(object):
                     output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                     output_file = join(output_folder, k + '.npz')
 
-                    if np.prod(prediction.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                    if should_i_save_to_file(prediction, results, segmentation_export_pool):
                         np.save(output_file[:-4] + '.npy', prediction)
                         prediction_for_export = output_file[:-4] + '.npy'
                     else:

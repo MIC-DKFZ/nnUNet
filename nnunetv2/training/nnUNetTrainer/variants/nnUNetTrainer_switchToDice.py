@@ -1,7 +1,7 @@
 from typing import Union
 
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import DC_and_BCE_loss, DC_and_CE_loss
+from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import numpy as np
 

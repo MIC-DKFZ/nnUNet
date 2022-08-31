@@ -36,7 +36,7 @@ class nnUNetDataset(object):
         (not sure why you'd want to do that though. So don't do it)
         """
         super().__init__()
-        print('loading dataset')
+        # print('loading dataset')
         if case_identifiers is None:
             case_identifiers = get_case_identifiers(folder)
         case_identifiers.sort()
