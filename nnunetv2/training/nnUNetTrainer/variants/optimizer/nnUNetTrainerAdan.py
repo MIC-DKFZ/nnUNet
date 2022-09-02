@@ -21,6 +21,20 @@ class nnUNetTrainerAdan(nnUNetTrainer):
         return optimizer, lr_scheduler
 
 
+class nnUNetTrainerAdan1en3(nnUNetTrainer):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.initial_lr = 1e-3
+
+
+class nnUNetTrainerAdan1en1(nnUNetTrainer):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.initial_lr = 1e-1
+
+
 class nnUNetTrainerAdanCosAnneal(nnUNetTrainer):
     # def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
     #              device: str = 'cuda'):
