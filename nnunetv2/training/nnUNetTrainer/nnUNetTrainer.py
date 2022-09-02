@@ -144,19 +144,11 @@ class nnUNetTrainer(object):
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
 
-        # if you want to swap out the network architecture you need to change that here. You do not need to use the
-        # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
-        # size dictated by the plans!
-        self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
-        self.network = get_network_from_plans(self.plans, self.dataset_json, self.configuration,
-                                              self.num_input_channels, deep_supervision=True).to(self.device)
-        self.optimizer, self.lr_scheduler = self.configure_optimizers()
-        # if ddp, wrap in DDP wrapper
-        if self.is_ddp:
-            self.network = DDP(self.network, device_ids=[self.local_rank])
+        self.num_input_channels = None  # -> self.initialize()
+        self.network = None  # -> self._get_network()
+        self.optimizer = self.lr_scheduler = None  # -> self.initialize
         self.grad_scaler = GradScaler() if self.device_type == 'cuda' else None
-
-        self.loss = self._build_loss()
+        self.loss = None  # -> self.initialize
 
         ### Simple logging. Don't take that away from me!
         # initialize log file. This is just our log for the print statements etc. Not to be confused with lightning
@@ -185,6 +177,32 @@ class nnUNetTrainer(object):
         ## DDP batch size and oversampling can differ between workers and needs adaptation
         # we need to change the batch size in DDP because we don't use any of those distributed samplers
         self._set_batch_size_and_oversample()
+
+        self.was_initialized = False
+
+    def initialize(self):
+        if not self.was_initialized:
+            self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
+
+            self.network = self._get_network()
+
+            self.optimizer, self.lr_scheduler = self.configure_optimizers()
+            # if ddp, wrap in DDP wrapper
+            if self.is_ddp:
+                self.network = DDP(self.network, device_ids=[self.local_rank])
+
+            self.loss = self._build_loss()
+            self.was_initialized = True
+        else:
+            raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
+                               "That should not happen.")
+
+    def _get_network(self):
+        # if you want to swap out the network architecture you need to change that here. You do not need to use the
+        # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
+        # size dictated by the plans!
+        return get_network_from_plans(self.plans, self.dataset_json, self.configuration,
+                                              self.num_input_channels, deep_supervision=True).to(self.device)
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -670,6 +688,9 @@ class nnUNetTrainer(object):
         return val_transforms
 
     def on_train_start(self):
+        if not self.was_initialized:
+            self.initialize()
+
         maybe_mkdir_p(self.output_folder)
 
         # make sure deep supervision is on in the network
@@ -919,6 +940,9 @@ class nnUNetTrainer(object):
                 self.print_to_log_file('No checkpoint written, checkpointing is disabled')
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
+        if not self.was_initialized:
+            self.initialize()
+
         if isinstance(filename_or_checkpoint, str):
             checkpoint = torch.load(filename_or_checkpoint, map_location=self.device)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
