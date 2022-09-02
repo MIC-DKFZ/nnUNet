@@ -19,7 +19,7 @@ class ResEncUNetPlanner(ExperimentPlanner):
         self.UNet_class = ResidualEncoderUNet
         # the following two numbers are really arbitrary and were set to reproduce nnU-Net V1's configurations as
         # much as possible
-        self.UNet_reference_val_3d = 560000000
+        self.UNet_reference_val_3d = 680000000
         self.UNet_reference_val_2d = 135000000
         self.UNet_reference_com_nfeatures = 32
         self.UNet_reference_val_corresp_GB = 8
@@ -48,7 +48,8 @@ if __name__ == '__main__':
                               n_conv_per_stage_decoder=(1, 1, 1, 1, 1),
                               conv_bias=True, norm_op=nn.InstanceNorm3d, norm_op_kwargs={}, dropout_op=None,
                               nonlin=nn.LeakyReLU, nonlin_kwargs={'inplace': True}, deep_supervision=True)
-    print(net.compute_conv_feature_map_size((128, 128, 128)))  # -> 558319104
+    print(net.compute_conv_feature_map_size((128, 128, 128)))  # -> 558319104. The value you see above was finetuned
+    # from this one to match the regular nnunetplans more closely
 
     net = ResidualEncoderUNet(input_channels=1, n_stages=7, features_per_stage=(32, 64, 128, 256, 512, 512, 512),
                               conv_op=nn.Conv2d, kernel_sizes=3, strides=(1, 2, 2, 2, 2, 2, 2),
