@@ -52,8 +52,11 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
     network_class = mapping[segmentation_network_class_name]
 
     conv_or_blocks_per_stage = {
-        'n_conv_per_stage' if network_class != ResidualEncoderUNet else 'n_blocks_per_stage': plans["configurations"][configuration]['n_conv_per_stage_encoder'],
+        'n_conv_per_stage'
+        if network_class != ResidualEncoderUNet else 'n_blocks_per_stage': plans["configurations"][configuration]['n_conv_per_stage_encoder']
+        if 'n_conv_per_stage_encoder' in plans["configurations"][configuration].keys() else 2,
         'n_conv_per_stage_decoder': plans["configurations"][configuration]['n_conv_per_stage_decoder']
+        if 'n_conv_per_stage_decoder' in plans["configurations"][configuration].keys() else 2
     }
 
     # network class name!!
