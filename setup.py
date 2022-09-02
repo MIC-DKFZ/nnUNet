@@ -27,6 +27,7 @@ setup(name='nnunetv2',
             "matplotlib",
             "seaborn",
             "pytorch_lightning",
+            "imagecodecs"
       ],
       entry_points={
           'console_scripts': [
