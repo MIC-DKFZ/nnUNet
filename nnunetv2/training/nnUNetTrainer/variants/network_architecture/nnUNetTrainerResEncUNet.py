@@ -8,6 +8,10 @@ from nnunetv2.utilities.network_initialization import InitWeights_He
 
 
 class nnUNetTrainerResEncUNet(nnUNetTrainer):
+    """
+    THIS TRAINER DOES NOT SUPPORT INFERENCE BECAUSE INFERENCE NEEDS TO BE ABLE TO GET THE NETWORK FROM get_network_from_plans!
+    TODO: separate inference path where we load a trainer from checkpoint. This should fix that.
+    """
     # works on regular nnUNetPlans. Just for prototyping. We should plan with this architecture as well!
     def _get_network(self):
         max_features = self.plans["configurations"][self.configuration]["unet_max_num_features"]
