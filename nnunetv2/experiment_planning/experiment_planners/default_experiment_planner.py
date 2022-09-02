@@ -1,11 +1,11 @@
 import shutil
 from copy import deepcopy
 from functools import lru_cache
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Type
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
-from dynamic_network_architectures.architectures.unet import PlainConvUNet
+from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
 
 from nnunetv2.configuration import ANISO_THRESHOLD
@@ -56,7 +56,8 @@ class ExperimentPlanner(object):
         self.UNet_reference_val_corresp_bs_3d = 2
         self.UNet_vram_target_GB = gpu_memory_target_in_gb
         self.UNet_featuremap_min_edge_length = 4
-        self.UNet_blocks_per_stage = 2
+        self.UNet_blocks_per_stage_encoder = (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+        self.UNet_blocks_per_stage_decoder = (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         self.UNet_min_batch_size = 2
         self.UNet_max_features_2d = 512
         self.UNet_max_features_3d = 320
@@ -86,9 +87,12 @@ class ExperimentPlanner(object):
     @lru_cache(maxsize=None)
     def static_estimate_VRAM_usage(patch_size: Tuple[int],
                                    n_stages: int,
-                                   strides: Union[int, List[int], Tuple[int, ...]], UNet_class,
-                                   num_input_channels: int, features_per_stage: Tuple[int],
-                                   blocks_per_stage: Union[int, Tuple[int]],
+                                   strides: Union[int, List[int], Tuple[int, ...]],
+                                   UNet_class: Union[Type[PlainConvUNet], Type[ResidualEncoderUNet]],
+                                   num_input_channels: int,
+                                   features_per_stage: Tuple[int],
+                                   blocks_per_stage_encoder: Union[int, Tuple[int]],
+                                   blocks_per_stage_decoder: Union[int, Tuple[int]],
                                    num_labels: int):
         """
         Works for PlainConvUNet, ResidualEncoderUNet
@@ -101,9 +105,9 @@ class ExperimentPlanner(object):
                          conv_op,
                          3,
                          strides,
-                         blocks_per_stage,
+                         blocks_per_stage_encoder,
                          num_labels,
-                         blocks_per_stage[::-1] if not isinstance(blocks_per_stage, int) else blocks_per_stage,
+                         blocks_per_stage_decoder,
                          norm_op=norm_op)
         return net.compute_conv_feature_map_size(patch_size)
 
@@ -253,8 +257,9 @@ class ExperimentPlanner(object):
                                                              999999)
 
         # now estimate vram consumption
+        num_stages = len(pool_op_kernel_sizes)
         estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
-                                                   len(pool_op_kernel_sizes),
+                                                   num_stages,
                                                    tuple([tuple(i) for i in pool_op_kernel_sizes]),
                                                    self.UNet_class,
                                                    len(self.dataset_json['modality'].keys()),
@@ -262,9 +267,9 @@ class ExperimentPlanner(object):
                                                               self.UNet_max_features_3d,
                                                               self.UNet_reference_com_nfeatures * 2 ** i) for
                                                     i in range(len(pool_op_kernel_sizes))]),
-                                                   self.UNet_blocks_per_stage,
+                                                   self.UNet_blocks_per_stage_encoder[:num_stages],
+                                                   self.UNet_blocks_per_stage_decoder[:num_stages - 1],
                                                    len(self.dataset_json['labels'].keys()))
-        # estimate = self.estimate_VRAM_usage(patch_size, len(pool_op_kernel_sizes), pool_op_kernel_sizes)
 
         # how large is the reference for us here (batch size etc)?
         # adapt for our vram target
@@ -296,9 +301,10 @@ class ExperimentPlanner(object):
             shape_must_be_divisible_by = get_pool_and_conv_props(spacing, patch_size,
                                                                  self.UNet_featuremap_min_edge_length,
                                                                  999999)
-            # estimate = self.estimate_VRAM_usage(patch_size, len(pool_op_kernel_sizes), pool_op_kernel_sizes)
+
+            num_stages = len(pool_op_kernel_sizes)
             estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
-                                                       len(pool_op_kernel_sizes),
+                                                       num_stages,
                                                        tuple([tuple(i) for i in pool_op_kernel_sizes]),
                                                        self.UNet_class,
                                                        len(self.dataset_json['modality'].keys()),
@@ -306,7 +312,8 @@ class ExperimentPlanner(object):
                                                                   self.UNet_max_features_3d,
                                                                   self.UNet_reference_com_nfeatures * 2 ** i) for
                                                               i in range(len(pool_op_kernel_sizes))]),
-                                                       self.UNet_blocks_per_stage,
+                                                       self.UNet_blocks_per_stage_encoder[:num_stages],
+                                                       self.UNet_blocks_per_stage_decoder[:num_stages - 1],
                                                        len(self.dataset_json['labels'].keys()))
 
         # alright now let's determine the batch size. This will give self.UNet_min_batch_size if the while loop was
@@ -325,12 +332,21 @@ class ExperimentPlanner(object):
 
         normalization_schemes, mask_is_used_for_norm = \
             self.determine_normalization_scheme_and_whether_mask_is_used_for_norm()
+        num_stages = len(pool_op_kernel_sizes)
         plan = {
+            'data_identifier': data_identifier,
+            'preprocessor_name': self.preprocessor_name,
             'batch_size': batch_size,
-            'num_pool_per_axis': network_num_pool_per_axis,
             'patch_size': patch_size,
             'median_patient_size_in_voxels': median_shape,
             'spacing': spacing,
+            'normalization_schemes': normalization_schemes,
+            'use_mask_for_norm': mask_is_used_for_norm,
+            'UNet_class_name': self.UNet_class.__name__,
+            'UNet_base_num_features': self.UNet_base_num_features,
+            'n_conv_per_stage_encoder': self.UNet_blocks_per_stage_encoder[:num_stages],
+            'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
+            'num_pool_per_axis': network_num_pool_per_axis,
             'pool_op_kernel_sizes': pool_op_kernel_sizes,
             'conv_kernel_sizes': conv_kernel_sizes,
             'unet_max_num_features': self.UNet_max_features_3d if len(spacing) == 3 else self.UNet_max_features_2d,
@@ -340,12 +356,6 @@ class ExperimentPlanner(object):
             'resampling_fn_seg_kwargs': resampling_seg_kwargs,
             'resampling_fn_probabilities': resampling_softmax.__name__,
             'resampling_fn_probabilities_kwargs': resampling_softmax_kwargs,
-            'normalization_schemes': normalization_schemes,
-            'UNet_base_num_features': self.UNet_base_num_features,
-            'UNet_class_name': self.UNet_class.__name__,
-            'use_mask_for_norm': mask_is_used_for_norm,
-            'data_identifier': data_identifier,
-            'preprocessor_name': self.preprocessor_name,
         }
         return plan
 
@@ -471,6 +481,10 @@ class ExperimentPlanner(object):
                 plans['configurations']['3d_cascade_fullres'] = deepcopy(plans['configurations']['3d_fullres'])
                 plans['configurations']['3d_cascade_fullres']['previous_stage'] = '3d_lowres'
 
+        self.plans = plans
+        self.save_plans(plans)
+
+    def save_plans(self, plans):
         recursive_fix_for_json_export(plans)
 
         plans_file = join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json')
@@ -486,9 +500,8 @@ class ExperimentPlanner(object):
             plans['configurations'].update(old_configurations)
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
-        save_json(plans, plans_file)
+        save_json(plans, plans_file, sort_keys=False)
         print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json'))
-        self.plans = plans
 
     def load_plans(self, fname: str):
         self.plans = load_json(fname)

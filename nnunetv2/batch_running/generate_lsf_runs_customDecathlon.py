@@ -64,9 +64,15 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainerFocalLoss2': ('nnUNetPlans',),
-        'nnUNetTrainerFocalLoss': ('nnUNetPlans',),
-        'nnUNetTrainerFocalandDiceLoss': ('nnUNetPlans',),
+        'nnUNetTrainerAdan': ('nnUNetPlans',),
+        'nnUNetTrainerAdan3en4': ('nnUNetPlans',),
+        'nnUNetTrainerAdan1en3': ('nnUNetPlans',),
+        'nnUNetTrainerAdam': ('nnUNetPlans',),
+        'nnUNetTrainerAdam3en4': ('nnUNetPlans',),
+        'nnUNetTrainerAdam1en3': ('nnUNetPlans',),
+        'nnUNetTrainerAdanCosAnneal': ('nnUNetPlans',),
+        'nnUNetTrainerCosAnneal': ('nnUNetPlans',),
+        'nnUNetTrainerResEncUNet': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

@@ -21,21 +21,30 @@ class nnUNetTrainerAdan(nnUNetTrainer):
         return optimizer, lr_scheduler
 
 
-class nnUNetTrainerAdan1en3(nnUNetTrainer):
+class nnUNetTrainerAdan1en3(nnUNetTrainerAdan):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.initial_lr = 1e-3
 
 
-class nnUNetTrainerAdan1en1(nnUNetTrainer):
+class nnUNetTrainerAdan3en4(nnUNetTrainerAdan):
+    # https://twitter.com/karpathy/status/801621764144971776?lang=en
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.initial_lr = 3e-4
+
+
+class nnUNetTrainerAdan1en1(nnUNetTrainerAdan):
+    # this trainer makes no sense -> nan!
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.initial_lr = 1e-1
 
 
-class nnUNetTrainerAdanCosAnneal(nnUNetTrainer):
+class nnUNetTrainerAdanCosAnneal(nnUNetTrainerAdan):
     # def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
     #              device: str = 'cuda'):
     #     super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)

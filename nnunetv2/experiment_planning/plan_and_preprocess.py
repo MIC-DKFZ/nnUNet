@@ -71,9 +71,9 @@ def plan_experiment():
                              'know what you are doing and NEVER use this without running the default nnU-Net first '
                              '(as a baseline). Changing the target spacing for the other configurations is currently '
                              'not implemented. New target spacing must be a list of three numbers!')
-    parser.add_argument('-plans_name', default='nnUNetPlans', required=False,
+    parser.add_argument('-overwrite_plans_name', default=None, required=False,
                         help='[OPTIONAL] DANGER ZONE! If you used -gpu_memory_target, -preprocessor_name or '
-                             '-overwrite_target_spacing it is best practice to use -plans_name to generate a '
+                             '-overwrite_target_spacing it is best practice to use -overwrite_plans_name to generate a '
                              'differently named plans file such that the nnunet default plans are not '
                              'overwritten. You will then need to specify your custom plans file with -p whenever '
                              'running other nnunet commands (training, inference etc)')
@@ -83,13 +83,16 @@ def plan_experiment():
                                                      current_module="nnunetv2.experiment_planning")
     for d in args.d:
         d = int(d)
+        kwargs = {}
+        if args.overwrite_plans_name is not None:
+            kwargs['plans_name'] = args.overwrite_plans_name
         experiment_planner(d,
                            gpu_memory_target_in_gb=args.gpu_memory_target,
                            preprocessor_name=args.preprocessor_name,
-                           plans_name=args.plans_name,
                            overwrite_target_spacing=[float(i) for i in args.overwrite_target_spacing] if
                            args.overwrite_target_spacing is not None else args.overwrite_target_spacing,
-                           suppress_transpose=False  # might expose this later
+                           suppress_transpose=False,  # might expose this later,
+                           **kwargs
                            ).plan_experiment()
 
 
@@ -184,10 +187,10 @@ def plan_and_preprocess():
                              'know what you are doing and NEVER use this without running the default nnU-Net first '
                              '(as a baseline). Changing the target spacing for the other configurations is currently '
                              'not implemented. New target spacing must be a list of three numbers!')
-    parser.add_argument('-plans_name', default='nnUNetPlans', required=False,
+    parser.add_argument('-overwrite_plans_name', default=None, required=False,
                         help='[OPTIONAL] uSE A CUSTOM PLANS IDENTIFIER. If you used -gpu_memory_target, '
                              '-preprocessor_name or '
-                             '-overwrite_target_spacing it is best practice to use -plans_name to generate a '
+                             '-overwrite_target_spacing it is best practice to use -overwrite_plans_name to generate a '
                              'differently named plans file such that the nnunet default plans are not '
                              'overwritten. You will then need to specify your custom plans file with -p whenever '
                              'running other nnunet commands (training, inference etc)')
@@ -225,19 +228,23 @@ def plan_and_preprocess():
         fpe.run(overwrite_existing=args.clean)
 
     # experiment planning
-    experiment_planner = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
+    experiment_planner_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
                                                      args.pl,
                                                      current_module="nnunetv2.experiment_planning")
     for d in args.d:
         d = int(d)
-        experiment_planner(d,
+        kwargs = {}
+        if args.overwrite_plans_name is not None:
+            kwargs['plans_name'] = args.overwrite_plans_name
+        experiment_planner = experiment_planner_class(d,
                            gpu_memory_target_in_gb=args.gpu_memory_target,
                            preprocessor_name=args.preprocessor_name,
-                           plans_name=args.plans_name,
                            overwrite_target_spacing=[float(i) for i in args.overwrite_target_spacing] if
                            args.overwrite_target_spacing is not None else args.overwrite_target_spacing,
-                           suppress_transpose=False  # might expose this later
-                           ).plan_experiment()
+                           suppress_transpose=False,  # might expose this later
+                           **kwargs
+                           )
+        experiment_planner.plan_experiment()
 
     # preprocessing
     if not args.no_pp:
@@ -252,16 +259,17 @@ def plan_and_preprocess():
         for d in args.d:
             d = int(d)
             dataset_name = convert_id_to_dataset_name(d)
-            plans_file = join(nnUNet_preprocessed, dataset_name, args.plans_name + '.json')
+            plans_name = experiment_planner.plans_name
+            plans_file = join(nnUNet_preprocessed, dataset_name, plans_name + '.json')
             plans = load_json(plans_file)
             for n, c in zip(np, args.c):
                 if c not in plans['configurations'].keys():
                     print(
-                        f"INFO: Configuration {c} not found in plans file {args.plans_name + '.json'} of dataset {d}. "
+                        f"INFO: Configuration {c} not found in plans file {plans_name + '.json'} of dataset {d}. "
                         f"Skipping.")
                     continue
                 preprocessor = get_preprocessor_class_from_plans(plans, c)()
-                preprocessor.run(d, c, args.plans_name, num_processes=n)
+                preprocessor.run(d, c, plans_name, num_processes=n)
             maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
             [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
 

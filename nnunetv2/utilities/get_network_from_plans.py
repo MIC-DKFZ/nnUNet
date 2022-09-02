@@ -51,6 +51,11 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
                                                               'the init of your nnUNetModule to accomodate that.'
     network_class = mapping[segmentation_network_class_name]
 
+    conv_or_blocks_per_stage = {
+        'n_conv_per_stage' if network_class != ResidualEncoderUNet else 'n_blocks_per_stage': plans["configurations"][configuration]['n_conv_per_stage_encoder'],
+        'n_conv_per_stage_decoder': plans["configurations"][configuration]['n_conv_per_stage_decoder']
+    }
+
     # network class name!!
     model = network_class(
         input_channels=num_input_channels,
@@ -59,10 +64,9 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
         conv_op=conv_op,
         kernel_sizes=plans["configurations"][configuration]["conv_kernel_sizes"],
         strides=plans["configurations"][configuration]["pool_op_kernel_sizes"],
-        n_conv_per_stage=2,
         num_classes=label_manager.num_segmentation_heads,
-        n_conv_per_stage_decoder=2,
         deep_supervision=deep_supervision,
+        **conv_or_blocks_per_stage,
         **kwargs[segmentation_network_class_name]
     )
     model.apply(InitWeights_He(1e-2))

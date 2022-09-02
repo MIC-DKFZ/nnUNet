@@ -211,7 +211,7 @@ class DefaultPreprocessor(object):
 
         caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                            dataset_json['file_ending'])
-        output_directory = join(nnUNet_preprocessed, dataset_name, configuration_name)
+        output_directory = join(nnUNet_preprocessed, dataset_name, plans['configurations'][configuration_name]['data_identifier'])
 
         if isdir(output_directory):
             shutil.rmtree(output_directory)
