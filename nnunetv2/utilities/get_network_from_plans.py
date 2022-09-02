@@ -4,6 +4,7 @@ from dynamic_network_architectures.building_blocks.helper import get_matching_in
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.network_initialization import InitWeights_He
 from torch import nn
+from dynamic_network_architectures.initialization.weight_init import init_last_bn_before_add_to_0
 
 
 def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, num_input_channels: int,
@@ -73,4 +74,6 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
         **kwargs[segmentation_network_class_name]
     )
     model.apply(InitWeights_He(1e-2))
+    if network_class == ResidualEncoderUNet:
+        model.apply(init_last_bn_before_add_to_0)
     return model
