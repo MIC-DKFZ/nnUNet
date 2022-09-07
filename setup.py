@@ -44,7 +44,9 @@ setup(name='nnunetv2',
               'nnUNetv2_apply_postprocessing = nnunetv2.postprocessing.remove_connected_components:entry_point_apply_postprocessing',
               'nnUNetv2_ensemble = nnunetv2.ensembling.ensemble:entry_point_ensemble_folders',
               'nnUNetv2_accumulate_crossval_results = nnunetv2.evaluation.find_best_configuration:accumulate_crossval_results_entry_point',
-              'nnUNetv2_plot_overlay_pngs = nnunetv2.utilities.overlay_plots:entry_point_generate_overlay'
+              'nnUNetv2_plot_overlay_pngs = nnunetv2.utilities.overlay_plots:entry_point_generate_overlay',
+              'nnUNetv2_download_pretrained_model_by_url = nnunetv2.model_sharing.entry_points:download_by_url',
+              'nnUNetv2_install_pretrained_model_from_zip = nnunetv2.model_sharing.entry_points:install_from_zip_entry_point'
           ],
       },
       keywords=['deep learning', 'image segmentation', 'medical image analysis',
