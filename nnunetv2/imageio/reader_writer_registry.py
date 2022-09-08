@@ -64,7 +64,7 @@ def determine_reader_writer_from_file_ending(file_ending: str, example_file: str
                     return rw
                 except:
                     if verbose: print(f'Failed to open file {example_file} with reader {rw}:')
-                    traceback.print_exc()
+                    if verbose: traceback.print_exc()
                     pass
     raise RuntimeError("Unable to determine a reader for file ending %s and file %s (file None means no file provided)." % (file_ending, example_file))
 

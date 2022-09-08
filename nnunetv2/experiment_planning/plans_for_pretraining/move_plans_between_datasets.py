@@ -1,3 +1,4 @@
+import argparse
 from typing import Union
 
 from batchgenerators.utilities.file_and_folder_operations import join, isdir, isfile, load_json, subfiles, save_json
@@ -45,12 +46,30 @@ def move_plans_between_datasets(
     file_ending = target_dataset_json['file_ending']
     # pick any file from the imagesTr folder
     some_file = subfiles(join(target_raw_data_dir, 'imagesTr'), suffix=file_ending)[0]
-    rw = determine_reader_writer_from_dataset_json(target_dataset_json, some_file, allow_nonmatching_filename=True)
+    rw = determine_reader_writer_from_dataset_json(target_dataset_json, some_file, allow_nonmatching_filename=True,
+                                                   verbose=False)
 
     source_plans["image_reader_writer"] = rw.__name__
 
     save_json(source_plans, join(nnUNet_preprocessed, target_dataset_name, target_plans_identifier + '.json'),
               sort_keys=False)
+
+
+def entry_point_move_plans_between_datasets():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', type=str, required=True,
+                        help='Source dataset name or id')
+    parser.add_argument('-t', type=str, required=True,
+                        help='Target dataset name or id')
+    parser.add_argument('-sp', type=str, required=True,
+                        help='Source plans identifier. If your plans are named "nnUNetPlans.json" then the '
+                             'identifier would be nnUNetPlans')
+    parser.add_argument('-tp', type=str, required=False, default=None,
+                        help='Target plans identifier. Default is None meaning the source plans identifier will '
+                             'be kept. Not recommended if the source plans identifier is a default nnU-Net identifier '
+                             'such as nnUNetPlans!!!')
+    args = parser.parse_args()
+    move_plans_between_datasets(args.s, args.t, args.sp, args.tp)
 
 
 if __name__ == '__main__':
