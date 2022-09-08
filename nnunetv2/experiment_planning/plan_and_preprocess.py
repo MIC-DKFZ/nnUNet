@@ -259,7 +259,7 @@ def plan_and_preprocess():
         for d in args.d:
             d = int(d)
             dataset_name = convert_id_to_dataset_name(d)
-            plans_name = experiment_planner.plans_name
+            plans_name = experiment_planner.plans_identifier
             plans_file = join(nnUNet_preprocessed, dataset_name, plans_name + '.json')
             plans = load_json(plans_file)
             for n, c in zip(np, args.c):

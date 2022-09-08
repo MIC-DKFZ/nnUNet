@@ -17,7 +17,7 @@ class ResEncUNetPlanner(ExperimentPlanner):
 
         self.UNet_base_num_features = 32
         self.UNet_class = ResidualEncoderUNet
-        # the following two numbers are really arbitrary and were set to reproduce nnU-Net V1's configurations as
+        # the following two numbers are really arbitrary and were set to reproduce default nnU-Net's configurations as
         # much as possible
         self.UNet_reference_val_3d = 680000000
         self.UNet_reference_val_2d = 135000000
@@ -31,13 +31,6 @@ class ResEncUNetPlanner(ExperimentPlanner):
         self.UNet_min_batch_size = 2
         self.UNet_max_features_2d = 512
         self.UNet_max_features_3d = 320
-
-    def save_plans(self, plans):
-        # give new identifiers for data so that we don't overwrite preprocessed data from ExperimentPlanner
-        for c in plans['configurations'].keys():
-            plans['configurations'][c]['data_identifier'] += '_resencunet'
-        self.plans = plans
-        super().save_plans(plans)
 
 
 if __name__ == '__main__':
