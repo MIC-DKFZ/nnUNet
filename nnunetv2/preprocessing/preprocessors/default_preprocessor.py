@@ -42,7 +42,7 @@ class DefaultPreprocessor(object):
 
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: Union[dict, str],
                  configuration_name: str,
-                 dataset_json: Union[dict, str], dataset_fingerprint: Union[dict, str]):
+                 dataset_json: Union[dict, str]):
         """
         seg file can be none (test cases)
 
@@ -52,8 +52,6 @@ class DefaultPreprocessor(object):
         """
         if isinstance(plans, str):
             plans = load_json(plans)
-        if isinstance(dataset_fingerprint, str):
-            dataset_fingerprint = load_json(dataset_fingerprint)
         if isinstance(dataset_json, str):
             dataset_json = load_json(dataset_json)
 
@@ -104,7 +102,7 @@ class DefaultPreprocessor(object):
 
         # normalize
         data = self._normalize(data, seg, configuration['normalization_schemes'],
-                               dataset_fingerprint)
+                               plans['foreground_intensity_properties_by_modality'])
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
@@ -127,10 +125,8 @@ class DefaultPreprocessor(object):
         return data, seg.astype(np.int8), data_properites
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
-                      plans: Union[dict, str], configuration_name: str, dataset_json: Union[dict, str],
-                      dataset_fingerprint: Union[dict, str]):
-        data, seg, properties = self.run_case(image_files, seg_file, plans, configuration_name, dataset_json,
-                                              dataset_fingerprint)
+                      plans: Union[dict, str], configuration_name: str, dataset_json: Union[dict, str]):
+        data, seg, properties = self.run_case(image_files, seg_file, plans, configuration_name, dataset_json)
         # print('dtypes', data.dtype, seg.dtype)
         np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
@@ -164,7 +160,7 @@ class DefaultPreprocessor(object):
         return class_locs
 
     def _normalize(self, data: np.ndarray, seg: np.ndarray, normalization_schemes: List[str],
-                   dataset_fingerprint: dict) -> np.ndarray:
+                   foreground_intensity_properties_by_modality: dict) -> np.ndarray:
         for c in range(data.shape[0]):
             scheme = normalization_schemes[c]
             normalizer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing", "normalization"),
@@ -173,7 +169,7 @@ class DefaultPreprocessor(object):
             if normalizer_class is None:
                 raise RuntimeError('Unable to locate class \'%s\' for normalization' % scheme)
             normalizer = normalizer_class(normalization_schemes,
-                                          dataset_fingerprint['foreground_intensity_properties_by_modality'][str(c)])
+                                          foreground_intensity_properties_by_modality[str(c)])
             data[c] = normalizer.run(data[c], seg[0])
         return data
 
@@ -207,8 +203,6 @@ class DefaultPreprocessor(object):
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')
 
-        dataset_fingerprint = load_json(join(nnUNet_preprocessed, dataset_name, 'dataset_fingerprint.json'))
-
         caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                            dataset_json['file_ending'])
         output_directory = join(nnUNet_preprocessed, dataset_name, plans['configurations'][configuration_name]['data_identifier'])
@@ -236,7 +230,7 @@ class DefaultPreprocessor(object):
         for ofname, ifnames, segfnames in zip(output_filenames_truncated, image_fnames, seg_fnames):
             results.append(pool.starmap_async(self.run_case_save,
                                               ((ofname, ifnames, segfnames, plans, configuration_name,
-                                                dataset_json, dataset_fingerprint),)))
+                                                dataset_json),)))
         # let the workers do their job
         [i.get() for i in results]
 
@@ -245,7 +239,6 @@ def example_test_case_preprocessing():
     # (paths to files may need adaptations)
     plans_file = default_plans_identifier + '.json'
     dataset_json_file = 'dataset.json'
-    dataset_fingerprint_file = 'dataset_fingerprint.json'
     input_images = ['prostate_00_0000.nii.gz',
                     'prostate_00_0001.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
 
@@ -257,7 +250,7 @@ def example_test_case_preprocessing():
     # resolution. What comes out of the preprocessor might have been resampled to some other image resolution (as
     # specified by plans)
     data, _, properties = pp.run_case(input_images, seg_file=None, plans=plans_file, configuration_name=configuration,
-                                      dataset_json=dataset_json_file, dataset_fingerprint=dataset_fingerprint_file)
+                                      dataset_json=dataset_json_file)
 
     # voila. Now plug data into your prediction function of choice. We of course recommend nnU-Net's default (TODO)
     return data
