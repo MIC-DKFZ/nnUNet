@@ -74,6 +74,11 @@ if __name__ == "__main__":
         'nnUNetTrainerDiceLoss': ('nnUNetPlans',),
         'nnUNetTrainerDiceLossLS01': ('nnUNetPlans',),
         'nnUNetTrainerDiceCELossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerNoMirroring': ('nnUNetPlans',),
+        'nnUNetTrainerNoDA': ('nnUNetPlans',),
+        'nnUNetTrainerNoDeepSupervision': ('nnUNetPlans',),
+        'nnUNetTrainerDA5': ('nnUNetPlans',),
+        'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

@@ -1,8 +1,5 @@
 Planned:
 - DA5
-- nomirror
-- no data augmentation
-- no deep supervision
 
 Done:
 - label smoothing
@@ -10,3 +7,6 @@ Done:
 - smooth parameter in dice (clamp)
 - dice topk
 - CE
+- 2d inference mirroring axes
+- no data augmentation
+- no deep supervision

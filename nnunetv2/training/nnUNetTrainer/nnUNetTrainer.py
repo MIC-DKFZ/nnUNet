@@ -168,7 +168,6 @@ class nnUNetTrainer(object):
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
-        # prediction it is set back to None in self.on_predict_end
 
         ### checkpoint saving stuff
         self.save_every = 50
@@ -562,8 +561,8 @@ class nnUNetTrainer(object):
                                 deep_supervision_scales: Union[List, Tuple],
                                 mirror_axes: Tuple[int, ...],
                                 do_dummy_2d_data_aug: bool,
-                                order_resampling_data: int = 1,
-                                order_resampling_seg: int = 0,
+                                order_resampling_data: int = 3,
+                                order_resampling_seg: int = 1,
                                 border_val_seg: int = -1,
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
@@ -610,7 +609,7 @@ class nnUNetTrainer(object):
         tr_transforms.append(GammaTransform((0.7, 1.5), True, True, retain_stats=True, p_per_sample=0.1))
         tr_transforms.append(GammaTransform((0.7, 1.5), False, True, retain_stats=True, p_per_sample=0.3))
 
-        if len(mirror_axes) > 0:
+        if mirror_axes is not None and len(mirror_axes) > 0:
             tr_transforms.append(MirrorTransform(mirror_axes))
 
         if use_mask_for_norm is not None and any(use_mask_for_norm):

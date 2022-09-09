@@ -123,6 +123,11 @@ if __name__ == '__main__':
         'nnUNetTrainerDiceLoss': ('nnUNetPlans',),
         'nnUNetTrainerDiceLossLS01': ('nnUNetPlans',),
         'nnUNetTrainerDiceCELossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerNoMirroring': ('nnUNetPlans',),
+        'nnUNetTrainerNoDA': ('nnUNetPlans',),
+        'nnUNetTrainerNoDeepSupervision': ('nnUNetPlans',),
+        'nnUNetTrainerDA5': ('nnUNetPlans',),
+        'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
     }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
