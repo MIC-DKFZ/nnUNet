@@ -64,16 +64,16 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainerAdan': ('nnUNetPlans',),
-        'nnUNetTrainerAdan3en4': ('nnUNetPlans',),
-        'nnUNetTrainerAdan1en3': ('nnUNetPlans',),
-        'nnUNetTrainerAdam': ('nnUNetPlans',),
-        'nnUNetTrainerAdam3en4': ('nnUNetPlans',),
-        'nnUNetTrainerAdam1en3': ('nnUNetPlans',),
-        'nnUNetTrainerAdanCosAnneal': ('nnUNetPlans',),
-        'nnUNetTrainerCosAnneal': ('nnUNetPlans',),
-        # 'nnUNetTrainerResEncUNet': ('nnUNetPlans',),
-        'nnUNetTrainer': ('nnUNetResEncUNetPlans',),
+        'nnUNetTrainerFocalLoss3': ('nnUNetPlans',),
+        'nnUNetTrainerCELoss': ('nnUNetPlans',),
+        'nnUNetTrainerCELossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerTopk10Loss': ('nnUNetPlans',),
+        'nnUNetTrainerTopk10LossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerDiceTopK10Loss': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLossClip1': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLoss': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerDiceCELossLS01': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

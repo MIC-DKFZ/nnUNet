@@ -1,17 +1,18 @@
-from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.focal_loss import FocalLoss_Ori, Focal_and_DC_Loss
-from nnunetv2.training.loss.focal_loss_2 import FocalLoss, MULTICLASS_MODE, MULTILABEL_MODE
-from nnunetv2.training.loss.focal_loss_3 import FocalLossJunMa11
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import numpy as np
+import torch
 
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.loss.dice import SoftDiceLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 
 
-class nnUNetTrainerFocalLoss2(nnUNetTrainer):
+class nnUNetTrainerDiceLoss(nnUNetTrainer):
     def _build_loss(self):
-        loss = FocalLoss(MULTILABEL_MODE if self.label_manager.has_regions else MULTICLASS_MODE,
-                         ignore_index=self.label_manager.ignore_label)
+        loss = SoftDiceLoss(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                    'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
+                            apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
 
         deep_supervision_scales = self._get_deep_supervision_scales()
 
@@ -26,10 +27,11 @@ class nnUNetTrainerFocalLoss2(nnUNetTrainer):
         return loss
 
 
-class nnUNetTrainerFocalLoss(nnUNetTrainer):
+class nnUNetTrainerDiceLossClip1(nnUNetTrainer):
     def _build_loss(self):
-        assert not self.label_manager.has_regions
-        loss = FocalLoss_Ori(self.label_manager.num_segmentation_heads, ignore_index=self.label_manager.ignore_label)
+        loss = SoftDiceLoss(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                    'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
+                            clip_tp=1, apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
 
         deep_supervision_scales = self._get_deep_supervision_scales()
 
@@ -44,15 +46,12 @@ class nnUNetTrainerFocalLoss(nnUNetTrainer):
         return loss
 
 
-class nnUNetTrainerFocalandDiceLoss(nnUNetTrainer):
+class nnUNetTrainerDiceLossLS01(nnUNetTrainer):
     def _build_loss(self):
-        assert not self.label_manager.has_regions, "region-based training not supported here"
-        # loss = FocalLoss_Ori(num_class=self.label_manager.num_segmentation_heads, ignore_index=self.label_manager.ignore_label)
-        loss = Focal_and_DC_Loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
-                                  'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
-                                 {'num_class': self.label_manager.num_segmentation_heads,
-                                  'ignore_index': self.label_manager.ignore_label},
-                                 ignore_label=self.label_manager.ignore_label)
+        loss = SoftDiceLoss(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                    'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp,
+                               'label_smoothing': 0.1},
+                            apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
 
         deep_supervision_scales = self._get_deep_supervision_scales()
 
@@ -67,12 +66,14 @@ class nnUNetTrainerFocalandDiceLoss(nnUNetTrainer):
         return loss
 
 
-class nnUNetTrainerFocalLoss3(nnUNetTrainer):
+class nnUNetTrainerDiceCELossLS01(nnUNetTrainer):
     def _build_loss(self):
-        assert not self.label_manager.has_regions, "region-based training not supported here"
-        assert not self.label_manager.has_ignore_label, "ignore label not supported here"
-
-        loss = FocalLossJunMa11(apply_nonlin=softmax_helper_dim1)
+        assert not self.label_manager.has_regions, 'regions aint working here for now'
+        loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                               'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp, 'label_smoothing': 0.1},
+                              {'label_smoothing': 0.1},
+                              weight_ce=1, weight_dice=1,
+                              ignore_label=self.label_manager.ignore_label)
 
         deep_supervision_scales = self._get_deep_supervision_scales()
 
@@ -85,4 +86,5 @@ class nnUNetTrainerFocalLoss3(nnUNetTrainer):
         # now wrap the loss
         loss = DeepSupervisionWrapper(loss, weights)
         return loss
+
 

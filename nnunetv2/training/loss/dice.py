@@ -8,7 +8,7 @@ from torch import nn
 
 class SoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
-                 ddp: bool = True):
+                 ddp: bool = True, clip_tp: float = None, label_smoothing: float = 0.0):
         """
         """
         super(SoftDiceLoss, self).__init__()
@@ -17,6 +17,8 @@ class SoftDiceLoss(nn.Module):
         self.batch_dice = batch_dice
         self.apply_nonlin = apply_nonlin
         self.smooth = smooth
+        self.clip_tp = clip_tp
+        self.label_smoothing = label_smoothing
         self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
@@ -30,14 +32,18 @@ class SoftDiceLoss(nn.Module):
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
-        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False, label_smoothing=self.label_smoothing)
+
+        if self.ddp and self.batch_dice:
+            tp = AllGatherGrad.apply(tp).sum(0)
+            fp = AllGatherGrad.apply(fp).sum(0)
+            fn = AllGatherGrad.apply(fn).sum(0)
+
+        if self.clip_tp is not None:
+            tp = torch.clip(tp, min=self.clip_tp , max=None)
 
         nominator = 2 * tp
         denominator = 2 * tp + fp + fn
-
-        if self.ddp and self.batch_dice:
-            nominator = AllGatherGrad.apply(nominator).sum(0)
-            denominator = AllGatherGrad.apply(denominator).sum(0)
 
         dc = (nominator + self.smooth) / (torch.clip(denominator + self.smooth, 1e-8))
 
@@ -51,7 +57,7 @@ class SoftDiceLoss(nn.Module):
         return -dc
 
 
-def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
+def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False, label_smoothing: float = 0.0):
     """
     net_output must be (b, c, x, y(, z)))
     gt must be a label map (shape (b, 1, x, y(, z)) OR shape (b, x, y(, z))) or one hot encoding (b, c, x, y(, z))
@@ -80,6 +86,9 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
             gt = gt.long()
             y_onehot = torch.zeros(shp_x, device=net_output.device)
             y_onehot.scatter_(1, gt, 1)
+
+        if label_smoothing != 0.0:
+            y_onehot = (1 - label_smoothing) * y_onehot + label_smoothing / shp_x[1]
 
     tp = net_output * y_onehot
     fp = net_output * (1 - y_onehot)

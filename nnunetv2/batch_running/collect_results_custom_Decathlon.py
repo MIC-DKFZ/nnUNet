@@ -103,6 +103,7 @@ if __name__ == '__main__':
         'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetPlans',),
         'nnUNetTrainerFocalLoss2': ('nnUNetPlans',),
         'nnUNetTrainerFocalLoss': ('nnUNetPlans',),
+        'nnUNetTrainerFocalLoss3': ('nnUNetPlans',),
         'nnUNetTrainerFocalandDiceLoss': ('nnUNetPlans',),
         'nnUNetTrainerAdan': ('nnUNetPlans',),
         'nnUNetTrainerAdan3en4': ('nnUNetPlans',),
@@ -113,8 +114,17 @@ if __name__ == '__main__':
         'nnUNetTrainerAdanCosAnneal': ('nnUNetPlans',),
         'nnUNetTrainerCosAnneal': ('nnUNetPlans',),
         'nnUNetTrainerResEncUNet': ('nnUNetPlans',),
+        'nnUNetTrainerCELoss': ('nnUNetPlans',),
+        'nnUNetTrainerCELossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerTopk10Loss': ('nnUNetPlans',),
+        'nnUNetTrainerTopk10LossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerDiceTopK10Loss': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLossClip1': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLoss': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLossLS01': ('nnUNetPlans',),
+        'nnUNetTrainerDiceCELossLS01': ('nnUNetPlans',),
     }
-    all_results_file = join(nnUNet_results, 'customDecResults.csv')
+    all_results_file= join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
     collect_results(use_these_trainers, datasets, all_results_file)
 
