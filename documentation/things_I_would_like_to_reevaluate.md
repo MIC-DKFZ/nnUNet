@@ -1,5 +1,8 @@
 Planned:
-- DA5
+- baseline ord0
+- dicelip + ce
+- fix noda
+- 
 
 Done:
 - label smoothing

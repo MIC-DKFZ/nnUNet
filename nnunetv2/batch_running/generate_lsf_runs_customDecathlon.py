@@ -32,7 +32,7 @@ if __name__ == "__main__":
         55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         64: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         82: ("2d", "3d_fullres"),
-        83: ("2d", "3d_fullres"),
+        # 83: ("2d", "3d_fullres"),
     }
 
     configurations_3d_fr_only = {
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     num_gpus = 1
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=12G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=1G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && "
     train_command = 'nnUNetv2_train'
