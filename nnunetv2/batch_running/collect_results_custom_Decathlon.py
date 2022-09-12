@@ -92,7 +92,7 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
 if __name__ == '__main__':
     use_these_trainers = {
         'nnUNetModule': ('nnUNetPlans', ),  # lightning variant
-        'nnUNetTrainer': ('nnUNetPlans', ),  # my trainer
+        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetPlans'),  # my trainer
         'nnUNetTrainer_switchToDiceep800': ('nnUNetPlans',),
         'nnUNetTrainer_switchToDiceep100': ('nnUNetPlans',),
         'nnUNetTrainer_switchToDiceep100noSmooth': ('nnUNetPlans',),

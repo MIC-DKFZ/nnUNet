@@ -1,8 +1,5 @@
 Planned:
-- baseline ord0
-- dicelip + ce
-- fix noda
-- 
+
 
 
 
@@ -15,3 +12,6 @@ Done:
 - 2d inference mirroring axes
 - no data augmentation
 - no deep supervision
+- baseline ord0
+- dicelip + ce
+- fix noda
