@@ -64,9 +64,7 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainerDiceCELossClip1': ('nnUNetPlans',),
-        'nnUNetTrainerDAOrd0': ('nnUNetPlans',),
-        'nnUNetTrainerNoDA': ('nnUNetPlans',),
+        'nnUNetTrainerDiceLossClip10_2': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
