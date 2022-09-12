@@ -65,6 +65,7 @@ if __name__ == "__main__":
 
     use_these_modules = {
         'nnUNetTrainerDiceCELossClip1': ('nnUNetPlans',),
+        'nnUNetTrainerDAOrd0': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
