@@ -1,5 +1,6 @@
 Planned:
-
+- parametrizable DA intensity
+- random field aug 
 
 
 
