@@ -4,6 +4,8 @@ Planned:
 - fix noda
 - 
 
+
+
 Done:
 - label smoothing
 - focal loss
