@@ -1,6 +1,8 @@
 Planned:
 - parametrizable DA intensity
 - random field aug 
+- benchmarking
+- speed get_tp_fp_fn
 
 
 
