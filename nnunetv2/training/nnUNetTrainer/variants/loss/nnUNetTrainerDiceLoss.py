@@ -120,7 +120,7 @@ class nnUNetTrainerDiceCELossClip1(nnUNetTrainer):
 
 class SoftDiceLoss2(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
-                 ddp: bool = True, clip_tp: float = None, label_smoothing: float = 0.0):
+                 ddp: bool = True, clip_tp: float = None):
         """
         """
         super().__init__()
@@ -130,7 +130,6 @@ class SoftDiceLoss2(nn.Module):
         self.apply_nonlin = apply_nonlin
         self.smooth = smooth
         self.clip_tp = clip_tp
-        self.label_smoothing = label_smoothing
         self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
@@ -144,7 +143,7 @@ class SoftDiceLoss2(nn.Module):
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
-        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False, label_smoothing=self.label_smoothing)
+        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
 
         if self.ddp and self.batch_dice:
             tp = AllGatherGrad.apply(tp).sum(0)
