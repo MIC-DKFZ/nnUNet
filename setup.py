@@ -26,7 +26,6 @@ setup(name='nnunetv2',
             "nibabel",
             "matplotlib",
             "seaborn",
-            "pytorch_lightning",
             "imagecodecs"
       ],
       entry_points={
