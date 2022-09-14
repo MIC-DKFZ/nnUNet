@@ -352,3 +352,10 @@ class nnUNetTrainerDA5ord0(nnUNetTrainerDA5):
                                            max(1, allowed_num_processes // 2), 3, None, True, 0.02)
 
         return mt_gen_train, mt_gen_val
+
+
+class nnUNetTrainerDA5_10epochs(nnUNetTrainerDA5):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: str = 'cuda'):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.num_epochs = 10

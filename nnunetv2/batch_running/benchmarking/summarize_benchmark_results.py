@@ -10,8 +10,8 @@ if __name__ == '__main__':
     configs = ['2d', '3d_fullres']
     output_file = join(nnUNet_results, 'benchmark_results.csv')
 
-    torch_version = "1.12.0a0+git664058f"
-    cudnn_version = 8500
+    torch_version = "1.11.0a0+gitbc2c6ed"  # "1.12.0a0+git664058f"
+    cudnn_version = 8302  # 8500
     num_gpus = 1
 
     unique_gpus = set()

@@ -1,8 +1,6 @@
 Planned:
 - parametrizable DA intensity
 - random field aug 
-- benchmarking
-- speed get_tp_fp_fn
 
 
 
@@ -18,3 +16,5 @@ Done:
 - baseline ord0
 - dicelip + ce
 - fix noda
+- benchmarking
+- speed get_tp_fp_fn
