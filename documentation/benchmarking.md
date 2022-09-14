@@ -23,7 +23,8 @@ It's quite simple, actually. Looks just like a regular nnU-Net training.
 
 We provide reference numbers for some of the medical segmentation decathlon datasets because they are easily 
 accessible: [download here](https://drive.google.com/drive/folders/1HqEgzS8BV2c7xYNrZdEAnrHk7osJJ--2). If it needs to be 
-quick and dirty, focus on Tasks 2 and 4. Download the data and convert them to the nnU-Net format with TODO (oof). 
+quick and dirty, focus on Tasks 2 and 4. Download and extract the data and convert them to the nnU-Net format with 
+`nnUNetv2_convert_MSD_dataset`. 
 Run nnUNetv2_plan_and_preprocess for them.
 
 Then, for each dataset, run the following commands (only one per GPU! Or one after the other):
