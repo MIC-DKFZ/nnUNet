@@ -13,7 +13,7 @@ while and use some disk space
   - `nnUNet_plan_and_preprocess -t 216 -pl3d ExperimentPlanner3D_residual_v21_bfnnUNet -pl2d None`
   - `nnUNet_plan_and_preprocess -t 216 217 -pl3d ExperimentPlanner3D_residual_v21_bfnnUNet_31_spRegnnU -pl2d None`
   - at this point you might be confused and ask yourself what all that stuff is and why things are the way they 
-  are and we really don't have a good answer for you here except that it was all over the placetowards the end 
+  are and we really don't have a good answer for you here except that it was all over the place towards the end 
   and well that's how we roll and we won with this so don't question us. haha
 - Manually edit the plans files to increase the batch size. Read on how to do that [here](../tutorials/edit_plans_files.md):
   - Task216: 
@@ -34,7 +34,7 @@ nnU-Net. So realistically get some A100's.
     - `nnUNet_train 3d_fullres nnUNetTrainerV2_ResencUNet_SimonsInit 216 FOLD -p nnUNetPlans_bfnnUNet_fabresnet_bs5`
     - `nnUNet_train 3d_fullres nnUNetTrainerV2_ResencUNet_SimonsInit 217 FOLD -p nnUNetPlans_bfnnUNet_fabresnet_31_spnnU_bs6`
     - `nnUNet_train 3d_fullres nnUNetTrainerV2_ResencUNet_SimonsInit 217 FOLD -p nnUNetPlans_bfnnUNet_fabresnet_31_bs5`
-- Great! You are several thousands kWh poorer. Now you can actually run inference (adapt the paths to your system):
+- Great! You are several thousands kWh poorer. Now you can run inference (adapt the paths to your system):
   - Task1: [script](run_inference_task1.py)
   - Task2: [script](run_inference_task2.py)
   
