@@ -16,6 +16,21 @@
 from copy import deepcopy
 from nnunet.network_architecture.custom_modules.helperModules import Identity
 from torch import nn
+import numpy as np
+
+
+def _maybe_convert_scalar_to_list(conv_op, scalar):
+    if not isinstance(scalar, (tuple, list, np.ndarray)):
+        if conv_op == nn.Conv2d:
+            return [scalar] * 2
+        elif conv_op == nn.Conv3d:
+            return [scalar] * 3
+        elif conv_op == nn.Conv1d:
+            return [scalar] * 1
+        else:
+            raise RuntimeError("Invalid conv op: %s" % str(conv_op))
+    else:
+        return scalar
 
 
 class ConvDropoutNormReLU(nn.Module):
@@ -84,32 +99,48 @@ class StackedConvLayers(nn.Module):
 
 
 class BasicResidualBlock(nn.Module):
-    def __init__(self, in_planes, out_planes, kernel_size, props, stride=None):
+    def __init__(self, in_planes, out_planes, kernel_size, props, stride=None, use_avgpool_in_skip=False):
         """
         This is the conv bn nonlin conv bn nonlin kind of block
         :param in_planes:
         :param out_planes:
         :param props:
         :param override_stride:
+        :param use_avgpool_in_skip: if True, will use nn.AvgPoolNd -> nn.ConvNd (1x1(x1)) in the skip connection to
+        reduce the feature map size. If False, it will simply use strided nn.ConvNd (1x1(x1)) which throws away
+        information
         """
         super().__init__()
+        # props is a dict and we don't want anything happening to it
+        props = deepcopy(props)
 
-        self.kernel_size = kernel_size
-        props['conv_op_kwargs']['stride'] = 1
+        # we ignore and stride from props['conv_op_kwargs']
+        del props['conv_op_kwargs']['stride']
+
+        kernel_size = _maybe_convert_scalar_to_list(props['conv_op'], kernel_size)
+
+        # check if stride is OK, make sure stride is a list of
+        if stride is not None:
+            if isinstance(stride, (tuple, list)):
+                # replacing all None entries with 1
+                stride = [i if i is not None else 1 for i in stride]
+            else:
+                stride = _maybe_convert_scalar_to_list(props['conv_op'], stride)
+        else:
+            stride = _maybe_convert_scalar_to_list(props['conv_op'], 1)
 
         self.stride = stride
+
+        self.kernel_size = kernel_size
         self.props = props
         self.out_planes = out_planes
         self.in_planes = in_planes
 
-        if stride is not None:
-            kwargs_conv1 = deepcopy(props['conv_op_kwargs'])
-            kwargs_conv1['stride'] = stride
-        else:
-            kwargs_conv1 = props['conv_op_kwargs']
-
-        self.conv1 = props['conv_op'](in_planes, out_planes, kernel_size, padding=[(i - 1) // 2 for i in kernel_size],
-                                      **kwargs_conv1)
+        self.conv1 = props['conv_op'](in_planes, out_planes,
+                                      kernel_size=kernel_size,
+                                      padding=[(i - 1) // 2 for i in kernel_size],
+                                      stride=stride,
+                                      **props['conv_op_kwargs'])
         self.norm1 = props['norm_op'](out_planes, **props['norm_op_kwargs'])
         self.nonlin1 = props['nonlin'](**props['nonlin_kwargs'])
 
@@ -118,15 +149,37 @@ class BasicResidualBlock(nn.Module):
         else:
             self.dropout = Identity()
 
-        self.conv2 = props['conv_op'](out_planes, out_planes, kernel_size, padding=[(i - 1) // 2 for i in kernel_size],
+        self.conv2 = props['conv_op'](out_planes, out_planes,
+                                      kernel_size=kernel_size,
+                                      padding=[(i - 1) // 2 for i in kernel_size],
+                                      stride=1,
                                       **props['conv_op_kwargs'])
         self.norm2 = props['norm_op'](out_planes, **props['norm_op_kwargs'])
         self.nonlin2 = props['nonlin'](**props['nonlin_kwargs'])
 
-        if (self.stride is not None and any((i != 1 for i in self.stride))) or (in_planes != out_planes):
-            stride_here = stride if stride is not None else 1
-            self.downsample_skip = nn.Sequential(props['conv_op'](in_planes, out_planes, 1, stride_here, bias=False),
-                                                 props['norm_op'](out_planes, **props['norm_op_kwargs']))
+        if (stride is not None and any([i != 1 for i in stride])) or (in_planes != out_planes):
+            if use_avgpool_in_skip:
+                ops = []
+                # we only need to pool if any of the strides is != 1
+                if any([i != 1 for i in stride]):
+                    ops.append(_get_matching_avgPool(props['conv_op'])(stride, stride))
+                # 1x1(x1) conv.
+                # Todo: Do we really need this when all we do is change the resolution and not the number of feature maps?
+                ops.append(props['conv_op'](in_planes, out_planes, kernel_size=1,
+                                            padding=0,
+                                            stride=1,
+                                            bias=False))
+                ops.append(props['norm_op'](out_planes, **props['norm_op_kwargs']))
+
+                self.downsample_skip = nn.Sequential(*ops)
+            else:
+                stride_here = stride if stride is not None else 1
+                self.downsample_skip = nn.Sequential(props['conv_op'](in_planes, out_planes,
+                                                                      kernel_size=1,
+                                                                      padding=0,
+                                                                      stride=stride_here,
+                                                                      bias=False),
+                                                     props['norm_op'](out_planes, **props['norm_op_kwargs']))
         else:
             self.downsample_skip = lambda x: x
 
@@ -212,16 +265,30 @@ class ResidualBottleneckBlock(nn.Module):
 
 
 class ResidualLayer(nn.Module):
-    def __init__(self, input_channels, output_channels, kernel_size, network_props, num_blocks, first_stride=None, block=BasicResidualBlock):
+    def __init__(self, input_channels, output_channels, kernel_size, network_props, num_blocks, first_stride=None,
+                 block=BasicResidualBlock, block_kwargs=None):
         super().__init__()
 
+        if block_kwargs is None:
+            block_kwargs = {}
         network_props = deepcopy(network_props)  # network_props is a dict and mutable, so we deepcopy to be safe.
 
-        self.convs = nn.Sequential(
-            block(input_channels, output_channels, kernel_size, network_props, first_stride),
-            *[block(output_channels, output_channels, kernel_size, network_props) for _ in
-              range(num_blocks - 1)]
-        )
+        if block == ResidualBottleneckBlock:
+            self.convs = []
+            self.convs.append(block(input_channels, output_channels, output_channels * 4, kernel_size, network_props,
+                                    first_stride, **block_kwargs))
+            self.convs += [block(output_channels * 4, output_channels, output_channels * 4, kernel_size, network_props,
+                                 **block_kwargs) for _ in range(num_blocks - 1)]
+            self.convs = nn.Sequential(*self.convs)
+            self.output_channels = output_channels * 4
+        else:
+            self.convs = nn.Sequential(
+                block(input_channels, output_channels, kernel_size, network_props, first_stride, **block_kwargs),
+                *[block(output_channels, output_channels, kernel_size, network_props, **block_kwargs) for _ in
+                  range(num_blocks - 1)]
+            )
+
+            self.output_channels = output_channels
 
     def forward(self, x):
         return self.convs(x)

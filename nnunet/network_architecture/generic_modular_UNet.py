@@ -64,7 +64,7 @@ def get_default_network_config(dim=2, dropout_p=None, nonlin="LeakyReLU", norm_t
     else:
         props['dropout_op_kwargs'] = {'p': dropout_p, 'inplace': True}
 
-    props['conv_op_kwargs'] = {'stride': 1, 'dilation': 1, 'bias': True}  # kernel size will be set by network!
+    props['conv_op_kwargs'] = {'stride': 1, 'dilation': 1, 'bias': False}  # kernel size will be set by network!
 
     if nonlin == "LeakyReLU":
         props['nonlin'] = nn.LeakyReLU
@@ -76,7 +76,6 @@ def get_default_network_config(dim=2, dropout_p=None, nonlin="LeakyReLU", norm_t
         raise ValueError
 
     return props
-
 
 
 class PlainConvUNetEncoder(nn.Module):
@@ -240,14 +239,14 @@ class PlainConvUNetDecoder(nn.Module):
                                                  num_blocks_per_stage[i]))
 
             if deep_supervision and s != 0:
-                seg_layer = self.props['conv_op'](features_skip, num_classes, 1, 1, 0, 1, 1, False)
+                seg_layer = self.props['conv_op'](features_skip, num_classes, 1, 1, 0, 1, 1, bias=True)
                 if upscale_logits:
                     upsample = Upsample(scale_factor=cum_upsample[s], mode=upsample_mode)
                     self.deep_supervision_outputs.append(nn.Sequential(seg_layer, upsample))
                 else:
                     self.deep_supervision_outputs.append(seg_layer)
 
-        self.segmentation_output = self.props['conv_op'](features_skip, num_classes, 1, 1, 0, 1, 1, False)
+        self.segmentation_output = self.props['conv_op'](features_skip, num_classes, 1, 1, 0, 1, 1, bias=True)
 
         self.tus = nn.ModuleList(self.tus)
         self.stages = nn.ModuleList(self.stages)
