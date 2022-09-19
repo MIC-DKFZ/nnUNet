@@ -29,6 +29,7 @@ from nnunet.training.data_augmentation.custom_transforms import Convert3DTo2DTra
 from nnunet.training.data_augmentation.pyramid_augmentations import MoveSegAsOneHotToData, \
     ApplyRandomBinaryOperatorTransform, \
     RemoveRandomConnectedComponentFromOneHotEncodingTransform
+from nnunet.utilities.set_n_proc_DA import get_allowed_n_proc_DA
 
 try:
     from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
@@ -89,7 +90,7 @@ default_3D_augmentation_params = {
     "additive_brightness_mu": 0.0,
     "additive_brightness_sigma": 0.1,
 
-    "num_threads": 12 if 'nnUNet_n_proc_DA' not in os.environ else int(os.environ['nnUNet_n_proc_DA']),
+    "num_threads": get_allowed_n_proc_DA() if get_allowed_n_proc_DA() is not None else 12,
     "num_cached_per_thread": 1,
 }
 
