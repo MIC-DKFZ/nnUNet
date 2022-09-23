@@ -60,13 +60,14 @@ if __name__ == "__main__":
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
-    use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
+    use_this = configurations_2d_only #merge(configurations_3d_fr_only, configurations_3d_lr_only)
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainerVanillaAdam': ('nnUNetPlans',),
-        'nnUNetTrainerVanillaAdam1en3': ('nnUNetPlans',),
-        'nnUNetTrainerVanillaAdam3en4': ('nnUNetPlans',),
+        'nnUNetTrainer_HRNet18': ('nnUNetPlans',),
+        'nnUNetTrainer_HRNet32': ('nnUNetPlans',),
+        'nnUNetTrainer_HRNet48': ('nnUNetPlans',),
+        'nnUNetTrainerNoDeepSupervision': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

@@ -21,10 +21,7 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot
 
-try:
-    from nnunetv2.network_architecture.hrnet.hrnet import MODEL_CONFIGS, get_seg_model
-except ImportError:
-    MODEL_CONFIGS, get_seg_model = None, None
+from nnunetv2.network_architecture.hrnet.hrnet import MODEL_CONFIGS, get_seg_model
 
 
 class nnUNetTrainer_HRNet18(nnUNetTrainerNoDeepSupervision):
@@ -33,8 +30,6 @@ class nnUNetTrainer_HRNet18(nnUNetTrainerNoDeepSupervision):
     anything for us here
     """
     def _get_network(self):
-        if MODEL_CONFIGS is None:
-            raise RuntimeError()
         return get_seg_model(MODEL_CONFIGS['hrnet18'], self.label_manager.num_segmentation_heads, input_channels=self.num_input_channels).to(self.device)
 
     def on_train_start(self):
@@ -203,8 +198,6 @@ class nnUNetTrainer_HRNet32(nnUNetTrainer_HRNet18):
     anything for us here
     """
     def _get_network(self):
-        if MODEL_CONFIGS is None:
-            raise RuntimeError()
         return get_seg_model(MODEL_CONFIGS['hrnet32'], self.label_manager.num_segmentation_heads, input_channels=self.num_input_channels).to(self.device)
 
 
@@ -214,6 +207,4 @@ class nnUNetTrainer_HRNet48(nnUNetTrainer_HRNet18):
     anything for us here
     """
     def _get_network(self):
-        if MODEL_CONFIGS is None:
-            raise RuntimeError()
         return get_seg_model(MODEL_CONFIGS['hrnet48'], self.label_manager.num_segmentation_heads, input_channels=self.num_input_channels).to(self.device)
