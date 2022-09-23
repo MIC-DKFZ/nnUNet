@@ -134,6 +134,8 @@ if __name__ == '__main__':
         'nnUNetTrainerVanillaAdam': ('nnUNetPlans',),
         'nnUNetTrainerVanillaAdam1en3': ('nnUNetPlans',),
         'nnUNetTrainerVanillaAdam3en4': ('nnUNetPlans',),
+        'nnUNetTrainerBN': ('nnUNetPlans',),
+        'anon_nnUNetTrainer1': ('nnUNetPlans', 'nnUNetResEncUNetPlans'),
     }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
