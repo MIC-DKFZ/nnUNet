@@ -54,20 +54,17 @@ if __name__ == "__main__":
     num_gpus = 1
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=33G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=1G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && "
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
-    use_this = configurations_2d_only #merge(configurations_3d_fr_only, configurations_3d_lr_only)
+    use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer_HRNet18': ('nnUNetPlans',),
-        'nnUNetTrainer_HRNet32': ('nnUNetPlans',),
-        'nnUNetTrainer_HRNet48': ('nnUNetPlans',),
-        'nnUNetTrainerNoDeepSupervision': ('nnUNetPlans',),
+        'nnUNetTrainerBN': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

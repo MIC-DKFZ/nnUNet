@@ -188,6 +188,7 @@ class nnUNetTrainer(object):
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
             if self.is_ddp:
+                self.network = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.network)
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
@@ -201,7 +202,7 @@ class nnUNetTrainer(object):
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
         return get_network_from_plans(self.plans, self.dataset_json, self.configuration,
-                                              self.num_input_channels, deep_supervision=True).to(self.device)
+                                      self.num_input_channels, deep_supervision=True).to(self.device)
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
