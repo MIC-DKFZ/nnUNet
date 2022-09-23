@@ -113,7 +113,7 @@ if __name__ == '__main__':
         'nnUNetTrainerAdam1en3': ('nnUNetPlans',),
         'nnUNetTrainerAdanCosAnneal': ('nnUNetPlans',),
         'nnUNetTrainerCosAnneal': ('nnUNetPlans',),
-        'nnUNetTrainerResEncUNet': ('nnUNetPlans',),
+        # 'nnUNetTrainerResEncUNet': ('nnUNetPlans',),
         'nnUNetTrainerCELoss': ('nnUNetPlans',),
         'nnUNetTrainerCELossLS01': ('nnUNetPlans',),
         'nnUNetTrainerTopk10Loss': ('nnUNetPlans',),

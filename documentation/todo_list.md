@@ -1,6 +1,8 @@
 Planned:
 - parametrizable DA intensity
 - random field aug 
+- hrnet
+- keep highres path in unet
 
 
 

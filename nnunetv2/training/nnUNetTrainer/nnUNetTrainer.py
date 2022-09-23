@@ -742,6 +742,7 @@ class nnUNetTrainer(object):
             torch.cuda.empty_cache()
 
     def on_train_epoch_start(self):
+        self.network.train()
         self.lr_scheduler.step(self.current_epoch)
         self.print_to_log_file('')
         self.print_to_log_file(f'Epoch {self.current_epoch}')
@@ -787,7 +788,7 @@ class nnUNetTrainer(object):
         self.logger.log('train_losses', loss_here, self.current_epoch)
 
     def on_validation_epoch_start(self):
-        pass
+        self.network.eval()
 
     def validation_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -798,8 +799,6 @@ class nnUNetTrainer(object):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
-
-        self.optimizer.zero_grad()
 
         with autocast(self.device_type):
             output = self.network(data)
