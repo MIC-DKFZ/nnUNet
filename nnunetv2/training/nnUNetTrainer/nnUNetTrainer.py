@@ -972,6 +972,8 @@ class nnUNetTrainer(object):
             self.network.module.decoder.deep_supervision = False
         else:
             self.network.decoder.deep_supervision = False
+        self.network.eval()
+
         num_seg_heads = self.label_manager.num_segmentation_heads
 
         inference_gaussian = torch.from_numpy(
