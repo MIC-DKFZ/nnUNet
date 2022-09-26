@@ -188,7 +188,6 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     export_pool = Pool(num_processes_segmentation_export)
     r = []
     with torch.no_grad():
-        network.eval()
         for preprocessed in mta:
             data = preprocessed['data']
             if isinstance(data, str):
