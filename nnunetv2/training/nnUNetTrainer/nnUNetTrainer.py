@@ -20,6 +20,8 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from torch.cuda import device_count
+
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
@@ -88,8 +90,9 @@ class nnUNetTrainer(object):
             self.device = f"{device}:{0}"
 
         if torch.cuda.is_available():
-            print(f"Setting device to {self.device}")
-            torch.cuda.set_device(self.local_rank)
+            print(f"I am local rank {self.local_rank}. {device_count()} GPUs are available. "
+                  f"Setting device to {self.device}")
+            torch.cuda.set_device(self.device)
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
