@@ -3,6 +3,8 @@ Planned:
 - random field aug 
 - hrnet
 - keep highres path in unet
+- RMI
+- resampling strats
 
 
 
