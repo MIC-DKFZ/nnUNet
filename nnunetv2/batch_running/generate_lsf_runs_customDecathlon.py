@@ -60,12 +60,12 @@ if __name__ == "__main__":
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
-    use_this = configurations_2d_only
-    # use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
+    # use_this = configurations_2d_only
+    use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetPlans', ),
+        'anon_nnUNetTrainer2': ('nnUNetPlans', ),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
