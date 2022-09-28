@@ -16,6 +16,7 @@ if __name__ == '__main__':
         'nnUNetTrainer_HRNet18': ('nnUNetPlans',),
         'nnUNetTrainer_HRNet32': ('nnUNetPlans',),
         'nnUNetTrainer_HRNet48': ('nnUNetPlans',),
+        'nnUNetTrainerRMILoss': ('nnUNetPlans',),
     }
     all_results_file = join(nnUNet_results, 'hrnet_results.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
