@@ -42,7 +42,7 @@ always contain the T2 image and 0001.nii.gz the ADC image. Whenever you are usin
 `$nnUNet_raw_data_base/nnUNet_raw_data/Task005_Prostate/imagesTs`. Note that you need to do this conversion youself when 
 using other than Medcial Segmentation Decathlon datasets. No worries. Doing this is easy (often as simple as appending 
 a _0000 to the file name if only one input modality is required). Instructions can be found here [here](data_format_inference.md).
-7) You can now predict the Prostate test cases with the pretrained model. We exemplarily use the 3D full resoltion U-Net here:
+7) You can now predict the Prostate test cases with the pretrained model. We exemplarily use the 3D full resolution U-Net here:
     ```bash
     nnUNet_predict -i $nnUNet_raw_data_base/nnUNet_raw_data/Task005_Prostate/imagesTs/ -o OUTPUT_DIRECTORY -t 5 -m 3d_fullres
     ``` 

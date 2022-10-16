@@ -47,7 +47,7 @@ blueprint variations which should give a good indication of where to start:
 ## Changes to Inferred Parameters
 The inferred parameters are determined based on the dataset fingerprint, a low dimensional representation of the properties 
 of the training cases. It captures, for example, the image shapes, voxel spacings and intensity information from 
-the training cases. The datset fingerprint is created by the DatasetAnalyzer (which is located in nnunet.preprocessing) 
+the training cases. The dataset fingerprint is created by the DatasetAnalyzer (which is located in nnunet.preprocessing) 
 while running `nnUNet_plan_and_preprocess`. 
 
 `nnUNet_plan_and_preprocess` uses so called ExperimentPlanners for running the adaptation process. Default ExperimentPlanner 
@@ -65,7 +65,7 @@ To train with your custom configuration, simply specify the correct plans identi
 trainer class will automatically know what data should be used.
 
 Possible adaptations to the inferred parameters could include a different way of prioritizing batch size vs patch size 
-(currently, nnU-Net prioritizies patch size), a different handling of the spacing information for architecture template 
+(currently, nnU-Net prioritizes patch size), a different handling of the spacing information for architecture template 
 instantiation, changing the definition of target spacing, or using different strategies for finding the 3d low 
 resolution U-Net configuration.
 
@@ -90,7 +90,7 @@ This experiment planner must also use a matching data_identifier and plans_fname
 ## Use a different network architecture
 Changing the network architecture in nnU-Net is easy, but not self-explanatory. Any new segmentation network you implement 
 needs to understand what nnU-Net requests from it (wrt how many downsampling operations are done, whether deep supervision 
-is used, what the convolutional kernel sizes are supposed to be). It needs to be able to dynamiccaly change its topology, 
+is used, what the convolutional kernel sizes are supposed to be). It needs to be able to dynamically change its topology, 
 just like our implementation of the [Generic_UNet](../nnunet/network_architecture/generic_UNet.py). Furthermore, it must be
 able to generate a value that can be used to estimate memory consumption. What we have implemented for Generic_UNet effectively
 counts the number of voxels found in all feature maps that are present in a given configuration. Although this estimation 
@@ -101,7 +101,7 @@ number we are computing here cannot be interpreted directly as memory consumptio
 of the convolutions also play a role, such as instance normalization. This is furthermore very hard to predict because 
 there are also several different algorithms for running the convolutions, each with its own memory requirement. We train 
 models with cudnn.benchmark=True, so it is impossible to predict which algorithm is used). 
-So instead, to approch this problem in the most straightforward way, we manually identify the largest configuration we 
+So instead, to approach this problem in the most straightforward way, we manually identify the largest configuration we 
 can fit in the GPU of choice (manually define the dowmsampling, patch size etc) and use this value (-10% or so to be save) 
 as **reference** in the ExperimentPlanner that uses this architecture. 
 
