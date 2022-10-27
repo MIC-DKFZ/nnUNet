@@ -496,6 +496,10 @@ class NetworkTrainer(object):
 
         if self.save_final_checkpoint: self.save_checkpoint(join(self.output_folder, "model_final_checkpoint.model"))
         # now we can delete latest as it will be identical with final
+        
+        self.delete_latest_model()
+        
+    def delete_latest_model(self):
         if isfile(join(self.output_folder, "model_latest.model")):
             os.remove(join(self.output_folder, "model_latest.model"))
         if isfile(join(self.output_folder, "model_latest.model.pkl")):
