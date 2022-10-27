@@ -122,6 +122,10 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
     def plot_progress(self):
         if self.local_rank == 0:
             super().plot_progress()
+    
+    def delete_latest_model(self):
+        if self.local_rank == 0:
+            super().delete_latest_model()
 
     def print_to_log_file(self, *args, also_print_to_console=True):
         if self.local_rank == 0:
