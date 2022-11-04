@@ -27,8 +27,8 @@ def extract_fingerprint():
                         help='[OPTIONAL] Set this flag to overwrite existing fingerprints. If this flag is not set and a '
                              'fingerprint already exists, the fingerprint extractor will not run.')
     parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to suppress print outputs. This will also enable a nice progress bar! Not '
-                             'recomended for cluster environements!')
+                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
+                             'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
 
     fingerprint_extractor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
@@ -124,8 +124,8 @@ def preprocess():
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 4 8 (=8 processes for 2d, 4 "
                              "for 3d_fullres and 8 for 3d_lowres if -c is at its default)")
     parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to suppress print outputs. This will also enable a nice progress bar! Not '
-                             'recomended for cluster environements!')
+                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
+                             'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
 
     np = args.np
@@ -217,8 +217,8 @@ def plan_and_preprocess():
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 4 8 (=8 processes for 2d, 4 "
                              "for 3d_fullres and 8 for 3d_lowres if -c is at its default)")
     parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to suppress print outputs. This will also enable a nice progress bar! Not '
-                             'recomended for cluster environements!')
+                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
+                             'Recommended for cluster environments')
     args = parser.parse_args()
 
     # fingerprint extraction
