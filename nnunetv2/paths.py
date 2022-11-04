@@ -23,6 +23,11 @@ default_cascade_trainer = "nnUNetTrainerV2CascadeFullRes"
 PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
 
+datasets_path = "/home/k539i/Documents/datasets/preprocessed/nnUNet/"
+os.environ["nnUNet_raw"] = datasets_path + "nnUNet_raw_data/nnUNet_raw_data"
+os.environ["nnUNet_preprocessed"] = datasets_path + "nnUNet_preprocessed"
+os.environ["nnUNet_results"] = "/home/k539i/Documents/experiments"
+
 nnUNet_raw = os.environ['nnUNet_raw'] if "nnUNet_raw" in os.environ.keys() else None
 nnUNet_preprocessed = os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
 nnUNet_results = os.path.join(os.environ['nnUNet_results']) if "nnUNet_results" in os.environ.keys() else None

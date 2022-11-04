@@ -30,6 +30,7 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
+from acvl_utils.miscellaneous.ptqdm import ptqdm
 
 
 class DefaultPreprocessor(object):
@@ -221,18 +222,21 @@ class DefaultPreprocessor(object):
         # list of segmentation filenames
         seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in caseids]
 
-        pool = Pool(num_processes)
-        # we submit the datasets one by one so that we don't have dangling processes in the end
-        # self.run_case_save(*list(zip(output_filenames_truncated, image_fnames, seg_fnames))[0], plans,
-        #                   configuration_name)
-        # raise RuntimeError()
-        results = []
-        for ofname, ifnames, segfnames in zip(output_filenames_truncated, image_fnames, seg_fnames):
-            results.append(pool.starmap_async(self.run_case_save,
-                                              ((ofname, ifnames, segfnames, plans, configuration_name,
-                                                dataset_json),)))
-        # let the workers do their job
-        [i.get() for i in results]
+        # pool = Pool(num_processes)
+        # # we submit the datasets one by one so that we don't have dangling processes in the end
+        # # self.run_case_save(*list(zip(output_filenames_truncated, image_fnames, seg_fnames))[0], plans,
+        # #                   configuration_name)
+        # # raise RuntimeError()
+        # results = []
+        # for ofname, ifnames, segfnames in zip(output_filenames_truncated, image_fnames, seg_fnames):
+        #     results.append(pool.starmap_async(self.run_case_save,
+        #                                       ((ofname, ifnames, segfnames, plans, configuration_name,
+        #                                         dataset_json),)))
+        # # let the workers do their job
+        # [i.get() for i in results]
+
+        results = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
+                        processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name, dataset_json=dataset_json)
 
 
 def example_test_case_preprocessing():
