@@ -230,7 +230,7 @@ class DefaultPreprocessor(object):
 
         _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
                   processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name,
-                  dataset_json=dataset_json)
+                  dataset_json=dataset_json, disable=False)
 
 
 def example_test_case_preprocessing():
