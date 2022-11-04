@@ -34,7 +34,8 @@ from acvl_utils.miscellaneous.ptqdm import ptqdm
 
 
 class DefaultPreprocessor(object):
-    def __init__(self):
+    def __init__(self, verbose: bool = True):
+        self.verbose = verbose
         """
         Everything we need is in the plans. Those are given when run() is called
 
@@ -121,7 +122,8 @@ class DefaultPreprocessor(object):
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
-            data_properites['class_locations'] = self._sample_foreground_locations(seg, collect_for_this)
+            data_properites['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
+                                                                                   verbose=self.verbose)
 
         return data, seg.astype(np.int8), data_properites
 
@@ -134,7 +136,7 @@ class DefaultPreprocessor(object):
 
     @staticmethod
     def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[Tuple[int, ...]]],
-                                     seed: int = 1234):
+                                     seed: int = 1234, verbose: bool = False):
         num_samples = 10000
         min_percent_coverage = 0.01  # at least 1% of the class voxels need to be selected, otherwise it may be too
         # sparse
@@ -157,7 +159,8 @@ class DefaultPreprocessor(object):
 
             selected = all_locs[rndst.choice(len(all_locs), target_num_samples, replace=False)]
             class_locs[k] = selected
-            print(c, target_num_samples)
+            if verbose:
+                print(c, target_num_samples)
         return class_locs
 
     def _normalize(self, data: np.ndarray, seg: np.ndarray, normalization_schemes: List[str],
@@ -188,8 +191,10 @@ class DefaultPreprocessor(object):
                                    "first." % plans_file
 
         plans = load_json(plans_file)
-        print(f'Preprocessing the following configuration: {configuration_name}')
-        print(plans['configurations'][configuration_name])
+        if self.verbose:
+            print(f'Preprocessing the following configuration: {configuration_name}')
+        if self.verbose:
+            print(plans['configurations'][configuration_name])
 
         if configuration_name not in plans['configurations'].keys():
             raise RuntimeError("Requested configuration '%s' not found in ")
@@ -206,7 +211,8 @@ class DefaultPreprocessor(object):
 
         caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                            dataset_json['file_ending'])
-        output_directory = join(nnUNet_preprocessed, dataset_name, plans['configurations'][configuration_name]['data_identifier'])
+        output_directory = join(nnUNet_preprocessed, dataset_name,
+                                plans['configurations'][configuration_name]['data_identifier'])
 
         if isdir(output_directory):
             shutil.rmtree(output_directory)
@@ -222,21 +228,9 @@ class DefaultPreprocessor(object):
         # list of segmentation filenames
         seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in caseids]
 
-        # pool = Pool(num_processes)
-        # # we submit the datasets one by one so that we don't have dangling processes in the end
-        # # self.run_case_save(*list(zip(output_filenames_truncated, image_fnames, seg_fnames))[0], plans,
-        # #                   configuration_name)
-        # # raise RuntimeError()
-        # results = []
-        # for ofname, ifnames, segfnames in zip(output_filenames_truncated, image_fnames, seg_fnames):
-        #     results.append(pool.starmap_async(self.run_case_save,
-        #                                       ((ofname, ifnames, segfnames, plans, configuration_name,
-        #                                         dataset_json),)))
-        # # let the workers do their job
-        # [i.get() for i in results]
-
-        results = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
-                        processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name, dataset_json=dataset_json)
+        _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
+                  processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name,
+                  dataset_json=dataset_json)
 
 
 def example_test_case_preprocessing():
