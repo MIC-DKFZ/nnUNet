@@ -97,10 +97,15 @@ class DefaultPreprocessor(object):
 
         # print('current shape', data.shape[1:], 'current_spacing', original_spacing,
         #       '\ntarget shape', new_shape, 'target_spacing', target_spacing)
+        old_shape = data.shape[1:]
         data = fn_data(data, new_shape, original_spacing, target_spacing,
                        **configuration['resampling_fn_data_kwargs'])
         seg = fn_seg(seg, new_shape, original_spacing, target_spacing,
                      **configuration['resampling_fn_seg_kwargs'])
+        if self.verbose:
+            print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
+                  f'new_spacing: {target_spacing}, fn_data: {configuration["resampling_fn_data"]}, '
+                  f'kwargs: {configuration["resampling_fn_data_kwargs"]}')
 
         # normalize
         data = self._normalize(data, seg, configuration['normalization_schemes'],
@@ -230,7 +235,7 @@ class DefaultPreprocessor(object):
 
         _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
                   processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name,
-                  dataset_json=dataset_json, disable=False)
+                  dataset_json=dataset_json, disable=self.verbose)
 
 
 def example_test_case_preprocessing():

@@ -40,7 +40,9 @@ def convert(source_folder, target_dataset_name):
 def convert_entry_point():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_folder", type=str)
-    parser.add_argument("output_dataset_name", type=str)
+    parser.add_argument("input_folder", type=str,
+                        help='Raw old nnUNet dataset. This must be the folder with imagesTr,labelsTr etc subfolders!')
+    parser.add_argument("output_dataset_name", type=str,
+                        help='New dataset name. Must follow the DatasetXXX_NAME convention!')
     args = parser.parse_args()
     convert(args.input_folder, args.output_dataset_name)

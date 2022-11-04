@@ -3,6 +3,7 @@ from multiprocessing import Pool
 from typing import List, Type, Union
 
 import numpy as np
+from acvl_utils.miscellaneous.ptqdm import ptqdm
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
@@ -14,7 +15,7 @@ from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, c
 
 
 class DatasetFingerprintExtractor(object):
-    def __init__(self, dataset_name_or_id: Union[str, int], num_processes: int = 8):
+    def __init__(self, dataset_name_or_id: Union[str, int], num_processes: int = 8, verbose: bool = False):
         """
         extracts the dataset fingerprint used for experiment planning. The dataset fingerprint will be saved as a
         json file in the input_folder
@@ -23,6 +24,7 @@ class DatasetFingerprintExtractor(object):
         else. Don't compute stuff we don't need (except for intensity_statistics_by_modality)
         """
         dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
+        self.verbose = verbose
 
         self.dataset_name = dataset_name
         self.input_folder = join(nnUNet_raw, dataset_name)
@@ -95,7 +97,7 @@ class DatasetFingerprintExtractor(object):
         shape_after_crop = data_cropped.shape[1:]
         relative_size_after_cropping = np.prod(shape_after_crop) / np.prod(shape_before_crop)
         return shape_after_crop, spacing, foreground_intensities_by_modality, foreground_intensity_stats_by_modality, \
-            relative_size_after_cropping
+               relative_size_after_cropping
 
     def run(self, overwrite_existing: bool = False) -> None:
         # we do not save the properties file in self.input_folder because that folder might be read-only. We can only
@@ -110,30 +112,27 @@ class DatasetFingerprintExtractor(object):
                                                                             file_suffix)
             reader_writer_class = determine_reader_writer_from_dataset_json(self.dataset_json,
                                                                             join(self.input_folder, 'imagesTr',
-                                                               training_identifiers[0] + '_0000' + file_suffix))
+                                                                                 training_identifiers[
+                                                                                     0] + '_0000' + file_suffix))
 
             training_images_per_case = create_lists_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),
                                                                                  file_suffix)
-            training_labels_per_case = [join(self.input_folder, 'labelsTr', i + file_suffix) for i in training_identifiers]
+            training_labels_per_case = [join(self.input_folder, 'labelsTr', i + file_suffix) for i in
+                                        training_identifiers]
 
             # determine how many foreground voxels we need to sample per training case
             num_foreground_samples_per_case = int(self.num_foreground_voxels_for_intensitystats //
                                                   len(training_identifiers))
 
-            pool = Pool(self.num_processes)
-            results = \
-                pool.starmap_async(DatasetFingerprintExtractor.analyze_case,
-                             zip(training_images_per_case, training_labels_per_case,
-                                 [reader_writer_class] * len(training_identifiers),
-                                 [num_foreground_samples_per_case] * len(training_identifiers))
-                             )
-            results = results.get()
-            pool.close()
-            pool.join()
+            results = ptqdm(DatasetFingerprintExtractor.analyze_case,
+                            (training_images_per_case, training_labels_per_case),
+                            processes=self.num_processes, zipped=True, reader_writer_class=reader_writer_class,
+                            num_samples=num_foreground_samples_per_case, disable=self.verbose)
 
             shapes_after_crop = [r[0] for r in results]
             spacings = [r[1] for r in results]
-            foreground_intensities_by_modality = [np.concatenate([r[2][i] for r in results]) for i in range(len(results[0][2]))]
+            foreground_intensities_by_modality = [np.concatenate([r[2][i] for r in results]) for i in
+                                                  range(len(results[0][2]))]
             # we drop this so that the json file is somewhat human readable
             # foreground_intensity_stats_by_case_and_modality = [r[3] for r in results]
             median_relative_size_after_cropping = np.median([r[4] for r in results], 0)

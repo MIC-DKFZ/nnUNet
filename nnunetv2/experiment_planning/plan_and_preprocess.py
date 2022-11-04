@@ -26,6 +26,9 @@ def extract_fingerprint():
     parser.add_argument("--clean", required=False, default=False, action="store_true",
                         help='[OPTIONAL] Set this flag to overwrite existing fingerprints. If this flag is not set and a '
                              'fingerprint already exists, the fingerprint extractor will not run.')
+    parser.add_argument('--verbose', required=False, action='store_true',
+                        help='Set this to suppress print outputs. This will also enable a nice progress bar! Not '
+                             'recomended for cluster environements!')
     args, unrecognized_args = parser.parse_known_args()
 
     fingerprint_extractor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
@@ -39,7 +42,7 @@ def extract_fingerprint():
         if args.verify_dataset_integrity:
             verify_dataset_integrity(join(nnUNet_raw, dataset_name), args.np)
 
-        fpe = fingerprint_extractor_class(d, args.np)
+        fpe = fingerprint_extractor_class(d, args.np, verbose=args.verbose)
         fpe.run(overwrite_existing=args.clean)
 
 
@@ -120,6 +123,9 @@ def preprocess():
                              "RAM available. Image resampling takes up a lot of RAM. MONITOR RAM USAGE AND "
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 4 8 (=8 processes for 2d, 4 "
                              "for 3d_fullres and 8 for 3d_lowres if -c is at its default)")
+    parser.add_argument('--verbose', required=False, action='store_true',
+                        help='Set this to suppress print outputs. This will also enable a nice progress bar! Not '
+                             'recomended for cluster environements!')
     args, unrecognized_args = parser.parse_known_args()
 
     np = args.np
@@ -140,7 +146,7 @@ def preprocess():
                 print(
                     f"INFO: Configuration {c} not found in plans file {args.plans_name + '.json'} of dataset {d}. Skipping.")
                 continue
-            preprocessor = get_preprocessor_class_from_plans(plans, c)()
+            preprocessor = get_preprocessor_class_from_plans(plans, c)(verbose=args.verbose)
             preprocessor.run(d, c, args.plans_name, num_processes=n)
 
 
@@ -210,6 +216,9 @@ def plan_and_preprocess():
                              "RAM available. Image resampling takes up a lot of RAM. MONITOR RAM USAGE AND "
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 4 8 (=8 processes for 2d, 4 "
                              "for 3d_fullres and 8 for 3d_lowres if -c is at its default)")
+    parser.add_argument('--verbose', required=False, action='store_true',
+                        help='Set this to suppress print outputs. This will also enable a nice progress bar! Not '
+                             'recomended for cluster environements!')
     args = parser.parse_args()
 
     # fingerprint extraction
@@ -220,11 +229,12 @@ def plan_and_preprocess():
         d = int(d)
 
         dataset_name = convert_id_to_dataset_name(d)
+        print(f"Extracting fingerprint for {dataset_name}")
 
         if args.verify_dataset_integrity:
             verify_dataset_integrity(join(nnUNet_raw, dataset_name), args.npfp)
 
-        fpe = fingerprint_extractor_class(d, args.npfp)
+        fpe = fingerprint_extractor_class(d, args.npfp, verbose=args.verbose)
         fpe.run(overwrite_existing=args.clean)
 
     # experiment planning
@@ -263,12 +273,13 @@ def plan_and_preprocess():
             plans_file = join(nnUNet_preprocessed, dataset_name, plans_name + '.json')
             plans = load_json(plans_file)
             for n, c in zip(np, args.c):
+                print(f'Preprocesing {dataset_name} configuration {c}')
                 if c not in plans['configurations'].keys():
                     print(
                         f"INFO: Configuration {c} not found in plans file {plans_name + '.json'} of dataset {d}. "
                         f"Skipping.")
                     continue
-                preprocessor = get_preprocessor_class_from_plans(plans, c)()
+                preprocessor = get_preprocessor_class_from_plans(plans, c)(verbose=args.verbose)
                 preprocessor.run(d, c, plans_name, num_processes=n)
             maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
             [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
