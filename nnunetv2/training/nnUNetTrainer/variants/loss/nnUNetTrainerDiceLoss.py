@@ -2,6 +2,8 @@ from typing import Callable
 
 import numpy as np
 import torch
+from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerNoMirroring import \
+    nnUNetTrainer_onlyMirror01
 from torch import nn
 
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
@@ -174,6 +176,59 @@ class nnUNetTrainerDiceLossClip10_2(nnUNetTrainer):
         loss = SoftDiceLoss2(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
                                     'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
                             clip_tp=10, apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
+
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+        # this gives higher resolution outputs more weight in the loss
+        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+
+        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+        weights = weights / weights.sum()
+        # now wrap the loss
+        loss = DeepSupervisionWrapper(loss, weights)
+        return loss
+
+
+class nnUNetTrainerDiceLoss_noSmooth(nnUNetTrainer):
+    def _build_loss(self):
+        # set smooth to 0
+        if self.label_manager.has_regions:
+            loss = DC_and_BCE_loss({},
+                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                    'do_bg': True, 'smooth': 0, 'ddp': self.is_ddp},
+                                   use_ignore_label=self.label_manager.ignore_label is not None)
+        else:
+            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   'smooth': 0, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                  ignore_label=self.label_manager.ignore_label)
+
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+        # this gives higher resolution outputs more weight in the loss
+        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+
+        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+        weights = weights / weights.sum()
+        # now wrap the loss
+        loss = DeepSupervisionWrapper(loss, weights)
+        return loss
+
+
+
+class nnUNetTrainer_onlyMirror01_noSmooth(nnUNetTrainer_onlyMirror01):
+    def _build_loss(self):
+        # set smooth to 0
+        if self.label_manager.has_regions:
+            loss = DC_and_BCE_loss({},
+                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                    'do_bg': True, 'smooth': 0, 'ddp': self.is_ddp},
+                                   use_ignore_label=self.label_manager.ignore_label is not None)
+        else:
+            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   'smooth': 0, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                  ignore_label=self.label_manager.ignore_label)
 
         deep_supervision_scales = self._get_deep_supervision_scales()
 
