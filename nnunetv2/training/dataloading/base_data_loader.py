@@ -62,7 +62,7 @@ class nnUNetDataLoaderBase(DataLoader):
         return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
-                 overwrite_class: Union[int, Tuple[int, ...]] = None):
+                 overwrite_class: Union[int, Tuple[int, ...]] = None, verbose: bool = False):
         # in dataloader 2d we need to select the slice prior to this and also modify the class_locations to only have
         # locations for the given slice
         need_to_pad = self.need_to_pad.copy()
@@ -102,7 +102,8 @@ class nnUNetDataLoaderBase(DataLoader):
                 if len(classes_or_regions) == 0:
                     # this only happens if some image does not contain foreground voxels at all
                     selected_class = None
-                    print('case does not contain any foreground classes')
+                    if verbose:
+                        print('case does not contain any foreground classes')
                 else:
                     # I hate myself. Future me aint gonna be happy to read this
                     selected_class = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
