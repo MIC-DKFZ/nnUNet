@@ -66,7 +66,7 @@ class ExperimentPlanner(object):
         # median shape then we need a lowres config as well
 
         self.preprocessor_name = preprocessor_name
-        self.plans_name = plans_name
+        self.plans_identifier = plans_name
         self.overwrite_target_spacing = overwrite_target_spacing
         assert overwrite_target_spacing is None or len(overwrite_target_spacing), 'if overwrite_target_spacing is ' \
                                                                                   'used then three floats must be ' \
@@ -390,7 +390,7 @@ class ExperimentPlanner(object):
         if new_median_shape_transposed[0] != 1:
             plan_3d_fullres = self.get_plans_for_configuration(fullres_spacing_transposed,
                                                                new_median_shape_transposed,
-                                                               '3d_fullres',
+                                                               self.generate_data_identifier('3d_fullres'),
                                                                approximate_n_voxels_dataset)
             # maybe add 3d_lowres as well
             patch_size_fullres = plan_3d_fullres['patch_size']
@@ -416,7 +416,7 @@ class ExperimentPlanner(object):
                 plan_3d_lowres = self.get_plans_for_configuration(lowres_spacing,
                                                                   [round(i) for i in plan_3d_fullres['spacing'] /
                                                                    lowres_spacing * new_median_shape_transposed],
-                                                                  '3d_lowres',
+                                                                  self.generate_data_identifier('3d_lowres'),
                                                                   float(np.prod(median_num_voxels) *
                                                                         self.dataset_json['numTraining']))
                 num_voxels_in_patch = np.prod(plan_3d_lowres['patch_size'], dtype=np.int64)
@@ -436,7 +436,7 @@ class ExperimentPlanner(object):
         # 2D configuration
         plan_2d = self.get_plans_for_configuration(fullres_spacing_transposed[1:],
                                                    new_median_shape_transposed[1:],
-                                                   '2d', approximate_n_voxels_dataset)
+                                                   self.generate_data_identifier('2d'), approximate_n_voxels_dataset)
         plan_2d['batch_dice'] = True
 
         print('2D U-Net configuration:')
@@ -455,7 +455,7 @@ class ExperimentPlanner(object):
         # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
         plans = {
             'dataset_name': self.dataset_name,
-            'plans_name': self.plans_name,
+            'plans_name': self.plans_identifier,
             'original_median_spacing_after_transp': [float(i) for i in median_spacing],
             'original_median_shape_after_transp': [int(round(i)) for i in median_shape],
             'image_reader_writer': self.determine_reader_writer().__name__,
@@ -463,7 +463,9 @@ class ExperimentPlanner(object):
             'transpose_backward': [int(i) for i in transpose_backward],
             'configurations': {'2d': plan_2d},
             'experiment_planner_used': self.__class__.__name__,
-            'label_manager': 'LabelManager'}
+            'label_manager': 'LabelManager',
+            'foreground_intensity_properties_by_modality': self.dataset_fingerprint['foreground_intensity_properties_by_modality']
+        }
 
         if plan_3d_lowres is not None:
             plans['configurations']['3d_lowres'] = plan_3d_lowres
@@ -487,7 +489,7 @@ class ExperimentPlanner(object):
     def save_plans(self, plans):
         recursive_fix_for_json_export(plans)
 
-        plans_file = join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json')
+        plans_file = join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json')
 
         # we don't want to overwrite potentially existing custom configurations every time this is executed. So let's
         # read the plans file if it already exists and keep any non-default configurations
@@ -501,7 +503,15 @@ class ExperimentPlanner(object):
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
         save_json(plans, plans_file, sort_keys=False)
-        print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_name + '.json'))
+        print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json'))
+
+    def generate_data_identifier(self, confgiuration_name: str) -> str:
+        """
+        configurations are unique within each plans file but differnet plans file can have configurations with the
+        same name. In order to distinguish the assiciated data we need a data identifier that reflects not just the
+        config but also the plans it originates from
+        """
+        return self.plans_identifier + '_' + confgiuration_name
 
     def load_plans(self, fname: str):
         self.plans = load_json(fname)

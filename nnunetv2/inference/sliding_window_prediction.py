@@ -116,6 +116,8 @@ def predict_sliding_window_return_logits(network: nn.Module,
                                          perform_everything_on_gpu: bool = True,
                                          verbose: bool = True,
                                          device: str = 'cuda:0') -> Union[np.ndarray, torch.Tensor]:
+    network.eval()
+
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 

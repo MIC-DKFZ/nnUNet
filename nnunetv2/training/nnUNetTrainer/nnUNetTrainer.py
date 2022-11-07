@@ -20,6 +20,8 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from torch.cuda import device_count
+
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
@@ -88,8 +90,9 @@ class nnUNetTrainer(object):
             self.device = f"{device}:{0}"
 
         if torch.cuda.is_available():
-            print(f"Setting device to {self.device}")
-            torch.cuda.set_device(self.local_rank)
+            print(f"I am local rank {self.local_rank}. {device_count()} GPUs are available. "
+                  f"Setting device to {self.device}")
+            torch.cuda.set_device(self.device)
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
@@ -168,7 +171,6 @@ class nnUNetTrainer(object):
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
-        # prediction it is set back to None in self.on_predict_end
 
         ### checkpoint saving stuff
         self.save_every = 50
@@ -189,6 +191,7 @@ class nnUNetTrainer(object):
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
             if self.is_ddp:
+                self.network = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.network)
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
@@ -202,7 +205,7 @@ class nnUNetTrainer(object):
         # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
         # size dictated by the plans!
         return get_network_from_plans(self.plans, self.dataset_json, self.configuration,
-                                              self.num_input_channels, deep_supervision=True).to(self.device)
+                                      self.num_input_channels, deep_supervision=True).to(self.device)
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -562,8 +565,8 @@ class nnUNetTrainer(object):
                                 deep_supervision_scales: Union[List, Tuple],
                                 mirror_axes: Tuple[int, ...],
                                 do_dummy_2d_data_aug: bool,
-                                order_resampling_data: int = 1,
-                                order_resampling_seg: int = 0,
+                                order_resampling_data: int = 3,
+                                order_resampling_seg: int = 1,
                                 border_val_seg: int = -1,
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
@@ -610,7 +613,7 @@ class nnUNetTrainer(object):
         tr_transforms.append(GammaTransform((0.7, 1.5), True, True, retain_stats=True, p_per_sample=0.1))
         tr_transforms.append(GammaTransform((0.7, 1.5), False, True, retain_stats=True, p_per_sample=0.3))
 
-        if len(mirror_axes) > 0:
+        if mirror_axes is not None and len(mirror_axes) > 0:
             tr_transforms.append(MirrorTransform(mirror_axes))
 
         if use_mask_for_norm is not None and any(use_mask_for_norm):
@@ -743,6 +746,7 @@ class nnUNetTrainer(object):
             torch.cuda.empty_cache()
 
     def on_train_epoch_start(self):
+        self.network.train()
         self.lr_scheduler.step(self.current_epoch)
         self.print_to_log_file('')
         self.print_to_log_file(f'Epoch {self.current_epoch}')
@@ -788,7 +792,7 @@ class nnUNetTrainer(object):
         self.logger.log('train_losses', loss_here, self.current_epoch)
 
     def on_validation_epoch_start(self):
-        pass
+        self.network.eval()
 
     def validation_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -799,8 +803,6 @@ class nnUNetTrainer(object):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
-
-        self.optimizer.zero_grad()
 
         with autocast(self.device_type):
             output = self.network(data)
@@ -973,6 +975,8 @@ class nnUNetTrainer(object):
             self.network.module.decoder.deep_supervision = False
         else:
             self.network.decoder.deep_supervision = False
+        self.network.eval()
+
         num_seg_heads = self.label_manager.num_segmentation_heads
 
         inference_gaussian = torch.from_numpy(

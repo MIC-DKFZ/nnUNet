@@ -19,7 +19,6 @@ from nnunetv2.inference.export_prediction import export_prediction
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.file_path_utilities import get_output_folder, should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
@@ -31,10 +30,10 @@ from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 class PreprocessAdapter(DataLoader):
     def __init__(self, list_of_lists: List[List[str]], list_of_segs_from_prev_stage_files: Union[List[None], List[str]],
                  preprocessor: DefaultPreprocessor, output_filenames_truncated: List[str],
-                 plans: dict, dataset_json: dict, configuration: str, dataset_fingerprint: dict,
+                 plans: dict, dataset_json: dict, configuration: str,
                  num_threads_in_multithreaded: int = 1):
-        self.preprocessor, self.plans, self.configuration, self.dataset_json, self.dataset_fingerprint = \
-            preprocessor, plans, configuration, dataset_json, dataset_fingerprint
+        self.preprocessor, self.plans, self.configuration, self.dataset_json = \
+            preprocessor, plans, configuration, dataset_json
 
         self.label_manager = get_labelmanager(plans, dataset_json)
 
@@ -54,7 +53,7 @@ class PreprocessAdapter(DataLoader):
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
         data, seg, data_properites = self.preprocessor.run_case(files, seg_prev_stage, self.plans, self.configuration,
-                                                                self.dataset_json, self.dataset_fingerprint)
+                                                                self.dataset_json)
         if seg_prev_stage is not None:
             seg_onehot = convert_labelmap_to_one_hot(seg[0], self.label_manager.foreground_labels, data.dtype)
             data = np.vstack((data, seg_onehot))
@@ -93,12 +92,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     recursive_fix_for_json_export(my_init_kwargs)
     save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
 
-    # we could also load plans and dataset_json from the init arguments in the checkpoint but then would still have to
-    # load the fingerprint from file. Not quite sure what is the best method so we leave things as they are for the
-    # moment.
+    # we could also load plans and dataset_json from the init arguments in the checkpoint. Not quite sure what is the
+    # best method so we leave things as they are for the moment.
     dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
     plans = load_json(join(model_training_output_dir, 'plans.json'))
-    dataset_fingerprint = load_json(join(model_training_output_dir, 'dataset_fingerprint.json'))
 
     label_manager = get_labelmanager(plans, dataset_json)
 
@@ -168,7 +165,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # way we don't have to reinvent the wheel here.
     num_processes = max(1, min(num_processes_preprocessing, len(list_of_lists_or_source_folder)))
     ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
-                            output_filename_truncated, plans, dataset_json, configuration, dataset_fingerprint,
+                            output_filename_truncated, plans, dataset_json, configuration,
                             num_processes)
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())

@@ -8,7 +8,7 @@ from torch import nn
 
 class SoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
-                 ddp: bool = True):
+                 ddp: bool = True, clip_tp: float = None):
         """
         """
         super(SoftDiceLoss, self).__init__()
@@ -17,6 +17,7 @@ class SoftDiceLoss(nn.Module):
         self.batch_dice = batch_dice
         self.apply_nonlin = apply_nonlin
         self.smooth = smooth
+        self.clip_tp = clip_tp
         self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
@@ -32,12 +33,16 @@ class SoftDiceLoss(nn.Module):
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
 
+        if self.ddp and self.batch_dice:
+            tp = AllGatherGrad.apply(tp).sum(0)
+            fp = AllGatherGrad.apply(fp).sum(0)
+            fn = AllGatherGrad.apply(fn).sum(0)
+
+        if self.clip_tp is not None:
+            tp = torch.clip(tp, min=self.clip_tp , max=None)
+
         nominator = 2 * tp
         denominator = 2 * tp + fp + fn
-
-        if self.ddp and self.batch_dice:
-            nominator = AllGatherGrad.apply(nominator).sum(0)
-            denominator = AllGatherGrad.apply(denominator).sum(0)
 
         dc = (nominator + self.smooth) / (torch.clip(denominator + self.smooth, 1e-8))
 
@@ -87,11 +92,19 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     tn = (1 - net_output) * (1 - y_onehot)
 
     if mask is not None:
-        # todo benchmark whether tiling the mask would be faster (torch.tile). It probably is for large batch sizes
-        tp = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(tp, dim=1)), dim=1)
-        fp = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(fp, dim=1)), dim=1)
-        fn = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(fn, dim=1)), dim=1)
-        tn = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(tn, dim=1)), dim=1)
+        with torch.no_grad():
+            mask_here = torch.tile(mask, (1, tp.shape[1], *[1 for i in range(2, len(tp.shape))]))
+        tp *= mask_here
+        fp *= mask_here
+        fn *= mask_here
+        tn *= mask_here
+        # benchmark whether tiling the mask would be faster (torch.tile). It probably is for large batch sizes
+        # OK it barely makes a difference but the implementation above is a tiny bit faster + uses less vram
+        # (using nnUNetv2_train 998 3d_fullres 0)
+        # tp = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(tp, dim=1)), dim=1)
+        # fp = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(fp, dim=1)), dim=1)
+        # fn = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(fn, dim=1)), dim=1)
+        # tn = torch.stack(tuple(x_i * mask[:, 0] for x_i in torch.unbind(tn, dim=1)), dim=1)
 
     if square:
         tp = tp ** 2
