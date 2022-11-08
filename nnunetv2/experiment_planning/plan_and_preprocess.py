@@ -148,6 +148,8 @@ def preprocess():
                 continue
             preprocessor = get_preprocessor_class_from_plans(plans, c)(verbose=args.verbose)
             preprocessor.run(d, c, args.plans_name, num_processes=n)
+        [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in
+         subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
 
 
 def plan_and_preprocess():

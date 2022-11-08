@@ -11,11 +11,11 @@ from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 
-def export_prediction(predicted_array_or_file: Union[np.ndarray, str], properties_dict: dict,
-                      configuration_name: str,
-                      plans_dict_or_file: Union[dict, str],
-                      dataset_json_dict_or_file: Union[dict, str], output_file_truncated: str,
-                      save_probabilities: bool = False):
+def export_prediction_from_softmax(predicted_array_or_file: Union[np.ndarray, str], properties_dict: dict,
+                                   configuration_name: str,
+                                   plans_dict_or_file: Union[dict, str],
+                                   dataset_json_dict_or_file: Union[dict, str], output_file_truncated: str,
+                                   save_probabilities: bool = False):
 
     if isinstance(predicted_array_or_file, str):
         tmp = deepcopy(predicted_array_or_file)
@@ -81,6 +81,7 @@ def export_prediction(predicted_array_or_file: Union[np.ndarray, str], propertie
 def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int], output_file: str,
                       plans_dict_or_file: Union[dict, str], configuration_name: str, properties_dict: dict,
                       dataset_json_dict_or_file: Union[dict, str], next_configuration: str) -> None:
+    # needed for cascade
     if isinstance(predicted, str):
         assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
                                   "isfile(segmentation_softmax) must be True"

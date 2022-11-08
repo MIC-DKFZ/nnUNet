@@ -1,4 +1,5 @@
 import inspect
+import multiprocessing
 import os
 import shutil
 import traceback
@@ -13,9 +14,10 @@ from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAu
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs, \
     save_json
+from torch.nn import functional as F
 
 from nnunetv2.configuration import default_num_processes
-from nnunetv2.inference.export_prediction import export_prediction
+from nnunetv2.inference.export_prediction import export_prediction_from_softmax
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
@@ -185,7 +187,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     num_seg_heads = label_manager.num_segmentation_heads
 
     # go go go
-    export_pool = Pool(num_processes_segmentation_export)
+    export_pool = multiprocessing.get_context('spawn').Pool(num_processes_segmentation_export)
+
     r = []
     with torch.no_grad():
         for preprocessed in mta:
@@ -281,8 +284,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
             print('sending off prediction to background worker for resampling and export')
             r.append(
                 export_pool.starmap_async(
-                    export_prediction, ((prediction, properties, configuration, plans, dataset_json, ofile,
-                                         save_probabilities),)
+                    export_prediction_from_softmax, ((prediction, properties, configuration, plans, dataset_json, ofile,
+                                                      save_probabilities),)
                 )
             )
             print(f'done with {os.path.basename(ofile)}')

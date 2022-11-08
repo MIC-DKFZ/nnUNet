@@ -25,7 +25,7 @@ from torch.cuda import device_count
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.inference.export_prediction import export_prediction, resample_and_save
+from nnunetv2.inference.export_prediction import export_prediction_from_softmax, resample_and_save
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -981,7 +981,7 @@ class nnUNetTrainer(object):
 
         inference_gaussian = torch.from_numpy(
             compute_gaussian(self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
-        segmentation_export_pool = Pool(default_num_processes)
+        segmentation_export_pool = multiprocessing.get_context('spawn').Pool(default_num_processes)
         validation_output_folder = join(self.output_folder, 'validation')
         maybe_mkdir_p(validation_output_folder)
 
@@ -1031,7 +1031,7 @@ class nnUNetTrainer(object):
             # this needs to go into background processes
             results.append(
                 segmentation_export_pool.starmap_async(
-                    export_prediction, (
+                    export_prediction_from_softmax, (
                         (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
                          output_filename_truncated, save_probabilities),
                     )
