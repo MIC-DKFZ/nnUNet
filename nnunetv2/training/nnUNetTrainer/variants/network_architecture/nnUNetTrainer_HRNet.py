@@ -10,7 +10,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.inference.export_prediction import resample_and_save, export_prediction
+from nnunetv2.inference.export_prediction import resample_and_save, export_prediction_from_softmax
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
@@ -129,7 +129,7 @@ class nnUNetTrainer_HRNet18(nnUNetTrainerNoDeepSupervision):
             # this needs to go into background processes
             results.append(
                 segmentation_export_pool.starmap_async(
-                    export_prediction, (
+                    export_prediction_from_softmax, (
                         (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
                          output_filename_truncated, save_probabilities),
                     )

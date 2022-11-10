@@ -22,7 +22,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, load_json
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, labels_to_list_of_regions
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json, recursive_find_reader_writer_by_name
-from nnunetv2.inference.export_prediction import export_prediction
+from nnunetv2.inference.export_prediction import export_prediction_from_softmax
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -822,7 +822,7 @@ class nnUNetModule(pl.LightningModule):
 
         # this needs to go into background processes
         r = self.inference_segmentation_export_pool.starmap_async(
-            export_prediction, (
+            export_prediction_from_softmax, (
                 (prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename_truncated,
                  self.inference_parameters['save_probabilities']),
             )

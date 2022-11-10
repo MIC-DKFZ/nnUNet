@@ -49,7 +49,7 @@ class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
 
 class nnUNetTrainer_switchToDiceep100(nnUNetTrainer_switchToDiceep800):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda:0'):
+                 device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.switch_epoch = 100
 
