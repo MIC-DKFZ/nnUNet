@@ -418,12 +418,11 @@ class nnUNetTrainer(object):
         use a random 80:20 data split.
         :return:
         """
-
         if self.fold == "all":
             # if fold==all then we use all images for training and validation
             case_identifiers = get_case_identifiers(self.preprocessed_dataset_folder)
             tr_keys = case_identifiers
-            val_keys = []
+            val_keys = tr_keys
         else:
             splits_file = join(self.preprocessed_dataset_folder_base, "splits_final.json")
             dataset = nnUNetDataset(self.preprocessed_dataset_folder, case_identifiers=None,
@@ -467,9 +466,9 @@ class nnUNetTrainer(object):
                 val_keys = [keys[i] for i in idx_val]
                 self.print_to_log_file("This random 80:20 split has %d training and %d validation cases."
                                        % (len(tr_keys), len(val_keys)))
-        if any([i in val_keys for i in tr_keys]):
-            self.print_to_log_file('WARNING: Some validation cases are also in the training set. Please check the '
-                                   'splits.json or ignore if this is intentional.')
+            if any([i in val_keys for i in tr_keys]):
+                self.print_to_log_file('WARNING: Some validation cases are also in the training set. Please check the '
+                                       'splits.json or ignore if this is intentional.')
         return tr_keys, val_keys
 
     def get_tr_and_val_datasets(self):

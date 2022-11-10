@@ -134,7 +134,7 @@ def nnUNet_train_from_args():
                         help="Dataset name or ID to train with")
     parser.add_argument('configuration', type=str,
                         help="Configuration that should be trained")
-    parser.add_argument('fold', type=int,
+    parser.add_argument('fold', type=str,
                         help='Fold of the 5-fold cross-validation. Should be an int between 0 and 4.')
     parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainer',
                         help='[OPTIONAL] Use this flag to specify a custom trainer. Default: nnUNetTrainer')
@@ -160,6 +160,8 @@ def nnUNet_train_from_args():
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
     args = parser.parse_args()
+
+    args.fold = args.fold if args.fold == 'all' else int(args.fold)
 
     if args.num_gpus > 1:
         os.environ['MASTER_ADDR'] = 'localhost'
