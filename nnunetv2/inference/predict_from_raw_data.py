@@ -123,7 +123,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         parameters.append(checkpoint['network_weights'])
     else:
         for i, f in enumerate(use_folds):
-            f = int(f)
+            f = int(f) if f != 'all' else f
             checkpoint = torch.load(join(model_training_output_dir, f'fold_{f}', checkpoint_name),
                                     map_location=torch.device('cpu'))
             if i == 0:
@@ -313,7 +313,7 @@ def predict_entry_point_modelfolder():
     parser.add_argument('-m', type=str, required=True,
                         help='Folder in which the trained model is. Must have subfolders fold_X for the different '
                              'folds you trained')
-    parser.add_argument('-f', nargs='+', type=int, required=False, default=(0, 1, 2, 3, 4),
+    parser.add_argument('-f', nargs='+', type=str, required=False, default=(0, 1, 2, 3, 4),
                         help='Specify the folds of the trained model that should be used for prediction. '
                              'Default: (0, 1, 2, 3, 4)')
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
@@ -340,6 +340,7 @@ def predict_entry_point_modelfolder():
     parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
     args = parser.parse_args()
+    args.f = [i if i == 'all' else int(i) for i in args.f]
 
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
@@ -383,7 +384,7 @@ def predict_entry_point():
     parser.add_argument('-c', type=str, required=True,
                         help='nnU-Net configuration that should be used for prediction. Config must be located '
                              'in the plans specified with -p')
-    parser.add_argument('-f', nargs='+', type=int, required=False, default=(0, 1, 2, 3, 4),
+    parser.add_argument('-f', nargs='+', type=str, required=False, default=(0, 1, 2, 3, 4),
                         help='Specify the folds of the trained model that should be used for prediction. '
                              'Default: (0, 1, 2, 3, 4)')
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
@@ -418,8 +419,8 @@ def predict_entry_point():
                              '5 and use -part_id 0, 1, 2, 3 and 4. Simple, right? Note: You are yourself responsible '
                              'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
 
-
     args = parser.parse_args()
+    args.f = [i if i == 'all' else int(i) for i in args.f]
 
     model_folder = get_output_folder(args.d, args.tr, args.p, args.c)
 
