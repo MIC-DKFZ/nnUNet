@@ -24,6 +24,8 @@ def export_prediction_from_softmax(predicted_array_or_file: Union[np.ndarray, st
         elif predicted_array_or_file.endswith('.npz'):
             predicted_array_or_file = np.load(predicted_array_or_file)['softmax']
         os.remove(tmp)
+    
+    predicted_array_or_file = predicted_array_or_file.astype(np.float32)
 
     if isinstance(plans_dict_or_file, str):
         plans_dict_or_file = load_json(plans_dict_or_file)
