@@ -626,8 +626,8 @@ if __name__ == "__main__":
     """
 
     task_name = "Task082_BraTS2020"
-    downloaded_data_dir = "../input/brats20-dataset-training-validation/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData"
-    downloaded_data_dir_val = "../input/brats20-dataset-training-validation/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData"
+    downloaded_data_dir = "/kaggle/input/brats20-dataset-training-validation/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData"
+    downloaded_data_dir_val = "/kaggle/input/brats20-dataset-training-validation/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData"
 
     target_base = join(nnUNet_raw_data, task_name)
     target_imagesTr = join(target_base, "imagesTr")
@@ -775,7 +775,7 @@ if __name__ == "__main__":
             shutil.copy(flair, join(target_imagesVal, patient_name + "_0003.nii.gz"))
 
 
-    downloaded_data_dir_test = "../input/brats20-dataset-training-validation/BraTS2020_testData/MICCAI_BraTS2020_TestingData"
+    downloaded_data_dir_test = "/kaggle/input/brats20-dataset-training-validation/BraTS2020_testData/MICCAI_BraTS2020_TestingData"
 
     if isdir(downloaded_data_dir_test):
         for p in subdirs(downloaded_data_dir_test, join=False):
