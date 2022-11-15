@@ -626,8 +626,8 @@ if __name__ == "__main__":
     """
 
     task_name = "Task082_BraTS2020"
-    downloaded_data_dir = "/home/fabian/Downloads/MICCAI_BraTS2020_TrainingData"
-    downloaded_data_dir_val = "/home/fabian/Downloads/MICCAI_BraTS2020_ValidationData"
+    downloaded_data_dir = "../input/brats20-dataset-training-validation/BraTS2020_TrainingData/MICCAI_BraTS2020_TrainingData"
+    downloaded_data_dir_val = "../input/brats20-dataset-training-validation/BraTS2020_ValidationData/MICCAI_BraTS2020_ValidationData"
 
     target_base = join(nnUNet_raw_data, task_name)
     target_imagesTr = join(target_base, "imagesTr")
@@ -646,6 +646,47 @@ if __name__ == "__main__":
         patdir = join(cur, p)
         patient_name = p
         patient_names.append(patient_name)
+
+        t1_tmp = join(patdir, p + "_t1.nii")
+        t1_cmd = f"gzip {t1_tmp}"
+        os.system(t1_cmd)
+
+        t1ce_tmp = join(patdir, p + "_t1ce.nii")
+        t1ce_cmd = f"gzip {t1ce_tmp}"
+        os.system(t1ce_cmd)
+
+        t2_tmp = join(patdir, p + "_t2.nii")
+        t2_cmd = f"gzip {t2_tmp}"
+        os.system(t2_cmd)
+
+        flair_tmp = join(patdir, p + "_flair.nii")
+        flair_cmd = f"gzip {flair_tmp}"
+        os.system(flair_cmd)
+
+        seg_tmp = join(patdir, p + "_seg.nii")
+        seg_cmd = f"gzip {seg_tmp}"
+        os.system(seg_cmd)
+
+        t1_tmp = join(patdir, p + "_t1.nii")
+        t1_cmd = f"gzip {t1_tmp}"
+        os.system(t1_cmd)
+
+        t1ce_tmp = join(patdir, p + "_t1ce.nii")
+        t1ce_cmd = f"gzip {t1ce_tmp}"
+        os.system(t1ce_cmd)
+
+        t2_tmp = join(patdir, p + "_t2.nii")
+        t2_cmd = f"gzip {t2_tmp}"
+        os.system(t2_cmd)
+
+        flair_tmp = join(patdir, p + "_flair.nii")
+        flair_cmd = f"gzip {flair_tmp}"
+        os.system(flair_cmd)
+
+        seg_tmp = join(patdir, p + "_seg.nii")
+        seg_cmd = f"gzip {seg_tmp}"
+        os.system(seg_cmd)
+
         t1 = join(patdir, p + "_t1.nii.gz")
         t1c = join(patdir, p + "_t1ce.nii.gz")
         t2 = join(patdir, p + "_t2.nii.gz")
@@ -699,6 +740,23 @@ if __name__ == "__main__":
         for p in subdirs(downloaded_data_dir_val, join=False):
             patdir = join(downloaded_data_dir_val, p)
             patient_name = p
+
+            t1_tmp = join(patdir, p + "_t1.nii")
+            t1_cmd = f"gzip {t1_tmp}"
+            os.system(t1_cmd)
+
+            t1ce_tmp = join(patdir, p + "_t1ce.nii")
+            t1ce_cmd = f"gzip {t1ce_tmp}"
+            os.system(t1ce_cmd)
+
+            t2_tmp = join(patdir, p + "_t2.nii")
+            t2_cmd = f"gzip {t2_tmp}"
+            os.system(t2_cmd)
+
+            flair_tmp = join(patdir, p + "_flair.nii")
+            flair_cmd = f"gzip {flair_tmp}"
+            os.system(flair_cmd)
+
             t1 = join(patdir, p + "_t1.nii.gz")
             t1c = join(patdir, p + "_t1ce.nii.gz")
             t2 = join(patdir, p + "_t2.nii.gz")
@@ -717,7 +775,7 @@ if __name__ == "__main__":
             shutil.copy(flair, join(target_imagesVal, patient_name + "_0003.nii.gz"))
 
 
-    downloaded_data_dir_test = "/home/fabian/Downloads/MICCAI_BraTS2020_TestingData"
+    downloaded_data_dir_test = "../input/brats20-dataset-training-validation/BraTS2020_testData/MICCAI_BraTS2020_TestingData"
 
     if isdir(downloaded_data_dir_test):
         for p in subdirs(downloaded_data_dir_test, join=False):

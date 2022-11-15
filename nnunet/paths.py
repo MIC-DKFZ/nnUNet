@@ -26,9 +26,13 @@ default_cascade_trainer = "nnUNetTrainerV2CascadeFullRes"
 PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
 
-base = os.environ['nnUNet_raw_data_base'] if "nnUNet_raw_data_base" in os.environ.keys() else None
-preprocessing_output_dir = os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
-network_training_output_dir_base = os.path.join(os.environ['RESULTS_FOLDER']) if "RESULTS_FOLDER" in os.environ.keys() else None
+# base = os.environ['nnUNet_raw_data_base'] if "nnUNet_raw_data_base" in os.environ.keys() else None
+# preprocessing_output_dir = os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
+# network_training_output_dir_base = os.path.join(os.environ['RESULTS_FOLDER']) if "RESULTS_FOLDER" in os.environ.keys() else None
+base = '/kaggle/working/nnUNet/DataSet/nnUnet_raw'  #os.environ['nnUNet_raw_data_base'] if "nnUNet_raw_data_base" in os.environ.keys() else None
+preprocessing_output_dir = '/kaggle/working/nnUNet/DataSet/nnUnet_preprocessed'  #os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
+network_training_output_dir_base = '/kaggle/working/nnUNet/DataSet/nnUnet_trained_models'  #os.path.join(os.environ['RESULTS_FOLDER']) if "RESULTS_FOLDER" in os.environ.keys() else None
+
 
 if base is not None:
     nnUNet_raw_data = join(base, "nnUNet_raw_data")
