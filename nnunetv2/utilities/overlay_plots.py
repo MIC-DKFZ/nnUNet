@@ -16,6 +16,7 @@ from typing import Tuple, Union
 
 import numpy as np
 import SimpleITK as sitk
+import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
@@ -81,7 +82,7 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
 
     # create output
     if mapping is None:
-        uniques = np.unique(segmentation)
+        uniques = np.sort(pd.unique(segmentation.ravel()))  # np.unique(segmentation)
         mapping = {i: c for c, i in enumerate(uniques)}
 
     for l in mapping.keys():
@@ -115,7 +116,7 @@ def select_slice_to_plot2(image: np.ndarray, segmentation: np.ndarray) -> int:
 
     we give image so that we can easily replace this function if needed
     """
-    classes = [i for i in np.unique(segmentation) if i != 0]
+    classes = [i for i in np.sort(pd.unique(segmentation.ravel())) if i != 0]
     fg_per_slice = np.zeros((image.shape[0], len(classes)))
     for i, c in enumerate(classes):
         fg_mask = segmentation == c

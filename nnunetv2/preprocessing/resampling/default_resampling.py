@@ -2,6 +2,7 @@ from collections import OrderedDict
 from typing import Union, Tuple, List
 
 import numpy as np
+import pandas as pd
 from batchgenerators.augmentations.utils import resize_segmentation
 from scipy.ndimage.interpolation import map_coordinates
 from skimage.transform import resize
@@ -186,7 +187,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                         reshaped_final_data.append(map_coordinates(reshaped_data, coord_map, order=order_z,
                                                                    mode='nearest')[None])
                     else:
-                        unique_labels = np.unique(reshaped_data)
+                        unique_labels = np.sort(pd.unique(reshaped_data.ravel()))  # np.unique(reshaped_data)
                         reshaped = np.zeros(new_shape, dtype=dtype_data)
 
                         for i, cl in enumerate(unique_labels):

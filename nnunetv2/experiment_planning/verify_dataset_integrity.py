@@ -17,6 +17,7 @@ from multiprocessing import Pool
 from typing import Type
 
 import numpy as np
+import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
@@ -29,7 +30,7 @@ from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
 def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected_labels: List[int]) -> bool:
     rw = readerclass()
     seg, properties = rw.read_seg(label_file)
-    found_labels = np.unique(seg)
+    found_labels = np.sort(pd.unique(seg.ravel()))  # np.unique(seg)
     unexpected_labels = [i for i in found_labels if i not in expected_labels]
     if len(found_labels) == 0 and found_labels[0] == 0:
         print('WARNING: File %s only has label 0 (which should be background). This may be intentional or not, '

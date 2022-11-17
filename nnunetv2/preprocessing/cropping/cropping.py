@@ -2,7 +2,7 @@ import numpy as np
 
 
 # Hello! crop_to_nonzero is the function you are looking for. Ignore the rest.
-from acvl_utils.cropping_and_padding.bounding_boxes import get_bbox_from_mask, crop_to_bbox
+from acvl_utils.cropping_and_padding.bounding_boxes import get_bbox_from_mask, crop_to_bbox, bounding_box_to_slice
 
 
 def create_nonzero_mask(data):
@@ -32,20 +32,13 @@ def crop_to_nonzero(data, seg=None, nonzero_label=-1):
     nonzero_mask = create_nonzero_mask(data)
     bbox = get_bbox_from_mask(nonzero_mask)
 
-    cropped_data = []
-    for c in range(data.shape[0]):
-        cropped = crop_to_bbox(data[c], bbox)
-        cropped_data.append(cropped[None])
-    data = np.vstack(cropped_data)
+    slicer = bounding_box_to_slice(bbox)
+    data = data[tuple([slice(None), *slicer])]
 
     if seg is not None:
-        cropped_seg = []
-        for c in range(seg.shape[0]):
-            cropped = crop_to_bbox(seg[c], bbox)
-            cropped_seg.append(cropped[None])
-        seg = np.vstack(cropped_seg)
+        seg = seg[tuple([slice(None), *slicer])]
 
-    nonzero_mask = crop_to_bbox(nonzero_mask, bbox)[None]
+    nonzero_mask = nonzero_mask[slicer][None]
     if seg is not None:
         seg[(seg == 0) & (~nonzero_mask)] = nonzero_label
     else:

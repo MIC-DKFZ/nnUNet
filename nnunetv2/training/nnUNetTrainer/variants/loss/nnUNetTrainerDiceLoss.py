@@ -190,7 +190,7 @@ class nnUNetTrainerDiceLossClip10_2(nnUNetTrainer):
         return loss
 
 
-class nnUNetTrainerDiceLoss_noSmooth(nnUNetTrainer):
+class nnUNetTrainerDiceCELoss_noSmooth(nnUNetTrainer):
     def _build_loss(self):
         # set smooth to 0
         if self.label_manager.has_regions:
