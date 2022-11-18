@@ -196,7 +196,7 @@ class ExperimentPlanner(object):
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
-    def determine_normalization_scheme_and_whether_mask_is_used_for_norm(self) -> Tuple[List[str], List[bool]]:
+    def determine_normalization_scheme_and_whether_amask_is_used_for_norm(self) -> Tuple[List[str], List[bool]]:
         if 'channel_names' not in self.dataset_json.keys():
             print('WARNING: "modalities" should be renamed to "channel_names" in dataset.json. This will be '
                   'enforced soon!')

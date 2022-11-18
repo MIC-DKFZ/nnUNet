@@ -1,3 +1,5 @@
+from typing import Tuple
+
 from batchgenerators.utilities.file_and_folder_operations import save_json, join
 
 
@@ -6,6 +8,7 @@ def generate_dataset_json(output_folder: str,
                           labels: dict,
                           num_training_cases: int,
                           file_ending: str,
+                          regions_class_order: Tuple[int, ...] = None,
                           dataset_name: str = None, reference: str = None, release: str = None, license: str = None,
                           description: str = None,
                           overwrite_image_reader_writer: str = None, **kwargs):
@@ -53,8 +56,10 @@ def generate_dataset_json(output_folder: str,
     kwargs: whatever you put here will be placed in the dataset.json as well
 
     """
-    # clean up some stuff because json is a bitch. Why do dict keys need to be string? Hello?
-
+    has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in labels.values()])
+    if has_regions:
+        assert regions_class_order is not None, f"You have defined regions but regions_class_order is not set. " \
+                                                f"You need that."
     # channel names need strings as keys
     keys = list(channel_names.keys())
     for k in keys:
@@ -91,6 +96,8 @@ def generate_dataset_json(output_folder: str,
         dataset_json['description'] = description
     if overwrite_image_reader_writer is not None:
         dataset_json['overwrite_image_reader_writer'] = overwrite_image_reader_writer
+    if regions_class_order is not None:
+        dataset_json['regions_class_order'] = regions_class_order
 
     dataset_json.update(kwargs)
 
