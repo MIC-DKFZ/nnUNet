@@ -31,7 +31,6 @@ class nnUNetDataset(object):
 
         IMPORTANT! THIS CLASS ITSELF IS READ-ONLY. YOU CANNOT ADD KEY:VALUE PAIRS WITH nnUNetDataset[key] = value
         USE THIS INSTEAD:
-        TODO check all this
         nnUNetDataset.dataset[key] = value
         (not sure why you'd want to do that though. So don't do it)
         """

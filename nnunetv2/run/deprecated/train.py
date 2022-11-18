@@ -77,7 +77,6 @@ def nnUNet_train_from_args():
     else:
         expected_checkpoint_file = None
 
-    # Todo pretrained weights and resuming from checkpoint, pretrained weights, validation, npz export, next stage predictions
     trainer = pl.Trainer(logger=False, default_root_dir=nnunet_module.output_folder,
                          enable_checkpointing=False,
                          callbacks=[nnUNetCheckpoint(), nnUNetProgressPngCallback()],

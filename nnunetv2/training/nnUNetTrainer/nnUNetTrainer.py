@@ -125,7 +125,6 @@ class nnUNetTrainer(object):
         # be a different configuration in the same plans
         # IMPORTANT! the mapping must be bijective, so lowres must point to fullres and vice versa (using
         # "previous_stage" and "next_stage"). Otherwise it won't work!
-        # TODO: allow multiple next stages for one configuration
         self.is_cascaded = 'previous_stage' in plans['configurations'][configuration].keys()
         self.folder_with_segs_from_previous_stage = \
             join(nnUNet_results, plans['dataset_name'],

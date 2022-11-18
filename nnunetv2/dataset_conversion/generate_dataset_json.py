@@ -12,7 +12,6 @@ def generate_dataset_json(output_folder: str,
                           dataset_name: str = None, reference: str = None, release: str = None, license: str = None,
                           description: str = None,
                           overwrite_image_reader_writer: str = None, **kwargs):
-    # todo add regions class order
     """
     Generates a dataset.json file in the output folder
 
