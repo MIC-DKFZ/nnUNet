@@ -59,7 +59,6 @@ def get_network_from_plans(plans: dict, dataset_json: dict, configuration: str, 
         'n_conv_per_stage_decoder': plans["configurations"][configuration]['n_conv_per_stage_decoder']
         if 'n_conv_per_stage_decoder' in plans["configurations"][configuration].keys() else 2
     }
-
     # network class name!!
     model = network_class(
         input_channels=num_input_channels,

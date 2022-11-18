@@ -6,6 +6,7 @@ import shutil
 
 import torch
 from batchgenerators.utilities.file_and_folder_operations import *
+from torch import nn
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
@@ -19,7 +20,7 @@ from nnunetv2.training.nnUNetTrainer.variants.network_architecture.nnUNetTrainer
     nnUNetTrainerNoDeepSupervision
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
-from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot
+from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, get_labelmanager
 
 from nnunetv2.network_architecture.hrnet.hrnet import MODEL_CONFIGS, get_seg_model
 
@@ -29,8 +30,13 @@ class nnUNetTrainer_HRNet18(nnUNetTrainerNoDeepSupervision):
     only does 2d and does not adapt the network architecture. This is intended as a PoC to see if HRNet can do
     anything for us here
     """
-    def _get_network(self):
-        return get_seg_model(MODEL_CONFIGS['hrnet18'], self.label_manager.num_segmentation_heads, input_channels=self.num_input_channels).to(self.device)
+    @staticmethod
+    def build_network_architecture(plans, dataset_json, configuration, num_input_channels,
+                                   enable_deep_supervision: bool = True) -> nn.Module:
+        label_manager = get_labelmanager(plans, dataset_json)
+        return get_seg_model(MODEL_CONFIGS['hrnet18'],
+                             label_manager.num_segmentation_heads,
+                             input_channels=num_input_channels)
 
     def on_train_start(self):
         """
@@ -197,8 +203,13 @@ class nnUNetTrainer_HRNet32(nnUNetTrainer_HRNet18):
     only does 2d and does not adapt the network architecture. This is intended as a PoC to see if HRNet can do
     anything for us here
     """
-    def _get_network(self):
-        return get_seg_model(MODEL_CONFIGS['hrnet32'], self.label_manager.num_segmentation_heads, input_channels=self.num_input_channels).to(self.device)
+    @staticmethod
+    def build_network_architecture(plans, dataset_json, configuration, num_input_channels,
+                                   enable_deep_supervision: bool = True) -> nn.Module:
+        label_manager = get_labelmanager(plans, dataset_json)
+        return get_seg_model(MODEL_CONFIGS['hrnet32'],
+                             label_manager.num_segmentation_heads,
+                             input_channels=num_input_channels)
 
 
 class nnUNetTrainer_HRNet48(nnUNetTrainer_HRNet18):
@@ -206,5 +217,10 @@ class nnUNetTrainer_HRNet48(nnUNetTrainer_HRNet18):
     only does 2d and does not adapt the network architecture. This is intended as a PoC to see if HRNet can do
     anything for us here
     """
-    def _get_network(self):
-        return get_seg_model(MODEL_CONFIGS['hrnet48'], self.label_manager.num_segmentation_heads, input_channels=self.num_input_channels).to(self.device)
+    @staticmethod
+    def build_network_architecture(plans, dataset_json, configuration, num_input_channels,
+                                   enable_deep_supervision: bool = True) -> nn.Module:
+        label_manager = get_labelmanager(plans, dataset_json)
+        return get_seg_model(MODEL_CONFIGS['hrnet48'],
+                             label_manager.num_segmentation_heads,
+                             input_channels=num_input_channels)

@@ -4,12 +4,14 @@ from dynamic_network_architectures.initialization.weight_init import init_last_b
 from torch import nn
 
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 
 class nnUNetTrainerBN(nnUNetTrainer):
-    def _get_network(self):
-        plans = self.plans
-        configuration = self.configuration
+    @staticmethod
+    def build_network_architecture(plans, dataset_json, configuration, num_input_channels,
+                                   enable_deep_supervision: bool = True) -> nn.Module:
+        label_manager = get_labelmanager(plans, dataset_json)
 
         max_features = plans["configurations"][configuration]["unet_max_num_features"]
         initial_features = plans["configurations"][configuration]["UNet_base_num_features"]
@@ -57,13 +59,13 @@ class nnUNetTrainerBN(nnUNetTrainer):
 
         # network class name!!
         model = network_class(
-            input_channels=self.num_input_channels,
+            input_channels=num_input_channels,
             n_stages=num_stages,
             features_per_stage=[min(initial_features * 2 ** i, max_features) for i in range(num_stages)],
             conv_op=conv_op,
             kernel_sizes=plans["configurations"][configuration]["conv_kernel_sizes"],
             strides=plans["configurations"][configuration]["pool_op_kernel_sizes"],
-            num_classes=self.label_manager.num_segmentation_heads,
+            num_classes=label_manager.num_segmentation_heads,
             deep_supervision=True,
             **conv_or_blocks_per_stage,
             **kwargs[segmentation_network_class_name]
@@ -71,4 +73,4 @@ class nnUNetTrainerBN(nnUNetTrainer):
         model.apply(InitWeights_He(1e-2))
         if network_class == ResidualEncoderUNet:
             model.apply(init_last_bn_before_add_to_0)
-        return model.to(self.device)
+        return model

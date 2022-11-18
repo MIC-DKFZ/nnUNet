@@ -56,7 +56,7 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from sklearn.model_selection import KFold
-from torch import autocast
+from torch import autocast, nn
 from torch import distributed as dist
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -186,7 +186,9 @@ class nnUNetTrainer(object):
         if not self.was_initialized:
             self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
 
-            self.network = self._get_network()
+            self.network = self.build_network_architecture(self.plans, self.dataset_json, self.configuration,
+                                                           self.num_input_channels,
+                                                           enable_deep_supervision=True).to(self.device)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
@@ -200,12 +202,22 @@ class nnUNetTrainer(object):
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
                                "That should not happen.")
 
-    def _get_network(self):
-        # if you want to swap out the network architecture you need to change that here. You do not need to use the
-        # plans.json file at all if you don't want to, just make sure your architecture is compatible with the patch
-        # size dictated by the plans!
-        return get_network_from_plans(self.plans, self.dataset_json, self.configuration,
-                                      self.num_input_channels, deep_supervision=True).to(self.device)
+    @staticmethod
+    def build_network_architecture(plans, dataset_json, configuration, num_input_channels,
+                                   enable_deep_supervision: bool = True) -> nn.Module:
+        """
+        his is where you build the architecture according to the plans. There is no obligation to use
+        get_network_from_plans, this is just a utility we use for the nnU-Net default architectures. You can do what
+        you want. Even ignore the plans and just return something static (as long as it can process the requested
+        patch size)
+        but don't bug us with your bugs arising from fiddling with this :-P
+        This is the function that is called in inference as well! This is needed so that all network architecture
+        variants can be loaded at inference time (inference will use the same nnUNetTrainer that was used for
+        training, so if you change the network architecture during training by deriving a new trainer class then
+        inference will know about it).
+        """
+        return get_network_from_plans(plans, dataset_json, configuration,
+                                      num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
