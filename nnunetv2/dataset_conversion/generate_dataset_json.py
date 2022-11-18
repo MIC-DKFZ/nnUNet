@@ -72,7 +72,8 @@ def generate_dataset_json(output_folder: str,
             labels[l] = int(labels[l])
 
     dataset_json = {
-        'modality': channel_names,  # todo rename this to channel_names. modality is too medical. Yuck.
+        'channel_names': channel_names,  # previously this was called 'modality'. I didnt like this so this is
+        # channel_names now. Live with it. (we are backwards compatible)
         'labels': labels,
         'numTraining': num_training_cases,
         'file_ending': file_ending,

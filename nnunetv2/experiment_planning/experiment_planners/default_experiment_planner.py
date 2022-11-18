@@ -197,7 +197,11 @@ class ExperimentPlanner(object):
         return target
 
     def determine_normalization_scheme_and_whether_mask_is_used_for_norm(self) -> Tuple[List[str], List[bool]]:
-        modalities = self.dataset_json['modality']
+        if 'channel_names' not in self.dataset_json.keys():
+            print('WARNING: "modalities" should be renamed to "channel_names" in dataset.json. This will be '
+                  'enforced soon!')
+        modalities = self.dataset_json['channel_names'] if 'channel_names' in self.dataset_json.keys() else \
+            self.dataset_json['modality']
         normalization_schemes = [get_normalization_scheme(m) for m in modalities.values()]
         if self.dataset_fingerprint['median_relative_size_after_cropping'] < (3 / 4.):
             use_nonzero_mask_for_norm = [i.leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true for i in
@@ -262,11 +266,13 @@ class ExperimentPlanner(object):
                                                    num_stages,
                                                    tuple([tuple(i) for i in pool_op_kernel_sizes]),
                                                    self.UNet_class,
-                                                   len(self.dataset_json['modality'].keys()),
+                                                   len(self.dataset_json['channel_names'].keys()
+                                                       if 'channel_names' in self.dataset_json.keys()
+                                                       else self.dataset_json['modality'].keys()),
                                                    tuple([min(self.UNet_max_features_2d if len(patch_size) == 2 else
                                                               self.UNet_max_features_3d,
                                                               self.UNet_reference_com_nfeatures * 2 ** i) for
-                                                    i in range(len(pool_op_kernel_sizes))]),
+                                                          i in range(len(pool_op_kernel_sizes))]),
                                                    self.UNet_blocks_per_stage_encoder[:num_stages],
                                                    self.UNet_blocks_per_stage_decoder[:num_stages - 1],
                                                    len(self.dataset_json['labels'].keys()))
@@ -307,7 +313,9 @@ class ExperimentPlanner(object):
                                                        num_stages,
                                                        tuple([tuple(i) for i in pool_op_kernel_sizes]),
                                                        self.UNet_class,
-                                                       len(self.dataset_json['modality'].keys()),
+                                                       len(self.dataset_json['channel_names'].keys()
+                                                           if 'channel_names' in self.dataset_json.keys()
+                                                           else self.dataset_json['modality'].keys()),
                                                        tuple([min(self.UNet_max_features_2d if len(patch_size) == 2 else
                                                                   self.UNet_max_features_3d,
                                                                   self.UNet_reference_com_nfeatures * 2 ** i) for
@@ -400,7 +408,7 @@ class ExperimentPlanner(object):
             plan_3d_lowres = None
             lowres_spacing = deepcopy(plan_3d_fullres['spacing'])
 
-            spacing_increase_factor = 1.03 # used to be 1.01 but that is slow with new GPU memory estimation!
+            spacing_increase_factor = 1.03  # used to be 1.01 but that is slow with new GPU memory estimation!
 
             while num_voxels_in_patch / median_num_voxels < self.lowres_creation_threshold:
                 # we incrementally increase the target spacing. We start with the anisotropic axis/axes until it/they
@@ -464,7 +472,8 @@ class ExperimentPlanner(object):
             'configurations': {'2d': plan_2d},
             'experiment_planner_used': self.__class__.__name__,
             'label_manager': 'LabelManager',
-            'foreground_intensity_properties_by_modality': self.dataset_fingerprint['foreground_intensity_properties_by_modality']
+            'foreground_intensity_properties_by_modality': self.dataset_fingerprint[
+                'foreground_intensity_properties_by_modality']
         }
 
         if plan_3d_lowres is not None:
@@ -498,7 +507,7 @@ class ExperimentPlanner(object):
             old_configurations = old_plans['configurations']
             for c in plans['configurations'].keys():
                 if c in old_configurations.keys():
-                    del(old_configurations[c])
+                    del (old_configurations[c])
             plans['configurations'].update(old_configurations)
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))

@@ -37,7 +37,7 @@ def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected
               'up to you.' % label_file)
     if len(unexpected_labels) > 0:
         print("Error: Unexpected labels found in file %s.\nExpected: %s\nFound: %s" % (label_file, expected_labels,
-                                                                                found_labels))
+                                                                                       found_labels))
         return False
     return True
 
@@ -139,7 +139,9 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                                                              str([i for i in dataset_keys if i not in required_keys]))
 
     expected_num_training = dataset_json['numTraining']
-    num_modalities = len(dataset_json['modality'].keys())
+    num_modalities = len(dataset_json['channel_names'].keys()
+                         if 'channel_names' in dataset_json.keys()
+                         else dataset_json['modality'].keys()),
     file_suffix = dataset_json['file_ending']
 
     training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(folder, 'imagesTr'), suffix=file_suffix)
@@ -160,9 +162,11 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     # check if labels are consecutive
     assert isinstance(dataset_json['labels'], dict), 'labels in dataset.json must be a dictionary'
     # this will unfortunately not always trigger
-    assert all([isinstance(i, str) for i in dataset_json['labels'].keys()]), 'labels in dataset.json must be a dictionary with strings (label/region names) as keys and the labels/regions as values'
+    assert all([isinstance(i, str) for i in dataset_json[
+        'labels'].keys()]), 'labels in dataset.json must be a dictionary with strings (label/region names) as keys and the labels/regions as values'
     for l in dataset_json['labels'].values():
-        assert isinstance(l, (int, list, tuple)), 'values of labels dict in dataset.json must either be int or tuple of int'
+        assert isinstance(l, (
+        int, list, tuple)), 'values of labels dict in dataset.json must either be int or tuple of int'
         if isinstance(l, (list, tuple)):
             for ll in l:
                 assert isinstance(ll, int), 'values of labels dict in dataset.json must either be int or tuple of int'
@@ -172,29 +176,35 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
     expected_labels = label_manager.all_labels
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1
-    assert all(labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
+    assert all(
+        labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
 
     # determine reader/writer class
-    reader_writer_class = determine_reader_writer_from_dataset_json(dataset_json, join(folder, 'imagesTr', training_identifiers[0] + '_0000' + file_suffix))
+    reader_writer_class = determine_reader_writer_from_dataset_json(dataset_json, join(folder, 'imagesTr',
+                                                                                       training_identifiers[
+                                                                                           0] + '_0000' + file_suffix))
 
     # check whether only the desired labels are present
     p = Pool(num_processes)
     result = p.starmap(
         verify_labels,
-        zip([join(folder, 'labelsTr', i) for i in labelfiles], [reader_writer_class] * len(labelfiles), [expected_labels] * len(labelfiles))
+        zip([join(folder, 'labelsTr', i) for i in labelfiles], [reader_writer_class] * len(labelfiles),
+            [expected_labels] * len(labelfiles))
     )
     if not all(result):
-        raise RuntimeError('Some segmentation images contained unexpected labels. Please check text output above to see which one(s).')
+        raise RuntimeError(
+            'Some segmentation images contained unexpected labels. Please check text output above to see which one(s).')
 
     # check whether shapes and spacings match between images and labels
     p = Pool(num_processes)
     result = p.starmap(
         check_cases,
         zip([folder] * expected_num_training, training_identifiers, [num_modalities] * expected_num_training,
-         [reader_writer_class] * expected_num_training, [file_suffix] * expected_num_training)
+            [reader_writer_class] * expected_num_training, [file_suffix] * expected_num_training)
     )
     if not all(result):
-        raise RuntimeError('Some images have errors. Please check text output above to see which one(s) and what\'s going on.')
+        raise RuntimeError(
+            'Some images have errors. Please check text output above to see which one(s) and what\'s going on.')
 
     # check for nans
     # check all same orientation nibabel
