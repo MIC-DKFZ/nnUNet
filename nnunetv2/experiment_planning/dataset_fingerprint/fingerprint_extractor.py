@@ -139,7 +139,7 @@ class DatasetFingerprintExtractor(object):
 
             num_modalities = len(self.dataset_json['channel_names'].keys()
                                  if 'channel_names' in self.dataset_json.keys()
-                                 else self.dataset_json['modality'].keys()),
+                                 else self.dataset_json['modality'].keys())
             intensity_statistics_by_modality = {}
             for i in range(num_modalities):
                 intensity_statistics_by_modality[i] = {

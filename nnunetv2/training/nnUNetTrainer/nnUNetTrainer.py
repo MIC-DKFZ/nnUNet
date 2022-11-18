@@ -412,9 +412,9 @@ class nnUNetTrainer(object):
                 self.print_to_log_file("Unable to plot network architecture:")
                 self.print_to_log_file(e)
 
-                self.print_to_log_file("\nprinting the network instead:\n")
-                self.print_to_log_file(self.network)
-                self.print_to_log_file("\n")
+                # self.print_to_log_file("\nprinting the network instead:\n")
+                # self.print_to_log_file(self.network)
+                # self.print_to_log_file("\n")
             finally:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
