@@ -992,6 +992,7 @@ class nnUNetTrainer(object):
 
         inference_gaussian = torch.from_numpy(
             compute_gaussian(self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
+        # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
         segmentation_export_pool = multiprocessing.get_context('spawn').Pool(default_num_processes)
         validation_output_folder = join(self.output_folder, 'validation')
         maybe_mkdir_p(validation_output_folder)

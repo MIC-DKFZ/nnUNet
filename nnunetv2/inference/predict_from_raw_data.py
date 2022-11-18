@@ -195,6 +195,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     num_seg_heads = label_manager.num_segmentation_heads
 
     # go go go
+    # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
     export_pool = multiprocessing.get_context('spawn').Pool(num_processes_segmentation_export)
     if torch.cuda.is_available():
         network = network.to('cuda:0')

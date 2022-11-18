@@ -1,6 +1,3 @@
-# import multiprocessing
-# multiprocessing.set_start_method('spawn')
-
 from typing import Union
 
 import nnunetv2
