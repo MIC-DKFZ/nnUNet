@@ -19,8 +19,11 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             data, seg, properties = self._data.load_case(current_key)
 
             # select a class first, then a slice where this class is present, then crop to that area
-            if not force_fg and self.has_ignore:
-                selected_class_or_region = self.annotated_classes_key
+            if not force_fg:
+                if self.has_ignore:
+                    selected_class_or_region = self.annotated_classes_key
+                else:
+                    selected_class_or_region = None
             else:
                 classes_or_regions = [i for i in properties['class_locations'].keys() if not isinstance(i, (tuple, list)) or i != self.annotated_classes_key]
                 # only pick classes that are actually present in this case!
@@ -28,7 +31,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
                 selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
                     len(classes_or_regions) > 0 else None
-            if force_fg and selected_class_or_region is not None:
+            if selected_class_or_region is not None:
                 selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
             else:
                 selected_slice = np.random.choice(len(data[0]))
@@ -39,9 +42,13 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # the line of death lol
             # this needs to be a separate variable because we could otherwise permanently overwrite
             # properties['class_locations']
+            # selected_class_or_region is:
+            # - None if we do not have an ignore label and force_fg is False OR if force_fg is True but there is no foreground in the image
+            # - A tuple of all (non-ignore) labels if there is an ignore label and force_fg is False
+            # - a class or region if force_fg is True
             class_locations = {
                 selected_class_or_region: properties['class_locations'][selected_class_or_region][properties['class_locations'][selected_class_or_region][:, 1] == selected_slice][:, (0, 2, 3)]
-            } if force_fg and (selected_class_or_region is not None) else None
+            } if (selected_class_or_region is not None) else None
 
             # print(properties)
             shape = data.shape[1:]

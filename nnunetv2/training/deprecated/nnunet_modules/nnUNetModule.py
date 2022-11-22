@@ -162,7 +162,9 @@ class nnUNetModule(pl.LightningModule):
             from batchgenerators.utilities.file_and_folder_operations import join
             import hiddenlayer as hl
             g = hl.build_graph(self.network,
-                               torch.rand((1, len(self.dataset_json["modality"]),
+                               torch.rand((1, len(self.dataset_json['modality'])
+                               if 'modality' in self.dataset_json.keys()
+                               else len(self.dataset_json["channel_names"]),
                                            *self.plans['configurations'][self.configuration]['patch_size']),
                                           device=self.device),
                                transforms=None)

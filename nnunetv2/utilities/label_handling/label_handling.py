@@ -273,15 +273,16 @@ def determine_num_input_channels(plans: dict, configuration: str, dataset_json: 
     if label_manager is None we create one from dataset_json. Not recommended.
     """
     label_manager = get_labelmanager(plans, dataset_json)
+    num_modalities = len(dataset_json['modality']) if 'modality' in dataset_json.keys() else len(dataset_json['channel_names'])
 
     # cascade has different number of input channels
     if 'previous_stage' in plans['configurations'][configuration].keys():
         if label_manager.has_regions:
             raise NotImplemented('Cascade not yet implemented region-based training')
         num_label_inputs = len(label_manager.foreground_labels)
-        num_input_channels = len(dataset_json["modality"]) + num_label_inputs
+        num_input_channels = num_modalities + num_label_inputs
     else:
-        num_input_channels = len(dataset_json["modality"])
+        num_input_channels = num_modalities
     return num_input_channels
 
 

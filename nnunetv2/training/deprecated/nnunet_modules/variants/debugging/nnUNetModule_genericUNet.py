@@ -27,7 +27,8 @@ class nnUNetModule_GenericUNet(nnUNetModule):
 
         strides = plans["configurations"][configuration]["pool_op_kernel_sizes"][1:]
 
-        self.network = Generic_UNet(len(self.dataset_json["modality"]),
+        self.network = Generic_UNet(len(self.dataset_json['modality']) if 'modality' in self.dataset_json.keys() else
+                                    len(self.dataset_json['channel_names']),
                                     initial_features,
                                     len(self.dataset_json["labels"]),
                                     len(strides),
