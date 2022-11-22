@@ -129,7 +129,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
 
     # make sure all required keys are there
     dataset_keys = list(dataset_json.keys())
-    required_keys = ['labels', "modality", "numTraining", "file_ending"]
+    required_keys = ['labels', "channel_names", "numTraining", "file_ending"]
     assert all([i in dataset_keys for i in required_keys]), 'not all required keys are present in dataset.json.' \
                                                             '\n\nRequired: \n%s\n\nPresent: \n%s\n\nMissing: ' \
                                                             '\n%s\n\nUnused by nnU-Net:\n%s' % \
@@ -141,7 +141,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     expected_num_training = dataset_json['numTraining']
     num_modalities = len(dataset_json['channel_names'].keys()
                          if 'channel_names' in dataset_json.keys()
-                         else dataset_json['modality'].keys()),
+                         else dataset_json['modality'].keys())
     file_suffix = dataset_json['file_ending']
 
     training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(folder, 'imagesTr'), suffix=file_suffix)
@@ -159,22 +159,12 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     missing = [i for j, i in enumerate(training_identifiers) if not labels_present[j]]
     assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
 
-    # check if labels are consecutive
-    assert isinstance(dataset_json['labels'], dict), 'labels in dataset.json must be a dictionary'
-    # this will unfortunately not always trigger
-    assert all([isinstance(i, str) for i in dataset_json[
-        'labels'].keys()]), 'labels in dataset.json must be a dictionary with strings (label/region names) as keys and the labels/regions as values'
-    for l in dataset_json['labels'].values():
-        assert isinstance(l, (
-        int, list, tuple)), 'values of labels dict in dataset.json must either be int or tuple of int'
-        if isinstance(l, (list, tuple)):
-            for ll in l:
-                assert isinstance(ll, int), 'values of labels dict in dataset.json must either be int or tuple of int'
-
     # no plans exist yet, so we can't use get_labelmanager and gotta roll with the default. It's unlikely to cause
     # problems anyway
     label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
     expected_labels = label_manager.all_labels
+    if label_manager.has_ignore_label:
+        expected_labels.append(label_manager.ignore_label)
     labels_valid_consecutive = np.ediff1d(expected_labels) == 1
     assert all(
         labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
@@ -215,6 +205,6 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
 
 if __name__ == "__main__":
     # investigate geometry issues
-    example_folder = join(nnUNet_raw, 'Dataset004_Hippocampus')
+    example_folder = join(nnUNet_raw, 'Dataset250_COMPUTING_it0')
     num_processes = 6
     verify_dataset_integrity(example_folder, num_processes)
