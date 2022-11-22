@@ -535,7 +535,6 @@ class nnUNetTrainer(object):
                                              allowed_num_processes, 6, None, True, 0.02)
             mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
                                            max(1, allowed_num_processes // 2), 3, None, True, 0.02)
-
         return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):

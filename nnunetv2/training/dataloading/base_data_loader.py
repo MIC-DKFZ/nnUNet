@@ -111,7 +111,6 @@ class nnUNetDataLoaderBase(DataLoader):
                 # print(f'I want to have foreground, selected class: {selected_class}')
             else:
                 raise RuntimeError('lol what!?')
-
             voxels_of_that_class = class_locations[selected_class] if selected_class is not None else None
 
             if voxels_of_that_class is not None:
