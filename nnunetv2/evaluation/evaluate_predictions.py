@@ -1,5 +1,9 @@
+import os
 from copy import deepcopy
 from multiprocessing import Pool
+
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json, \
+    determine_reader_writer_from_file_ending
 from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json, load_json
 from nnunetv2.configuration import default_num_processes
@@ -9,6 +13,7 @@ import numpy as np
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 # the Evaluator class of the previous nnU-Net was great and all but man was it overengineered. Keep it simple
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
+from nnunetv2.utilities.label_handling.label_handling import LabelManager, get_labelmanager
 
 
 def label_or_region_to_key(label_or_region: Union[int, Tuple[int]]):
@@ -54,7 +59,7 @@ def load_summary_json(filename: str):
 
 
 def labels_to_list_of_regions(labels: List[int]):
-    return [(i, ) for i in labels]
+    return [(i,) for i in labels]
 
 
 def region_or_label_to_mask(segmentation: np.ndarray, region_or_label: Union[int, Tuple[int, ...]]) -> np.ndarray:
@@ -113,7 +118,8 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     return results
 
 
-def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: str, image_reader_writer: BaseReaderWriter,
+def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: str,
+                              image_reader_writer: BaseReaderWriter,
                               suffix: str,
                               regions_or_labels: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                               ignore_label: int = None,
@@ -132,7 +138,8 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     #     compute_metrics(*i)
     results = pool.starmap(
         compute_metrics,
-        list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred), [ignore_label] * len(files_pred)))
+        list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred),
+                 [ignore_label] * len(files_pred)))
     )
     pool.close()
     pool.join()
@@ -161,6 +168,75 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     save_summary_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
 
 
+def compute_metrics_on_folder2(folder_ref: str, folder_pred: str, dataset_json_file: str, plans_file: str,
+                               output_file: str = None,
+                               num_processes: int = default_num_processes):
+    dataset_json = load_json(dataset_json_file)
+    # get file ending
+    file_ending = dataset_json['file_ending']
+
+    # get reader writer class
+    example_file = subfiles(folder_ref, suffix=file_ending, join=True)[0]
+    rw = determine_reader_writer_from_dataset_json(dataset_json, example_file)()
+
+    # maybe auto set output file
+    if output_file is None:
+        output_file = join(folder_pred, 'summary.json')
+
+    lm = get_labelmanager(load_json(plans_file), dataset_json)
+    compute_metrics_on_folder(folder_ref, folder_pred, output_file, rw, file_ending,
+                              lm.foreground_regions if lm.has_regions else lm.foreground_labels, lm.ignore_label,
+                              num_processes)
+
+
+def compute_metrics_on_folder_simple(folder_ref: str, folder_pred: str, labels: Union[Tuple[int, ...], List[int]],
+                                     output_file: str = None,
+                                     num_processes: int = default_num_processes,
+                                     ignore_label: int = None):
+    example_file = subfiles(folder_ref, join=True)[0]
+    file_ending = os.path.splitext(example_file)[-1]
+    rw = determine_reader_writer_from_file_ending(file_ending, example_file, allow_nonmatching_filename=True)
+    # maybe auto set output file
+    if output_file is None:
+        output_file = join(folder_pred, 'summary.json')
+    compute_metrics_on_folder(folder_ref, folder_pred, output_file, rw, file_ending,
+                              labels, ignore_label=ignore_label, num_processes=num_processes)
+
+
+def evaluate_folder_entry_point():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('gt_folder', type=str, required=True, help='folder with gt segmentations')
+    parser.add_argument('pred_folder', type=str, required=True, help='folder with predicted segmentations')
+    parser.add_argument('-djfile', type=str, required=True,
+                        help='dataset.json file')
+    parser.add_argument('-pfile', type=str, required=True,
+                        help='plans.json file')
+    parser.add_argument('-o', type=str, required=False, default=None,
+                        help='Output file. Optional. Default: pred_folder/summary.json')
+    parser.add_argument('-np', type=int, required=False, default=default_num_processes,
+                        help=f'number of processes used. Optional. Default: {default_num_processes}')
+    args = parser.parse_args()
+    compute_metrics_on_folder2(args.gt_folder, args.pred_folder, args.djfile, args.pfile, args.o, args.np)
+
+
+def evaluate_simple_entry_point():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('gt_folder', type=str, required=True, help='folder with gt segmentations')
+    parser.add_argument('pred_folder', type=str, required=True, help='folder with predicted segmentations')
+    parser.add_argument('-l', type=int, nargs='+', required=True,
+                        help='list of labels')
+    parser.add_argument('-il', type=int, required=False, default=None,
+                        help='ignore label')
+    parser.add_argument('-o', type=str, required=False, default=None,
+                        help='Output file. Optional. Default: pred_folder/summary.json')
+    parser.add_argument('-np', type=int, required=False, default=default_num_processes,
+                        help=f'number of processes used. Optional. Default: {default_num_processes}')
+    args = parser.parse_args()
+    compute_metrics_on_folder_simple(args.gt_folder, args.pred_folder, args.l, args.o, args.np, args.il)
+
+
 if __name__ == '__main__':
     folder_ref = '/media/fabian/data/nnUNet_raw/Dataset004_Hippocampus/labelsTr'
     folder_pred = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetModule__nnUNetPlans__3d_fullres/fold_0/validation'
@@ -170,4 +246,5 @@ if __name__ == '__main__':
     regions = labels_to_list_of_regions([1, 2])
     ignore_label = None
     num_processes = 12
-    compute_metrics_on_folder(folder_ref, folder_pred, output_file, image_reader_writer, suffix, regions, ignore_label, num_processes)
+    compute_metrics_on_folder(folder_ref, folder_pred, output_file, image_reader_writer, suffix, regions, ignore_label,
+                              num_processes)
