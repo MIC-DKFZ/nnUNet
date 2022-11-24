@@ -22,7 +22,7 @@ if __name__ == '__main__':
     shutil.copytree(join(nnUNet_raw, source_dataset_name, 'imagesTr'), join(nnUNet_raw, dataset_name, 'imagesTr'))
 
     ignore_label = 3  # 0 bg, 1 kidney, 2 tumor
-    num_spheres_random = 25
+    num_spheres_random = 15
     num_spheres_fg = 3
     sphere_size = (15, 50)
     np.random.seed(12345)

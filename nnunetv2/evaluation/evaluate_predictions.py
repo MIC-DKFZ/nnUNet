@@ -123,14 +123,16 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
                               suffix: str,
                               regions_or_labels: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                               ignore_label: int = None,
-                              num_processes: int = default_num_processes) -> None:
+                              num_processes: int = default_num_processes,
+                              chill: bool = False) -> None:
     """
     output_file must end with .json
     """
     assert output_file.endswith('.json'), 'output_file should end with .json'
     files_pred = subfiles(folder_pred, suffix=suffix, join=False)
     files_ref = subfiles(folder_ref, suffix=suffix, join=False)
-    assert all([i in files_ref for i in files_pred]), "Not all files in folder_pred exist in folder_ref"
+    if not chill:
+        assert all([i in files_ref for i in files_pred]), "Not all files in folder_pred exist in folder_ref"
     files_ref = [join(folder_ref, i) for i in files_pred]
     files_pred = [join(folder_pred, i) for i in files_pred]
     pool = Pool(num_processes)
@@ -195,19 +197,19 @@ def compute_metrics_on_folder_simple(folder_ref: str, folder_pred: str, labels: 
                                      ignore_label: int = None):
     example_file = subfiles(folder_ref, join=True)[0]
     file_ending = os.path.splitext(example_file)[-1]
-    rw = determine_reader_writer_from_file_ending(file_ending, example_file, allow_nonmatching_filename=True)
+    rw = determine_reader_writer_from_file_ending(file_ending, example_file, allow_nonmatching_filename=True)()
     # maybe auto set output file
     if output_file is None:
         output_file = join(folder_pred, 'summary.json')
     compute_metrics_on_folder(folder_ref, folder_pred, output_file, rw, file_ending,
-                              labels, ignore_label=ignore_label, num_processes=num_processes)
+                              labels, ignore_label=ignore_label, num_processes=num_processes, chill=True)
 
 
 def evaluate_folder_entry_point():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('gt_folder', type=str, required=True, help='folder with gt segmentations')
-    parser.add_argument('pred_folder', type=str, required=True, help='folder with predicted segmentations')
+    parser.add_argument('gt_folder', type=str, help='folder with gt segmentations')
+    parser.add_argument('pred_folder', type=str, help='folder with predicted segmentations')
     parser.add_argument('-djfile', type=str, required=True,
                         help='dataset.json file')
     parser.add_argument('-pfile', type=str, required=True,
@@ -223,8 +225,8 @@ def evaluate_folder_entry_point():
 def evaluate_simple_entry_point():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('gt_folder', type=str, required=True, help='folder with gt segmentations')
-    parser.add_argument('pred_folder', type=str, required=True, help='folder with predicted segmentations')
+    parser.add_argument('gt_folder', type=str, help='folder with gt segmentations')
+    parser.add_argument('pred_folder', type=str, help='folder with predicted segmentations')
     parser.add_argument('-l', type=int, nargs='+', required=True,
                         help='list of labels')
     parser.add_argument('-il', type=int, required=False, default=None,
