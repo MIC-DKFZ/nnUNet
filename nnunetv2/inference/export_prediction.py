@@ -91,6 +91,8 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
         predicted = np.load(predicted)
         os.remove(del_file)
 
+    predicted = predicted.astype(np.float32)
+
     if isinstance(plans_dict_or_file, str):
         plans_dict_or_file = load_json(plans_dict_or_file)
     if isinstance(dataset_json_dict_or_file, str):
