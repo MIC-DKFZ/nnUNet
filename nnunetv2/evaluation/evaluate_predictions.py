@@ -5,7 +5,8 @@ from multiprocessing import Pool
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json, \
     determine_reader_writer_from_file_ending
 from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
-from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json, load_json
+from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json, load_json, \
+    isfile
 from nnunetv2.configuration import default_num_processes
 from typing import Tuple, List, Union
 
@@ -132,7 +133,8 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     files_pred = subfiles(folder_pred, suffix=suffix, join=False)
     files_ref = subfiles(folder_ref, suffix=suffix, join=False)
     if not chill:
-        assert all([i in files_ref for i in files_pred]), "Not all files in folder_pred exist in folder_ref"
+        present = [isfile(join(folder_pred, i)) for i in files_ref]
+        assert all(present), "Not all files in folder_pred exist in folder_ref"
     files_ref = [join(folder_ref, i) for i in files_pred]
     files_pred = [join(folder_pred, i) for i in files_pred]
     pool = Pool(num_processes)
@@ -168,11 +170,13 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     recursive_fix_for_json_export(means)
     recursive_fix_for_json_export(foreground_mean)
     save_summary_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
+    print('DONE')
 
 
 def compute_metrics_on_folder2(folder_ref: str, folder_pred: str, dataset_json_file: str, plans_file: str,
                                output_file: str = None,
-                               num_processes: int = default_num_processes):
+                               num_processes: int = default_num_processes,
+                               chill: bool = False):
     dataset_json = load_json(dataset_json_file)
     # get file ending
     file_ending = dataset_json['file_ending']
@@ -188,21 +192,23 @@ def compute_metrics_on_folder2(folder_ref: str, folder_pred: str, dataset_json_f
     lm = get_labelmanager(load_json(plans_file), dataset_json)
     compute_metrics_on_folder(folder_ref, folder_pred, output_file, rw, file_ending,
                               lm.foreground_regions if lm.has_regions else lm.foreground_labels, lm.ignore_label,
-                              num_processes)
+                              num_processes, chill=chill)
 
 
 def compute_metrics_on_folder_simple(folder_ref: str, folder_pred: str, labels: Union[Tuple[int, ...], List[int]],
                                      output_file: str = None,
                                      num_processes: int = default_num_processes,
-                                     ignore_label: int = None):
+                                     ignore_label: int = None,
+                                     chill: bool = False):
     example_file = subfiles(folder_ref, join=True)[0]
     file_ending = os.path.splitext(example_file)[-1]
-    rw = determine_reader_writer_from_file_ending(file_ending, example_file, allow_nonmatching_filename=True)()
+    rw = determine_reader_writer_from_file_ending(file_ending, example_file, allow_nonmatching_filename=True,
+                                                  verbose=False)()
     # maybe auto set output file
     if output_file is None:
         output_file = join(folder_pred, 'summary.json')
     compute_metrics_on_folder(folder_ref, folder_pred, output_file, rw, file_ending,
-                              labels, ignore_label=ignore_label, num_processes=num_processes, chill=True)
+                              labels, ignore_label=ignore_label, num_processes=num_processes, chill=chill)
 
 
 def evaluate_folder_entry_point():
@@ -218,8 +224,9 @@ def evaluate_folder_entry_point():
                         help='Output file. Optional. Default: pred_folder/summary.json')
     parser.add_argument('-np', type=int, required=False, default=default_num_processes,
                         help=f'number of processes used. Optional. Default: {default_num_processes}')
+    parser.add_argument('--chill', action='store_true', help='dont crash if folder_pred doesnt have all files that are present in folder_gt')
     args = parser.parse_args()
-    compute_metrics_on_folder2(args.gt_folder, args.pred_folder, args.djfile, args.pfile, args.o, args.np)
+    compute_metrics_on_folder2(args.gt_folder, args.pred_folder, args.djfile, args.pfile, args.o, args.np, chill=args.chill)
 
 
 def evaluate_simple_entry_point():
@@ -235,8 +242,10 @@ def evaluate_simple_entry_point():
                         help='Output file. Optional. Default: pred_folder/summary.json')
     parser.add_argument('-np', type=int, required=False, default=default_num_processes,
                         help=f'number of processes used. Optional. Default: {default_num_processes}')
+    parser.add_argument('--chill', action='store_true', help='dont crash if folder_pred doesnt have all files that are present in folder_gt')
+
     args = parser.parse_args()
-    compute_metrics_on_folder_simple(args.gt_folder, args.pred_folder, args.l, args.o, args.np, args.il)
+    compute_metrics_on_folder_simple(args.gt_folder, args.pred_folder, args.l, args.o, args.np, args.il, chill=args.chill)
 
 
 if __name__ == '__main__':

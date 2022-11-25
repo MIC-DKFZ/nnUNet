@@ -1,5 +1,6 @@
 import shutil
 from multiprocessing import Pool
+from typing import Tuple
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -8,6 +9,42 @@ from nnunetv2.dataset_conversion.Dataset177_KiTS2019_sparse_blobs import load_si
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+import SimpleITK as sitk
+
+
+def compute_labeled_fractions_image(original_seg_file: str, sparse_seg_file: str, labels: Tuple[int, ...], ignore_label: int):
+    """
+    assumes everything that is not ignore label was labeled. so labels needs to cover all classes, incl background
+    we could also jsut use ignore_label + np.unique but unique is slow af
+    """
+    orig = sitk.GetArrayFromImage(sitk.ReadImage(original_seg_file))
+    sparse = sitk.GetArrayFromImage(sitk.ReadImage(sparse_seg_file))
+    results_per_label = {}
+    for l in labels:
+        mask_orig = orig == l
+        mask_sparse = sparse == l
+        results_per_label[l] = np.sum(mask_sparse) / np.sum(mask_orig)
+    # foreground
+    mask_orig = orig != ignore_label
+    mask_sparse = sparse != ignore_label
+    results_per_label['fg'] = np.sum(mask_sparse) / np.sum(mask_orig)
+    return results_per_label
+
+
+def compute_labeled_fractions_folder(folder_dense, folder_sparse, labels, ignore_label, num_processes: int = 8):
+    p = Pool(num_processes)
+    files = nifti_files(folder_dense, join=False)
+    r = []
+    for f in files:
+        r.append(p.starmap_async(compute_labeled_fractions_image,
+                                 ((join(folder_dense, f), join(folder_sparse, f), labels, ignore_label),)
+                                 ))
+    r = [i.get() for i in r]
+    all_results = {}
+    for k in r[0][0].keys():
+        all_results[k] = np.nanmean([i[0][k] for i in r])
+    return all_results
+
 
 if __name__ == '__main__':
     """
@@ -49,3 +86,10 @@ if __name__ == '__main__':
     generate_dataset_json(join(nnUNet_raw, dataset_name), {0: 'CT'},
                           {'background': 0, 'kidney': 1, 'tumor': 2, 'ignore': ignore_label},
                           210, '.nii.gz')
+
+    # compute class fractions
+    print(compute_labeled_fractions_folder(join(nnUNet_raw, maybe_convert_to_dataset_name(64), 'labelsTr'),
+                                           join(nnUNet_raw, maybe_convert_to_dataset_name(176), 'labelsTr'),
+                                            labels=(0, 1, 2),
+                                           ignore_label=3
+                                           ))
