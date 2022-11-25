@@ -6,7 +6,7 @@ import shutil
 
 from nnunetv2.dataset_conversion.Dataset179_KiTS2019_sparserer_blobs import compute_labeled_fractions_folder
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.paths import nnUNet_raw
+from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 import SimpleITK as sitk
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
@@ -76,25 +76,29 @@ if __name__ == '__main__':
                                            ))
 
     # add folds to splits_final.json of d64 that reflect annotated dataset percentage
-    splits_final_file = '/home/isensee/drives/gpu_data/nnUNet_preprocessed/Dataset064_KiTS_labelsFixed/splits_final.json'
+    splits_final_file = join(nnUNet_preprocessed, 'Dataset064_KiTS_labelsFixed/splits_final.json')
     splits = load_json(splits_final_file)
+    num_cases = len(splits[0]['train']) + len(splits[0]['val'])
     # add 5 folds for 10%. Keep val set of fold 0
     assert len(splits) == 5
     for n in range(5):
         splits.append(
-            {'train': np.random.choice(splits[0]['train'], size=round(len(np.random.choice(splits[0]['train'])) / 10)),
+            {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases / 10))),
              'val': splits[0]['val']}
         )
     # add 5 folds with 3%
     for n in range(5):
         splits.append(
-            {'train': np.random.choice(splits[0]['train'], size=round(len(np.random.choice(splits[0]['train'])) / 33)),
+            {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases / 33))),
              'val': splits[0]['val']}
         )
     # add 5 folds with .5%
     for n in range(5):
         splits.append(
-            {'train': np.random.choice(splits[0]['train'], size=max(1, round(len(np.random.choice(splits[0]['train'])) / 200))),
+            {'train': list(np.random.choice(splits[0]['train'], size=max(1, round(num_cases / 200)))),
              'val': splits[0]['val']}
         )
+    # save
+    save_json(splits, splits_final_file)
+
 

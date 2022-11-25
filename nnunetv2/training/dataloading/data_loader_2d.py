@@ -18,19 +18,26 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             force_fg = self.get_do_oversample(j)
             data, seg, properties = self._data.load_case(current_key)
 
-            # select a class first, then a slice where this class is present, then crop to that area
+            # select a class/region first, then a slice where this class is present, then crop to that area
             if not force_fg:
                 if self.has_ignore:
                     selected_class_or_region = self.annotated_classes_key
                 else:
                     selected_class_or_region = None
             else:
-                classes_or_regions = [i for i in properties['class_locations'].keys() if not isinstance(i, (tuple, list)) or i != self.annotated_classes_key]
-                # only pick classes that are actually present in this case!
-                classes_or_regions = [i for i in classes_or_regions if len(properties['class_locations'][i]) > 0]
+                # filter out all classes that are not present here
+                eligible_classes_or_regions = [i for i in properties['class_locations'].keys() if len(properties['class_locations'][i]) > 0]
 
-                selected_class_or_region = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
-                    len(classes_or_regions) > 0 else None
+                # if we have annotated_classes_key locations and other classes are present, remove the annotated_classes_key from the list
+                # strange formulation needed to circumvent
+                # ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+                tmp = [i == self.annotated_classes_key if isinstance(i, tuple) else False for i in eligible_classes_or_regions]
+                if any(tmp):
+                    if len(eligible_classes_or_regions) > 1:
+                        eligible_classes_or_regions.pop(np.where(tmp)[0][0])
+
+                selected_class_or_region = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
+                    len(eligible_classes_or_regions) > 0 else None
             if selected_class_or_region is not None:
                 selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
             else:

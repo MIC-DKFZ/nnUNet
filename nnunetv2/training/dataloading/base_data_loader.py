@@ -95,19 +95,26 @@ class nnUNetDataLoaderBase(DataLoader):
                                                                       'have class_locations (missing key)'
                 # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
                 # class_locations keys can also be tuple
-                classes_or_regions = [i for i in class_locations.keys() if not isinstance(i, (tuple, list)) or i != self.annotated_classes_key]
-                # only pick classes that are actually present in this case!
-                classes_or_regions = [i for i in classes_or_regions if len(class_locations[i]) > 0]
+                eligible_classes_or_regions = [i for i in class_locations.keys() if len(class_locations[i]) > 0]
 
-                if len(classes_or_regions) == 0:
+                # if we have annotated_classes_key locations and other classes are present, remove the annotated_classes_key from the list
+                # strange formulation needed to circumvent
+                # ValueError: The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()
+                tmp = [i == self.annotated_classes_key if isinstance(i, tuple) else False for i in eligible_classes_or_regions]
+                if any(tmp):
+                    if len(eligible_classes_or_regions) > 1:
+                        eligible_classes_or_regions.pop(np.where(tmp)[0][0])
+
+                if len(eligible_classes_or_regions) == 0:
                     # this only happens if some image does not contain foreground voxels at all
                     selected_class = None
                     if verbose:
                         print('case does not contain any foreground classes')
                 else:
                     # I hate myself. Future me aint gonna be happy to read this
-                    selected_class = classes_or_regions[np.random.choice(len(classes_or_regions))] if \
-                        (overwrite_class is None or (overwrite_class not in classes_or_regions)) else overwrite_class
+                    # 2022_11_25: had to read it today. Wasn't too bad
+                    selected_class = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
+                        (overwrite_class is None or (overwrite_class not in eligible_classes_or_regions)) else overwrite_class
                 # print(f'I want to have foreground, selected class: {selected_class}')
             else:
                 raise RuntimeError('lol what!?')
