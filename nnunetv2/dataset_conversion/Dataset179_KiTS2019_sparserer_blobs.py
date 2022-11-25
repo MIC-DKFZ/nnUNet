@@ -26,9 +26,13 @@ def compute_labeled_fractions_image(original_seg_file: str, sparse_seg_file: str
         mask_sparse = sparse == l
         results_per_label[l] = np.sum(mask_sparse) / np.sum(mask_orig)
     # foreground
+    mask_orig = (orig != ignore_label) & (orig != 0)
+    mask_sparse = (sparse != ignore_label) & (sparse != 0)
+    results_per_label['fg'] = np.sum(mask_sparse) / np.sum(mask_orig)
+    # labeled
     mask_orig = orig != ignore_label
     mask_sparse = sparse != ignore_label
-    results_per_label['fg'] = np.sum(mask_sparse) / np.sum(mask_orig)
+    results_per_label['labeled'] = np.sum(mask_sparse) / np.sum(mask_orig)
     return results_per_label
 
 
