@@ -125,7 +125,7 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
                               regions_or_labels: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                               ignore_label: int = None,
                               num_processes: int = default_num_processes,
-                              chill: bool = False) -> None:
+                              chill: bool = True) -> None:
     """
     output_file must end with .json
     """

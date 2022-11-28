@@ -1115,7 +1115,7 @@ class nnUNetTrainer(object):
                                       self.dataset_json["file_ending"],
                                       self.label_manager.foreground_regions if self.label_manager.has_regions else
                                       self.label_manager.foreground_labels,
-                                      self.label_manager.ignore_label)
+                                      self.label_manager.ignore_label, chill=True)
 
         if self.is_ddp:
             self.network.module.decoder.deep_supervision = True
