@@ -129,6 +129,7 @@ class DefaultPreprocessor(object):
             # print(all_labels, regions)
             data_properites['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
                                                                                    verbose=self.verbose)
+            seg = self.modify_seg_fn(seg, plans, dataset_json, configuration_name)
 
         return data, seg.astype(np.int8), data_properites
 
@@ -236,6 +237,12 @@ class DefaultPreprocessor(object):
         _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
                   processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name,
                   dataset_json=dataset_json, disable=self.verbose)
+
+    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+        # this function will be called at the end of self.run_case. Can be used to change the segmentation
+        # after resampling. Useful for experimenting with sparse annotations: I can introduce sparsity after resampling
+        # and don't have to create a new dataset each time I modify my experiments
+        return seg
 
 
 def example_test_case_preprocessing():
