@@ -74,7 +74,7 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
                 num_spheres += 1
             else:
                 break
-        print(num_spheres)
+        # print(num_spheres)
         ret = np.ones_like(seg) * label_manager.ignore_label
         ret[final_mask] = seg[final_mask]
         return ret[None]
