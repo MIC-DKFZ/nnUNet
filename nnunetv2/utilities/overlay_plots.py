@@ -111,7 +111,7 @@ def select_slice_to_plot2(image: np.ndarray, segmentation: np.ndarray) -> int:
     """
     image and segmentation are expected to be 3D (or 1, x, y)
 
-    selects the slice with the largest amount of fg (how much percent of each class are in each slice? pick slive
+    selects the slice with the largest amount of fg (how much percent of each class are in each slice? pick slice
     with highest avg percent)
 
     we give image so that we can easily replace this function if needed

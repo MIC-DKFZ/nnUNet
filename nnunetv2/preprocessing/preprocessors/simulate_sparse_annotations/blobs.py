@@ -5,43 +5,6 @@ from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPre
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 
 
-class SparseSegSliceWiseOrth30Preprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
-        seg = seg[0]
-        every_nth_slice = 30
-        label_manager = get_labelmanager(plans, dataset_json)
-        assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
-        seg_new = np.ones_like(seg) * label_manager.ignore_label
-        seg_new[:, :, ::every_nth_slice] = seg[:, :, ::every_nth_slice]
-        seg_new[:, ::every_nth_slice] = seg[:, ::every_nth_slice]
-        seg_new[::every_nth_slice] = seg[::every_nth_slice]
-        return seg_new[None]
-
-
-class SparseSegSliceWiseOrth10Preprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
-        seg = seg[0]
-        every_nth_slice = 10
-        label_manager = get_labelmanager(plans, dataset_json)
-        assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
-        seg_new = np.ones_like(seg) * label_manager.ignore_label
-        seg_new[:, :, ::every_nth_slice] = seg[:, :, ::every_nth_slice]
-        seg_new[:, ::every_nth_slice] = seg[:, ::every_nth_slice]
-        seg_new[::every_nth_slice] = seg[::every_nth_slice]
-        return seg_new[None]
-
-
-class SparseSegPixelWisePreprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
-        seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
-        assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
-        seg_new = np.ones_like(seg) * label_manager.ignore_label
-        use_mask = np.random.random(seg.shape) < 0.03  # create a mask where 3% of the pixels are True
-        seg_new[use_mask] = seg[use_mask]
-        return seg_new[None]
-
-
 class SparseSegBlobsPreprocessor(DefaultPreprocessor):
     def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
         seg = seg[0]
@@ -77,12 +40,12 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
         num_spheres = 0
         locs = DefaultPreprocessor._sample_foreground_locations(seg,
                                                                 label_manager.foreground_labels if not label_manager.has_regions else label_manager.foreground_regions,
-                                                                seed=1234, verbose=False)
+                                                                seed=None, verbose=False)
         keys = [i for i in list(locs.keys()) if len(locs[i]) > 0]
         for c in keys:
             if c != 0:
                 for n in range(num_foreground_spheres_per_class):
-                    l = locs[c][np.random.choice(len(locs[c]))]
+                    l = [int(i) for i in locs[c].astype(float)[np.random.choice(len(locs[c]))]]
                     sphere_radius = (sphere_volume * 3 / 4 / np.pi) ** (1 / 3)
                     b = generate_ball([sphere_radius] * 3, spacing, dtype=bool)
                     x = max(0, l[0] - b.shape[0] // 2)
