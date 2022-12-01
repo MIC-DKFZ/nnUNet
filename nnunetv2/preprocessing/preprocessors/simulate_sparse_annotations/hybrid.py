@@ -110,7 +110,7 @@ class SparseHybridSparsePatchesSlicesPreprocessor(DefaultPreprocessor):
                 num_patches_taken += 1
 
         # sample random slices until targeted_annotated_pixels_percent is met
-        current_percent_pixels = np.sum(patch_mask) / np.prod(seg.shape, dtype=np.int64)
+        current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
         diff = targeted_annotated_pixels_percent - current_percent_pixels
         assert diff > 0
         percent_pixels_per_axis_cutoffs = current_percent_pixels + diff / 3, current_percent_pixels + 2/3 * diff
@@ -120,18 +120,18 @@ class SparseHybridSparsePatchesSlicesPreprocessor(DefaultPreprocessor):
             s = np.random.choice(seg.shape[0])
             seg_new[s] = seg[s]
             patch_mask[s] = True
-            current_percent_pixels = np.sum(patch_mask) / np.prod(seg.shape, dtype=np.int64)
+            current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
         current_percent_pixels = percent_pixels_per_axis_cutoffs[0] - 1e-8  # guarantee at least one slice
         while current_percent_pixels < percent_pixels_per_axis_cutoffs[1]:
             s = np.random.choice(seg.shape[1])
             seg_new[:, s] = seg[:, s]
             patch_mask[:, s] = True
-            current_percent_pixels = np.sum(patch_mask) / np.prod(seg.shape, dtype=np.int64)
+            current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
         current_percent_pixels = percent_pixels_per_axis_cutoffs[0] - 1e-8  # guarantee at least one slice
         while current_percent_pixels < targeted_annotated_pixels_percent:
             s = np.random.choice(seg.shape[2])
             seg_new[:, :, s] = seg[:, :, s]
             patch_mask[:, :, s] = True
-            current_percent_pixels = np.sum(patch_mask) / np.prod(seg.shape, dtype=np.int64)
+            current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
 
         return seg_new[None]
