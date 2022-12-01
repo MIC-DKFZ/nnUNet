@@ -32,9 +32,9 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
         labeled_pixels = 0
         allowed_labeled_pixels = labeled_fraction * np.prod(seg.shape, dtype=np.int64)
 
-        print(
-            f'shape: {seg.shape}, allowed_labeled_pixels: {allowed_labeled_pixels}, est num spheres '
-            f'{allowed_labeled_pixels / sphere_volume_pixels}')
+        # print(
+        #     f'shape: {seg.shape}, allowed_labeled_pixels: {allowed_labeled_pixels}, est num spheres '
+        #     f'{allowed_labeled_pixels / sphere_volume_pixels}')
 
         final_mask = np.zeros_like(seg, dtype=bool)
         num_spheres = 0
