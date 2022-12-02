@@ -6,14 +6,36 @@ if __name__ == "__main__":
     # after the Nature Methods paper we switch our evaluation to a different (more stable/high quality) set of
     # datasets for evaluation and future development
     configurations_all = {
-        216: ("3d_lowres", "3d_lowres_sparse_slicewise_10", "3d_lowres_sparse_slicewise_30", "3d_lowres_sparse_blobs", "3d_lowres_sparse_randblobs", "3d_lowres_sparse_pixelwise"),
-        994: ("3d_fullres", "3d_fullres_sparse_slicewise_10", "3d_fullres_sparse_slicewise_30", "3d_fullres_sparse_blobs", "3d_fullres_sparse_randblobs", "3d_fullres_sparse_pixelwise"),
+        216: (
+            # "3d_lowres",
+            # "3d_lowres_sparse_slicewise_10",
+            # "3d_lowres_sparse_slicewise_30",
+            # "3d_lowres_sparse_randblobs",
+            # "3d_lowres_sparse_pixelwise",
+            '3d_lowres_sparse_hybridsparsepatchesslices',
+            '3d_lowres_sparse_sparsepatches',
+            '3d_lowres_sparse_sliceOSfg10',
+            '3d_lowres_sparse_slicewiserand10',
+            '3d_lowres_sparse_blobs'
+        ),
+        994: (
+            # "3d_fullres",
+            # "3d_fullres_sparse_slicewise_10",
+            # "3d_fullres_sparse_slicewise_30",
+            # "3d_fullres_sparse_randblobs",
+            # "3d_fullres_sparse_pixelwise",
+            '3d_fullres_sparse_hybridsparsepatchesslices',
+            '3d_fullres_sparse_sparsepatches',
+            '3d_fullres_sparse_sliceOSfg10',
+            '3d_fullres_sparse_slicewiserand10',
+            '3d_fullres_sparse_blobs'
+        ),
     }
 
     num_gpus = 1
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=1G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=33G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && "
     train_command = 'nnUNetv2_train'
