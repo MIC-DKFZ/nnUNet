@@ -66,7 +66,7 @@ class nnUNetTrainerBN(nnUNetTrainer):
             kernel_sizes=plans["configurations"][configuration]["conv_kernel_sizes"],
             strides=plans["configurations"][configuration]["pool_op_kernel_sizes"],
             num_classes=label_manager.num_segmentation_heads,
-            deep_supervision=True,
+            deep_supervision=enable_deep_supervision,
             **conv_or_blocks_per_stage,
             **kwargs[segmentation_network_class_name]
         )
