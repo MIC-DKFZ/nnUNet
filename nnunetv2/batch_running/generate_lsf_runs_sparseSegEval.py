@@ -7,11 +7,11 @@ if __name__ == "__main__":
     # datasets for evaluation and future development
     configurations_all = {
         216: (
-            # "3d_lowres",
-            # "3d_lowres_sparse_slicewise_10",
-            # "3d_lowres_sparse_slicewise_30",
-            # "3d_lowres_sparse_randblobs",
-            # "3d_lowres_sparse_pixelwise",
+            "3d_lowres",
+            "3d_lowres_sparse_slicewise_10",
+            "3d_lowres_sparse_slicewise_30",
+            "3d_lowres_sparse_randblobs",
+            "3d_lowres_sparse_pixelwise",
             '3d_lowres_sparse_hybridsparsepatchesslices',
             '3d_lowres_sparse_sparsepatches',
             '3d_lowres_sparse_sliceOSfg10',
@@ -19,11 +19,11 @@ if __name__ == "__main__":
             '3d_lowres_sparse_blobs'
         ),
         994: (
-            # "3d_fullres",
-            # "3d_fullres_sparse_slicewise_10",
-            # "3d_fullres_sparse_slicewise_30",
-            # "3d_fullres_sparse_randblobs",
-            # "3d_fullres_sparse_pixelwise",
+            "3d_fullres",
+            "3d_fullres_sparse_slicewise_10",
+            "3d_fullres_sparse_slicewise_30",
+            "3d_fullres_sparse_randblobs",
+            "3d_fullres_sparse_pixelwise",
             '3d_fullres_sparse_hybridsparsepatchesslices',
             '3d_fullres_sparse_sparsepatches',
             '3d_fullres_sparse_sliceOSfg10',
@@ -46,9 +46,11 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetPlans',),
-        'nnUNetTrainerDA5': ('nnUNetPlans',),
-        'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
+        # 'nnUNetTrainer': ('nnUNetPlans',),
+        # 'nnUNetTrainerDA5': ('nnUNetPlans',),
+        # 'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
+        'nnUNetTrainerDA5_betterIgnoreSampling': ('nnUNetPlans',),
+        'nnUNetTrainer_betterIgnoreSampling': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
