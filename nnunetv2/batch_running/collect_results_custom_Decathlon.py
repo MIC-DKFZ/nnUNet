@@ -9,11 +9,11 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 
 
-def collect_results(trainers: dict, datasets: List, output_file: str):
-    results_dirs = (nnUNet_results, )
+def collect_results(trainers: dict, datasets: List, output_file: str,
+                    configurations=("2d", "3d_fullres", "3d_lowres", "3d_cascade_fullres"),
+                    folds=tuple(np.arange(5))):
+    results_dirs = (nnUNet_results,)
     datasets_names = [maybe_convert_to_dataset_name(i) for i in datasets]
-    configurations = ("2d", "3d_fullres", "3d_lowres", "3d_cascade_fullres")
-    folds = tuple(np.arange(5))
     with open(output_file, 'w') as f:
         for i, d in zip(datasets, datasets_names):
             for c in configurations:
@@ -26,15 +26,18 @@ def collect_results(trainers: dict, datasets: List, output_file: str):
                                 f.write("%s,%s,%s,%s,%s" % (d, c, module, plans, r))
                                 for fl in folds:
                                     expected_output_folder_fold = get_output_folder(d, module, plans, c, fl)
-                                    expected_summary_file = join(expected_output_folder_fold, "validation", "summary.json")
+                                    expected_summary_file = join(expected_output_folder_fold, "validation",
+                                                                 "summary.json")
                                     if not isfile(expected_summary_file):
                                         print('expected output file not found:', expected_summary_file)
                                         f.write(",")
+                                        results_folds.append(np.nan)
                                     else:
-                                        foreground_mean = load_summary_json(expected_summary_file)['foreground_mean']['Dice']
+                                        foreground_mean = load_summary_json(expected_summary_file)['foreground_mean'][
+                                            'Dice']
                                         results_folds.append(foreground_mean)
                                         f.write(",%02.4f" % foreground_mean)
-                                f.write(",%02.4f\n" % np.mean(results_folds))
+                                f.write(",%02.4f\n" % np.nanmean(results_folds))
 
 
 def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[str, ...], datasets, trainers):

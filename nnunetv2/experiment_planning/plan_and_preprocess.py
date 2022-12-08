@@ -141,7 +141,7 @@ def preprocess():
         dataset_name = convert_id_to_dataset_name(d)
         plans_file = join(nnUNet_preprocessed, dataset_name, args.plans_name + '.json')
         plans = load_json(plans_file)
-        for n, c in zip(args.np, args.c):
+        for n, c in zip(np, args.c):
             if c not in plans['configurations'].keys():
                 print(
                     f"INFO: Configuration {c} not found in plans file {args.plans_name + '.json'} of dataset {d}. Skipping.")

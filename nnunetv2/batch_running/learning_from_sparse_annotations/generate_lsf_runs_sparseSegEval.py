@@ -7,29 +7,39 @@ if __name__ == "__main__":
     # datasets for evaluation and future development
     configurations_all = {
         216: (
-            "3d_lowres",
-            "3d_lowres_sparse_slicewise_10",
-            "3d_lowres_sparse_slicewise_30",
-            "3d_lowres_sparse_randblobs",
-            "3d_lowres_sparse_pixelwise",
-            '3d_lowres_sparse_hybridsparsepatchesslices',
-            '3d_lowres_sparse_sparsepatches',
-            '3d_lowres_sparse_sliceOSfg10',
-            '3d_lowres_sparse_slicewiserand10',
-            '3d_lowres_sparse_blobs'
+            # "3d_lowres",
+            # "3d_lowres_sparse_slicewise_10",
+            # "3d_lowres_sparse_slicewise_30",
+            # "3d_lowres_sparse_randblobs",
+            # "3d_lowres_sparse_pixelwise",
+            # '3d_lowres_sparse_hybridsparsepatchesslices',
+            # '3d_lowres_sparse_sparsepatches',
+            # '3d_lowres_sparse_sliceOSfg10',
+            # '3d_lowres_sparse_slicewiserand10',
+            # '3d_lowres_sparse_blobs',
+            '3d_lowres_sparse_sparsepatches40p',
+            '3d_lowres_sparse_hybridsparsepatchesslices40p',
+            '3d_lowres_sparse_pixelwise10',
+            '3d_lowres_sparse_pixelwise5',
+            '3d_lowres_sparse_pixelwise30',
+            '3d_lowres_sparse_randOrthSlices3',
+            '3d_lowres_sparse_randOrthSlices5',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_10',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_5',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_3',
         ),
-        994: (
-            "3d_fullres",
-            "3d_fullres_sparse_slicewise_10",
-            "3d_fullres_sparse_slicewise_30",
-            "3d_fullres_sparse_randblobs",
-            "3d_fullres_sparse_pixelwise",
-            '3d_fullres_sparse_hybridsparsepatchesslices',
-            '3d_fullres_sparse_sparsepatches',
-            '3d_fullres_sparse_sliceOSfg10',
-            '3d_fullres_sparse_slicewiserand10',
-            '3d_fullres_sparse_blobs'
-        ),
+        # 994: (
+        #     "3d_fullres",
+        #     "3d_fullres_sparse_slicewise10",
+        #     "3d_fullres_sparse_slicewise30",
+        #     "3d_fullres_sparse_randblobs",
+        #     "3d_fullres_sparse_pixelwise",
+        #     '3d_fullres_sparse_hybridsparsepatchesslices',
+        #     '3d_fullres_sparse_sparsepatches',
+        #     '3d_fullres_sparse_sliceOSfg10',
+        #     '3d_fullres_sparse_slicewiserand10',
+        #     '3d_fullres_sparse_blobs'
+        # ),
     }
 
     num_gpus = 1
@@ -37,7 +47,7 @@ if __name__ == "__main__":
     resources = "-R \"tensorcore\""
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=33G"
     queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && "
+    preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && "
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
@@ -46,7 +56,7 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        # 'nnUNetTrainer': ('nnUNetPlans',),
+        'nnUNetTrainer': ('nnUNetPlans',),
         # 'nnUNetTrainerDA5': ('nnUNetPlans',),
         # 'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
         'nnUNetTrainerDA5_betterIgnoreSampling': ('nnUNetPlans',),

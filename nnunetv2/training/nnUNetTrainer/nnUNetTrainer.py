@@ -395,18 +395,27 @@ class nnUNetTrainer(object):
     def plot_network_architecture(self):
         if not self.is_ddp or self.local_rank == 0:
             try:
+                raise NotImplementedError('hiddenlayer no longer works and we do not have a viable alternative :-(')
                 from batchgenerators.utilities.file_and_folder_operations import join
-                import hiddenlayer as hl
-                raise NotImplementedError('Hiddenlayer does not work with pytorch 1.12.1 and produces a huge, '
-                                          'unreadable error message...')
-                # hiddenlayer does no longer work with pytorch 1.12.1 :-( Todo fix this
-                g = hl.build_graph(self.network,
-                                   torch.rand((1, self.num_input_channels,
-                                               *self.plans['configurations'][self.configuration]['patch_size']),
-                                              device=self.device),
-                                   transforms=None)
-                g.save(join(self.output_folder, "network_architecture.pdf"))
-                del g
+                from torchviz import make_dot
+                # not viable.
+                make_dot(tuple(self.network(torch.rand((1, self.num_input_channels,
+                                                        *self.plans['configurations'][self.configuration][
+                                                            'patch_size']),
+                                                       device=self.device)))).render(
+                    join(self.output_folder, "network_architecture.pdf"), format='pdf')
+                self.optimizer.zero_grad()
+
+                # broken.
+
+                # import hiddenlayer as hl
+                # g = hl.build_graph(self.network,
+                #                    torch.rand((1, self.num_input_channels,
+                #                                *self.plans['configurations'][self.configuration]['patch_size']),
+                #                               device=self.device),
+                #                    transforms=None)
+                # g.save(join(self.output_folder, "network_architecture.pdf"))
+                # del g
             except Exception as e:
                 self.print_to_log_file("Unable to plot network architecture:")
                 self.print_to_log_file(e)
@@ -1045,7 +1054,7 @@ class nnUNetTrainer(object):
                                                                   perform_everything_on_gpu=False,
                                                                   verbose=False,
                                                                   device=self.device).cpu().numpy()
-                
+
             if should_i_save_to_file(prediction, results, segmentation_export_pool):
                 np.save(output_filename_truncated + '.npy', prediction)
                 prediction_for_export = output_filename_truncated + '.npy'

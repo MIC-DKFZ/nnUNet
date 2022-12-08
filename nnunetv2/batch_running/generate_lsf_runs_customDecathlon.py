@@ -56,7 +56,7 @@ if __name__ == "__main__":
     resources = "-R \"tensorcore\""
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=33G"
     queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster2.sh && "
+    preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && "
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
