@@ -38,6 +38,7 @@ def extract_fingerprint():
         d = int(d)
 
         dataset_name = convert_id_to_dataset_name(d)
+        print(dataset_name)
 
         if args.verify_dataset_integrity:
             verify_dataset_integrity(join(nnUNet_raw, dataset_name), args.np)
@@ -86,6 +87,7 @@ def plan_experiment():
                                                      current_module="nnunetv2.experiment_planning")
     for d in args.d:
         d = int(d)
+        print(maybe_convert_to_dataset_name(d))
         kwargs = {}
         if args.overwrite_plans_name is not None:
             kwargs['plans_name'] = args.overwrite_plans_name
@@ -139,9 +141,11 @@ def preprocess():
     for d in args.d:
         d = int(d)
         dataset_name = convert_id_to_dataset_name(d)
+        print(f'{dataset_name}')
         plans_file = join(nnUNet_preprocessed, dataset_name, args.plans_name + '.json')
         plans = load_json(plans_file)
         for n, c in zip(np, args.c):
+            print(f'Configuration: {c}...')
             if c not in plans['configurations'].keys():
                 print(
                     f"INFO: Configuration {c} not found in plans file {args.plans_name + '.json'} of dataset {d}. Skipping.")
@@ -227,11 +231,12 @@ def plan_and_preprocess():
     fingerprint_extractor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
                                                               args.fpe,
                                                               current_module="nnunetv2.experiment_planning")
+    print("Fingerprint extraction...")
     for d in args.d:
         d = int(d)
 
         dataset_name = convert_id_to_dataset_name(d)
-        print(f"Extracting fingerprint for {dataset_name}")
+        print(f"{dataset_name}")
 
         if args.verify_dataset_integrity:
             verify_dataset_integrity(join(nnUNet_raw, dataset_name), args.npfp)
@@ -240,11 +245,16 @@ def plan_and_preprocess():
         fpe.run(overwrite_existing=args.clean)
 
     # experiment planning
+    print('Experiment planning...')
     experiment_planner_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
                                                      args.pl,
                                                      current_module="nnunetv2.experiment_planning")
     for d in args.d:
         d = int(d)
+
+        dataset_name = convert_id_to_dataset_name(d)
+        print(f'{dataset_name}')
+
         kwargs = {}
         if args.overwrite_plans_name is not None:
             kwargs['plans_name'] = args.overwrite_plans_name
@@ -259,6 +269,7 @@ def plan_and_preprocess():
         experiment_planner.plan_experiment()
 
     # preprocessing
+    print('Preprocessing...')
     if not args.no_pp:
         np = args.np
         if len(np) == 1:
@@ -271,11 +282,12 @@ def plan_and_preprocess():
         for d in args.d:
             d = int(d)
             dataset_name = convert_id_to_dataset_name(d)
+            print(d)
             plans_name = experiment_planner.plans_identifier
             plans_file = join(nnUNet_preprocessed, dataset_name, plans_name + '.json')
             plans = load_json(plans_file)
             for n, c in zip(np, args.c):
-                print(f'Preprocesing {dataset_name} configuration {c}')
+                print(f'Configuration: {c}...')
                 if c not in plans['configurations'].keys():
                     print(
                         f"INFO: Configuration {c} not found in plans file {plans_name + '.json'} of dataset {d}. "
