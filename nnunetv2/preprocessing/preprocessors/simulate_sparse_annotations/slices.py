@@ -31,6 +31,7 @@ class SparseSegSliceWiseOrth10Preprocessor(DefaultPreprocessor):
         return seg_new[None]
 
 
+# 3d_lowres_sparse_slicewiserand10
 class SparseSegSliceRandomOrth(DefaultPreprocessor):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
@@ -46,15 +47,15 @@ class SparseSegSliceRandomOrth(DefaultPreprocessor):
         x, y, z = seg.shape
         # x
         num_slices = max(1, round(x * percent_of_slices))
-        selected_slices = np.random.choice(x, num_slices)
+        selected_slices = np.random.choice(x, num_slices, replace=False)
         seg_new[selected_slices] = seg[selected_slices]
         # y
         num_slices = max(1, round(y * percent_of_slices))
-        selected_slices = np.random.choice(y, num_slices)
+        selected_slices = np.random.choice(y, num_slices, replace=False)
         seg_new[:, selected_slices] = seg[:, selected_slices]
         # z
         num_slices = max(1, round(z * percent_of_slices))
-        selected_slices = np.random.choice(z, num_slices)
+        selected_slices = np.random.choice(z, num_slices, replace=False)
         seg_new[:, :, selected_slices] = seg[:, :, selected_slices]
         return seg_new[None]
 
@@ -111,15 +112,15 @@ class SparseSegSliceRandomSmartOrth(DefaultPreprocessor):
         x, y, z = seg.shape
         # x
         num_slices = min(1, round(x * percent_of_slices) - num_orth_slices_taken)
-        selected_slices = np.random.choice(x, num_slices)
+        selected_slices = np.random.choice(x, num_slices, replace=False)
         seg_new[selected_slices] = seg[selected_slices]
         # y
         num_slices = min(1, round(y * percent_of_slices) - num_orth_slices_taken)
-        selected_slices = np.random.choice(y, num_slices)
+        selected_slices = np.random.choice(y, num_slices, replace=False)
         seg_new[:, selected_slices] = seg[:, selected_slices]
         # z
         num_slices = min(1, round(z * percent_of_slices) - num_orth_slices_taken)
-        selected_slices = np.random.choice(z, num_slices)
+        selected_slices = np.random.choice(z, num_slices, replace=False)
         seg_new[:, :, selected_slices] = seg[:, :, selected_slices]
         return seg_new[None]
 
@@ -151,15 +152,15 @@ class SparseSegSliceRandomSmart2Orth(DefaultPreprocessor):
         x, y, z = seg.shape
         # x
         num_slices = max(1, round(x * percent_of_slices) - num_orth_slices_taken)
-        selected_slices = np.random.choice(x, num_slices)
+        selected_slices = np.random.choice(x, num_slices, replace=False)
         seg_new[selected_slices] = seg[selected_slices]
         # y
         num_slices = max(1, round(y * percent_of_slices) - num_orth_slices_taken)
-        selected_slices = np.random.choice(y, num_slices)
+        selected_slices = np.random.choice(y, num_slices, replace=False)
         seg_new[:, selected_slices] = seg[:, selected_slices]
         # z
         num_slices = max(1, round(z * percent_of_slices) - num_orth_slices_taken)
-        selected_slices = np.random.choice(z, num_slices)
+        selected_slices = np.random.choice(z, num_slices, replace=False)
         seg_new[:, :, selected_slices] = seg[:, :, selected_slices]
         return seg_new[None]
 
@@ -203,15 +204,15 @@ class RandomlyOrientedSlicesWithOversampling(DefaultPreprocessor):
         x, y, z = seg.shape
         # x
         num_slices = max(1, target_num_slices_per_axis[0] - taken_num_slices[0])
-        selected_slices = np.random.choice(x, num_slices)
+        selected_slices = np.random.choice(x, num_slices, replace=False)
         seg_new[selected_slices] = seg[selected_slices]
         # y
         num_slices = max(1, target_num_slices_per_axis[1] - taken_num_slices[1])
-        selected_slices = np.random.choice(y, num_slices)
+        selected_slices = np.random.choice(y, num_slices, replace=False)
         seg_new[:, selected_slices] = seg[:, selected_slices]
         # z
         num_slices = max(1, target_num_slices_per_axis[2] - taken_num_slices[2])
-        selected_slices = np.random.choice(z, num_slices)
+        selected_slices = np.random.choice(z, num_slices, replace=False)
         seg_new[:, :, selected_slices] = seg[:, :, selected_slices]
         return seg_new[None]
 
