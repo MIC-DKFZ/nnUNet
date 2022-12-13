@@ -77,6 +77,8 @@ class Dc_BCE_clDice_loss(nn.Module):
                  iters: int = 3, smooth_clDice: float = 1., ignore_label=None, cldice_slicewise: bool = False):
         super().__init__()
         "no support for ignore label. Also no region based training"
+        raise NotImplementedError('This implementation is shit, dont use it! Make your own')
+
         if ignore_label is not None:
             ce_kwargs['ignore_index'] = ignore_label
 

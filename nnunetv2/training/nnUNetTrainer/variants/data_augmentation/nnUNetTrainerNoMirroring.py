@@ -17,7 +17,7 @@ class nnUNetTrainer_onlyMirror01(nnUNetTrainer):
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
         rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
             super().configure_rotation_dummyDA_mirroring_and_inital_patch_size()
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
         if dim == 2:
             mirror_axes = (0, )

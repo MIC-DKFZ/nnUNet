@@ -16,7 +16,7 @@ from nnunetv2.utilities.helpers import softmax_helper_dim1
 
 class nnUNetTrainerDiceLoss(nnUNetTrainer):
     def _build_loss(self):
-        loss = SoftDiceLoss(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = SoftDiceLoss(**{'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
                             apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
 
@@ -35,7 +35,7 @@ class nnUNetTrainerDiceLoss(nnUNetTrainer):
 
 class nnUNetTrainerDiceLossClip1(nnUNetTrainer):
     def _build_loss(self):
-        loss = SoftDiceLoss(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = SoftDiceLoss(**{'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
                             clip_tp=1, apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
 
@@ -54,7 +54,7 @@ class nnUNetTrainerDiceLossClip1(nnUNetTrainer):
 
 class nnUNetTrainerDiceLossLS01(nnUNetTrainer):
     def _build_loss(self):
-        loss = SoftDiceLoss(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = SoftDiceLoss(**{'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp,
                                'label_smoothing': 0.1},
                             apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
@@ -75,7 +75,7 @@ class nnUNetTrainerDiceLossLS01(nnUNetTrainer):
 class nnUNetTrainerDiceCELossLS01(nnUNetTrainer):
     def _build_loss(self):
         assert not self.label_manager.has_regions, 'regions aint working here for now'
-        loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp, 'label_smoothing': 0.1},
                               {'label_smoothing': 0.1},
                               weight_ce=1, weight_dice=1,
@@ -98,11 +98,11 @@ class nnUNetTrainerDiceCELossClip1(nnUNetTrainer):
     def _build_loss(self):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp, 'clip_tp': 1},
                                    use_ignore_label=self.label_manager.ignore_label is not None)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp, 'clip_tp': 1},
                                   {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
@@ -173,7 +173,7 @@ class SoftDiceLoss2(nn.Module):
 
 class nnUNetTrainerDiceLossClip10_2(nnUNetTrainer):
     def _build_loss(self):
-        loss = SoftDiceLoss2(**{'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = SoftDiceLoss2(**{'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
                             clip_tp=10, apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
 
@@ -195,11 +195,11 @@ class nnUNetTrainerDiceCELoss_noSmooth(nnUNetTrainer):
         # set smooth to 0
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 0, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 0, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
 
@@ -222,11 +222,11 @@ class nnUNetTrainer_onlyMirror01_noSmooth(nnUNetTrainer_onlyMirror01):
         # set smooth to 0
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 0, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 0, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
 

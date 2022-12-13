@@ -26,7 +26,7 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
         return super().get_plain_dataloaders(
-            initial_patch_size=self.plans['configurations'][self.configuration]['patch_size'],
+            initial_patch_size=self.configuration_manager.patch_size,
             dim=dim
         )
 

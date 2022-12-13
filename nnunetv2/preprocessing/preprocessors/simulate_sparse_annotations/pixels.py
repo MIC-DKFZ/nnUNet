@@ -1,6 +1,6 @@
 import numpy as np
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
 class SparseSegPixelWisePreprocessor(DefaultPreprocessor):
@@ -8,9 +8,10 @@ class SparseSegPixelWisePreprocessor(DefaultPreprocessor):
         super().__init__(verbose)
         self.annotated_pixels_percent = 0.03  # 3%
 
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
         use_mask = np.random.random(

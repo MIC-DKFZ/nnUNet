@@ -2,14 +2,15 @@ import numpy as np
 
 from nnunetv2.evaluation.evaluate_predictions import region_or_label_to_mask
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
 
 
 class SparseSegSliceWiseOrth30Preprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
         every_nth_slice = 30
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
         seg_new[:, :, ::every_nth_slice] = seg[:, :, ::every_nth_slice]
@@ -19,10 +20,11 @@ class SparseSegSliceWiseOrth30Preprocessor(DefaultPreprocessor):
 
 
 class SparseSegSliceWiseOrth10Preprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
         every_nth_slice = 10
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
         seg_new[:, :, ::every_nth_slice] = seg[:, :, ::every_nth_slice]
@@ -37,11 +39,12 @@ class SparseSegSliceRandomOrth(DefaultPreprocessor):
         super().__init__(verbose)
         self.percent_of_slices = 0.03
 
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str, percent_of_slices: float = None) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager, percent_of_slices: float = None) -> np.ndarray:
         if percent_of_slices is None:
             percent_of_slices = self.percent_of_slices
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
         x, y, z = seg.shape
@@ -77,12 +80,14 @@ class SparseSegSliceRandomSmartOrth(DefaultPreprocessor):
     WE DO NOT USE THIS
     because always picking the set of orth slices that has the most pixel of a class may case some areas of the object never to be seen
     """
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         # for each class, take one set of orthogonal slices where the most pixels of this class will be visible.
         # then take the rest of slices randomly (min 1 per axis)
 
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
 
@@ -126,18 +131,20 @@ class SparseSegSliceRandomSmartOrth(DefaultPreprocessor):
 
 
 class SparseSegSliceRandomSmart2Orth(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         # for each class, take one set of orthogonal slices at a random location
         # then take the rest of slices randomly (min 1 per axis)
 
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
 
-        locs = DefaultPreprocessor._sample_foreground_locations(seg,
-                                                                label_manager.foreground_labels if not label_manager.has_regions else label_manager.foreground_regions,
-                                                                seed=None, verbose=False)
+        locs = DefaultPreprocessor._sample_foreground_locations(
+            seg,
+            label_manager.foreground_labels if not label_manager.has_regions else label_manager.foreground_regions,
+            seed=None, verbose=False)
         # pick random pixel belonging to a class
         num_orth_slices_taken = 0
         for c in locs:
@@ -170,21 +177,24 @@ class RandomlyOrientedSlicesWithOversampling(DefaultPreprocessor):
         super().__init__(verbose)
         self.target_percent_annotated_slices_per_axis = 0.03  # 10% annotation total
 
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         # for each class, take one set of orthogonal slices at a random location
         # then take the rest of slices randomly (min 1 per axis)
 
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         seg_new = np.ones_like(seg) * label_manager.ignore_label
 
         target_num_slices_per_axis = [int(round(self.target_percent_annotated_slices_per_axis * i)) for i in seg.shape]
         taken_num_slices = [0] * len(seg.shape)
 
-        locs = DefaultPreprocessor._sample_foreground_locations(seg,
-                                                                label_manager.foreground_labels if not label_manager.has_regions else label_manager.foreground_regions,
-                                                                seed=None, verbose=False)
+        locs = DefaultPreprocessor._sample_foreground_locations(
+            seg,
+            label_manager.foreground_labels if not label_manager.has_regions else label_manager.foreground_regions,
+            seed=None, verbose=False)
+
         for c in locs:
             if len(locs[c]) > 0:
                 # on average one slice per class
@@ -227,4 +237,3 @@ class RandomlyOrientedSlicesWithOversampling3(RandomlyOrientedSlicesWithOversamp
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
         self.target_percent_annotated_slices_per_axis = 0.01
-

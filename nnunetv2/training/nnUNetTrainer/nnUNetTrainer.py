@@ -5,7 +5,6 @@ import shutil
 import sys
 from copy import deepcopy
 from datetime import datetime
-from multiprocessing import Pool
 from time import time, sleep
 from typing import Union, Tuple, List
 
@@ -20,11 +19,8 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
-from torch.cuda import device_count
-
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
-from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.inference.export_prediction import export_prediction_from_softmax, resample_and_save
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
@@ -45,8 +41,8 @@ from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
-from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
@@ -54,10 +50,11 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from sklearn.model_selection import KFold
 from torch import autocast, nn
 from torch import distributed as dist
+from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -102,9 +99,10 @@ class nnUNetTrainer(object):
             self.my_init_kwargs[k] = locals()[k]
 
         ###  Saving all the init args into class variables for later access
-        self.plans = plans
+        self.plans_manager = PlansManager(plans)
+        self.configuration_manager = self.plans_manager.get_configuration(configuration)
+        self.configuration_name = configuration
         self.dataset_json = dataset_json
-        self.configuration = configuration
         self.fold = fold
         self.unpack_dataset = unpack_dataset
         # autograd needs this
@@ -112,24 +110,24 @@ class nnUNetTrainer(object):
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
-        self.preprocessed_dataset_folder_base = join(nnUNet_preprocessed, plans['dataset_name']) \
+        self.preprocessed_dataset_folder_base = join(nnUNet_preprocessed, self.plans_manager.dataset_name) \
             if nnUNet_preprocessed is not None else None
-        self.output_folder_base = join(nnUNet_results, plans['dataset_name'],
-                                       self.__class__.__name__ + '__' + plans['plans_name'] + "__" + configuration) \
+        self.output_folder_base = join(nnUNet_results, self.plans_manager.dataset_name,
+                                       self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + configuration) \
             if nnUNet_results is not None else None
         self.output_folder = join(self.output_folder_base, f'fold_{fold}')
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
-                                                self.plans['configurations'][self.configuration]["data_identifier"])
+                                                self.configuration_manager.data_identifier)
         # unlike the previous nnunet folder_with_segs_from_previous_stage is now part of the plans. For now it has to
         # be a different configuration in the same plans
         # IMPORTANT! the mapping must be bijective, so lowres must point to fullres and vice versa (using
         # "previous_stage" and "next_stage"). Otherwise it won't work!
-        self.is_cascaded = 'previous_stage' in plans['configurations'][configuration].keys()
+        self.is_cascaded = self.configuration_manager.previous_stage_name is not None
         self.folder_with_segs_from_previous_stage = \
-            join(nnUNet_results, plans['dataset_name'],
-                 self.__class__.__name__ + '__' + plans['plans_name'] + "__" +
-                 plans['configurations'][configuration]['previous_stage'], 'predicted_next_stage', self.configuration) \
+            join(nnUNet_results, self.plans_manager.dataset_name,
+                 self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" +
+                 self.configuration_manager.previous_stage_name, 'predicted_next_stage', self.configuration_name) \
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with
@@ -142,7 +140,7 @@ class nnUNetTrainer(object):
         self.current_epoch = 0
 
         ### Dealing with labels/regions
-        self.label_manager = get_labelmanager(self.plans, self.dataset_json)
+        self.label_manager = self.plans_manager.get_label_manager(dataset_json)
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
 
@@ -183,9 +181,11 @@ class nnUNetTrainer(object):
 
     def initialize(self):
         if not self.was_initialized:
-            self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
+            self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
+                                                                   self.dataset_json)
 
-            self.network = self.build_network_architecture(self.plans, self.dataset_json, self.configuration,
+            self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
+                                                           self.configuration_manager,
                                                            self.num_input_channels,
                                                            enable_deep_supervision=True).to(self.device)
 
@@ -202,7 +202,10 @@ class nnUNetTrainer(object):
                                "That should not happen.")
 
     @staticmethod
-    def build_network_architecture(plans, dataset_json, configuration, num_input_channels,
+    def build_network_architecture(plans_manager: PlansManager,
+                                   dataset_json,
+                                   configuration_manager: ConfigurationManager,
+                                   num_input_channels,
                                    enable_deep_supervision: bool = True) -> nn.Module:
         """
         his is where you build the architecture according to the plans. There is no obligation to use
@@ -215,18 +218,18 @@ class nnUNetTrainer(object):
         training, so if you change the network architecture during training by deriving a new trainer class then
         inference will know about it).
         """
-        return get_network_from_plans(plans, dataset_json, configuration,
+        return get_network_from_plans(plans_manager, dataset_json, configuration_manager,
                                       num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
-            self.plans['configurations'][self.configuration]['pool_op_kernel_sizes']), axis=0))[:-1]
+            self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
         return deep_supervision_scales
 
     def _set_batch_size_and_oversample(self):
         if not self.is_ddp:
             # set batch size to what the plan says, leave oversample untouched
-            self.batch_size = self.plans['configurations'][self.configuration]['batch_size']
+            self.batch_size = self.configuration_manager.batch_size
         else:
             # batch size is distributed over DDP workers and we need to change oversample_percent for each worker
             batch_sizes = []
@@ -235,7 +238,7 @@ class nnUNetTrainer(object):
             world_size = dist.get_world_size()
             my_rank = dist.get_rank()
 
-            global_batch_size = self.plans['configurations'][self.configuration]['batch_size']
+            global_batch_size = self.configuration_manager.batch_size
             assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
                                                     'GPUs... Duh.'
 
@@ -273,11 +276,11 @@ class nnUNetTrainer(object):
     def _build_loss(self):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
 
@@ -297,14 +300,13 @@ class nnUNetTrainer(object):
         """
         This function is stupid and certainly one of the weakest spots of this implementation. Not entirely sure how we can fix it.
         """
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
         # todo rotation should be defined dynamically based on patch size (more isotropic patch sizes = more rotation)
         if dim == 2:
             do_dummy_2d_data_aug = False
             # todo revisit this parametrization
-            if max(self.plans['configurations'][self.configuration]['patch_size']) / \
-                    min(self.plans['configurations'][self.configuration]['patch_size']) > 1.5:
+            if max(patch_size) / min(patch_size) > 1.5:
                 rotation_for_DA = {
                     'x': (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
                     'y': (0, 0),
@@ -379,11 +381,10 @@ class nnUNetTrainer(object):
 
     def print_plans(self):
         if not self.is_ddp or self.local_rank == 0:
-            dct = deepcopy(self.plans)
-            config = dct['configurations'][self.configuration]
+            dct = deepcopy(self.plans_manager.plans)
             del dct['configurations']
-            self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n', config,
-                                   '\n')
+            self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n',
+                                   self.configuration_manager, '\n', add_timestamp=False)
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
@@ -400,8 +401,7 @@ class nnUNetTrainer(object):
                 from torchviz import make_dot
                 # not viable.
                 make_dot(tuple(self.network(torch.rand((1, self.num_input_channels,
-                                                        *self.plans['configurations'][self.configuration][
-                                                            'patch_size']),
+                                                        *self.configuration_manager.patch_size),
                                                        device=self.device)))).render(
                     join(self.output_folder, "network_architecture.pdf"), format='pdf')
                 self.optimizer.zero_grad()
@@ -411,7 +411,7 @@ class nnUNetTrainer(object):
                 # import hiddenlayer as hl
                 # g = hl.build_graph(self.network,
                 #                    torch.rand((1, self.num_input_channels,
-                #                                *self.plans['configurations'][self.configuration]['patch_size']),
+                #                                *self.configuration_manager.patch_size),
                 #                               device=self.device),
                 #                    transforms=None)
                 # g.save(join(self.output_folder, "network_architecture.pdf"))
@@ -506,7 +506,7 @@ class nnUNetTrainer(object):
     def get_dataloaders(self):
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
@@ -520,7 +520,7 @@ class nnUNetTrainer(object):
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=1,
-            use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
@@ -552,26 +552,26 @@ class nnUNetTrainer(object):
         if dim == 2:
             dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
                                        initial_patch_size,
-                                       self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.configuration_manager.patch_size,
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None)
             dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
-                                        self.plans['configurations'][self.configuration]['patch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None)
         else:
             dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
                                        initial_patch_size,
-                                       self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.configuration_manager.patch_size,
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None)
             dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
-                                        self.plans['configurations'][self.configuration]['patch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None)
@@ -741,7 +741,7 @@ class nnUNetTrainer(object):
         self.dataloader_train, self.dataloader_val = self.get_dataloaders()
 
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
-        save_json(self.plans, join(self.output_folder_base, 'plans.json'))
+        save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'))
         save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'))
 
         # we don't really need the fingerprint but its still handy to have it with the others
@@ -998,7 +998,7 @@ class nnUNetTrainer(object):
         num_seg_heads = self.label_manager.num_segmentation_heads
 
         inference_gaussian = torch.from_numpy(
-            compute_gaussian(self.plans['configurations'][self.configuration]['patch_size'], sigma_scale=1. / 8))
+            compute_gaussian(self.configuration_manager.patch_size, sigma_scale=1. / 8))
         # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
         segmentation_export_pool = multiprocessing.get_context('spawn').Pool(default_num_processes)
         validation_output_folder = join(self.output_folder, 'validation')
@@ -1013,9 +1013,8 @@ class nnUNetTrainer(object):
         dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
                                     folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
 
-        next_stages = self.plans['configurations'][self.configuration].get('next_stage')
-        if isinstance(next_stages, str):
-            next_stages = [next_stages]
+        next_stages = self.configuration_manager.next_stage_names
+
         if next_stages is not None:
             _ = [maybe_mkdir_p(join(self.output_folder_base, 'predicted_next_stage', n)) for n in next_stages]
 
@@ -1032,9 +1031,7 @@ class nnUNetTrainer(object):
 
             try:
                 prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
-                                                                  tile_size=
-                                                                  self.plans['configurations'][self.configuration][
-                                                                      'patch_size'],
+                                                                  tile_size=self.configuration_manager.patch_size,
                                                                   mirror_axes=self.inference_allowed_mirroring_axes,
                                                                   tile_step_size=0.5,
                                                                   use_gaussian=True,
@@ -1044,9 +1041,7 @@ class nnUNetTrainer(object):
                                                                   device=self.device).cpu().numpy()
             except RuntimeError:
                 prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
-                                                                  tile_size=
-                                                                  self.plans['configurations'][self.configuration][
-                                                                      'patch_size'],
+                                                                  tile_size=self.configuration_manager.patch_size,
                                                                   mirror_axes=self.inference_allowed_mirroring_axes,
                                                                   tile_step_size=0.5,
                                                                   use_gaussian=True,
@@ -1065,8 +1060,8 @@ class nnUNetTrainer(object):
             results.append(
                 segmentation_export_pool.starmap_async(
                     export_prediction_from_softmax, (
-                        (prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-                         output_filename_truncated, save_probabilities),
+                        (prediction_for_export, properties, self.configuration_manager, self.plans_manager,
+                         self.dataset_json, output_filename_truncated, save_probabilities),
                     )
                 )
             )
@@ -1077,8 +1072,9 @@ class nnUNetTrainer(object):
             # if needed, export the softmax prediction for the next stage
             if next_stages is not None:
                 for n in next_stages:
-                    expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans['dataset_name'],
-                                                        self.plans['configurations'][n]['data_identifier'])
+                    next_stage_config_manager = self.plans_manager.get_configuration(n)
+                    expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans_manager.dataset_name,
+                                                        next_stage_config_manager.data_identifier)
 
                     try:
                         # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
@@ -1086,7 +1082,8 @@ class nnUNetTrainer(object):
                         d, s, p = tmp.load_case(k)
                     except FileNotFoundError:
                         self.print_to_log_file(
-                            f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! Run the preprocessing for this configuration!")
+                            f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! "
+                            f"Run the preprocessing for this configuration first!")
                         continue
 
                     target_shape = d.shape[1:]
@@ -1102,7 +1099,8 @@ class nnUNetTrainer(object):
                     #                   self.dataset_json, n)
                     results.append(segmentation_export_pool.starmap_async(
                         resample_and_save, (
-                            (prediction_for_export, target_shape, output_file, self.plans, self.configuration,
+                            (prediction_for_export, target_shape, output_file, self.plans_manager,
+                             self.configuration_manager,
                              properties,
                              self.dataset_json, n),
                         )
@@ -1120,7 +1118,7 @@ class nnUNetTrainer(object):
             compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
                                       validation_output_folder,
                                       join(validation_output_folder, 'summary.json'),
-                                      recursive_find_reader_writer_by_name(self.plans["image_reader_writer"])(),
+                                      self.plans_manager.image_reader_writer_class(),
                                       self.dataset_json["file_ending"],
                                       self.label_manager.foreground_regions if self.label_manager.has_regions else
                                       self.label_manager.foreground_labels,

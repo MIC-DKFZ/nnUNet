@@ -159,7 +159,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     missing = [i for j, i in enumerate(training_identifiers) if not labels_present[j]]
     assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
 
-    # no plans exist yet, so we can't use get_labelmanager and gotta roll with the default. It's unlikely to cause
+    # no plans exist yet, so we can't use PlansManager and gotta roll with the default. It's unlikely to cause
     # problems anyway
     label_manager = LabelManager(dataset_json['labels'], regions_class_order=dataset_json.get('regions_class_order'))
     expected_labels = label_manager.all_labels

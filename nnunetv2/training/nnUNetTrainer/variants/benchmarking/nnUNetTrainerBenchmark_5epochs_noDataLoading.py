@@ -1,7 +1,5 @@
 import torch
-from batchgenerators.utilities.file_and_folder_operations import save_json, join, isfile, load_json
 
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.training.nnUNetTrainer.variants.benchmarking.nnUNetTrainerBenchmark_5epochs import \
     nnUNetTrainerBenchmark_5epochs
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
@@ -12,8 +10,9 @@ class nnUNetTrainerBenchmark_5epochs_noDataLoading(nnUNetTrainerBenchmark_5epoch
                  device: str = 'cuda'):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self._set_batch_size_and_oversample()
-        num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
+                                                          self.dataset_json)
+        patch_size = self.configuration_manager.patch_size
         dummy_data = torch.rand((self.batch_size, num_input_channels, *patch_size), device=self.device)
         dummy_target = [
             torch.round(

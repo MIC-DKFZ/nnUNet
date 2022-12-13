@@ -2,23 +2,25 @@ import numpy as np
 from acvl_utils.morphology.morphology_helper import generate_ball
 
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
 class SparseSegBlobsPreprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         labeled_fraction = 0.03
         num_foreground_spheres_per_class = 1
 
-        median_patient_size = plans['configurations'][configuration]["median_patient_size_in_voxels"]
-        spacing = plans['configurations'][configuration]["spacing"]
+        median_patient_size = configuration_manager.median_patient_size_in_voxels
+        spacing = configuration_manager.spacing
 
         if len(median_patient_size) == 2:
             try:
-                median_patient_size = plans['configurations']['3d_fullres']["median_patient_size_in_voxels"]
-                spacing = plans['configurations']['3d_fullres']["spacing"]
+                fullres_config = plans_manager.get_configuration('3d_fullres')
+                median_patient_size = fullres_config.median_patient_size_in_voxels
+                spacing = fullres_config.spacing
             except KeyError:
                 raise RuntimeError('This preprocessor does not work on 2D datasets')
 
@@ -81,18 +83,20 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
 
 
 class SparseSegRandomBlobsPreprocessor(DefaultPreprocessor):
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         labeled_fraction = 0.03
 
-        median_patient_size = plans['configurations'][configuration]["median_patient_size_in_voxels"]
-        spacing = plans['configurations'][configuration]["spacing"]
+        median_patient_size = configuration_manager.median_patient_size_in_voxels
+        spacing = configuration_manager.spacing
 
         if len(median_patient_size) == 2:
             try:
-                median_patient_size = plans['configurations']['3d_fullres']["median_patient_size_in_voxels"]
-                spacing = plans['configurations']['3d_fullres']["spacing"]
+                fullres_config = plans_manager.get_configuration('3d_fullres')
+                median_patient_size = fullres_config.median_patient_size_in_voxels
+                spacing = fullres_config.spacing
             except KeyError:
                 raise RuntimeError('This preprocessor does not work on 2D datasets')
 

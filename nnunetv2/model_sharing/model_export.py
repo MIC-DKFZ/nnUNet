@@ -1,14 +1,9 @@
-import os
 import zipfile
-from typing import Tuple
 
-from batchgenerators.utilities.file_and_folder_operations import isdir, join, isfile, subdirs
 from nnunetv2.utilities.file_path_utilities import *
-from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.paths import nnUNet_results
 
 
-def export_pretrained_model(dataset_name_or_id: str, output_file: str,
+def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: str,
                             configurations: Tuple[str] = ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
                             trainer: str = 'nnUNetTrainer',
                             plans_identifier: str = 'nnUNetPlans',
@@ -24,7 +19,7 @@ def export_pretrained_model(dataset_name_or_id: str, output_file: str,
 
             if not isdir(trainer_output_dir):
                 if strict:
-                    raise RuntimeError("Task %s is missing the model %s" % (dataset_name_or_id, m))
+                    raise RuntimeError(f"{dataset_name} is missing the trained model of configuration {c}")
                 else:
                     continue
 

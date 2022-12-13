@@ -31,28 +31,32 @@ class anon_nnUNetTrainer1(nnUNetTrainerDA5):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         if dim == 2:
-            dl_tr = nnUNetDataLoader2D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_tr = nnUNetDataLoader2D(dataset_tr,
+                                       self.batch_size,
                                        initial_patch_size,
-                                       self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.configuration_manager.patch_size,
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
-            dl_val = nnUNetDataLoader2D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader2D(dataset_val,
+                                        self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
         else:
-            dl_tr = nnUNetDataLoader3D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_tr = nnUNetDataLoader3D(dataset_tr,
+                                       self.batch_size,
                                        initial_patch_size,
-                                       self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.configuration_manager.patch_size,
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
-            dl_val = nnUNetDataLoader3D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader3D(dataset_val,
+                                        self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
@@ -72,7 +76,7 @@ class anon_nnUNetTrainer1_dord1_sord1(anon_nnUNetTrainer1):
         """
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
@@ -86,7 +90,7 @@ class anon_nnUNetTrainer1_dord1_sord1(anon_nnUNetTrainer1):
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=1, order_resampling_seg=1,
-            use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
@@ -121,7 +125,7 @@ class anon_nnUNetTrainer1_dord0_sord0(anon_nnUNetTrainer1):
         """
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
@@ -135,7 +139,7 @@ class anon_nnUNetTrainer1_dord0_sord0(anon_nnUNetTrainer1):
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=0, order_resampling_seg=0,
-            use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
@@ -181,28 +185,32 @@ class anon_nnUNetTrainer2(nnUNetTrainerDA5):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         if dim == 2:
-            dl_tr = nnUNetDataLoader2D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_tr = nnUNetDataLoader2D(dataset_tr,
+                                       self.batch_size,
                                        initial_patch_size,
-                                       self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.configuration_manager.patch_size,
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
-            dl_val = nnUNetDataLoader2D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader2D(dataset_val,
+                                        self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
         else:
-            dl_tr = nnUNetDataLoader3D(dataset_tr, self.plans['configurations'][self.configuration]['batch_size'],
+            dl_tr = nnUNetDataLoader3D(dataset_tr,
+                                       self.batch_size,
                                        initial_patch_size,
-                                       self.plans['configurations'][self.configuration]['patch_size'],
+                                       self.configuration_manager.patch_size,
                                        self.label_manager,
                                        oversample_foreground_percent=self.oversample_foreground_percent,
                                        sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
-            dl_val = nnUNetDataLoader3D(dataset_val, self.plans['configurations'][self.configuration]['batch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
-                                        self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader3D(dataset_val,
+                                        self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
                                         self.label_manager,
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)

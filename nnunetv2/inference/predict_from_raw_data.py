@@ -4,9 +4,9 @@ import os
 import shutil
 import traceback
 from copy import deepcopy
-from multiprocessing import Pool
 from typing import Tuple, Union, List
 
+import nnunetv2
 import numpy as np
 import torch
 from batchgenerators.dataloading.data_loader import DataLoader
@@ -14,32 +14,27 @@ from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAu
 from batchgenerators.transforms.utility_transforms import NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs, \
     save_json
-from torch.nn import functional as F
-
-import nnunetv2
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction_from_softmax
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
-from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.file_path_utilities import get_output_folder, should_i_save_to_file
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, convert_labelmap_to_one_hot
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
 class PreprocessAdapter(DataLoader):
     def __init__(self, list_of_lists: List[List[str]], list_of_segs_from_prev_stage_files: Union[List[None], List[str]],
                  preprocessor: DefaultPreprocessor, output_filenames_truncated: List[str],
-                 plans: dict, dataset_json: dict, configuration: str,
+                 plans_manager: PlansManager, dataset_json: dict, configuration_manager: ConfigurationManager,
                  num_threads_in_multithreaded: int = 1):
-        self.preprocessor, self.plans, self.configuration, self.dataset_json = \
-            preprocessor, plans, configuration, dataset_json
+        self.preprocessor, self.plans_manager, self.configuration_manager, self.dataset_json = \
+            preprocessor, plans_manager, configuration_manager, dataset_json
 
-        self.label_manager = get_labelmanager(plans, dataset_json)
+        self.label_manager = plans_manager.get_label_manager(dataset_json)
 
         super().__init__(list(zip(list_of_lists, list_of_segs_from_prev_stage_files, output_filenames_truncated)),
                          1, num_threads_in_multithreaded,
@@ -56,7 +51,8 @@ class PreprocessAdapter(DataLoader):
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
-        data, seg, data_properites = self.preprocessor.run_case(files, seg_prev_stage, self.plans, self.configuration,
+        data, seg, data_properites = self.preprocessor.run_case(files, seg_prev_stage, self.plans_manager,
+                                                                self.configuration_manager,
                                                                 self.dataset_json)
         if seg_prev_stage is not None:
             seg_onehot = convert_labelmap_to_one_hot(seg[0], self.label_manager.foreground_labels, data.dtype)
@@ -75,6 +71,7 @@ def load_what_we_need(model_training_output_dir, use_folds, checkpoint_name):
     # best method so we leave things as they are for the moment.
     dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
     plans = load_json(join(model_training_output_dir, 'plans.json'))
+    plans_manager = PlansManager(plans)
 
     if isinstance(use_folds, str):
         use_folds = [use_folds]
@@ -92,12 +89,13 @@ def load_what_we_need(model_training_output_dir, use_folds, checkpoint_name):
 
         parameters.append(checkpoint['network_weights'])
 
+    configuration_manager = plans_manager.get_configuration(configuration_name)
     # restore network
-    num_input_channels = determine_num_input_channels(plans, configuration_name, dataset_json)
+    num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_json)
     trainer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
     network = trainer_class.build_network_architecture(plans, dataset_json, configuration_name, num_input_channels, enable_deep_supervision=False)
-    return parameters, configuration_name, inference_allowed_mirroring_axes, plans, dataset_json, network
+    return parameters, configuration_manager, inference_allowed_mirroring_axes, plans_manager, dataset_json, network
 
 
 def auto_detect_available_folds(model_training_output_dir, checkpoint_name):
@@ -144,7 +142,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         use_folds = auto_detect_available_folds(model_training_output_dir, checkpoint_name)
 
     # load all the stuff we need from the model_training_output_dir
-    parameters, configuration_name, inference_allowed_mirroring_axes, plans, dataset_json, network = \
+    parameters, configuration_manager, inference_allowed_mirroring_axes, plans_manager, dataset_json, network = \
         load_what_we_need(model_training_output_dir, use_folds, checkpoint_name)
 
     # sort out input and output filenames
@@ -173,25 +171,25 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         # caseids = [caseids[i] for i in not_existing_indices]
 
     # placing this into a separate function doesnt make sense because it needs so many input variables...
-    preprocessor = get_preprocessor_class_from_plans(plans, configuration_name)()
+    preprocessor = configuration_manager.preprocessor_class()
     # hijack batchgenerators, yo
     # we use the multiprocessing of the batchgenerators dataloader to handle all the background worker stuff. This
     # way we don't have to reinvent the wheel here.
     num_processes = max(1, min(num_processes_preprocessing, len(list_of_lists_or_source_folder)))
     ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
-                            output_filename_truncated, plans, dataset_json, configuration_name,
-                            num_processes)
+                            output_filename_truncated, plans_manager, dataset_json,
+                            configuration_manager, num_processes)
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
     # precompute gaussian
     inference_gaussian = torch.from_numpy(
-        compute_gaussian(plans['configurations'][configuration_name]['patch_size'])).half()
+        compute_gaussian(configuration_manager.patch_size)).half()
     if perform_everything_on_gpu:
         inference_gaussian = inference_gaussian.to('cuda:0')
 
     # num seg heads is needed because we need to preallocate the results in predict_sliding_window_return_logits
-    label_manager = get_labelmanager(plans, dataset_json)
+    label_manager = plans_manager.get_label_manager(dataset_json)
     num_seg_heads = label_manager.num_segmentation_heads
 
     # go go go
@@ -227,7 +225,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                         if prediction is None:
                             prediction = predict_sliding_window_return_logits(
                                 network, data, num_seg_heads,
-                                plans['configurations'][configuration_name]['patch_size'],
+                                configuration_manager.patch_size,
                                 mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
                                 tile_step_size=tile_step_size,
                                 use_gaussian=use_gaussian,
@@ -237,7 +235,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                         else:
                             prediction += predict_sliding_window_return_logits(
                                 network, data, num_seg_heads,
-                                plans['configurations'][configuration_name]['patch_size'],
+                                configuration_manager.patch_size,
                                 mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
                                 tile_step_size=tile_step_size,
                                 use_gaussian=use_gaussian,
@@ -261,7 +259,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                     if prediction is None:
                         prediction = predict_sliding_window_return_logits(
                             network, data, num_seg_heads,
-                            plans['configurations'][configuration_name]['patch_size'],
+                            configuration_manager.patch_size,
                             mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
                             tile_step_size=tile_step_size,
                             use_gaussian=use_gaussian,
@@ -271,7 +269,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                     else:
                         prediction += predict_sliding_window_return_logits(
                             network, data, num_seg_heads,
-                            plans['configurations'][configuration_name]['patch_size'],
+                            configuration_manager.patch_size,
                             mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
                             tile_step_size=tile_step_size,
                             use_gaussian=use_gaussian,
@@ -295,8 +293,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
             print('sending off prediction to background worker for resampling and export')
             r.append(
                 export_pool.starmap_async(
-                    export_prediction_from_softmax, ((prediction, properties, configuration_name, plans, dataset_json, ofile,
-                                                      save_probabilities),)
+                    export_prediction_from_softmax, ((prediction, properties, configuration_manager, plans_manager,
+                                                      dataset_json, ofile, save_probabilities),)
                 )
             )
             print(f'done with {os.path.basename(ofile)}')

@@ -7,11 +7,10 @@ from typing import List, Union, Tuple
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, subfiles, \
     maybe_mkdir_p, isdir, save_pickle, load_pickle, isfile
-
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
-from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.utilities.label_handling.label_handling import LabelManager, get_labelmanager
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 def average_probabilities(list_of_files: List[str]) -> np.ndarray:
@@ -59,6 +58,7 @@ def ensemble_folders(list_of_input_folders: List[str],
     works if label dict in dataset.json is the same between these datasets!!!)"""
     dataset_json = load_json(join(list_of_input_folders[0], 'dataset.json'))
     plans = load_json(join(list_of_input_folders[0], 'plans.json'))
+    plans_manager = PlansManager(plans)
 
     # now collect the files in each of the folders and enforce that all files are present in all folders
     files_per_folder = [set(subfiles(i, suffix='.npz', join=False)) for i in list_of_input_folders]
@@ -72,8 +72,8 @@ def ensemble_folders(list_of_input_folders: List[str],
     lists_of_lists_of_files = [[join(fl, fi) for fl in list_of_input_folders] for fi in s]
     output_files_truncated = [join(output_folder, fi[:-4]) for fi in s]
 
-    image_reader_writer = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
-    label_manager = get_labelmanager(plans, dataset_json)
+    image_reader_writer = plans_manager.image_reader_writer_class()
+    label_manager = plans_manager.get_label_manager(dataset_json)
 
     maybe_mkdir_p(output_folder)
 
@@ -117,7 +117,7 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
     Feature: different configurations can now have different splits
     """
     dataset_json = load_json(join(list_of_trained_model_folders[0], 'dataset.json'))
-    plans = load_json(join(list_of_trained_model_folders[0], 'plans.json'))
+    plans_manager = PlansManager(join(list_of_trained_model_folders[0], 'plans.json'))
 
     # first collect all unique filenames
     files_per_folder = {}
@@ -162,9 +162,9 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
     lists_of_lists_of_files = [[fm[i] for fm in file_mapping] for i in unique_filenames]
     output_files_truncated = [join(output_folder, fi[:-4]) for fi in unique_filenames]
 
-    image_reader_writer = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+    image_reader_writer = plans_manager.image_reader_writer_class()
     maybe_mkdir_p(output_folder)
-    label_manager = get_labelmanager(plans, dataset_json)
+    label_manager = plans_manager.get_label_manager(dataset_json)
 
     if not overwrite:
         tmp = [isfile(i + dataset_json['file_ending']) for i in output_files_truncated]

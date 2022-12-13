@@ -13,7 +13,7 @@ class nnUNetTrainerDAOrd0(nnUNetTrainer):
         """
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
-        patch_size = self.plans['configurations'][self.configuration]["patch_size"]
+        patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
@@ -27,7 +27,7 @@ class nnUNetTrainerDAOrd0(nnUNetTrainer):
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=0, order_resampling_seg=0,
-            use_mask_for_norm=self.plans['configurations'][self.configuration]['use_mask_for_norm'],
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)

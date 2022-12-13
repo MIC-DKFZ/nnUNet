@@ -825,7 +825,7 @@ class nnUNetModule(pl.LightningModule):
         # this needs to go into background processes
         r = self.inference_segmentation_export_pool.starmap_async(
             export_prediction_from_softmax, (
-                (prediction, properties, self.configuration, self.plans, self.dataset_json, output_filename_truncated,
+                (prediction, properties, self.configuration_manager, self.plans_manager, self.dataset_json, output_filename_truncated,
                  self.inference_parameters['save_probabilities']),
             )
         )

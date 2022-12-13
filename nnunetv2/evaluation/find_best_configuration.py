@@ -8,11 +8,10 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, load_summary_json
-from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
     convert_identifier_to_trainer_plans_config, get_ensemble_name, folds_tuple_to_string
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 default_trained_models = tuple([
     {'plans': 'nnUNetPlans', 'configuration': '2d', 'trainer': 'nnUNetTrainer'},
@@ -25,12 +24,12 @@ default_trained_models = tuple([
 def filter_available_models(model_dict: Union[List[dict], Tuple[dict, ...]], dataset_name_or_id: Union[str, int]):
     valid = []
     for trained_model in model_dict:
-        plans = load_json(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id),
+        plans_manager = PlansManager(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id),
                                trained_model['plans'] + '.json'))
         # check if configuration exists
         # 3d_cascade_fullres and 3d_lowres do not exist for each dataset so we allow them to be absent IF they are not
         # specified in the plans file
-        if trained_model['configuration'] not in plans['configurations'].keys():
+        if trained_model['configuration'] not in plans_manager.available_configurations:
             print(f"Configuration {trained_model['configuration']} not found in plans {trained_model['plans']}.\n"
                   f"Inferred plans file: {join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id), trained_model['plans'] + '.json')}.")
             continue
@@ -62,8 +61,8 @@ def accumulate_cv_results(trained_model_folder,
     maybe_mkdir_p(merged_output_folder)
 
     dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
-    plans = load_json(join(trained_model_folder, 'plans.json'))
-    rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+    plans_manager = PlansManager(join(trained_model_folder, 'plans.json'))
+    rw = plans_manager.image_reader_writer_class()
     shutil.copy(join(trained_model_folder, 'dataset.json'), join(merged_output_folder, 'dataset.json'))
     shutil.copy(join(trained_model_folder, 'plans.json'), join(merged_output_folder, 'plans.json'))
 
@@ -81,8 +80,8 @@ def accumulate_cv_results(trained_model_folder,
                 did_we_copy_something = True
 
     if did_we_copy_something or not isfile(join(merged_output_folder, 'summary.json')):
-        label_manager = get_labelmanager(plans, dataset_json)
-        compute_metrics_on_folder(join(nnUNet_raw, plans['dataset_name'], 'labelsTr'),
+        label_manager = plans_manager.get_label_manager(dataset_json)
+        compute_metrics_on_folder(join(nnUNet_raw, plans_manager.dataset_name, 'labelsTr'),
                                   merged_output_folder,
                                   join(merged_output_folder, 'summary.json'),
                                   rw,
@@ -106,9 +105,10 @@ def generate_inference_command(dataset_name_or_id: Union[int, str], configuratio
 
     predict_command = ''
     trained_model_folder = get_output_folder(dataset_name_or_id, trainer_name, plans_identifier, configuration_name, fold=None)
-    plans = load_json(join(trained_model_folder, 'plans.json'))
-    if 'previous_stage' in plans['configurations'][configuration_name].keys():
-        prev_stage = plans['configurations'][configuration_name]['previous_stage']
+    plans_manager = PlansManager(join(trained_model_folder, 'plans.json'))
+    configuration_manager = plans_manager.get_configuration(configuration_name)
+    if 'previous_stage' in plans_manager.available_configurations:
+        prev_stage = configuration_manager.previous_stage_name
         predict_command += generate_inference_command(dataset_name_or_id, prev_stage, plans_identifier, trainer_name,
                                                       folds, None, output_folder='OUTPUT_FOLDER_PREV_STAGE') + '\n'
         folder_with_segs_from_prev_stage = 'OUTPUT_FOLDER_PREV_STAGE'
@@ -162,10 +162,10 @@ def find_best_configuration(dataset_name_or_id,
                                           num_processes, overwrite=overwrite)
 
                 # evaluate ensembled predictions
-                plans = load_json(join(output_folder_1, 'plans.json'))
+                plans_manager = PlansManager(join(output_folder_1, 'plans.json'))
                 dataset_json = load_json(join(output_folder_1, 'dataset.json'))
-                label_manager = get_labelmanager(plans, dataset_json)
-                rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+                label_manager = plans_manager.get_label_manager(dataset_json)
+                rw = plans_manager.image_reader_writer_class()
 
                 compute_metrics_on_folder(join(nnUNet_raw, dataset_name, 'labelsTr'),
                                           output_folder_ensemble,

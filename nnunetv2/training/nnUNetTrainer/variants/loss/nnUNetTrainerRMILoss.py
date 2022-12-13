@@ -9,7 +9,7 @@ class nnUNetTrainerRMILoss(nnUNetTrainer):
     def _build_loss(self):
         assert not self.label_manager.has_regions
         assert not self.label_manager.has_ignore_label
-        assert len(self.plans['configurations'][self.configuration]['patch_size']) == 2, "This only works with 2D data!"
+        assert len(self.configuration_manager.patch_size) == 2, "This only works with 2D data!"
         loss = RMILoss(self.label_manager.num_segmentation_heads)
 
         deep_supervision_scales = self._get_deep_supervision_scales()

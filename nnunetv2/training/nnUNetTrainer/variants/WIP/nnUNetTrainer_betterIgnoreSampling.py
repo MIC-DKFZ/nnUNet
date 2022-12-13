@@ -119,28 +119,32 @@ class nnUNetTrainer_betterIgnoreSampling(nnUNetTrainer):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         if dim == 2:
-            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr, self.batch_size,
+            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr,
+                                                        self.batch_size,
                                                         initial_patch_size,
-                                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                                        self.configuration_manager.patch_size,
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                                         sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val, self.batch_size,
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val,
+                                                         self.batch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
                                                          sampling_probabilities=None, pad_sides=None)
         else:
-            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr, self.batch_size,
+            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr,
+                                                        self.batch_size,
                                                         initial_patch_size,
-                                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                                        self.configuration_manager.patch_size,
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                                         sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val, self.batch_size,
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val,
+                                                         self.batch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
                                                          sampling_probabilities=None, pad_sides=None)
@@ -152,28 +156,32 @@ class nnUNetTrainerDA5_betterIgnoreSampling(nnUNetTrainerDA5):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         if dim == 2:
-            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr, self.batch_size,
+            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr,
+                                                        self.batch_size,
                                                         initial_patch_size,
-                                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                                        self.configuration_manager.patch_size,
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                                         sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val, self.batch_size,
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val,
+                                                         self.batch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
                                                          sampling_probabilities=None, pad_sides=None)
         else:
-            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr, self.batch_size,
+            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr,
+                                                        self.batch_size,
                                                         initial_patch_size,
-                                                        self.plans['configurations'][self.configuration]['patch_size'],
+                                                        self.configuration_manager.patch_size,
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                                         sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val, self.batch_size,
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
-                                                         self.plans['configurations'][self.configuration]['patch_size'],
+            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val,
+                                                         self.batch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
                                                          sampling_probabilities=None, pad_sides=None)

@@ -15,11 +15,11 @@ class nnUNetTrainer_switchToDiceep800(nnUNetTrainer):
     def build_loss_no_ce(self):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 1e-5},
                                    use_ignore_label=self.label_manager.ignore_label is not None, weight_ce=0)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False}, {}, weight_ce=0, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
 
@@ -58,11 +58,11 @@ class nnUNetTrainer_switchToDiceep100noSmooth(nnUNetTrainer_switchToDiceep100):
     def build_loss_no_ce(self):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 0},
                                    use_ignore_label=self.label_manager.ignore_label is not None, weight_ce=0)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 0, 'do_bg': False}, {}, weight_ce=0, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
 

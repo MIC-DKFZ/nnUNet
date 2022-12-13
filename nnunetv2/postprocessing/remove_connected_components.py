@@ -7,22 +7,21 @@ import numpy as np
 from acvl_utils.morphology.morphology_helper import remove_all_but_largest_component
 from batchgenerators.utilities.file_and_folder_operations import load_json, subfiles, maybe_mkdir_p, join, isfile, \
     isdir, save_pickle, load_pickle, save_json
-
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import region_or_label_to_mask, compute_metrics_on_folder, \
     load_summary_json, label_or_region_to_key
 from nnunetv2.evaluation.find_best_configuration import folds_tuple_to_string, accumulate_cv_results
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
-from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 def remove_all_but_largest_component_from_segmentation(segmentation: np.ndarray,
-                                                      labels_or_regions: Union[int, Tuple[int, ...],
-                                                                               List[Union[int, Tuple[int, ...]]]],
-                                                      background_label: int = 0) -> np.ndarray:
+                                                       labels_or_regions: Union[int, Tuple[int, ...],
+                                                                                List[Union[int, Tuple[int, ...]]]],
+                                                       background_label: int = 0) -> np.ndarray:
     mask = np.zeros_like(segmentation, dtype=bool)
     if not isinstance(labels_or_regions, list):
         labels_or_regions = [labels_or_regions]
@@ -74,25 +73,23 @@ def determine_postprocessing(folder_predictions: str,
             raise RuntimeError(f"Expected plans file missing: {expected_plans_file}. The plans fils should have been "
                                f"created while running nnUNetv2_predict. Sadge.")
         plans_file_or_dict = load_json(expected_plans_file)
+    plans_manager = PlansManager(plans_file_or_dict)
 
     if dataset_json_file_or_dict is None:
         expected_dataset_json_file = join(folder_predictions, 'dataset.json')
         if not isfile(expected_dataset_json_file):
-            raise RuntimeError(f"Expected plans file missing: {expected_dataset_json_file}. The plans fils should have been "
-                               f"created while running nnUNetv2_predict. Sadge.")
+            raise RuntimeError(
+                f"Expected plans file missing: {expected_dataset_json_file}. The plans fils should have been "
+                f"created while running nnUNetv2_predict. Sadge.")
         dataset_json_file_or_dict = load_json(expected_dataset_json_file)
 
-    if not isinstance(plans_file_or_dict, dict):
-        plans = load_json(plans_file_or_dict)
-    else:
-        plans = plans_file_or_dict
     if not isinstance(dataset_json_file_or_dict, dict):
         dataset_json = load_json(dataset_json_file_or_dict)
     else:
         dataset_json = dataset_json_file_or_dict
 
-    rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
-    label_manager = get_labelmanager(plans, dataset_json)
+    rw = plans_manager.image_reader_writer_class()
+    label_manager = plans_manager.get_label_manager(dataset_json)
     labels_or_regions = label_manager.foreground_regions if label_manager.has_regions else label_manager.foreground_labels
 
     predicted_files = subfiles(folder_predictions, suffix=dataset_json['file_ending'], join=False)
@@ -217,7 +214,7 @@ def determine_postprocessing(folder_predictions: str,
                 pp_fns.append(pp_fn)
                 pp_fn_kwargs.append(kwargs)
             else:
-                print(f'Removing all but the largest component for {label_or_region} did not improve results! '                      
+                print(f'Removing all but the largest component for {label_or_region} did not improve results! '
                       f'Dice before: {round(baseline_results["mean"][label_or_region]["Dice"], 5)} '
                       f'after: {round(pp_results["mean"][label_or_region]["Dice"], 5)}')
     [shutil.move(join(source, i), join(output_folder, i)) for i in subfiles(source, join=False)]
@@ -232,8 +229,10 @@ def determine_postprocessing(folder_predictions: str,
         'postprocessing_kwargs': pp_fn_kwargs,
     }
     # json is a very annoying little bi###. Can't handle tuples as dict keys.
-    tmp['input_folder']['mean'] = {label_or_region_to_key(k): tmp['input_folder']['mean'][k] for k in tmp['input_folder']['mean'].keys()}
-    tmp['postprocessed']['mean'] = {label_or_region_to_key(k): tmp['postprocessed']['mean'][k] for k in tmp['postprocessed']['mean'].keys()}
+    tmp['input_folder']['mean'] = {label_or_region_to_key(k): tmp['input_folder']['mean'][k] for k in
+                                   tmp['input_folder']['mean'].keys()}
+    tmp['postprocessed']['mean'] = {label_or_region_to_key(k): tmp['postprocessed']['mean'][k] for k in
+                                    tmp['postprocessed']['mean'].keys()}
     # did I already say that I hate json? "TypeError: Object of type int64 is not JSON serializable" You retarded bro?
     recursive_fix_for_json_export(tmp)
     save_json(tmp, join(folder_predictions, 'postprocessing.json'))
@@ -261,39 +260,36 @@ def apply_postprocessing_to_folder(input_folder: str,
             raise RuntimeError(f"Expected plans file missing: {expected_plans_file}. The plans fils should have been "
                                f"created while running nnUNetv2_predict. Sadge.")
         plans_file_or_dict = load_json(expected_plans_file)
+    plans_manager = PlansManager(plans_file_or_dict)
 
     if dataset_json_file_or_dict is None:
         expected_dataset_json_file = join(input_folder, 'dataset.json')
         if not isfile(expected_dataset_json_file):
-            raise RuntimeError(f"Expected plans file missing: {expected_dataset_json_file}. The plans fils should have been "
-                               f"created while running nnUNetv2_predict. Sadge.")
+            raise RuntimeError(
+                f"Expected plans file missing: {expected_dataset_json_file}. The dataset.json should have been "
+                f"copied while running nnUNetv2_predict. Sadge.")
         dataset_json_file_or_dict = load_json(expected_dataset_json_file)
-
-    if not isinstance(plans_file_or_dict, dict):
-        plans = load_json(plans_file_or_dict)
-    else:
-        plans = plans_file_or_dict
 
     if not isinstance(dataset_json_file_or_dict, dict):
         dataset_json = load_json(dataset_json_file_or_dict)
     else:
         dataset_json = dataset_json_file_or_dict
 
-    rw = recursive_find_reader_writer_by_name(plans["image_reader_writer"])()
+    rw = plans_manager.image_reader_writer_class()
 
     maybe_mkdir_p(output_folder)
     p = Pool(num_processes)
     files = subfiles(input_folder, suffix=dataset_json['file_ending'], join=False)
 
     _ = p.starmap(load_postprocess_save,
-                              zip(
-                                  [join(input_folder, i) for i in files],
-                                  [join(output_folder, i) for i in files],
-                                  [rw] * len(files),
-                                  [pp_fns] * len(files),
-                                  [pp_fn_kwargs] * len(files)
-                              )
-                        )
+                  zip(
+                      [join(input_folder, i) for i in files],
+                      [join(output_folder, i) for i in files],
+                      [rw] * len(files),
+                      [pp_fns] * len(files),
+                      [pp_fn_kwargs] * len(files)
+                  )
+                  )
     p.close()
     p.join()
 
@@ -310,11 +306,12 @@ def entry_point_determine_postprocessing_folder():
                              "input folder (input_folder/dataset.json)")
     parser.add_argument('-np', type=int, required=False, default=default_num_processes,
                         help=f"number of processes to use. Default: {default_num_processes}")
-    parser. add_argument('--remove_postprocessed', action='store_true', required=False,
-                         help='set this is you don\'t want to keep the postprocessed files')
+    parser.add_argument('--remove_postprocessed', action='store_true', required=False,
+                        help='set this is you don\'t want to keep the postprocessed files')
 
     args = parser.parse_args()
-    determine_postprocessing(args.i, args.ref, args.plans_json, args.dataset_json, args.np, not args.remove_postprocessed)
+    determine_postprocessing(args.i, args.ref, args.plans_json, args.dataset_json, args.np,
+                             not args.remove_postprocessed)
 
 
 def entry_point_apply_postprocessing():
@@ -338,24 +335,26 @@ def entry_point_apply_postprocessing():
 if __name__ == '__main__':
     trained_model_folder = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetTrainer__nnUNetPlans__3d_fullres'
     labelstr = join(nnUNet_raw, 'Dataset004_Hippocampus', 'labelsTr')
-    plans = load_json(join(trained_model_folder, 'plans.json'))
+    plans_manager = PlansManager(join(trained_model_folder, 'plans.json'))
     dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
     folds = (0, 1, 2, 3, 4)
-    label_manager = get_labelmanager(plans, dataset_json)
+    label_manager = plans_manager.get_label_manager(dataset_json)
 
     merged_output_folder = join(trained_model_folder, f'crossval_results_folds_{folds_tuple_to_string(folds)}')
     accumulate_cv_results(trained_model_folder, merged_output_folder, folds, 8, False)
 
-    fns, kwargs = determine_postprocessing(merged_output_folder, labelstr, plans,
+    fns, kwargs = determine_postprocessing(merged_output_folder, labelstr, plans_manager.plans,
                                            dataset_json, 8, keep_postprocessed_files=True)
     save_pickle((fns, kwargs), join(trained_model_folder, 'postprocessing.pkl'))
     fns, kwargs = load_pickle(join(trained_model_folder, 'postprocessing.pkl'))
 
-    apply_postprocessing_to_folder(merged_output_folder, merged_output_folder + '_pp', fns, kwargs, plans, dataset_json, 8)
+    apply_postprocessing_to_folder(merged_output_folder, merged_output_folder + '_pp', fns, kwargs,
+                                   plans_manager.plans, dataset_json,
+                                   8)
     compute_metrics_on_folder(labelstr,
                               merged_output_folder + '_pp',
                               join(merged_output_folder + '_pp', 'summary.json'),
-                              recursive_find_reader_writer_by_name(plans["image_reader_writer"])(),
+                              plans_manager.image_reader_writer_class(),
                               dataset_json['file_ending'],
                               label_manager.foreground_regions if label_manager.has_regions else label_manager.foreground_labels,
                               label_manager.ignore_label,

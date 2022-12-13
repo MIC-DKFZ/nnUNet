@@ -1,12 +1,12 @@
 import shutil
 
 import nnunetv2
+from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
-from nnunetv2.preprocessing.utils import get_preprocessor_class_from_plans
 from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name, maybe_convert_to_dataset_name
-from batchgenerators.utilities.file_and_folder_operations import join, load_json, maybe_mkdir_p, subfiles
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 def extract_fingerprint():
@@ -143,14 +143,15 @@ def preprocess():
         dataset_name = convert_id_to_dataset_name(d)
         print(f'{dataset_name}')
         plans_file = join(nnUNet_preprocessed, dataset_name, args.plans_name + '.json')
-        plans = load_json(plans_file)
+        plans_manager = PlansManager(plans_file)
         for n, c in zip(np, args.c):
             print(f'Configuration: {c}...')
-            if c not in plans['configurations'].keys():
+            if c not in plans_manager.available_configurations:
                 print(
                     f"INFO: Configuration {c} not found in plans file {args.plans_name + '.json'} of dataset {d}. Skipping.")
                 continue
-            preprocessor = get_preprocessor_class_from_plans(plans, c)(verbose=args.verbose)
+            configuration_manager = plans_manager.get_configuration(c)
+            preprocessor = configuration_manager.preprocessor_class(verbose=args.verbose)
             preprocessor.run(d, c, args.plans_name, num_processes=n)
         [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in
          subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
@@ -285,15 +286,16 @@ def plan_and_preprocess():
             print(d)
             plans_name = experiment_planner.plans_identifier
             plans_file = join(nnUNet_preprocessed, dataset_name, plans_name + '.json')
-            plans = load_json(plans_file)
+            plans_manager = PlansManager(plans_file)
             for n, c in zip(np, args.c):
                 print(f'Configuration: {c}...')
-                if c not in plans['configurations'].keys():
+                if c not in plans_manager.available_configurations:
                     print(
                         f"INFO: Configuration {c} not found in plans file {plans_name + '.json'} of dataset {d}. "
                         f"Skipping.")
                     continue
-                preprocessor = get_preprocessor_class_from_plans(plans, c)(verbose=args.verbose)
+                configuration_manager = plans_manager.get_configuration(c)
+                preprocessor = configuration_manager.preprocessor_class(verbose=args.verbose)
                 preprocessor.run(d, c, plans_name, num_processes=n)
             maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
             [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]

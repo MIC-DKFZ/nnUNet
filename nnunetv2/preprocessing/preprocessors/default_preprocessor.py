@@ -12,25 +12,20 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import shutil
-from multiprocessing import Pool
 from typing import Union, Tuple
 
-import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import *
-
 import nnunetv2
-from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.paths import default_plans_identifier
+import numpy as np
+from acvl_utils.miscellaneous.ptqdm import ptqdm
+from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
-from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
-from acvl_utils.miscellaneous.ptqdm import ptqdm
 
 
 class DefaultPreprocessor(object):
@@ -42,8 +37,8 @@ class DefaultPreprocessor(object):
         CAREFUL! WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL!
         """
 
-    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans: Union[dict, str],
-                 configuration_name: str,
+    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
+                 configuration_manager: ConfigurationManager,
                  dataset_json: Union[dict, str]):
         """
         seg file can be none (test cases)
@@ -52,13 +47,10 @@ class DefaultPreprocessor(object):
         so when we export we need to run the following order: resample -> crop -> transpose (we could also run
         transpose at a different place, but reverting the order of operations done during preprocessing seems cleaner)
         """
-        if isinstance(plans, str):
-            plans = load_json(plans)
         if isinstance(dataset_json, str):
             dataset_json = load_json(dataset_json)
 
-        configuration = plans['configurations'][configuration_name]
-        rw = recursive_find_reader_writer_by_name(plans['image_reader_writer'])()
+        rw = plans_manager.image_reader_writer_class()
 
         # load image(s)
         data, data_properites = rw.read_images(image_files)
@@ -70,10 +62,10 @@ class DefaultPreprocessor(object):
             seg = None
 
         # apply transpose_forward, this also needs to be applied to the spacing!
-        data = data.transpose([0, *[i + 1 for i in plans['transpose_forward']]])
+        data = data.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
         if seg is not None:
-            seg = seg.transpose([0, *[i + 1 for i in plans['transpose_forward']]])
-        original_spacing = [data_properites['spacing'][i] for i in plans['transpose_forward']]
+            seg = seg.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
+        original_spacing = [data_properites['spacing'][i] for i in plans_manager.transpose_forward]
 
         # crop, remember to store size before cropping!
         shape_before_cropping = data.shape[1:]
@@ -85,9 +77,7 @@ class DefaultPreprocessor(object):
         data_properites['shape_after_cropping_and_before_resampling'] = data.shape[1:]
 
         # resample
-        fn_data = recursive_find_resampling_fn_by_name(configuration['resampling_fn_data'])
-        fn_seg = recursive_find_resampling_fn_by_name(configuration['resampling_fn_seg'])
-        target_spacing = configuration['spacing']  # this should already be transposed
+        target_spacing = configuration_manager.spacing  # this should already be transposed
 
         if len(target_spacing) < len(data.shape[1:]):
             # target spacing for 2d has 2 entries but the data and original_spacing have three because everything is 3d
@@ -98,25 +88,23 @@ class DefaultPreprocessor(object):
         # print('current shape', data.shape[1:], 'current_spacing', original_spacing,
         #       '\ntarget shape', new_shape, 'target_spacing', target_spacing)
         old_shape = data.shape[1:]
-        data = fn_data(data, new_shape, original_spacing, target_spacing,
-                       **configuration['resampling_fn_data_kwargs'])
-        seg = fn_seg(seg, new_shape, original_spacing, target_spacing,
-                     **configuration['resampling_fn_seg_kwargs'])
+        data = configuration_manager.resampling_fn_data(data, new_shape, original_spacing, target_spacing)
+        seg = configuration_manager.resampling_fn_seg(seg, new_shape, original_spacing, target_spacing)
         if self.verbose:
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
-                  f'new_spacing: {target_spacing}, fn_data: {configuration["resampling_fn_data"]}, '
-                  f'kwargs: {configuration["resampling_fn_data_kwargs"]}')
+                  f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}, '
+                  f'kwargs: {configuration_manager.configuration["resampling_fn_data_kwargs"]}')
 
         # normalize
-        data = self._normalize(data, seg, configuration['normalization_schemes'],
-                               plans['foreground_intensity_properties_by_modality'])
+        data = self._normalize(data, seg, configuration_manager.normalization_schemes,
+                               plans_manager.foreground_intensity_properties_by_modality)
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
             # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
             # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
             # LabelManager is pretty light computation-wise.
-            label_manager = get_labelmanager(plans, dataset_json)
+            label_manager = plans_manager.get_label_manager(dataset_json)
             collect_for_this = label_manager.foreground_regions if label_manager.has_regions \
                 else label_manager.foreground_labels
 
@@ -129,13 +117,14 @@ class DefaultPreprocessor(object):
             # print(all_labels, regions)
             data_properites['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
                                                                                    verbose=self.verbose)
-            seg = self.modify_seg_fn(seg, plans, dataset_json, configuration_name)
+            seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
 
         return data, seg.astype(np.int8), data_properites
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
-                      plans: Union[dict, str], configuration_name: str, dataset_json: Union[dict, str]):
-        data, seg, properties = self.run_case(image_files, seg_file, plans, configuration_name, dataset_json)
+                      plans_manager: PlansManager, configuration_manager: ConfigurationManager,
+                      dataset_json: Union[dict, str]):
+        data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
         # print('dtypes', data.dtype, seg.dtype)
         np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
@@ -195,20 +184,19 @@ class DefaultPreprocessor(object):
         plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
         assert isfile(plans_file), "Expected plans file (%s) not found. Run corresponding nnUNet_plan_experiment " \
                                    "first." % plans_file
-
         plans = load_json(plans_file)
+        plans_manager = PlansManager(plans)
+        configuration_manager = plans_manager.get_configuration(configuration_name)
+
         if self.verbose:
             print(f'Preprocessing the following configuration: {configuration_name}')
         if self.verbose:
-            print(plans['configurations'][configuration_name])
-
-        if configuration_name not in plans['configurations'].keys():
-            raise RuntimeError("Requested configuration '%s' not found in ")
+            print(configuration_manager)
 
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
 
-        label_manager = get_labelmanager(plans, dataset_json)
+        label_manager = plans_manager.get_label_manager(dataset_json)
         classes = label_manager.all_labels
 
         if max(classes) > 127:
@@ -217,8 +205,7 @@ class DefaultPreprocessor(object):
 
         caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                            dataset_json['file_ending'])
-        output_directory = join(nnUNet_preprocessed, dataset_name,
-                                plans['configurations'][configuration_name]['data_identifier'])
+        output_directory = join(nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier)
 
         if isdir(output_directory):
             shutil.rmtree(output_directory)
@@ -235,10 +222,12 @@ class DefaultPreprocessor(object):
         seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in caseids]
 
         _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
-                  processes=num_processes, zipped=True, plans=plans, configuration_name=configuration_name,
+                  processes=num_processes, zipped=True, plans_manager=plans_manager,
+                  configuration_manager=configuration_manager,
                   dataset_json=dataset_json, disable=self.verbose)
 
-    def modify_seg_fn(self, seg: np.ndarray, plans: dict, dataset_json: dict, configuration: str) -> np.ndarray:
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
         # this function will be called at the end of self.run_case. Can be used to change the segmentation
         # after resampling. Useful for experimenting with sparse annotations: I can introduce sparsity after resampling
         # and don't have to create a new dataset each time I modify my experiments
@@ -247,7 +236,7 @@ class DefaultPreprocessor(object):
 
 def example_test_case_preprocessing():
     # (paths to files may need adaptations)
-    plans_file = default_plans_identifier + '.json'
+    plans_file = 'nnUNetPlans.json'
     dataset_json_file = 'dataset.json'
     input_images = ['prostate_00_0000.nii.gz',
                     'prostate_00_0001.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
@@ -259,7 +248,9 @@ def example_test_case_preprocessing():
     # even if you have the segmentation, don't put the file there! You should always evaluate in the original
     # resolution. What comes out of the preprocessor might have been resampled to some other image resolution (as
     # specified by plans)
-    data, _, properties = pp.run_case(input_images, seg_file=None, plans=plans_file, configuration_name=configuration,
+    plans_manager = PlansManager(plans_file)
+    data, _, properties = pp.run_case(input_images, seg_file=None, plans_manager=plans_manager,
+                                      configuration_manager=plans_manager.get_configuration(configuration),
                                       dataset_json=dataset_json_file)
 
     # voila. Now plug data into your prediction function of choice. We of course recommend nnU-Net's default (TODO)
@@ -268,7 +259,7 @@ def example_test_case_preprocessing():
 
 if __name__ == '__main__':
     pp = DefaultPreprocessor()
-    pp.run(2, '2d', default_plans_identifier, 8)
+    pp.run(2, '2d', 'nnUNetPlans', 8)
 
     ###########################################################################################################
     # how to process a test cases? This is an example:

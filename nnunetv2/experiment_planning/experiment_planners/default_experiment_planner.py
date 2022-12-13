@@ -489,8 +489,10 @@ class ExperimentPlanner(object):
             print(plan_3d_fullres)
             print()
             if plan_3d_lowres is not None:
-                plans['configurations']['3d_cascade_fullres'] = deepcopy(plans['configurations']['3d_fullres'])
-                plans['configurations']['3d_cascade_fullres']['previous_stage'] = '3d_lowres'
+                plans['configurations']['3d_cascade_fullres'] = {
+                    'inherits_from': '3d_fullres',
+                    'previous_stage': '3d_lowres'
+                }
 
         self.plans = plans
         self.save_plans(plans)

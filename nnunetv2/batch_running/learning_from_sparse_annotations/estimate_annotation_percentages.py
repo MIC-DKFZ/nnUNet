@@ -7,6 +7,7 @@ from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 def load_get_percent_annotated_per_class(npz_file, ref_file, labels_or_regions, ignore_label: int):
@@ -41,8 +42,8 @@ def run_on_folder(folder, ref_folder, labels_or_regions, num_processes, ignore_l
 
 def run_on_all_subfolders(base, n_processes: int = 8, prefix='nnUNetPlans'):
     dataset_json = load_json(join(base, 'dataset.json'))
-    plans_json = load_json(join(base, 'nnUNetPlans.json'))
-    lm = get_labelmanager(plans_json, dataset_json)
+    plans_manager = PlansManager(join(base, 'nnUNetPlans.json'))
+    lm = plans_manager.get_label_manager(dataset_json)
     labels_or_regions = lm.all_labels
     subfolders = subdirs(base, prefix=prefix)
     for s in subfolders:
@@ -68,6 +69,7 @@ if __name__ == '__main__':
     # folder = join(base, 'nnUNetPlans_3d_fullres_sparse_randblobs')
     # dataset_json = load_json(join(base, 'dataset.json'))
     # plans_json = load_json(join(base, 'nnUNetPlans.json'))
-    # lm = get_labelmanager(plans_json, dataset_json)
+    # plans_manager = PlansManager(plans_json)
+    # lm = plans_manager.get_label_manager(dataset_json)
     # labels_or_regions = lm.all_labels
     # print(run_on_folder(folder, labels_or_regions, 8))

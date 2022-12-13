@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dynamic_network_architectures
 from copy import deepcopy
 from functools import lru_cache, partial
@@ -10,13 +12,18 @@ from torch import nn
 import nnunetv2
 from batchgenerators.utilities.file_and_folder_operations import load_json, join
 
-from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
-from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer_by_name
-from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.label_handling.label_handling import LabelManager
+from nnunetv2.utilities.label_handling.label_handling import get_labelmanager_class_from_plans
 
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nnunetv2.utilities.label_handling.label_handling import LabelManager
+    from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
+    from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
+    from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
 
 class ConfigurationManager(object):
     def __init__(self, configuration_dict: dict):
@@ -73,8 +80,13 @@ class ConfigurationManager(object):
     @lru_cache(maxsize=1)
     def UNet_class(self) -> Type[nn.Module]:
         unet_class = recursive_find_python_class(join(dynamic_network_architectures.__path__[0], "architectures"),
-                                                         self.UNet_class_name,
-                                                         current_module="dynamic_network_architectures.architectures")
+                                                 self.UNet_class_name,
+                                                 current_module="dynamic_network_architectures.architectures")
+        if unet_class is None:
+            raise RuntimeError('The network architecture specified by the plans file '
+                               'is non-standard (maybe your own?). Fix this by not using '
+                               'ConfigurationManager.UNet_class to instantiate '
+                               'it (probably just overwrite build_network_architecture of your trainer.')
         return unet_class
 
     @property
@@ -149,8 +161,12 @@ class ConfigurationManager(object):
         return self.configuration['batch_dice']
 
     @property
-    def next_stage_name(self) -> Union[str, None]:
-        return self.configuration.get('next_stage')
+    def next_stage_names(self) -> Union[List[str], None]:
+        ret = self.configuration.get('next_stage')
+        if ret is not None:
+            if isinstance(ret, str):
+                ret = [ret]
+        return ret
 
     @property
     def previous_stage_name(self) -> Union[str, None]:
@@ -174,7 +190,8 @@ class PlansManager(object):
     def __repr__(self):
         return self.plans.__repr__()
 
-    def _internal_resolve_configuration_inheritance(self, configuration_name: str, visited: Tuple[str, ...] = None) -> dict:
+    def _internal_resolve_configuration_inheritance(self, configuration_name: str,
+                                                    visited: Tuple[str, ...] = None) -> dict:
         if configuration_name not in self.plans['configurations'].keys():
             raise ValueError(f'The configuration {configuration_name} does not exist in the plans I have. Valid '
                              f'configuration names are {list(self.plans["configurations"].keys())}.')
@@ -183,7 +200,7 @@ class PlansManager(object):
             parent_config_name = configuration['inherits_from']
 
             if visited is None:
-                visited = (configuration_name, )
+                visited = (configuration_name,)
             else:
                 if parent_config_name in visited:
                     raise RuntimeError(f"Circular dependency detected. The following configurations were visited "
@@ -199,6 +216,10 @@ class PlansManager(object):
 
     @lru_cache(maxsize=10)
     def get_configuration(self, configuration_name: str):
+        if configuration_name not in self.plans['configurations'].keys():
+            raise RuntimeError(f"Requested configuration {configuration_name} not found in plans. "
+                               f"Available configurations: {list(self.plans['configurations'].keys())}")
+
         configuration_dict = self._internal_resolve_configuration_inheritance(configuration_name)
         return ConfigurationManager(configuration_dict)
 
@@ -251,10 +272,12 @@ class PlansManager(object):
     @property
     @lru_cache(maxsize=1)
     def label_manager_class(self) -> Type[LabelManager]:
-        labelmanager_class = recursive_find_python_class(join(nnunetv2.__path__[0], "utilities", "label_handling"),
-                                                         self.plans['label_manager'],
-                                                         current_module="nnunetv2.utilities.label_handling")
-        return labelmanager_class
+        return get_labelmanager_class_from_plans(self.plans)
+
+    def get_label_manager(self, dataset_json: dict, **kwargs) -> LabelManager:
+        return self.label_manager_class(label_dict=dataset_json['labels'],
+                                        regions_class_order=dataset_json.get('regions_class_order'),
+                                        **kwargs)
 
     @property
     def foreground_intensity_properties_by_modality(self) -> dict:
@@ -264,6 +287,7 @@ class PlansManager(object):
 if __name__ == '__main__':
     from nnunetv2.paths import nnUNet_preprocessed
     from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+
     plans = load_json(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(3), 'nnUNetPlans.json'))
     # build new configuration that inherits from 3d_fullres
     plans['configurations']['3d_fullres_bs4'] = {
@@ -274,4 +298,3 @@ if __name__ == '__main__':
     plans_manager = PlansManager(plans)
     configuration_manager = plans_manager.get_configuration('3d_fullres_bs4')
     print(configuration_manager)  # look for batch size 4
-

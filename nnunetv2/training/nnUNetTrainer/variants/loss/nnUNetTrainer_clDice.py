@@ -10,7 +10,7 @@ class nnUNetTrainer_clDice(nnUNetTrainer):
         if self.label_manager.has_regions:
             raise NotImplementedError()
         else:
-            loss = Dc_BCE_clDice_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = Dc_BCE_clDice_loss({'batch_dice': self.configuration_manager.batch_dice,
                                        'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=0.5,
                                       weight_dice=0.5, weight_clDice=1, iters=4, smooth_clDice=1e-5,
                                       ignore_label=self.label_manager.ignore_label, cldice_slicewise=False
@@ -34,7 +34,7 @@ class nnUNetTrainer_clDice_sliceWise(nnUNetTrainer):
         if self.label_manager.has_regions:
             raise NotImplementedError()
         else:
-            loss = Dc_BCE_clDice_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = Dc_BCE_clDice_loss({'batch_dice': self.configuration_manager.batch_dice,
                                        'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=0.5,
                                       weight_dice=0.5, weight_clDice=1, iters=4, smooth_clDice=1e-5,
                                       ignore_label=self.label_manager.ignore_label, cldice_slicewise=True

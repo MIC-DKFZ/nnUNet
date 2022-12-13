@@ -48,7 +48,7 @@ class nnUNetTrainerFocalandDiceLoss(nnUNetTrainer):
     def _build_loss(self):
         assert not self.label_manager.has_regions, "region-based training not supported here"
         # loss = FocalLoss_Ori(num_class=self.label_manager.num_segmentation_heads, ignore_index=self.label_manager.ignore_label)
-        loss = Focal_and_DC_Loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = Focal_and_DC_Loss({'batch_dice': self.configuration_manager.batch_dice,
                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
                                  {'num_class': self.label_manager.num_segmentation_heads,
                                   'ignore_index': self.label_manager.ignore_label},

@@ -1,20 +1,19 @@
 import os
 from copy import deepcopy
 from multiprocessing import Pool
-
-from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json, \
-    determine_reader_writer_from_file_ending
-from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
-from batchgenerators.utilities.file_and_folder_operations import subfiles, join, write_json, save_json, load_json, \
-    isfile
-from nnunetv2.configuration import default_num_processes
 from typing import Tuple, List, Union
 
 import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import subfiles, join, save_json, load_json, \
+    isfile
+from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json, \
+    determine_reader_writer_from_file_ending
+from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 # the Evaluator class of the previous nnU-Net was great and all but man was it overengineered. Keep it simple
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.label_handling.label_handling import LabelManager, get_labelmanager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 def label_or_region_to_key(label_or_region: Union[int, Tuple[int]]):
@@ -189,7 +188,7 @@ def compute_metrics_on_folder2(folder_ref: str, folder_pred: str, dataset_json_f
     if output_file is None:
         output_file = join(folder_pred, 'summary.json')
 
-    lm = get_labelmanager(load_json(plans_file), dataset_json)
+    lm = PlansManager(plans_file).get_label_manager(dataset_json)
     compute_metrics_on_folder(folder_ref, folder_pred, output_file, rw, file_ending,
                               lm.foreground_regions if lm.has_regions else lm.foreground_labels, lm.ignore_label,
                               num_processes, chill=chill)

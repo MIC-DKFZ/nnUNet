@@ -1,3 +1,4 @@
+from __future__ import annotations
 from time import time
 from typing import Union, List, Tuple, Type
 
@@ -9,6 +10,11 @@ from batchgenerators.utilities.file_and_folder_operations import join
 import nnunetv2
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import softmax_helper_dim0
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
 class LabelManager(object):
@@ -219,20 +225,6 @@ def get_labelmanager_class_from_plans(plans: dict) -> Type[LabelManager]:
         return labelmanager_class
 
 
-def get_labelmanager(plans: dict, dataset_json: dict, **kwargs) -> LabelManager:
-    lm = get_labelmanager_class_from_plans(plans)
-    return lm(label_dict=dataset_json['labels'],
-              regions_class_order=dataset_json.get('regions_class_order'),
-              **kwargs)
-
-
-def get_labelmanager_labeldict(plans: dict, label_dict: dict, regions_class_order: dict = None, **kwargs):
-    lm = get_labelmanager_class_from_plans(plans)
-    return lm(label_dict=label_dict,
-              regions_class_order=regions_class_order,
-              **kwargs)
-
-
 def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
                                 all_labels: Union[List, torch.Tensor, np.ndarray, tuple],
                                 output_dtype=None) -> Union[np.ndarray, torch.Tensor]:
@@ -268,15 +260,19 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
     return result
 
 
-def determine_num_input_channels(plans: dict, configuration: str, dataset_json: dict) -> int:
-    """
-    if label_manager is None we create one from dataset_json. Not recommended.
-    """
-    label_manager = get_labelmanager(plans, dataset_json)
+def determine_num_input_channels(plans_manager: PlansManager,
+                                 configuration_or_config_manager: Union[str, ConfigurationManager],
+                                 dataset_json: dict) -> int:
+    if isinstance(configuration_or_config_manager, str):
+        config_manager = plans_manager.get_configuration(configuration_or_config_manager)
+    else:
+        config_manager = configuration_or_config_manager
+
+    label_manager = plans_manager.get_label_manager(dataset_json)
     num_modalities = len(dataset_json['modality']) if 'modality' in dataset_json.keys() else len(dataset_json['channel_names'])
 
     # cascade has different number of input channels
-    if 'previous_stage' in plans['configurations'][configuration].keys():
+    if config_manager.previous_stage_name is not None:
         if label_manager.has_regions:
             raise NotImplemented('Cascade not yet implemented region-based training')
         num_label_inputs = len(label_manager.foreground_labels)

@@ -4,7 +4,6 @@ from torch import autocast
 from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -14,11 +13,11 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
     def _build_loss(self):
         if self.label_manager.has_regions:
             loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+                                   {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label)
         return loss
@@ -28,9 +27,11 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
 
     def initialize(self):
         if not self.was_initialized:
-            self.num_input_channels = determine_num_input_channels(self.plans, self.configuration, self.dataset_json)
+            self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
+                                                                   self.dataset_json)
 
-            self.network = self.build_network_architecture(self.plans, self.dataset_json, self.configuration,
+            self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
+                                                           self.configuration_manager,
                                                            self.num_input_channels,
                                                            enable_deep_supervision=False).to(self.device)
 

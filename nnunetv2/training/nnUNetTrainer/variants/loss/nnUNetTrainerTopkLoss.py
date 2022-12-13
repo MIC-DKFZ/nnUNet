@@ -46,7 +46,7 @@ class nnUNetTrainerTopk10LossLS01(nnUNetTrainer):
 class nnUNetTrainerDiceTopK10Loss(nnUNetTrainer):
     def _build_loss(self):
         assert not self.label_manager.has_regions, 'regions not supported by this trainer'
-        loss = DC_and_topk_loss({'batch_dice': self.plans['configurations'][self.configuration]['batch_dice'],
+        loss = DC_and_topk_loss({'batch_dice': self.configuration_manager.batch_dice,
                                  'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
                                 {'k': 10,
                                  'label_smoothing': 0.0},
