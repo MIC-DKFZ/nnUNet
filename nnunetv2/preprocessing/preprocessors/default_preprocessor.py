@@ -92,8 +92,7 @@ class DefaultPreprocessor(object):
         seg = configuration_manager.resampling_fn_seg(seg, new_shape, original_spacing, target_spacing)
         if self.verbose:
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
-                  f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}, '
-                  f'kwargs: {configuration_manager.configuration["resampling_fn_data_kwargs"]}')
+                  f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
 
         # normalize
         data = self._normalize(data, seg, configuration_manager.normalization_schemes,

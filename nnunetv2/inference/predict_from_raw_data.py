@@ -94,7 +94,8 @@ def load_what_we_need(model_training_output_dir, use_folds, checkpoint_name):
     num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_json)
     trainer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
-    network = trainer_class.build_network_architecture(plans, dataset_json, configuration_name, num_input_channels, enable_deep_supervision=False)
+    network = trainer_class.build_network_architecture(plans_manager, dataset_json, configuration_manager,
+                                                       num_input_channels, enable_deep_supervision=False)
     return parameters, configuration_manager, inference_allowed_mirroring_axes, plans_manager, dataset_json, network
 
 
@@ -171,7 +172,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         # caseids = [caseids[i] for i in not_existing_indices]
 
     # placing this into a separate function doesnt make sense because it needs so many input variables...
-    preprocessor = configuration_manager.preprocessor_class()
+    preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
     # hijack batchgenerators, yo
     # we use the multiprocessing of the batchgenerators dataloader to handle all the background worker stuff. This
     # way we don't have to reinvent the wheel here.
