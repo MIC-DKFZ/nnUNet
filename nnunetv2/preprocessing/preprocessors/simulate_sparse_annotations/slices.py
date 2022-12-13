@@ -75,6 +75,24 @@ class SparseSegSliceRandomOrth5(SparseSegSliceRandomOrth):
         self.percent_of_slices = 0.05 / 3
 
 
+class SparseSegSliceRandomOrth10(SparseSegSliceRandomOrth):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.percent_of_slices = 0.1 / 3
+
+
+class SparseSegSliceRandomOrth30(SparseSegSliceRandomOrth):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.percent_of_slices = 0.3 / 3
+
+
+class SparseSegSliceRandomOrth50(SparseSegSliceRandomOrth):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.percent_of_slices = 0.5 / 3
+
+
 class SparseSegSliceRandomSmartOrth(DefaultPreprocessor):
     """
     WE DO NOT USE THIS
@@ -176,6 +194,7 @@ class RandomlyOrientedSlicesWithOversampling(DefaultPreprocessor):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
         self.target_percent_annotated_slices_per_axis = 0.03  # 10% annotation total
+        self.p_per_class = 1
 
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
                       configuration_manager: ConfigurationManager) -> np.ndarray:
@@ -196,17 +215,17 @@ class RandomlyOrientedSlicesWithOversampling(DefaultPreprocessor):
             seed=None, verbose=False)
 
         for c in locs:
-            if len(locs[c]) > 0:
-                # on average one slice per class
-                if np.random.uniform() < 0.33:
+            if len(locs[c]) > 0 and np.random.uniform() < self.p_per_class:
+                rn = np.random.uniform()
+                if 0 < rn < 0.33333:
                     x, y, z = [int(i) for i in locs[c][np.random.choice(len(locs[c]))]]
                     seg_new[x] = seg[x]
                     taken_num_slices[0] += 1
-                if np.random.uniform() < 0.33:
+                if 0.33333 < rn < 0.66667:
                     x, y, z = [int(i) for i in locs[c][np.random.choice(len(locs[c]))]]
                     seg_new[:, y] = seg[:, y]
                     taken_num_slices[1] += 1
-                if np.random.uniform() < 0.33:
+                if 0.66667 < rn < 1:
                     x, y, z = [int(i) for i in locs[c][np.random.choice(len(locs[c]))]]
                     seg_new[:, :, z] = seg[:, :, z]
                     taken_num_slices[2] += 1
@@ -227,13 +246,38 @@ class RandomlyOrientedSlicesWithOversampling(DefaultPreprocessor):
         return seg_new[None]
 
 
-class RandomlyOrientedSlicesWithOversampling5(RandomlyOrientedSlicesWithOversampling):
+class RandomlyOrientedSlicesWithOversampling5_ppc025(RandomlyOrientedSlicesWithOversampling):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
         self.target_percent_annotated_slices_per_axis = 0.05 / 3
+        self.p_per_class = 0.25
 
 
-class RandomlyOrientedSlicesWithOversampling3(RandomlyOrientedSlicesWithOversampling):
+class RandomlyOrientedSlicesWithOversampling3_ppc0167(RandomlyOrientedSlicesWithOversampling):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
         self.target_percent_annotated_slices_per_axis = 0.01
+        self.p_per_class = 0.167
+
+
+class RandomlyOrientedSlicesWithOversampling10_ppc05(RandomlyOrientedSlicesWithOversampling):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.target_percent_annotated_slices_per_axis = 0.1 / 3
+        self.p_per_class = 0.5
+
+
+class RandomlyOrientedSlicesWithOversampling30_ppc1(RandomlyOrientedSlicesWithOversampling):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.target_percent_annotated_slices_per_axis = 0.3 / 3
+        self.p_per_class = 1
+
+
+class RandomlyOrientedSlicesWithOversampling50_ppc1(RandomlyOrientedSlicesWithOversampling):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.target_percent_annotated_slices_per_axis = 0.5 / 3
+        self.p_per_class = 1
+
+

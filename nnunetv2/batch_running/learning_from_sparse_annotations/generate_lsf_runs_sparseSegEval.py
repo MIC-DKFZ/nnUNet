@@ -1,7 +1,3 @@
-from copy import deepcopy
-import numpy as np
-
-
 if __name__ == "__main__":
     # after the Nature Methods paper we switch our evaluation to a different (more stable/high quality) set of
     # datasets for evaluation and future development
@@ -17,16 +13,43 @@ if __name__ == "__main__":
             # '3d_lowres_sparse_sliceOSfg10',
             # '3d_lowres_sparse_slicewiserand10',
             # '3d_lowres_sparse_blobs',
-            '3d_lowres_sparse_sparsepatches40p',
-            '3d_lowres_sparse_hybridsparsepatchesslices40p',
-            '3d_lowres_sparse_pixelwise10',
-            '3d_lowres_sparse_pixelwise5',
-            '3d_lowres_sparse_pixelwise30',
-            '3d_lowres_sparse_randOrthSlices3',
-            '3d_lowres_sparse_randOrthSlices5',
+            # '3d_lowres_sparse_sparsepatches40p',
+            # '3d_lowres_sparse_hybridsparsepatchesslices40p',
+            # '3d_lowres_sparse_pixelwise10',
+            # '3d_lowres_sparse_pixelwise5',
+            # '3d_lowres_sparse_pixelwise30',
+            # '3d_lowres_sparse_randOrthSlices3',
+            # '3d_lowres_sparse_randOrthSlices5',
+            # '3d_lowres_sparse_rand_ori_slices_with_oversampling_10',
+            # '3d_lowres_sparse_rand_ori_slices_with_oversampling_5',
+            # '3d_lowres_sparse_rand_ori_slices_with_oversampling_3',
+            '3d_lowres_sparse_pixelwise50',
+            '3d_lowres_sparse_pixelwise1',
             '3d_lowres_sparse_rand_ori_slices_with_oversampling_10',
-            '3d_lowres_sparse_rand_ori_slices_with_oversampling_5',
-            '3d_lowres_sparse_rand_ori_slices_with_oversampling_3',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_5_ppc025',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_3_ppc0167',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_10_ppc05',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_30_ppc1',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_50_ppc1',
+            '3d_lowres_sparse_randblobs5',
+            '3d_lowres_sparse_randblobs10',
+            '3d_lowres_sparse_randblobs30',
+            '3d_lowres_sparse_randblobs50',
+            '3d_lowres_sparse_blobs5',
+            '3d_lowres_sparse_blobs10',
+            '3d_lowres_sparse_blobs30',
+            '3d_lowres_sparse_blobs50',
+            '3d_lowres_sparse_randOrthSlices10',
+            '3d_lowres_sparse_randOrthSlices30',
+            '3d_lowres_sparse_randOrthSlices50',
+            '3d_lowres_sparse_sparsepatches3',
+            '3d_lowres_sparse_sparsepatches5',
+            '3d_lowres_sparse_sparsepatches10',
+            '3d_lowres_sparse_sparsepatches30',
+            '3d_lowres_sparse_hybridsparsepatchesslices3',
+            '3d_lowres_sparse_hybridsparsepatchesslices5',
+            '3d_lowres_sparse_hybridsparsepatchesslices10',
+            '3d_lowres_sparse_hybridsparsepatchesslices30',
         ),
         # 994: (
         #     "3d_fullres",
@@ -59,8 +82,10 @@ if __name__ == "__main__":
         'nnUNetTrainer': ('nnUNetPlans',),
         # 'nnUNetTrainerDA5': ('nnUNetPlans',),
         # 'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
-        'nnUNetTrainerDA5_betterIgnoreSampling': ('nnUNetPlans',),
+        # 'nnUNetTrainerDA5_betterIgnoreSampling': ('nnUNetPlans',),
+        'nnUNetTrainerDA5ord0_betterIgnoreSampling': ('nnUNetPlans',),
         'nnUNetTrainer_betterIgnoreSampling': ('nnUNetPlans',),
+        'nnUNetTrainerDAOrd0': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

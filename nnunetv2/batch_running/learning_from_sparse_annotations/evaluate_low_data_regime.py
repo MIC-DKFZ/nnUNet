@@ -6,7 +6,7 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 
 
 def generate_low_data_splits():
-    for dataset in [216, 994]:
+    for dataset in [216,]:
         # add folds to splits_final.json of d64 that reflect annotated dataset percentage
         splits_final_file = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset), 'splits_final.json')
         splits = load_json(splits_final_file)
@@ -17,25 +17,32 @@ def generate_low_data_splits():
         # add 5 folds for 10%. Keep val set of fold 0
         for n in range(5):
             splits.append(
-                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases / 10))),
+                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases / 10), replace=False)),
                  'val': splits[0]['val']}
             )
         # add 5 folds with 3%
         for n in range(5):
             splits.append(
-                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases / 33))),
+                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases / 33), replace=False)),
                  'val': splits[0]['val']}
             )
         # add 5 folds with 5%
         for n in range(5):
             splits.append(
-                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases * 0.05))),
+                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases * 0.05), replace=False)),
                  'val': splits[0]['val']}
             )
         # add 5 folds with 30%
         for n in range(5):
             splits.append(
-                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases * 0.3))),
+                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases * 0.3), replace=False)),
+                 'val': splits[0]['val']}
+            )
+
+        # add 5 folds with 50%
+        for n in range(5):
+            splits.append(
+                {'train': list(np.random.choice(splits[0]['train'], size=round(num_cases * 0.5), replace=False)),
                  'val': splits[0]['val']}
             )
 

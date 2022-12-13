@@ -1,14 +1,11 @@
-from copy import deepcopy
 from typing import Union, Tuple
 
 import numpy as np
-
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerDA5 import nnUNetTrainerDA5
-from nnunetv2.training.nnUNetTrainer.variants.lr_schedule.nnUNetTrainer_5epochs import nnUNetTrainer_10epochs
+from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerDA5 import nnUNetTrainerDA5, nnUNetTrainerDA5ord0
 
 
 class nnUNetDataLoaderBaseBetterIgnSampling(nnUNetDataLoaderBase):
@@ -152,6 +149,43 @@ class nnUNetTrainer_betterIgnoreSampling(nnUNetTrainer):
 
 
 class nnUNetTrainerDA5_betterIgnoreSampling(nnUNetTrainerDA5):
+    def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
+        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
+
+        if dim == 2:
+            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr,
+                                                        self.batch_size,
+                                                        initial_patch_size,
+                                                        self.configuration_manager.patch_size,
+                                                        self.label_manager,
+                                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                                        sampling_probabilities=None, pad_sides=None)
+            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val,
+                                                         self.batch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.label_manager,
+                                                         oversample_foreground_percent=self.oversample_foreground_percent,
+                                                         sampling_probabilities=None, pad_sides=None)
+        else:
+            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr,
+                                                        self.batch_size,
+                                                        initial_patch_size,
+                                                        self.configuration_manager.patch_size,
+                                                        self.label_manager,
+                                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                                        sampling_probabilities=None, pad_sides=None)
+            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val,
+                                                         self.batch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.configuration_manager.patch_size,
+                                                         self.label_manager,
+                                                         oversample_foreground_percent=self.oversample_foreground_percent,
+                                                         sampling_probabilities=None, pad_sides=None)
+        return dl_tr, dl_val
+
+
+class nnUNetTrainerDA5ord0_betterIgnoreSampling(nnUNetTrainerDA5ord0):
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 

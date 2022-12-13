@@ -10,7 +10,9 @@ if __name__ == '__main__':
         'nnUNetTrainerDA5': ('nnUNetPlans',),
         'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
         'nnUNetTrainerDA5_betterIgnoreSampling': ('nnUNetPlans',),
+        'nnUNetTrainerDA5ord0_betterIgnoreSampling': ('nnUNetPlans',),
         'nnUNetTrainer_betterIgnoreSampling': ('nnUNetPlans',),
+        'nnUNetTrainerDAOrd0': ('nnUNetPlans',),
     }
 
     configurations_all = {
@@ -35,6 +37,33 @@ if __name__ == '__main__':
             '3d_lowres_sparse_rand_ori_slices_with_oversampling_10',
             '3d_lowres_sparse_rand_ori_slices_with_oversampling_5',
             '3d_lowres_sparse_rand_ori_slices_with_oversampling_3',
+            '3d_lowres_sparse_pixelwise50',
+            '3d_lowres_sparse_pixelwise1',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_10',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_5_ppc025',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_3_ppc0167',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_10_ppc05',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_30_ppc1',
+            '3d_lowres_sparse_rand_ori_slices_with_oversampling_50_ppc1',
+            '3d_lowres_sparse_randblobs5',
+            '3d_lowres_sparse_randblobs10',
+            '3d_lowres_sparse_randblobs30',
+            '3d_lowres_sparse_randblobs50',
+            '3d_lowres_sparse_blobs5',
+            '3d_lowres_sparse_blobs10',
+            '3d_lowres_sparse_blobs30',
+            '3d_lowres_sparse_blobs50',
+            '3d_lowres_sparse_randOrthSlices10',
+            '3d_lowres_sparse_randOrthSlices30',
+            '3d_lowres_sparse_randOrthSlices50',
+            '3d_lowres_sparse_sparsepatches3',
+            '3d_lowres_sparse_sparsepatches5',
+            '3d_lowres_sparse_sparsepatches10',
+            '3d_lowres_sparse_sparsepatches30',
+            '3d_lowres_sparse_hybridsparsepatchesslices3',
+            '3d_lowres_sparse_hybridsparsepatchesslices5',
+            '3d_lowres_sparse_hybridsparsepatchesslices10',
+            '3d_lowres_sparse_hybridsparsepatchesslices30',
         ),
         # 994: (
         #     "3d_fullres",
@@ -53,7 +82,7 @@ if __name__ == '__main__':
     datasets = (216,)
     for d in datasets:
         all_results_file = join(nnUNet_results, f'sparse_annotationm_evaluation_{d}.csv')
-        collect_results(use_these_trainers, [d], all_results_file, configurations_all[d], folds=(0, ))
+        collect_results(use_these_trainers, [d], all_results_file, configurations_all[d], folds=(0,))
 
     # low number of train cases
     configurations_all = {

@@ -6,12 +6,16 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, Config
 
 
 class SparseSegBlobsPreprocessor(DefaultPreprocessor):
+    def __init__(self, verbose):
+        super().__init__(verbose)
+        self.num_foreground_spheres_per_class = 1 # if self.num_foreground_spheres_per_class is <1 we use it as probability per class!
+        self.labeled_fraction = 0.03
+        self.num_blobs = 20
+
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
                       configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
         label_manager = plans_manager.get_label_manager(dataset_json)
-        labeled_fraction = 0.03
-        num_foreground_spheres_per_class = 1
 
         median_patient_size = configuration_manager.median_patient_size_in_voxels
         spacing = configuration_manager.spacing
@@ -25,14 +29,14 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
                 raise RuntimeError('This preprocessor does not work on 2D datasets')
 
         median_patient_volume = np.prod(median_patient_size, dtype=np.int64)
-        sphere_volume_pixels = labeled_fraction / 20 * median_patient_volume
+        sphere_volume_pixels = self.labeled_fraction / self.num_blobs * median_patient_volume
         vol_per_pixel = np.prod(spacing)
         sphere_volume = vol_per_pixel * sphere_volume_pixels
 
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
 
         labeled_pixels = 0
-        allowed_labeled_pixels = labeled_fraction * np.prod(seg.shape, dtype=np.int64)
+        allowed_labeled_pixels = self.labeled_fraction * np.prod(seg.shape, dtype=np.int64)
 
         # print(
         #     f'shape: {seg.shape}, allowed_labeled_pixels: {allowed_labeled_pixels}, est num spheres '
@@ -46,20 +50,38 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
         keys = [i for i in list(locs.keys()) if len(locs[i]) > 0]
         for c in keys:
             if c != 0:
-                for n in range(num_foreground_spheres_per_class):
-                    l = [int(i) for i in locs[c].astype(float)[np.random.choice(len(locs[c]))]]
-                    sphere_radius = (sphere_volume * 3 / 4 / np.pi) ** (1 / 3)
-                    b = generate_ball([sphere_radius] * 3, spacing, dtype=bool)
-                    x = max(0, l[0] - b.shape[0] // 2)
-                    y = max(0, l[1] - b.shape[1] // 2)
-                    z = max(0, l[2] - b.shape[2] // 2)
-                    x = min(seg.shape[0] - b.shape[0], x)
-                    y = min(seg.shape[1] - b.shape[1], y)
-                    z = min(seg.shape[2] - b.shape[2], z)
-                    final_mask[x:x + b.shape[0], y:y + b.shape[1], z:z + b.shape[2]][b] = True
-                    added_pixels = np.sum(b)
-                    labeled_pixels += added_pixels
-                    num_spheres += 1
+                if self.num_foreground_spheres_per_class >= 1:
+                    for n in range(self.num_foreground_spheres_per_class):
+                        l = [int(i) for i in locs[c].astype(float)[np.random.choice(len(locs[c]))]]
+                        sphere_radius = (sphere_volume * 3 / 4 / np.pi) ** (1 / 3)
+                        b = generate_ball([sphere_radius] * 3, spacing, dtype=bool)
+                        x = max(0, l[0] - b.shape[0] // 2)
+                        y = max(0, l[1] - b.shape[1] // 2)
+                        z = max(0, l[2] - b.shape[2] // 2)
+                        x = min(seg.shape[0] - b.shape[0], x)
+                        y = min(seg.shape[1] - b.shape[1], y)
+                        z = min(seg.shape[2] - b.shape[2], z)
+                        final_mask[x:x + b.shape[0], y:y + b.shape[1], z:z + b.shape[2]][b] = True
+                        added_pixels = np.sum(b)
+                        labeled_pixels += added_pixels
+                        num_spheres += 1
+                else:
+                    if np.random.uniform() < self.num_foreground_spheres_per_class:
+                        # code duplication yummy. It's gotta be quick and dirty. Sorry bois.
+                        l = [int(i) for i in locs[c].astype(float)[np.random.choice(len(locs[c]))]]
+                        sphere_radius = (sphere_volume * 3 / 4 / np.pi) ** (1 / 3)
+                        b = generate_ball([sphere_radius] * 3, spacing, dtype=bool)
+                        x = max(0, l[0] - b.shape[0] // 2)
+                        y = max(0, l[1] - b.shape[1] // 2)
+                        z = max(0, l[2] - b.shape[2] // 2)
+                        x = min(seg.shape[0] - b.shape[0], x)
+                        y = min(seg.shape[1] - b.shape[1], y)
+                        z = min(seg.shape[2] - b.shape[2], z)
+                        final_mask[x:x + b.shape[0], y:y + b.shape[1], z:z + b.shape[2]][b] = True
+                        added_pixels = np.sum(b)
+                        labeled_pixels += added_pixels
+                        num_spheres += 1
+
         while True: # guarantees at least one random sphere
             sphere_radius = (sphere_volume * 3 / 4 / np.pi) ** (1 / 3)
             b = generate_ball([sphere_radius] * 3, spacing, dtype=bool)
@@ -82,12 +104,40 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
         return ret[None]
 
 
+class SparseSegBlobsPreprocessor5(SparseSegBlobsPreprocessor):
+    def __init__(self, verbose):
+        super().__init__(verbose)
+        self.num_foreground_spheres_per_class = 1 / 57 * 5  # do not ask. You wouldn't understand
+
+
+class SparseSegBlobsPreprocessor10(SparseSegBlobsPreprocessor):
+    def __init__(self, verbose):
+        super().__init__(verbose)
+        self.num_foreground_spheres_per_class = 1 / 57 * 10  # do not ask. You wouldn't understand
+
+
+class SparseSegBlobsPreprocessor30(SparseSegBlobsPreprocessor):
+    def __init__(self, verbose):
+        super().__init__(verbose)
+        self.num_foreground_spheres_per_class = 1 / 57 * 30  # do not ask. You wouldn't understand
+
+
+class SparseSegBlobsPreprocessor50(SparseSegBlobsPreprocessor):
+    def __init__(self, verbose):
+        super().__init__(verbose)
+        self.num_foreground_spheres_per_class = 1 / 57 * 50  # do not ask. You wouldn't understand
+
+
 class SparseSegRandomBlobsPreprocessor(DefaultPreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.labeled_fraction = 0.03
+        self.num_blobs = 20
+
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
                       configuration_manager: ConfigurationManager) -> np.ndarray:
         seg = seg[0]
         label_manager = plans_manager.get_label_manager(dataset_json)
-        labeled_fraction = 0.03
 
         median_patient_size = configuration_manager.median_patient_size_in_voxels
         spacing = configuration_manager.spacing
@@ -101,14 +151,14 @@ class SparseSegRandomBlobsPreprocessor(DefaultPreprocessor):
                 raise RuntimeError('This preprocessor does not work on 2D datasets')
 
         median_patient_volume = np.prod(median_patient_size, dtype=np.int64)
-        sphere_volume_pixels = labeled_fraction / 20 * median_patient_volume
+        sphere_volume_pixels = self.labeled_fraction / self.num_blobs * median_patient_volume
         vol_per_pixel = np.prod(spacing)
         sphere_volume = vol_per_pixel * sphere_volume_pixels
 
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
 
         labeled_pixels = 0
-        allowed_labeled_pixels = labeled_fraction * np.prod(seg.shape, dtype=np.int64)
+        allowed_labeled_pixels = self.labeled_fraction * np.prod(seg.shape, dtype=np.int64)
 
         print(
             f'shape: {seg.shape}, allowed_labeled_pixels: {allowed_labeled_pixels}, est num spheres '
@@ -136,3 +186,29 @@ class SparseSegRandomBlobsPreprocessor(DefaultPreprocessor):
         ret = np.ones_like(seg) * label_manager.ignore_label
         ret[final_mask] = seg[final_mask]
         return ret[None]
+
+
+class SparseSegRandomBlobsPreprocessor5(SparseSegRandomBlobsPreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.labeled_fraction = 0.05
+
+
+class SparseSegRandomBlobsPreprocessor10(SparseSegRandomBlobsPreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.labeled_fraction = 0.1
+
+
+class SparseSegRandomBlobsPreprocessor30(SparseSegRandomBlobsPreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.labeled_fraction = 0.3
+
+
+class SparseSegRandomBlobsPreprocessor50(SparseSegRandomBlobsPreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.labeled_fraction = 0.5
+
+

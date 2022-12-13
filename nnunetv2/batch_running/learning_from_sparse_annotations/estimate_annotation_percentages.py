@@ -6,7 +6,6 @@ from nnunetv2.evaluation.evaluate_predictions import region_or_label_to_mask
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 

@@ -32,9 +32,20 @@ class SparseSegPixelWisePreprocessor30(SparseSegPixelWisePreprocessor):
         self.annotated_pixels_percent = 0.3
 
 
+class SparseSegPixelWisePreprocessor50(SparseSegPixelWisePreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.annotated_pixels_percent = 0.5
+
+
 class SparseSegPixelWisePreprocessor5(SparseSegPixelWisePreprocessor):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
         self.annotated_pixels_percent = 0.05
+
+class SparseSegPixelWisePreprocessor1(SparseSegPixelWisePreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.annotated_pixels_percent = 0.01
 
 
