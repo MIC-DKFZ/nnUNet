@@ -14,7 +14,6 @@ from nnunetv2.evaluation.find_best_configuration import folds_tuple_to_string, a
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.label_handling.label_handling import get_labelmanager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
