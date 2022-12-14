@@ -64,6 +64,12 @@ if __name__ == '__main__':
             '3d_lowres_sparse_hybridsparsepatchesslices5',
             '3d_lowres_sparse_hybridsparsepatchesslices10',
             '3d_lowres_sparse_hybridsparsepatchesslices30',
+            '3d_lowres_sparse_patches_and_slices_3',
+            '3d_lowres_sparse_patches_and_slices_5',
+            '3d_lowres_sparse_patches_and_slices_3_2',
+            '3d_lowres_sparse_patches_and_slices_10',
+            '3d_lowres_sparse_patches_and_slices_30',
+            '3d_lowres_sparse_patches_and_slices_50',
         ),
         # 994: (
         #     "3d_fullres",
@@ -95,4 +101,4 @@ if __name__ == '__main__':
     }
     for d in datasets:
         all_results_file = join(nnUNet_results, f'sparse_annotationm_evaluation_lowpercTrainCases_{d}.csv')
-        collect_results(use_these_trainers, [d], all_results_file, configurations_all[d], folds=tuple(np.arange(5, 25)))
+        collect_results(use_these_trainers, [d], all_results_file, configurations_all[d], folds=tuple(np.arange(5, 30)))

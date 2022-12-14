@@ -13,6 +13,7 @@ from nnunetv2.utilities.helpers import softmax_helper_dim0
 
 from typing import TYPE_CHECKING
 
+# see https://adamj.eu/tech/2021/05/13/python-type-hints-how-to-fix-circular-imports/
 if TYPE_CHECKING:
     from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
