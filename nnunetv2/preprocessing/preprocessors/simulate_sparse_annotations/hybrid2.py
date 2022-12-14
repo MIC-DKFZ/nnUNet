@@ -23,7 +23,6 @@ class SparsePatchesAndSlicesPreprocessor3(DefaultPreprocessor):
         # patch size should follow image aspect ratio
 
         num_patches_taken = 0
-        patch_mask = np.zeros_like(seg, dtype=bool)
         seg_new = np.ones_like(seg) * label_manager.ignore_label
 
         locs = DefaultPreprocessor._sample_foreground_locations(
@@ -50,7 +49,6 @@ class SparsePatchesAndSlicesPreprocessor3(DefaultPreprocessor):
                                                                    configuration_manager,
                                                                    self.patch_annotation_density_per_dim)[0]
                         seg_new[slicer] = ret
-                        patch_mask[slicer] = True
                         num_patches_taken += 1
                 else:
                     if np.random.uniform() < self.patches_per_class:
@@ -69,32 +67,27 @@ class SparsePatchesAndSlicesPreprocessor3(DefaultPreprocessor):
                                                                    configuration_manager,
                                                                    self.patch_annotation_density_per_dim)[0]
                         seg_new[slicer] = ret
-                        patch_mask[slicer] = True
                         num_patches_taken += 1
 
         # sample random slices until targeted_annotated_pixels_percent is met
         current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
         diff = self.targeted_annotated_pixels_percent - current_percent_pixels
-        assert diff > 0
         percent_pixels_per_axis_cutoffs = current_percent_pixels + diff / 3, current_percent_pixels + 2 / 3 * diff
 
         current_percent_pixels = percent_pixels_per_axis_cutoffs[0] - 1e-8  # guarantee at least one slice
         while current_percent_pixels < percent_pixels_per_axis_cutoffs[0]:
             s = np.random.choice(seg.shape[0])
             seg_new[s] = seg[s]
-            patch_mask[s] = True
             current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
         current_percent_pixels = percent_pixels_per_axis_cutoffs[0] - 1e-8  # guarantee at least one slice
         while current_percent_pixels < percent_pixels_per_axis_cutoffs[1]:
             s = np.random.choice(seg.shape[1])
             seg_new[:, s] = seg[:, s]
-            patch_mask[:, s] = True
             current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
         current_percent_pixels = percent_pixels_per_axis_cutoffs[0] - 1e-8  # guarantee at least one slice
         while current_percent_pixels < self.targeted_annotated_pixels_percent:
             s = np.random.choice(seg.shape[2])
             seg_new[:, :, s] = seg[:, :, s]
-            patch_mask[:, :, s] = True
             current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
 
         return seg_new[None]
