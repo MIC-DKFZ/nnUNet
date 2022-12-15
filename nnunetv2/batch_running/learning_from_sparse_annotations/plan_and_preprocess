@@ -1,3 +1,2 @@
 nnUNetv2_preprocess -d 216 -np 200 -c \
-3d_lowres_sparse_patches_and_slices_3_3 3d_lowres_sparse_patches_and_slices_3_4 3d_lowres_sparse_patches_3 3d_lowres_sparse_patches_3_2 3d_lowres_sparse_patches_3_3 \
-3d_lowres_sparse_patches_5 3d_lowres_sparse_patches_10 3d_lowres_sparse_patches_30
+ 3d_lowres_sparse_patches_10 3d_lowres_sparse_patches_30

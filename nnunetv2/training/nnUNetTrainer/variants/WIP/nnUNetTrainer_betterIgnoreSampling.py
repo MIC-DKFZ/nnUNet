@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Union, Tuple
 
 import numpy as np
@@ -74,12 +75,19 @@ class nnUNetDataLoaderBaseBetterIgnSampling(nnUNetDataLoaderBase):
                 selected_voxel = voxels_of_that_class[np.random.choice(len(voxels_of_that_class))]
                 #################################################################
                 if self.has_ignore and not force_fg:
-                    # random offset for selected voxel
+                    # # random offset for selected voxel
+                    # orig = deepcopy(selected_voxel)
+                    allowed_max_neg_offset = [min(s, p // 2) for s, p in zip(selected_voxel[1:], self.patch_size)]
+                    allowed_max_pos_offset = [min(d - s, p // 2) for s, p, d in
+                                              zip(selected_voxel[1:], self.patch_size, data_shape)]
                     for d in range(len(self.patch_size)):
-                        selected_voxel[d + 1] += np.random.randint(-self.patch_size[d] // 2, self.patch_size[d] // 2)
-                    # make sure selected voxels are within image boundaries
-                    selected_voxel = [selected_voxel[0]] + [max(0, i) for i in selected_voxel[1:]]
-                    selected_voxel = [selected_voxel[0]] + [min(d, i) for d, i in zip(data_shape, selected_voxel[1:])]
+                         selected_voxel[d + 1] += np.random.randint(-allowed_max_neg_offset[d], allowed_max_pos_offset[d])
+                    # offset = deepcopy(selected_voxel)
+                    # # make sure selected voxels are within image boundaries
+                    # selected_voxel = [selected_voxel[0]] + [max(0, i) for i in selected_voxel[1:]]
+                    # selected_voxel = [selected_voxel[0]] + [min(d, i) for d, i in zip(data_shape, selected_voxel[1:])]
+                    # # corr = deepcopy(selected_voxel)
+                    # print(f'orig {orig}, offset {offset}, corr {corr}, data shape {data_shape}')
                 #################################################################
 
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.

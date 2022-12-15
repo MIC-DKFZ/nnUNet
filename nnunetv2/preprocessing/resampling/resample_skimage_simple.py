@@ -20,15 +20,21 @@ def resample_skimage_simple(data: Union[torch.Tensor, np.ndarray],
     new_shape = tuple(new_shape)
     assert len(data.shape) == 4, "data must be c x y z"
     if is_seg:
-        unique_values = np.sort(pd.unique(data.ravel()))
-        result = np.zeros((data.shape[0], *new_shape), dtype=data.dtype)
-        # we can only resample 3d data, do not resample 4d data here
-        for c in range(data.shape[0]):
-            res_here = np.zeros((len(unique_values), *new_shape), dtype=np.float16)
-            for i, u in enumerate(unique_values):
-                res_here[i] = resize((data[c] == u).astype(float), new_shape, order=order, mode='edge',
-                                     anti_aliasing=False)
-            result[c] = unique_values[res_here.argmax(0)]
+        if order != 0:
+            unique_values = np.sort(pd.unique(data.ravel()))
+            result = np.zeros((data.shape[0], *new_shape), dtype=data.dtype)
+            # we can only resample 3d data, do not resample 4d data here
+            for c in range(data.shape[0]):
+                res_here = np.zeros((len(unique_values), *new_shape), dtype=np.float16)
+                for i, u in enumerate(unique_values):
+                    res_here[i] = resize((data[c] == u).astype(float), new_shape, order=order, mode='edge',
+                                         anti_aliasing=False)
+                result[c] = unique_values[res_here.argmax(0)]
+        else:
+            result = np.zeros((data.shape[0], *new_shape), dtype=data.dtype)
+            for c in range(data.shape[0]):
+                result[c] = resize(data[c].astype(np.float32), new_shape, order=order, mode='edge',
+                                   anti_aliasing=False)
     else:
         result = np.zeros((data.shape[0], *new_shape), dtype=data.dtype)
         for c in range(data.shape[0]):
