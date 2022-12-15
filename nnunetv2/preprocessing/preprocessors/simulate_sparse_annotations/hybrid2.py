@@ -167,10 +167,6 @@ class SparsePatchesPreprocessor3(DefaultPreprocessor):
         label_manager = plans_manager.get_label_manager(dataset_json)
         assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
         # patch size should follow image aspect ratio
-        pixels_in_patches_percent = self.targeted_annotated_pixels_percent / (self.patch_annotation_density_per_dim * 3)
-        patch_size = [round(i) for i in
-                      (pixels_in_patches_percent / self.targeted_num_patches) ** (1 / 3) * np.array(seg.shape)]
-
         num_patches_taken = 0
         patch_mask = np.zeros_like(seg, dtype=bool)
         seg_new = np.ones_like(seg) * label_manager.ignore_label
@@ -184,16 +180,16 @@ class SparsePatchesPreprocessor3(DefaultPreprocessor):
         for c in locs.keys():
             if len(locs[c]) > 0:
                 if self.patches_per_class > 1:
-                    for p in self.patches_per_class:
+                    for p in range(self.patches_per_class):
                         x, y, z = locs[c].astype(float)[np.random.choice(len(locs[c]))]
-                        x, y, z = int(x - patch_size[0] // 2), int(y - patch_size[1] // 2), int(z - patch_size[2] // 2)
+                        x, y, z = int(x - self.patch_size[0] // 2), int(y - self.patch_size[1] // 2), int(z - self.patch_size[2] // 2)
                         x = max(0, x)
                         y = max(0, y)
                         z = max(0, y)
-                        x = min(seg.shape[0] - patch_size[0], x)
-                        y = min(seg.shape[1] - patch_size[1], y)
-                        z = min(seg.shape[2] - patch_size[2], z)
-                        slicer = (slice(x, x + patch_size[0]), slice(y, y + patch_size[1]), slice(z, z + patch_size[2]))
+                        x = min(seg.shape[0] - self.patch_size[0], x)
+                        y = min(seg.shape[1] - self.patch_size[1], y)
+                        z = min(seg.shape[2] - self.patch_size[2], z)
+                        slicer = (slice(x, x + self.patch_size[0]), slice(y, y + self.patch_size[1]), slice(z, z + self.patch_size[2]))
                         # not best practice lol
                         ret = SparseSegSliceRandomOrth.modify_seg_fn(self, seg[slicer][None],
                                                                      plans_manager, dataset_json, configuration_manager,
@@ -204,14 +200,14 @@ class SparsePatchesPreprocessor3(DefaultPreprocessor):
                 else:
                     if np.random.uniform() < self.patches_per_class:
                         x, y, z = locs[c].astype(float)[np.random.choice(len(locs[c]))]
-                        x, y, z = int(x - patch_size[0] // 2), int(y - patch_size[1] // 2), int(z - patch_size[2] // 2)
+                        x, y, z = int(x - self.patch_size[0] // 2), int(y - self.patch_size[1] // 2), int(z - self.patch_size[2] // 2)
                         x = max(0, x)
                         y = max(0, y)
                         z = max(0, y)
-                        x = min(seg.shape[0] - patch_size[0], x)
-                        y = min(seg.shape[1] - patch_size[1], y)
-                        z = min(seg.shape[2] - patch_size[2], z)
-                        slicer = (slice(x, x + patch_size[0]), slice(y, y + patch_size[1]), slice(z, z + patch_size[2]))
+                        x = min(seg.shape[0] - self.patch_size[0], x)
+                        y = min(seg.shape[1] - self.patch_size[1], y)
+                        z = min(seg.shape[2] - self.patch_size[2], z)
+                        slicer = (slice(x, x + self.patch_size[0]), slice(y, y + self.patch_size[1]), slice(z, z + self.patch_size[2]))
                         # not best practice lol
                         ret = SparseSegSliceRandomOrth.modify_seg_fn(self, seg[slicer][None],
                                                                      plans_manager, dataset_json, configuration_manager,
@@ -228,12 +224,12 @@ class SparsePatchesPreprocessor3(DefaultPreprocessor):
 
         while current_percent_pixels < self.targeted_annotated_pixels_percent:
             # pick a random location, verify that there is no to little overlap with existing patches
-            x = np.random.choice(seg.shape[0] - patch_size[0])
-            y = np.random.choice(seg.shape[1] - patch_size[1])
-            z = np.random.choice(seg.shape[2] - patch_size[2])
-            slicer = (slice(x, x + patch_size[0]), slice(y, y + patch_size[1]), slice(z, z + patch_size[2]))
+            x = np.random.choice(seg.shape[0] - self.patch_size[0])
+            y = np.random.choice(seg.shape[1] - self.patch_size[1])
+            z = np.random.choice(seg.shape[2] - self.patch_size[2])
+            slicer = (slice(x, x + self.patch_size[0]), slice(y, y + self.patch_size[1]), slice(z, z + self.patch_size[2]))
 
-            if iters < max_iters and np.sum(patch_mask[slicer]) > allowed_overlap_percent * np.prod(patch_size):
+            if iters < max_iters and np.sum(patch_mask[slicer]) > allowed_overlap_percent * np.prod(self.patch_size):
                 # too much overlap with existing patches
                 iters += 1
                 continue
