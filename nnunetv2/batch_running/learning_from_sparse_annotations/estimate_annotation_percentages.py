@@ -39,23 +39,25 @@ def run_on_folder(folder, ref_folder, labels_or_regions, num_processes, ignore_l
     return aggr
 
 
-def run_on_all_subfolders(base, n_processes: int = 8, prefix='nnUNetPlans'):
+def run_on_all_subfolders(base, n_processes: int = 8, prefix='nnUNetPlans', overwrite=True):
     dataset_json = load_json(join(base, 'dataset.json'))
     plans_manager = PlansManager(join(base, 'nnUNetPlans.json'))
     lm = plans_manager.get_label_manager(dataset_json)
     labels_or_regions = lm.all_labels
     subfolders = subdirs(base, prefix=prefix)
     for s in subfolders:
-        if os.path.basename(s).find('3d_lowres') != -1:
-            ref_folder = join(base, 'nnUNetPlans_3d_lowres')
-        elif os.path.basename(s).find('3d_fullres') != -1:
-            ref_folder = join(base, 'nnUNetPlans_3d_fullres')
-        else:
-            continue
-        print(s)
-        r = run_on_folder(s, ref_folder, labels_or_regions, n_processes, ignore_label=lm.ignore_label)
-        recursive_fix_for_json_export(r)
-        save_json(r, join(base, os.path.basename(s) + '.json'), sort_keys=False)
+        output_fname = join(base, os.path.basename(s) + '.json')
+        if overwrite or not isfile(output_fname):
+            if os.path.basename(s).find('3d_lowres') != -1:
+                ref_folder = join(base, 'nnUNetPlans_3d_lowres')
+            elif os.path.basename(s).find('3d_fullres') != -1:
+                ref_folder = join(base, 'nnUNetPlans_3d_fullres')
+            else:
+                continue
+            print(s)
+            r = run_on_folder(s, ref_folder, labels_or_regions, n_processes, ignore_label=lm.ignore_label)
+            recursive_fix_for_json_export(r)
+            save_json(r, output_fname, sort_keys=False)
 
 
 if __name__ == '__main__':
@@ -64,7 +66,7 @@ if __name__ == '__main__':
     for d in datasets:
         print(d)
         base = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(d))
-        run_on_all_subfolders(base, 32)
+        run_on_all_subfolders(base, 32, overwrite=False)
     # folder = join(base, 'nnUNetPlans_3d_fullres_sparse_randblobs')
     # dataset_json = load_json(join(base, 'dataset.json'))
     # plans_json = load_json(join(base, 'nnUNetPlans.json'))
