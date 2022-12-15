@@ -109,6 +109,22 @@ class SparsePatchesAndSlicesPreprocessor3_2(SparsePatchesAndSlicesPreprocessor3)
         self.patches_per_class = 0.5
 
 
+class SparsePatchesAndSlicesPreprocessor3_3(SparsePatchesAndSlicesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48, 48)
+        self.targeted_annotated_pixels_percent = 0.03
+        self.patches_per_class = 0.3
+
+
+class SparsePatchesAndSlicesPreprocessor3_4(SparsePatchesAndSlicesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48, 48)
+        self.targeted_annotated_pixels_percent = 0.03
+        self.patches_per_class = 0.2
+
+
 class SparsePatchesAndSlicesPreprocessor10(SparsePatchesAndSlicesPreprocessor3):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
@@ -133,4 +149,152 @@ class SparsePatchesAndSlicesPreprocessor50(SparsePatchesAndSlicesPreprocessor3):
         self.targeted_annotated_pixels_percent = 0.5
         self.patch_annotation_density_per_dim = 0.2
         self.patches_per_class = 1
+
+
+
+class SparsePatchesPreprocessor3(DefaultPreprocessor):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48, 48)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.067
+        self.targeted_annotated_pixels_percent = 0.03
+        self.patches_per_class = 0.2 # if this is <1 then this is interpreted as probability of taking a patch
+
+    def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
+                      configuration_manager: ConfigurationManager) -> np.ndarray:
+        # one patch per class, the rest random. Patches are sparsely annotated
+        seg = seg[0]
+        label_manager = plans_manager.get_label_manager(dataset_json)
+        assert label_manager.has_ignore_label, "This preprocessor only works with datasets that have an ignore label!"
+        # patch size should follow image aspect ratio
+        pixels_in_patches_percent = self.targeted_annotated_pixels_percent / (self.patch_annotation_density_per_dim * 3)
+        patch_size = [round(i) for i in
+                      (pixels_in_patches_percent / self.targeted_num_patches) ** (1 / 3) * np.array(seg.shape)]
+
+        num_patches_taken = 0
+        patch_mask = np.zeros_like(seg, dtype=bool)
+        seg_new = np.ones_like(seg) * label_manager.ignore_label
+
+        locs = DefaultPreprocessor._sample_foreground_locations(
+            seg,
+            label_manager.foreground_labels if not label_manager.has_regions else label_manager.foreground_regions,
+            seed=None, verbose=False)
+
+        # pick a random patch per class
+        for c in locs.keys():
+            if len(locs[c]) > 0:
+                if self.patches_per_class > 1:
+                    for p in self.patches_per_class:
+                        x, y, z = locs[c].astype(float)[np.random.choice(len(locs[c]))]
+                        x, y, z = int(x - patch_size[0] // 2), int(y - patch_size[1] // 2), int(z - patch_size[2] // 2)
+                        x = max(0, x)
+                        y = max(0, y)
+                        z = max(0, y)
+                        x = min(seg.shape[0] - patch_size[0], x)
+                        y = min(seg.shape[1] - patch_size[1], y)
+                        z = min(seg.shape[2] - patch_size[2], z)
+                        slicer = (slice(x, x + patch_size[0]), slice(y, y + patch_size[1]), slice(z, z + patch_size[2]))
+                        # not best practice lol
+                        ret = SparseSegSliceRandomOrth.modify_seg_fn(self, seg[slicer][None],
+                                                                     plans_manager, dataset_json, configuration_manager,
+                                                                     self.patch_annotation_density_per_dim)[0]
+                        seg_new[slicer] = ret
+                        patch_mask[slicer] = True
+                        num_patches_taken += 1
+                else:
+                    if np.random.uniform() < self.patches_per_class:
+                        x, y, z = locs[c].astype(float)[np.random.choice(len(locs[c]))]
+                        x, y, z = int(x - patch_size[0] // 2), int(y - patch_size[1] // 2), int(z - patch_size[2] // 2)
+                        x = max(0, x)
+                        y = max(0, y)
+                        z = max(0, y)
+                        x = min(seg.shape[0] - patch_size[0], x)
+                        y = min(seg.shape[1] - patch_size[1], y)
+                        z = min(seg.shape[2] - patch_size[2], z)
+                        slicer = (slice(x, x + patch_size[0]), slice(y, y + patch_size[1]), slice(z, z + patch_size[2]))
+                        # not best practice lol
+                        ret = SparseSegSliceRandomOrth.modify_seg_fn(self, seg[slicer][None],
+                                                                     plans_manager, dataset_json, configuration_manager,
+                                                                     self.patch_annotation_density_per_dim)[0]
+                        seg_new[slicer] = ret
+                        patch_mask[slicer] = True
+                        num_patches_taken += 1
+
+        current_percent_pixels = np.sum(seg_new != label_manager.ignore_label) / np.prod(seg.shape, dtype=np.int64)
+        current_percent_pixels = min(current_percent_pixels, self.targeted_annotated_pixels_percent + 1e-8)
+        allowed_overlap_percent = 0.1
+        max_iters = 1000
+        iters = 0
+
+        while current_percent_pixels < self.targeted_annotated_pixels_percent:
+            # pick a random location, verify that there is no to little overlap with existing patches
+            x = np.random.choice(seg.shape[0] - patch_size[0])
+            y = np.random.choice(seg.shape[1] - patch_size[1])
+            z = np.random.choice(seg.shape[2] - patch_size[2])
+            slicer = (slice(x, x + patch_size[0]), slice(y, y + patch_size[1]), slice(z, z + patch_size[2]))
+
+            if iters < max_iters and np.sum(patch_mask[slicer]) > allowed_overlap_percent * np.prod(patch_size):
+                # too much overlap with existing patches
+                iters += 1
+                continue
+
+            ret = SparseSegSliceRandomOrth.modify_seg_fn(self, seg[slicer][None], plans_manager, dataset_json,
+                                                         configuration_manager,
+                                                         self.patch_annotation_density_per_dim)[0]
+            seg_new[slicer] = ret
+            patch_mask[slicer] = True
+            num_patches_taken += 1
+            iters += 1
+            current_percent_pixels = min(current_percent_pixels, self.targeted_annotated_pixels_percent + 1e-8)
+        return seg_new[None]
+
+
+class SparsePatchesPreprocessor3_2(SparsePatchesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48,
+                           48)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.067
+        self.targeted_annotated_pixels_percent = 0.03
+        self.patches_per_class = 0.3  # if this is <1 then this is interpreted as probability of taking a patch
+
+
+class SparsePatchesPreprocessor3_3(SparsePatchesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48,
+                           48)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.067
+        self.targeted_annotated_pixels_percent = 0.03
+        self.patches_per_class = 0.5  # if this is <1 then this is interpreted as probability of taking a patch
+
+
+class SparsePatchesPreprocessor5(SparsePatchesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48,
+                           48)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.067
+        self.targeted_annotated_pixels_percent = 0.05
+        self.patches_per_class = 0.3  # if this is <1 then this is interpreted as probability of taking a patch
+
+
+class SparsePatchesPreprocessor10(SparsePatchesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48,
+                           48)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.1
+        self.targeted_annotated_pixels_percent = 0.1
+        self.patches_per_class = 0.5  # if this is <1 then this is interpreted as probability of taking a patch
+
+
+class SparsePatchesPreprocessor30(SparsePatchesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (64, 64,
+                           64)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.15
+        self.targeted_annotated_pixels_percent = 0.3
+        self.patches_per_class = 1  # if this is <1 then this is interpreted as probability of taking a patch
 

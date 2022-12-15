@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from nnunetv2.utilities.overlay_plots import color_cycle, hex_to_rgb
 
 sns.set(rc={'figure.figsize':(15, 10)})
-a = np.loadtxt('/home/isensee/Downloads/ablation studies nnUNet - deletenem.tsv', delimiter='\t', dtype=str, skiprows=2)
+a = np.loadtxt('/home/isensee/Downloads/ablation studies nnUNet - deletenem (5).tsv', delimiter='\t', dtype=str, skiprows=0)
 x = a[:, 2].astype(float)
 y = a[:, 3].astype(float)
 hue = a[:, 4]

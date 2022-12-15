@@ -60,7 +60,7 @@ def run_on_all_subfolders(base, n_processes: int = 8, prefix='nnUNetPlans'):
 
 if __name__ == '__main__':
     # this codes makes some hard assumptions.
-    datasets = (994, 216)
+    datasets = (216, )
     for d in datasets:
         print(d)
         base = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(d))
