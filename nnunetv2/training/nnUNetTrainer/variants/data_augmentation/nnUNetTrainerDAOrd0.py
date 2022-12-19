@@ -3,6 +3,7 @@ from batchgenerators.dataloading.single_threaded_augmenter import SingleThreaded
 from nnunetv2.training.data_augmentation.custom_transforms.limited_length_multithreaded_augmenter import \
     LimitedLenWrapper
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.variants.loss.nnUNetTrainerDiceLoss import nnUNetTrainer_onlyMirror01_noSmooth
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 
 
@@ -55,7 +56,7 @@ class nnUNetTrainerDAOrd0(nnUNetTrainer):
         return mt_gen_train, mt_gen_val
 
 
-class nnUNetTrainerDASegOrd0(nnUNetTrainer):
+class nnUNetTrainer_onlyMirror01_noSmooth_DASegOrd0(nnUNetTrainer_onlyMirror01_noSmooth):
     def get_dataloaders(self):
         """
         changed order_resampling_data, order_resampling_seg
