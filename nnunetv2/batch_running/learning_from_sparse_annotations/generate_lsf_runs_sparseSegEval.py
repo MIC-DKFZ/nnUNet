@@ -61,9 +61,9 @@ if __name__ == "__main__":
             '3d_lowres_sparse_patches_3',
             '3d_lowres_sparse_patches_3_2',
             '3d_lowres_sparse_patches_3_3',
-            '3d_lowres_sparse_patches_5',
-            '3d_lowres_sparse_patches_10',
-            '3d_lowres_sparse_patches_30',
+            # '3d_lowres_sparse_patches_5',
+            # '3d_lowres_sparse_patches_10',
+            # '3d_lowres_sparse_patches_30',
         ),
         # 994: (
         #     "3d_fullres",
