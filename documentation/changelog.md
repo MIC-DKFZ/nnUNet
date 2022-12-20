@@ -1,3 +1,5 @@
+[v2]
+
 Changes
 - supports more input/output data formats through ImageIO classes
 - no longer requires cropped data -> less storage and easier dataset updating

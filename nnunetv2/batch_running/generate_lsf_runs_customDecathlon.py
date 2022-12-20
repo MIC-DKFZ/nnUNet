@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
 
-    output_file = "/home/fabian/deleteme.txt"
+    output_file = "/home/isensee/deleteme.txt"
     with open(output_file, 'w') as f:
         for tr in use_these_modules.keys():
             for p in use_these_modules[tr]:

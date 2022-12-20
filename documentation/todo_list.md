@@ -1,14 +1,8 @@
 Planned:
 - parametrizable DA intensity
 - random field aug 
-- hrnet
 - keep highres path in unet
-- RMI
 - resampling strats
-
-- INFERENCE FROM RESTORED TRAINER!
-- INFERENCE WITH GPU RESAMPLING
-- task163 where all cases with non-adult teeth are removed or non-adult teeth are set to bg
 - validation and inference need to share code, just different data generators
 
 all on gpu should also hold data on gpu?

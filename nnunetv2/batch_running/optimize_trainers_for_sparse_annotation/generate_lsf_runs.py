@@ -13,9 +13,9 @@ if __name__ == "__main__":
     num_gpus = 1
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=1G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=33G"
     queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && "
+    preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && nnUNet_def_n_proc=24 "
     train_command = 'nnUNetv2_train'
 
     folds = (0, 1, 2)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
 
-    output_file = "/home/fabian/deleteme.txt"
+    output_file = "/home/isensee/deleteme.txt"
     with open(output_file, 'w') as f:
         for tr in use_these_modules.keys():
             for p in use_these_modules[tr]:

@@ -2,10 +2,6 @@ from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.batch_running.collect_results_custom_Decathlon import collect_results, summarize
 from nnunetv2.paths import nnUNet_results
-from batchgenerators.utilities.file_and_folder_operations import *
-
-from nnunetv2.batch_running.collect_results_custom_Decathlon import collect_results, summarize
-from nnunetv2.paths import nnUNet_results
 
 if __name__ == '__main__':
     use_these_trainers = {
