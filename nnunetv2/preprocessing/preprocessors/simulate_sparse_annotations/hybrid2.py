@@ -121,7 +121,7 @@ class SparsePatchesAndSlicesPreprocessor10_2(SparsePatchesAndSlicesPreprocessor3
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
         self.patch_size = (48, 48, 48)
-        self.targeted_annotated_pixels_percent = 0.1
+        self.targeted_annotated_pixels_percent = 0.085
         self.patches_per_class = 0.15
 
 
