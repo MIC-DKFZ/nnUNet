@@ -244,6 +244,16 @@ class SparsePatchesPreprocessor3_3(SparsePatchesPreprocessor3):
         self.patches_per_class = 0.5  # if this is <1 then this is interpreted as probability of taking a patch
 
 
+class SparsePatchesPreprocessor10_2(SparsePatchesPreprocessor3):
+    def __init__(self, verbose: bool = True):
+        super().__init__(verbose)
+        self.patch_size = (48, 48,
+                           48)  # for amos (142, 240, 240) this makes (142*240**2)/(48**3*0.2)=370 patches for a fully annotated image (respecting patch_annotation_density_per_dim)
+        self.patch_annotation_density_per_dim = 0.067
+        self.num_random_patches = 30
+        self.patches_per_class = 0.25  # if this is <1 then this is interpreted as probability of taking a patch
+
+
 class SparsePatchesPreprocessor5(SparsePatchesPreprocessor3):
     def __init__(self, verbose: bool = True):
         super().__init__(verbose)
