@@ -250,7 +250,7 @@ class SparsePatchesPreprocessor10_2(SparsePatchesPreprocessor3):
         self.patch_size = (64, 64, 64)
         self.patch_annotation_density_per_dim = 0.067
         self.num_random_patches = 30
-        self.patches_per_class = 0.15  # if this is <1 then this is interpreted as probability of taking a patch
+        self.patches_per_class = 0.1  # if this is <1 then this is interpreted as probability of taking a patch
 
 
 class SparsePatchesPreprocessor5(SparsePatchesPreprocessor3):
