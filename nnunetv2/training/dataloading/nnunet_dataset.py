@@ -10,7 +10,7 @@ from nnunetv2.training.dataloading.utils import get_case_identifiers
 
 class nnUNetDataset(object):
     def __init__(self, folder: str, case_identifiers: List[str] = None,
-                 num_cases_properties_loading_threshold: int = 1000,
+                 num_cases_properties_loading_threshold: int = 0,
                  folder_with_segs_from_previous_stage: str = None):
         """
         This does not actually load the dataset. It merely creates a dictionary where the keys are training case names and
@@ -39,8 +39,7 @@ class nnUNetDataset(object):
         if case_identifiers is None:
             case_identifiers = get_case_identifiers(folder)
         case_identifiers.sort()
-        # we need to use super().__getitem__ so that we don't end up in a recursion problem because of our custom
-        # implementation of __getitem__
+
         self.dataset = {}
         for c in case_identifiers:
             self.dataset[c] = {}
