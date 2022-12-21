@@ -95,7 +95,8 @@ class nnUNetTrainer_HRNet18(nnUNetTrainerNoDeepSupervision):
             val_keys = val_keys[self.local_rank:: dist.get_world_size()]
 
         dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                    num_cases_properties_loading_threshold=0)
 
         next_stages = self.configuration_manager.next_stage_names
 

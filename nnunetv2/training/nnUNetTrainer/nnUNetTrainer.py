@@ -499,9 +499,11 @@ class nnUNetTrainer(object):
         # load the datasets for training and validation. Note that we always draw random samples so we really don't
         # care about distributing training cases across GPUs.
         dataset_tr = nnUNetDataset(self.preprocessed_dataset_folder, tr_keys,
-                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                   num_cases_properties_loading_threshold=0)
         dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                    num_cases_properties_loading_threshold=0)
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
@@ -1012,7 +1014,8 @@ class nnUNetTrainer(object):
             val_keys = val_keys[self.local_rank:: dist.get_world_size()]
 
         dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                    num_cases_properties_loading_threshold=0)
 
         next_stages = self.configuration_manager.next_stage_names
 
@@ -1079,7 +1082,7 @@ class nnUNetTrainer(object):
 
                     try:
                         # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
-                        tmp = nnUNetDataset(expected_preprocessed_folder, [k])
+                        tmp = nnUNetDataset(expected_preprocessed_folder, [k], num_cases_properties_loading_threshold=0)
                         d, s, p = tmp.load_case(k)
                     except FileNotFoundError:
                         self.print_to_log_file(
