@@ -130,7 +130,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
                     print('WARNING! "perform_everything_on_gpu" was True but cuda is not available! Set it to False...')
                 perform_everything_on_gpu = False
 
-            results_device = 'cuda:0' if perform_everything_on_gpu else 'cpu'
+            results_device = 'cuda' if perform_everything_on_gpu else 'cpu'
 
             if verbose: print("step_size:", tile_step_size)
             if verbose: print("mirror_axes:", mirror_axes)

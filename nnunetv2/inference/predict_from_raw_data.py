@@ -187,7 +187,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     inference_gaussian = torch.from_numpy(
         compute_gaussian(configuration_manager.patch_size)).half()
     if perform_everything_on_gpu:
-        inference_gaussian = inference_gaussian.to('cuda:0')
+        inference_gaussian = inference_gaussian.to('cuda')
 
     # num seg heads is needed because we need to preallocate the results in predict_sliding_window_return_logits
     label_manager = plans_manager.get_label_manager(dataset_json)
@@ -197,7 +197,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
     export_pool = multiprocessing.get_context('spawn').Pool(num_processes_segmentation_export)
     if torch.cuda.is_available():
-        network = network.to('cuda:0')
+        network = network.to('cuda')
 
     r = []
     with torch.no_grad():
