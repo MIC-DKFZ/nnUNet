@@ -60,7 +60,7 @@ class MemoryEffifientSoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
                  ddp: bool = True):
         """
-        saves >1 GB on Dataset017 3d_lowres
+        saves 1.6 GB on Dataset017 3d_lowres
         """
         super(MemoryEffifientSoftDiceLoss, self).__init__()
 

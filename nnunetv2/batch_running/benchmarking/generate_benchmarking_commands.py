@@ -29,7 +29,7 @@ if __name__ == '__main__':
     output_file = "/home/fabian/deleteme.txt"
     with open(output_file, 'w') as f:
         for g in gpu_models:
-            gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmodel={g}"
+            gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmodel={g}"
             for tr in use_these_modules.keys():
                 for p in use_these_modules[tr]:
                     for dataset in benchmark_configurations.keys():

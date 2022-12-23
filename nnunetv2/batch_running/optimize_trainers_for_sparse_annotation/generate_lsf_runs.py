@@ -19,7 +19,7 @@ if __name__ == "__main__":
     for e in exclude_hosts:
         exclude_hosts_string += f"-R \"select[hname!='{e}']\" "
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:mode=exclusive_process:gmem=33G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=33G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && nnUNet_def_n_proc=24 "
     train_command = 'nnUNetv2_train'
