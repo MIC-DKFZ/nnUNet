@@ -54,14 +54,14 @@ if __name__ == "__main__":
     num_gpus = 1
     exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
     resources = "-R \"tensorcore\""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=33G"
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=1G"
     queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && "
+    preamble = "-L /bin/bash \"source ~/load_env_cluster4.sh && "
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
-    use_this = configurations_2d_only
-    # use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
+    # use_this = configurations_2d_only
+    use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {

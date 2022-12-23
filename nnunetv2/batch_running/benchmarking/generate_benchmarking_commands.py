@@ -15,7 +15,7 @@ if __name__ == '__main__':
     exclude_hosts = ""
     resources = "-R \"tensorcore\""
     queue = "-q gpu"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster3.sh && "
+    preamble = "-L /bin/bash \"source ~/load_env_cluster4.sh && "
     train_command = 'nnUNetv2_train'
 
     folds = (0, )

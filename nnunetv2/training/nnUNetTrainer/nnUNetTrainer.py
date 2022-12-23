@@ -201,6 +201,25 @@ class nnUNetTrainer(object):
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
                                "That should not happen.")
 
+    def _save_debug_information(self):
+        # saving some debug information
+        dct = {}
+        for k in self.__dir__():
+            if not k.startswith("__"):
+                if not callable(getattr(self, k)) or k in ['loss',]:
+                    dct[k] = str(getattr(self, k))
+                elif k in ['network',]:
+                    dct[k] = str(getattr(self, k).__class__.__name__)
+                else:
+                    # print(k)
+                    pass
+            if k in ['dataloader_train', 'dataloader_val']:
+                dct[k + '.transform'] = str(getattr(self, k).transform)
+                dct[k + '.generator'] = str(getattr(self, k).generator)
+                dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
+
+        save_json(dct, join(self.output_folder, "debug.json"))
+
     @staticmethod
     def build_network_architecture(plans_manager: PlansManager,
                                    dataset_json,
@@ -753,6 +772,8 @@ class nnUNetTrainer(object):
 
         # produces a pdf in output folder
         self.plot_network_architecture()
+
+        self._save_debug_information()
 
         # print(f"batch size: {self.batch_size}")
         # print(f"oversample: {self.oversample_foreground_percent}")
