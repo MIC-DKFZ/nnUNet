@@ -950,7 +950,7 @@ class nnUNetTrainer(object):
         elif current_epoch == self.num_epochs - 1:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_final.pth'), )
             # delete latest checkpoint
-            if isfile(join(self.output_folder, 'checkpoint_latest.pth')):
+            if isfile(join(self.output_folder, 'checkpoint_latest.pth')) and self.local_rank == 0:
                 os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
