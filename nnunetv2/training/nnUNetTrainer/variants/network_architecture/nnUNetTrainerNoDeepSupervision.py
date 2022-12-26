@@ -2,7 +2,7 @@ import torch
 from torch import autocast
 
 from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
-from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
+from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -15,11 +15,13 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
             loss = DC_and_BCE_loss({},
                                    {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
-                                   use_ignore_label=self.label_manager.ignore_label is not None)
+                                   use_ignore_label=self.label_manager.ignore_label is not None,
+                                   dice_class=MemoryEfficientSoftDiceLoss)
         else:
             loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.label_manager.ignore_label)
+                                  ignore_label=self.label_manager.ignore_label,
+                                  dice_class=MemoryEfficientSoftDiceLoss)
         return loss
 
     def _get_deep_supervision_scales(self):

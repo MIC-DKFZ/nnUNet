@@ -75,6 +75,7 @@ class DC_and_CE_loss_ignlossbalancing(nn.Module):
 
 class nnUNetTrainer_ignoreLabel_lossBalancing(nnUNetTrainer):
     def _build_loss(self):
+        # remember MemoryEfficientSoftDiceLoss
         if self.label_manager.has_regions:
             raise NotImplementedError('this dont work for region based training')
         else:

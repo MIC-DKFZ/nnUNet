@@ -44,6 +44,7 @@ class DC_and_CE_loss_fixCEAggr(DC_and_CE_loss):
 
 class nnUNetTrainer_ignoreLabel_fixCEAggr(nnUNetTrainer):
     def _build_loss(self):
+        # remember MemoryEfficientSoftDiceLoss
         if self.label_manager.has_regions:
             raise NotImplementedError
         else:

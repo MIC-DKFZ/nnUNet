@@ -1,5 +1,5 @@
 import torch
-from nnunetv2.training.loss.dice import SoftDiceLoss, MemoryEffifientSoftDiceLoss
+from nnunetv2.training.loss.dice import SoftDiceLoss, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss, TopKLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 from torch import nn
@@ -58,7 +58,8 @@ class DC_and_CE_loss(nn.Module):
 
 
 class DC_and_BCE_loss(nn.Module):
-    def __init__(self, bce_kwargs, soft_dice_kwargs, weight_ce=1, weight_dice=1, use_ignore_label: bool = False):
+    def __init__(self, bce_kwargs, soft_dice_kwargs, weight_ce=1, weight_dice=1, use_ignore_label: bool = False,
+                 dice_class=SoftDiceLoss):
         """
         DO NOT APPLY NONLINEARITY IN YOUR NETWORK!
 
@@ -78,7 +79,7 @@ class DC_and_BCE_loss(nn.Module):
         self.use_ignore_label = use_ignore_label
 
         self.ce = nn.BCEWithLogitsLoss(**bce_kwargs)
-        self.dc = SoftDiceLoss(apply_nonlin=torch.sigmoid, **soft_dice_kwargs)
+        self.dc = dice_class(apply_nonlin=torch.sigmoid, **soft_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
         if self.use_ignore_label:
