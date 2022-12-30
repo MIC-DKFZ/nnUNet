@@ -783,7 +783,7 @@ class nnUNetTrainer(object):
     def on_train_end(self):
         self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
         # now we can delete latest
-        if isfile(join(self.output_folder, "checkpoint_latest.pth")):
+        if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
 
         if torch.cuda.is_available():
