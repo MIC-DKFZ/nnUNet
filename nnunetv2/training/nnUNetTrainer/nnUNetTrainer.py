@@ -375,7 +375,7 @@ class nnUNetTrainer(object):
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        if not self.is_ddp or self.local_rank == 0:
+        if self.local_rank == 0:
             timestamp = time()
             dt_object = datetime.fromtimestamp(timestamp)
 
@@ -399,9 +399,11 @@ class nnUNetTrainer(object):
                     ctr += 1
             if also_print_to_console:
                 print(*args)
+        elif also_print_to_console:
+            print(*args)
 
     def print_plans(self):
-        if not self.is_ddp or self.local_rank == 0:
+        if self.local_rank == 0:
             dct = deepcopy(self.plans_manager.plans)
             del dct['configurations']
             self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n',
@@ -415,7 +417,7 @@ class nnUNetTrainer(object):
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
-        if not self.is_ddp or self.local_rank == 0:
+        if self.local_rank == 0:
             try:
                 # raise NotImplementedError('hiddenlayer no longer works and we do not have a viable alternative :-(')
                 # pip install git+https://github.com/saugatkandel/hiddenlayer.git
@@ -751,7 +753,7 @@ class nnUNetTrainer(object):
             torch.cuda.empty_cache()
 
         # maybe unpack
-        if self.unpack_dataset and (not self.is_ddp or self.local_rank == 0):
+        if self.unpack_dataset and self.local_rank == 0:
             self.print_to_log_file('unpacking dataset...')
             unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
                            num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
@@ -949,11 +951,6 @@ class nnUNetTrainer(object):
         current_epoch = self.current_epoch
         if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
-        elif current_epoch == self.num_epochs - 1:
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_final.pth'), )
-            # delete latest checkpoint
-            if isfile(join(self.output_folder, 'checkpoint_latest.pth')) and self.local_rank == 0:
-                os.remove(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
         if self._best_ema is None or self.logger.my_fantastic_logging['ema_fg_dice'][-1] > self._best_ema:
@@ -961,15 +958,14 @@ class nnUNetTrainer(object):
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
-        if not self.is_ddp or self.local_rank == 0:
+        if self.local_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
 
         self.current_epoch += 1
 
     def save_checkpoint(self, filename: str) -> None:
-        if not self.is_ddp or self.local_rank == 0:
+        if self.local_rank == 0:
             if not self.disable_checkpointing:
-
                 checkpoint = {
                     'network_weights': self.network.module.state_dict() if self.is_ddp else self.network.state_dict(),
                     'optimizer_state': self.optimizer.state_dict(),
@@ -1141,7 +1137,7 @@ class nnUNetTrainer(object):
         if self.is_ddp:
             dist.barrier()
 
-        if not self.is_ddp or self.local_rank == 0:
+        if self.local_rank == 0:
             compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
                                       validation_output_folder,
                                       join(validation_output_folder, 'summary.json'),
