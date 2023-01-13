@@ -58,7 +58,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     assert len(existing_datasets) == 0, f"Target dataset id {target_id} is already taken, please consider changing " \
                                         f"it using overwrite_target_id. Conflicting dataset: {existing_datasets} (check nnUNet_results, nnUNet_preprocessed and nnUNet_raw!)"
 
-    target_dataset_name = f"Dataset{target_id:3d}_{dataset_name}"
+    target_dataset_name = f"Dataset{target_id:03d}_{dataset_name}"
     target_folder = join(nnUNet_raw, target_dataset_name)
     target_imagesTr = join(target_folder, 'imagesTr')
     target_imagesTs = join(target_folder, 'imagesTs')
@@ -88,7 +88,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
 
     results.append(
         p.starmap_async(
-            split_4d_nifti, zip(source_images, [target_imagesTr] * len(source_images))
+            split_4d_nifti, zip(source_images, [target_imagesTs] * len(source_images))
         )
     )
 
@@ -105,6 +105,8 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     dataset_json = load_json(dataset_json)
     dataset_json['labels'] = {j: int(i) for i, j in dataset_json['labels'].items()}
     dataset_json['file_ending'] = ".nii.gz"
+    dataset_json["channel_names"]=dataset_json["modality"]
+    del dataset_json["modality"]
     del dataset_json["training"]
     del dataset_json["test"]
     save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'))
