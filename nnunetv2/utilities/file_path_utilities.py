@@ -115,7 +115,7 @@ def should_i_save_to_file(prediction: np.ndarray, results_list: List = None, exp
     """
     if prediction.dtype in (np.float32, np.int32, np.uint32):
         bytes_per_element = 4
-    elif prediction.dtype in (np.float, np.int, int, float, np.uint64):
+    elif prediction.dtype in (np.single, np.intc, int, float, np.uint64):
         bytes_per_element = 8
     elif prediction.dtype in (np.float16, np.uint16, np.int16):
         bytes_per_element = 2
