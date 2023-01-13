@@ -153,6 +153,7 @@ def preprocess():
             configuration_manager = plans_manager.get_configuration(c)
             preprocessor = configuration_manager.preprocessor_class(verbose=args.verbose)
             preprocessor.run(d, c, args.plans_name, num_processes=n)
+        maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
         [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in
          subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
 
