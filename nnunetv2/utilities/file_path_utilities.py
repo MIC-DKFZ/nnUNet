@@ -106,22 +106,22 @@ def should_i_save_to_file(prediction: np.ndarray, results_list: List = None, exp
     This function determines whether the object that should be passed through a multiprocessing pipe is too big.
 
     It also determines whether the export pool can keep up with its tasks and if not it will trigger
-    saving results to disk in order to reduce the amoutn of RAM that is consumed (queued tasks can use a lot of RAM)
+    saving results to disk in order to reduce the amount of RAM that is consumed (queued tasks can use a lot of RAM)
 
     We also check for dead workers and crash in case there are any. This should fix some peoples issues where
     the inference was just stuck (due to out of memory problems).
 
     Returns: True if we should save to file else False
     """
-    if prediction.dtype in (np.float32, np.int32, np.uint32):
-        bytes_per_element = 4
-    elif prediction.dtype in (np.single, np.intc, int, float, np.uint64):
+    if prediction.dtype in (np.float64, np.int64, np.uint64):
         bytes_per_element = 8
+    elif prediction.dtype in (np.float32, np.int32, np.uint32):
+        bytes_per_element = 4
     elif prediction.dtype in (np.float16, np.uint16, np.int16):
         bytes_per_element = 2
-    elif prediction.dtype in (np.uint8, np.int8, np.char):
+    elif prediction.dtype in (np.uint8, np.int8):
         bytes_per_element = 1
-    elif prediction == np.bool:
+    elif prediction.dtype in (np.bool_, bool):
         bytes_per_element = 1  # is that so? I don't know tbh but like this its not going to crash for sure.
     else:
         raise RuntimeError(f'Unexpected dtype {prediction.dtype}')
