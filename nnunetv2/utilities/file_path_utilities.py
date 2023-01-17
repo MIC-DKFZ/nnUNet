@@ -113,21 +113,7 @@ def should_i_save_to_file(prediction: np.ndarray, results_list: List = None, exp
 
     Returns: True if we should save to file else False
     """
-    if prediction.dtype in (np.float64, np.int64, np.uint64):
-        bytes_per_element = 8
-    elif prediction.dtype in (np.float32, np.int32, np.uint32):
-        bytes_per_element = 4
-    elif prediction.dtype in (np.float16, np.uint16, np.int16):
-        bytes_per_element = 2
-    elif prediction.dtype in (np.uint8, np.int8):
-        bytes_per_element = 1
-    elif prediction.dtype in (np.bool_, bool):
-        bytes_per_element = 1  # is that so? I don't know tbh but like this its not going to crash for sure.
-    else:
-        raise RuntimeError(f'Unexpected dtype {prediction.dtype}')
-
-    prediction_shape = prediction.shape
-    if np.prod(prediction_shape) > (2e9 / bytes_per_element * 0.85):  # *0.85 just to be safe
+    if prediction.nbytes * 0.85 > 2e9:  # *0.85 just to be safe
         print('INFO: Prediction is too large for python process-process communication. Saving to file...')
         return True
     if export_pool is not None:
