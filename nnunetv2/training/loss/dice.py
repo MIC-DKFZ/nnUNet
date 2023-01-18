@@ -106,7 +106,7 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             sum_pred = sum_pred.sum(0)
             sum_gt = sum_gt.sum(0)
 
-        dc = (intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
+        dc = 2 * (intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
 
         if not self.do_bg:
             if self.batch_dice:
@@ -181,3 +181,15 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
         tn = sum_tensor(tn, axes, keepdim=False)
 
     return tp, fp, fn, tn
+
+
+if __name__ == '__main__':
+    from nnunetv2.utilities.helpers import softmax_helper_dim1
+    pred = torch.rand((2, 3, 32, 32, 32))
+    ref = torch.randint(0, 3, (2, 32, 32, 32))
+
+    dl_old = SoftDiceLoss(apply_nonlin=softmax_helper_dim1, batch_dice=True, do_bg=False, smooth=0, ddp=False)
+    dl_new = MemoryEfficientSoftDiceLoss(apply_nonlin=softmax_helper_dim1, batch_dice=True, do_bg=False, smooth=0, ddp=False)
+    res_old = dl_old(pred, ref)
+    res_new = dl_new(pred, ref)
+    print(res_old, res_new)

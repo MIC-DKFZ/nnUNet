@@ -35,14 +35,14 @@ class DC_and_CE_loss_ignlossbalancing(nn.Module):
                 target_dice = target
             shp_x = net_output.shape
             axes = list(range(2, len(shp_x)))
-            sample_fg_percent = non_ignore_mask.sum((1, *axes)) / np.prod(shp_x[2:])
+            sample_annotated_percent = non_ignore_mask.sum((1, *axes)) / np.prod(shp_x[2:])
         x = softmax_helper_dim1(net_output)
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, target_dice, axes, non_ignore_mask, False)
 
         if self.ddp:
             raise NotImplementedError('No DDP for you!')  # we would need to synchronize sample_weights and ce losses per sample as well
 
-        sample_weights = sample_fg_percent / torch.clip(sample_fg_percent.sum(), min=1e-8) * shp_x[0]
+        sample_weights = sample_annotated_percent / torch.clip(sample_annotated_percent.sum(), min=1e-8) * shp_x[0]
         tp *= sample_weights[:, None]
         fp *= sample_weights[:, None]
         fn *= sample_weights[:, None]
