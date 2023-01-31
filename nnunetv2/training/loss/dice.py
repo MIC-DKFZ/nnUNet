@@ -88,7 +88,12 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
                 y_onehot = torch.zeros(shp_x, device=x.device, dtype=torch.bool)
                 y_onehot.scatter_(1, gt, 1)
 
+            if not self.do_bg:
+                y_onehot = y_onehot[:, 1:]
             sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
+
+        if not self.do_bg:
+            x = x[:, 1:]
 
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
@@ -106,15 +111,9 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             sum_pred = sum_pred.sum(0)
             sum_gt = sum_gt.sum(0)
 
-        dc = 2 * (intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
+        dc = (2 * intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
 
-        if not self.do_bg:
-            if self.batch_dice:
-                dc = dc[1:]
-            else:
-                dc = dc[:, 1:]
         dc = dc.mean()
-
         return -dc
 
 
