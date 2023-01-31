@@ -218,7 +218,6 @@ class nnUNetTrainerDiceCELoss_noSmooth(nnUNetTrainer):
         return loss
 
 
-
 class nnUNetTrainer_onlyMirror01_noSmooth(nnUNetTrainer_onlyMirror01):
     def _build_loss(self):
         # set smooth to 0

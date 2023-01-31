@@ -92,11 +92,11 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
                 y_onehot = y_onehot[:, 1:]
             sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
 
-        if not self.do_bg:
-            x = x[:, 1:]
-
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
+
+        if not self.do_bg:
+            x = x[:, 1:]
 
         intersect = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
         sum_pred = x.sum(axes) if loss_mask is None else (x * loss_mask).sum(axes)
