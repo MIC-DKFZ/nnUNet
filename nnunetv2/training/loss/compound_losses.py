@@ -84,7 +84,7 @@ class DC_and_BCE_loss(nn.Module):
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
         if self.use_ignore_label:
             # target is one hot encoded here. invert it so that it is True wherever we can compute the loss
-            mask = 1 - target[:, -1:]
+            mask = (1 - target[:, -1:]).bool()
             # remove ignore channel now that we have the mask
             target_regions = torch.clone(target[:, :-1])
         else:
@@ -92,13 +92,10 @@ class DC_and_BCE_loss(nn.Module):
             mask = None
 
         dc_loss = self.dc(net_output, target_regions, loss_mask=mask)
-        ce_loss = self.ce(net_output, target_regions)
         if mask is not None:
-            # todo loss attribution of samples depends on loss mask! samples with a lot of ignore will contribute
-            #  less. Is this a problem?
-            # todo let's use the same principle as batch dice here!
-            ce_loss = (ce_loss * mask).sum() / torch.clip(mask.sum(), 1e-8)
-
+            ce_loss = (self.ce(net_output, target_regions) * mask).sum() / torch.clip(mask.sum(), min=1e-8)
+        else:
+            ce_loss = self.ce(net_output, target_regions)
         result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         return result
 
