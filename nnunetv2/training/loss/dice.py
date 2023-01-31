@@ -76,6 +76,11 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         # make everything shape (b, c)
         axes = list(range(2, len(shp_x)))
 
+        if not self.do_bg:
+            x = x[:, 1:]
+            if loss_mask is not None:
+                loss_mask = loss_mask[:, 1:]
+
         with torch.no_grad():
             if len(shp_x) != len(shp_y):
                 y = y.view((shp_y[0], 1, *shp_y[1:]))
@@ -94,10 +99,6 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
 
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
-
-        if not self.do_bg:
-            x = x[:, 1:]
-            loss_mask = loss_mask[:, 1:]
 
         intersect = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
         sum_pred = x.sum(axes) if loss_mask is None else (x * loss_mask).sum(axes)
