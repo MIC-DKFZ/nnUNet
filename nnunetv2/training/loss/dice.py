@@ -97,6 +97,7 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
 
         if not self.do_bg:
             x = x[:, 1:]
+            loss_mask = loss_mask[:, 1:]
 
         intersect = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
         sum_pred = x.sum(axes) if loss_mask is None else (x * loss_mask).sum(axes)
