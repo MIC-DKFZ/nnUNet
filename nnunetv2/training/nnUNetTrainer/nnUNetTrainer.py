@@ -218,7 +218,9 @@ class nnUNetTrainer(object):
                     dct[k + '.transform'] = str(getattr(self, k).transform)
                     dct[k + '.generator'] = str(getattr(self, k).generator)
                     dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
-
+            import subprocess
+            hostname = subprocess.getoutput(['hostname'])
+            dct['hostname'] = hostname
             save_json(dct, join(self.output_folder, "debug.json"))
 
     @staticmethod
