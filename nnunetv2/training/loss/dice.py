@@ -73,6 +73,12 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
     def forward(self, x, y, loss_mask=None):
         shp_x, shp_y = x.shape, y.shape
 
+        if self.apply_nonlin is not None:
+            x = self.apply_nonlin(x)
+
+        if not self.do_bg:
+            x = x[:, 1:]
+
         # make everything shape (b, c)
         axes = list(range(2, len(shp_x)))
 
@@ -91,9 +97,6 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             if not self.do_bg:
                 y_onehot = y_onehot[:, 1:]
             sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
-
-        if self.apply_nonlin is not None:
-            x = self.apply_nonlin(x)
 
         if not self.do_bg:
             x = x[:, 1:]
