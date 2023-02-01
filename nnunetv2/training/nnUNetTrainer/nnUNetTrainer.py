@@ -221,6 +221,16 @@ class nnUNetTrainer(object):
             import subprocess
             hostname = subprocess.getoutput(['hostname'])
             dct['hostname'] = hostname
+            torch_version = torch.__version__
+            if torch.cuda.is_available():
+                gpu_name = torch.cuda.get_device_name()
+                dct['gpu_name'] = gpu_name
+            if torch.backends.cudnn.is_available():
+                cudnn_version = torch.backends.cudnn.version()
+            else:
+                cudnn_version = 'None'
+            dct['torch_version'] = torch_version
+            dct['cudnn_version'] = cudnn_version
             save_json(dct, join(self.output_folder, "debug.json"))
 
     @staticmethod
