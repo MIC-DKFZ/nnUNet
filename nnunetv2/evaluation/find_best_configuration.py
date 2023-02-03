@@ -1,14 +1,16 @@
 import argparse
 import os.path
-import shutil
 from copy import deepcopy
 from typing import Union, List, Tuple
 
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, isdir, maybe_mkdir_p, subfiles, isfile
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, isdir
+
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
+from nnunetv2.evaluation.accumulate_cv_results import accumulate_cv_results
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, load_summary_json
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
+from nnunetv2.postprocessing.remove_connected_components import determine_postprocessing
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
     convert_identifier_to_trainer_plans_config, get_ensemble_name, folds_tuple_to_string
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
@@ -44,52 +46,6 @@ def filter_available_models(model_dict: Union[List[dict], Tuple[dict, ...]], dat
 
         valid.append(trained_model)
     return valid
-
-
-def accumulate_cv_results(trained_model_folder,
-                          merged_output_folder: str,
-                          folds: Union[List[int], Tuple[int, ...]],
-                          num_processes: int = default_num_processes,
-                          overwrite: bool = True):
-    """
-    There are a lot of things that can get fucked up, so the simplest way to deal with potential problems is to
-    collect the cv results into a separate folder and then evaluate them again. No messing with summary_json files!
-    """
-
-    if overwrite and isdir(merged_output_folder):
-        shutil.rmtree(merged_output_folder)
-    maybe_mkdir_p(merged_output_folder)
-
-    dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
-    plans_manager = PlansManager(join(trained_model_folder, 'plans.json'))
-    rw = plans_manager.image_reader_writer_class()
-    shutil.copy(join(trained_model_folder, 'dataset.json'), join(merged_output_folder, 'dataset.json'))
-    shutil.copy(join(trained_model_folder, 'plans.json'), join(merged_output_folder, 'plans.json'))
-
-    did_we_copy_something = False
-    for f in folds:
-        expected_validation_folder = join(trained_model_folder, f'fold_{f}', 'validation')
-        if not isdir(expected_validation_folder):
-            raise RuntimeError(f"fold {f} of model {trained_model_folder} is missing. Please train it!")
-        predicted_files = subfiles(expected_validation_folder, suffix=dataset_json['file_ending'], join=False)
-        for pf in predicted_files:
-            if overwrite and isfile(join(merged_output_folder, pf)):
-                raise RuntimeError(f'More than one of your folds has a prediction for case {pf}')
-            if overwrite or not isfile(join(merged_output_folder, pf)):
-                shutil.copy(join(expected_validation_folder, pf), join(merged_output_folder, pf))
-                did_we_copy_something = True
-
-    if did_we_copy_something or not isfile(join(merged_output_folder, 'summary.json')):
-        label_manager = plans_manager.get_label_manager(dataset_json)
-        compute_metrics_on_folder(join(nnUNet_raw, plans_manager.dataset_name, 'labelsTr'),
-                                  merged_output_folder,
-                                  join(merged_output_folder, 'summary.json'),
-                                  rw,
-                                  dataset_json['file_ending'],
-                                  label_manager.foreground_regions if label_manager.has_regions else
-                                  label_manager.foreground_labels,
-                                  label_manager.ignore_label,
-                                  num_processes)
 
 
 def generate_inference_command(dataset_name_or_id: Union[int, str], configuration_name: str,
@@ -189,33 +145,65 @@ def find_best_configuration(dataset_name_or_id,
     # come after single configs)
     best_key = best_keys[0]
 
-    print('All results:')
+    print()
+    print('***All results:***')
     for k, v in all_results.items():
-        print(f'{k}: {v}')
-    print(f'\nBest: {best_key}: {all_results[best_key]["result"]}')
+        print(f'{k}: {v["result"]}')
+    print(f'\n*Best*: {best_key}: {all_results[best_key]["result"]}')
+    print()
 
-    print('You should now run nnUNetv2_determine_postprocessing:')
-    print(f"nnUNetv2_determine_postprocessing -i {all_results[best_key]['source']} -ref {join(nnUNet_raw, dataset_name, 'labelsTr')} -np {num_processes}")
+    print('***Determining postprocessing for best model/ensemble***')
+    determine_postprocessing(all_results[best_key]['source'], join(nnUNet_raw, dataset_name, 'labelsTr'),
+                             plans_file_or_dict=join(all_results[best_key]['source'], 'plans.json'),
+                             dataset_json_file_or_dict=join(all_results[best_key]['source'], 'dataset.json'),
+                             num_processes=num_processes, keep_postprocessed_files=True)
 
+    # in addition to just reading the console output we should return the information needed to run the full inference via API
+    return_dict = {
+        'postprocessing_file': join(all_results[best_key]['source'], 'postprocessing.pkl'),
+        'folds': folds,
+        'dataset_name_or_id': dataset_name_or_id,
+        'result_on_crossval_pre_pp': all_results[best_key]["result"]
+    }
     # convert best key to inference command:
-    print('\nAfter that you can use this for inference:')
+    print('\n***Run inference like this:***')
     if best_key.startswith('ensemble___'):
-        print('An ensemble won! What a surprise!')
+        print('An ensemble won! What a surprise! Run the following commands to run predictions with the ensemble members:')
         prefix, m1, m2, folds_string = best_key.split('___')
         tr1, pl1, c1 = convert_identifier_to_trainer_plans_config(m1)
         tr2, pl2, c2 = convert_identifier_to_trainer_plans_config(m2)
         print(generate_inference_command(dataset_name_or_id, c1, pl1, tr1, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_1'))
         print(generate_inference_command(dataset_name_or_id, c2, pl2, tr2, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_2'))
-        print('Now run ensembling with:')
+        print('\nThe run ensembling with:')
         print(f"nnUNetv2_ensemble -i OUTPUT_FOLDER_MODEL_1 OUTPUT_FOLDER_MODEL_2 -o OUTPUT_FOLDER_PP "
               f"-np {default_num_processes}")
+        return_dict['inference_models'] = [
+            {
+                'configuration': c1,
+                'trainer': tr1,
+                'plans_identifier': pl1,
+            },
+            {
+                'configuration': c2,
+                'trainer': tr2,
+                'plans_identifier': pl2,
+            },
+        ]
     else:
         tr, pl, c = convert_identifier_to_trainer_plans_config(best_key)
         print(generate_inference_command(dataset_name_or_id, c, pl, tr, folds))
+        return_dict['inference_models'] = [
+            {
+                'configuration': c,
+                'trainer': tr,
+                'plans_identifier': pl,
+            }
+        ]
 
-    print("Then apply the postprocessing with")
+    print("\n***Once inference is completed, run postprocessing like this:***")
     print(f"nnUNetv2_apply_postprocessing -i OUTPUT_FOLDER -o OUTPUT_FOLDER_PP "
           f"-pp_pkl_file {join(all_results[best_key]['source'], 'postprocessing.pkl')} -np {num_processes}")
+    return return_dict
 
 
 def dumb_trainer_config_plans_to_trained_models_dict(trainers: List[str], configs: List[str], plans: List[str]):

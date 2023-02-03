@@ -169,7 +169,7 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     recursive_fix_for_json_export(means)
     recursive_fix_for_json_export(foreground_mean)
     save_summary_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
-    print('DONE')
+    # print('DONE')
 
 
 def compute_metrics_on_folder2(folder_ref: str, folder_pred: str, dataset_json_file: str, plans_file: str,

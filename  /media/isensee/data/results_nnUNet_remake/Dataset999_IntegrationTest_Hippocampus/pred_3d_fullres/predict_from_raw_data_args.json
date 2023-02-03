@@ -1,0 +1,22 @@
+{
+    "checkpoint_name": "checkpoint_final.pth",
+    "folder_with_segs_from_prev_stage": null,
+    "list_of_lists_or_source_folder": " /media/isensee/raw_data/nnUNet_raw/Dataset999_IntegrationTest_Hippocampus/imagesTs",
+    "model_training_output_dir": "/media/isensee/data/results_nnUNet_remake/Dataset999_IntegrationTest_Hippocampus/nnUNetTrainer_5epochs__nnUNetPlans__3d_fullres",
+    "num_parts": 1,
+    "num_processes_preprocessing": 3,
+    "num_processes_segmentation_export": 3,
+    "output_folder": " /media/isensee/data/results_nnUNet_remake/Dataset999_IntegrationTest_Hippocampus/pred_3d_fullres",
+    "overwrite": true,
+    "part_id": 0,
+    "perform_everything_on_gpu": true,
+    "save_probabilities": true,
+    "tile_step_size": 0.5,
+    "use_folds": [
+        0,
+        3
+    ],
+    "use_gaussian": true,
+    "use_mirroring": true,
+    "verbose": false
+}

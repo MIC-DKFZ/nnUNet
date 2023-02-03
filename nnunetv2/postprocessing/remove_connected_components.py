@@ -8,11 +8,12 @@ from acvl_utils.morphology.morphology_helper import remove_all_but_largest_compo
 from batchgenerators.utilities.file_and_folder_operations import load_json, subfiles, maybe_mkdir_p, join, isfile, \
     isdir, save_pickle, load_pickle, save_json
 from nnunetv2.configuration import default_num_processes
+from nnunetv2.evaluation.accumulate_cv_results import accumulate_cv_results
 from nnunetv2.evaluation.evaluate_predictions import region_or_label_to_mask, compute_metrics_on_folder, \
     load_summary_json, label_or_region_to_key
-from nnunetv2.evaluation.find_best_configuration import folds_tuple_to_string, accumulate_cv_results
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.paths import nnUNet_raw
+from nnunetv2.utilities.file_path_utilities import folds_tuple_to_string
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
@@ -256,8 +257,10 @@ def apply_postprocessing_to_folder(input_folder: str,
     if plans_file_or_dict is None:
         expected_plans_file = join(input_folder, 'plans.json')
         if not isfile(expected_plans_file):
-            raise RuntimeError(f"Expected plans file missing: {expected_plans_file}. The plans fils should have been "
-                               f"created while running nnUNetv2_predict. Sadge.")
+            raise RuntimeError(f"Expected plans file missing: {expected_plans_file}. The plans file should have been "
+                               f"created while running nnUNetv2_predict. Sadge. If the folder you want to apply "
+                               f"postprocessing to was create from an ensemble then just specify one of the "
+                               f"plans files of the ensemble members in plans_file_or_dict")
         plans_file_or_dict = load_json(expected_plans_file)
     plans_manager = PlansManager(plans_file_or_dict)
 
@@ -266,7 +269,7 @@ def apply_postprocessing_to_folder(input_folder: str,
         if not isfile(expected_dataset_json_file):
             raise RuntimeError(
                 f"Expected plans file missing: {expected_dataset_json_file}. The dataset.json should have been "
-                f"copied while running nnUNetv2_predict. Sadge.")
+                f"copied while running nnUNetv2_predict/nnUNetv2_ensemble. Sadge.")
         dataset_json_file_or_dict = load_json(expected_dataset_json_file)
 
     if not isinstance(dataset_json_file_or_dict, dict):

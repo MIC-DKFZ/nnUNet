@@ -96,7 +96,7 @@ def load_what_we_need(model_training_output_dir, use_folds, checkpoint_name):
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
     network = trainer_class.build_network_architecture(plans_manager, dataset_json, configuration_manager,
                                                        num_input_channels, enable_deep_supervision=False)
-    return parameters, configuration_manager, inference_allowed_mirroring_axes, plans_manager, dataset_json, network
+    return parameters, configuration_manager, inference_allowed_mirroring_axes, plans_manager, dataset_json, network, trainer_name
 
 
 def auto_detect_available_folds(model_training_output_dir, checkpoint_name):
@@ -112,7 +112,7 @@ def auto_detect_available_folds(model_training_output_dir, checkpoint_name):
 def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[str]]],
                           output_folder: str,
                           model_training_output_dir: str,
-                          use_folds: Union[Tuple[int], str] = None,
+                          use_folds: Union[Tuple[int, ...], str] = None,
                           tile_step_size: float = 0.5,
                           use_gaussian: bool = True,
                           use_mirroring: bool = True,
@@ -143,8 +143,27 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
         use_folds = auto_detect_available_folds(model_training_output_dir, checkpoint_name)
 
     # load all the stuff we need from the model_training_output_dir
-    parameters, configuration_manager, inference_allowed_mirroring_axes, plans_manager, dataset_json, network = \
+    parameters, configuration_manager, inference_allowed_mirroring_axes, \
+    plans_manager, dataset_json, network, trainer_name = \
         load_what_we_need(model_training_output_dir, use_folds, checkpoint_name)
+
+    # check if we need a prediction from the previous stage
+    if configuration_manager.previous_stage_name is not None:
+        if folder_with_segs_from_prev_stage is None:
+            print(f'WARNING: The requested configuration is a cascaded model and requires predctions from the '
+                  f'previous stage! folder_with_segs_from_prev_stage was not provided. Trying to run the '
+                  f'inference of the previous stage...')
+            folder_with_segs_from_prev_stage = join(output_folder, f'prediction_{configuration_manager.previous_stage_name}')
+            predict_from_raw_data(list_of_lists_or_source_folder,
+                                  folder_with_segs_from_prev_stage,
+                                  get_output_folder(plans_manager.dataset_name,
+                                                    trainer_name,
+                                                    plans_manager.plans_name,
+                                                    configuration_manager.previous_stage_name),
+                                  use_folds, tile_step_size, use_gaussian, use_mirroring, perform_everything_on_gpu,
+                                  verbose, False, overwrite, checkpoint_name,
+                                  num_processes_preprocessing, num_processes_segmentation_export, None,
+                                  num_parts=num_parts, part_id=part_id)
 
     # sort out input and output filenames
     if isinstance(list_of_lists_or_source_folder, str):

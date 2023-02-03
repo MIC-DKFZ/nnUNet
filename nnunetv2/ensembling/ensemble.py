@@ -76,6 +76,7 @@ def ensemble_folders(list_of_input_folders: List[str],
     label_manager = plans_manager.get_label_manager(dataset_json)
 
     maybe_mkdir_p(output_folder)
+    shutil.copy(join(list_of_input_folders[0], 'dataset.json'), output_folder)
 
     pool = Pool(num_processes)
     num_preds = len(s)
