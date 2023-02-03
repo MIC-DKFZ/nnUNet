@@ -3,7 +3,7 @@ import os.path
 from copy import deepcopy
 from typing import Union, List, Tuple
 
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, isdir
+from batchgenerators.utilities.file_and_folder_operations import load_json, join, isdir, save_json
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
@@ -158,55 +158,106 @@ def find_best_configuration(dataset_name_or_id,
                              dataset_json_file_or_dict=join(all_results[best_key]['source'], 'dataset.json'),
                              num_processes=num_processes, keep_postprocessed_files=True)
 
-    # in addition to just reading the console output we should return the information needed to run the full inference via API
+    # in addition to just reading the console output (how it was previously) we should return the information
+    # needed to run the full inference via API
     return_dict = {
-        'postprocessing_file': join(all_results[best_key]['source'], 'postprocessing.pkl'),
         'folds': folds,
         'dataset_name_or_id': dataset_name_or_id,
-        'result_on_crossval_pre_pp': all_results[best_key]["result"]
+        'considered_models': allowed_trained_models,
+        'ensembling_allowed': allow_ensembling,
+        'all_results': {i: j['result'] for i, j in all_results.items()},
+        'best_model_or_ensemble': {
+            'result_on_crossval_pre_pp': all_results[best_key]["result"],
+            'result_on_crossval_post_pp': load_json(join(all_results[best_key]['source'], 'postprocessed', 'summary.json'))['foreground_mean']['Dice'],
+            'postprocessing_file': join(all_results[best_key]['source'], 'postprocessing.pkl'),
+            'some_plans_file': join(all_results[best_key]['source'], 'plans.json'),
+            # just needed for label handling, can
+            # come from any of the ensemble members (if any)
+            'selected_model_or_models': []
+        }
     }
     # convert best key to inference command:
-    print('\n***Run inference like this:***')
     if best_key.startswith('ensemble___'):
-        print('An ensemble won! What a surprise! Run the following commands to run predictions with the ensemble members:')
         prefix, m1, m2, folds_string = best_key.split('___')
         tr1, pl1, c1 = convert_identifier_to_trainer_plans_config(m1)
         tr2, pl2, c2 = convert_identifier_to_trainer_plans_config(m2)
-        print(generate_inference_command(dataset_name_or_id, c1, pl1, tr1, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_1'))
-        print(generate_inference_command(dataset_name_or_id, c2, pl2, tr2, folds, save_npz=True, output_folder='OUTPUT_FOLDER_MODEL_2'))
-        print('\nThe run ensembling with:')
-        print(f"nnUNetv2_ensemble -i OUTPUT_FOLDER_MODEL_1 OUTPUT_FOLDER_MODEL_2 -o OUTPUT_FOLDER_PP "
-              f"-np {default_num_processes}")
-        return_dict['inference_models'] = [
+        return_dict['best_model_or_ensemble']['selected_model_or_models'].append(
             {
                 'configuration': c1,
                 'trainer': tr1,
                 'plans_identifier': pl1,
-            },
+            })
+        return_dict['best_model_or_ensemble']['selected_model_or_models'].append(
             {
                 'configuration': c2,
                 'trainer': tr2,
                 'plans_identifier': pl2,
-            },
-        ]
+            })
     else:
         tr, pl, c = convert_identifier_to_trainer_plans_config(best_key)
-        print(generate_inference_command(dataset_name_or_id, c, pl, tr, folds))
-        return_dict['inference_models'] = [
+        return_dict['best_model_or_ensemble']['selected_model_or_models'].append(
             {
                 'configuration': c,
                 'trainer': tr,
                 'plans_identifier': pl,
-            }
-        ]
+            })
 
-    print("\n***Once inference is completed, run postprocessing like this:***")
-    print(f"nnUNetv2_apply_postprocessing -i OUTPUT_FOLDER -o OUTPUT_FOLDER_PP "
-          f"-pp_pkl_file {join(all_results[best_key]['source'], 'postprocessing.pkl')} -np {num_processes}")
+    save_json(return_dict, join(nnUNet_results, dataset_name, 'inference_information.json'))  # save this so that we don't have to run this
+    # everything someone wants to be reminded of the inference commands. They can just load this and give it to
+    # print_inference_instructions
+
+    # print it
+    print_inference_instructions(return_dict, instructions_file=join(nnUNet_results, dataset_name, 'inference_instructions.txt'))
     return return_dict
 
 
+def print_inference_instructions(inference_info_dict: dict, instructions_file: str = None):
+    def _print_and_maybe_write_to_file(string):
+        print(string)
+        if f_handle is not None:
+            f_handle.write(f'{string}\n')
+
+    f_handle = open(instructions_file, 'w') if instructions_file is not None else None
+    print()
+    _print_and_maybe_write_to_file('***Run inference like this:***\n')
+    output_folders = []
+
+    dataset_name_or_id = inference_info_dict['dataset_name_or_id']
+    if len(inference_info_dict['best_model_or_ensemble']['selected_model_or_models']) > 1:
+        is_ensemble = True
+        _print_and_maybe_write_to_file('An ensemble won! What a surprise! Run the following commands to run predictions with the ensemble members:\n')
+    else:
+        is_ensemble = False
+
+    for j, i in enumerate(inference_info_dict['best_model_or_ensemble']['selected_model_or_models']):
+        tr, c, pl = i['trainer'], i['configuration'], i['plans_identifier']
+        if is_ensemble:
+            output_folder_name = f"OUTPUT_FOLDER_MODEL_{j+1}"
+        else:
+            output_folder_name = f"OUTPUT_FOLDER"
+        output_folders.append(output_folder_name)
+
+        _print_and_maybe_write_to_file(generate_inference_command(dataset_name_or_id, c, pl, tr, inference_info_dict['folds'],
+                                         save_npz=is_ensemble, output_folder=output_folder_name))
+
+    if is_ensemble:
+        output_folder_str = output_folders[0]
+        for o in output_folders[1:]:
+            output_folder_str += f' {o}'
+        output_ensemble = f"OUTPUT_FOLDER"
+        _print_and_maybe_write_to_file('\nThe run ensembling with:\n')
+        _print_and_maybe_write_to_file(f"nnUNetv2_ensemble -i {output_folder_str} -o {output_ensemble} -np {default_num_processes}")
+
+    _print_and_maybe_write_to_file("\n***Once inference is completed, run postprocessing like this:***\n")
+    _print_and_maybe_write_to_file(f"nnUNetv2_apply_postprocessing -i OUTPUT_FOLDER -o OUTPUT_FOLDER_PP "
+          f"-pp_pkl_file {inference_info_dict['best_model_or_ensemble']['postprocessing_file']} -np {default_num_processes} "
+          f"-plans_json {inference_info_dict['best_model_or_ensemble']['some_plans_file']}")
+
+
 def dumb_trainer_config_plans_to_trained_models_dict(trainers: List[str], configs: List[str], plans: List[str]):
+    """
+    function is called dumb because it's dumb
+    """
     ret = []
     for t in trainers:
         for c in configs:

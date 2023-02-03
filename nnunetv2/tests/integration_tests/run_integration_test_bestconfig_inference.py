@@ -34,12 +34,12 @@ if __name__ == '__main__':
     ret = find_best_configuration(d, models, allow_ensembling=True, num_processes=8, overwrite=True,
                                   folds=(0, 1, 2, 3, 4), strict=True)
 
-    has_ensemble = len(ret['inference_models']) > 1
+    has_ensemble = len(ret['best_model_or_ensemble']['selected_model_or_models']) > 1
 
     # we don't use all folds to speed stuff up
     used_folds = (0, 3)
     output_folders = []
-    for im in ret['inference_models']:
+    for im in ret['best_model_or_ensemble']['selected_model_or_models']:
         output_dir = join(target_dir_base, f"pred_{im['configuration']}")
         model_folder = get_output_folder(d, im['trainer'], im['plans_identifier'], im['configuration'])
         # note that if the best model is the enseble of 3d_lowres and 3d cascade then 3d_lowres will be predicted
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         folder_for_pp = output_folders[0]
 
     # apply postprocessing
-    pp_fns, pp_fn_kwargs = load_pickle(ret['postprocessing_file'])
+    pp_fns, pp_fn_kwargs = load_pickle(ret['best_model_or_ensemble']['postprocessing_file'])
     apply_postprocessing_to_folder(folder_for_pp, join(target_dir_base, 'ensemble_predictions_postprocessed'),
                                    pp_fns,
-                                   pp_fn_kwargs, plans_file_or_dict=join(model_folder, 'plans.json'))
+                                   pp_fn_kwargs, plans_file_or_dict=ret['best_model_or_ensemble']['some_plans_file'])
