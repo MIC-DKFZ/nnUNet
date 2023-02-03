@@ -14,7 +14,7 @@ if __name__ == '__main__':
         dataset_name = maybe_convert_to_dataset_name(d)
         plans = load_json(join(nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'))
         plans['configurations']['3d_lowres'] = {
-            "data_identifier": "nnUNetPlans_3d_lowres",
+            "data_identifier": "nnUNetPlans_3d_lowres",  # do not be a dumbo and forget this. I was a dumbo. And I paid dearly with ~10 min debugging time
             'inherits_from': '3d_fullres',
             "patch_size": [20, 28, 20],
             "median_patient_size_in_voxels": [18.0, 25.0, 18.0],

@@ -19,7 +19,7 @@ ignore labels). It runs the entire nnU-Net pipeline from start to finish:
 
 To speed things up, we do the following:
 - pick Dataset004_Hipocampus because it is quadratisch praktisch gut. MNIST of medical image segmentation
-- by default it does not have 3d_lowres or cascade. We just manually add them (cool new feature, eh?)
+- by default this dataset does not have 3d_lowres or cascade. We just manually add them (cool new feature, eh?). See `add_lowres_and_cascade.py` to learn more! 
 - we use nnUNetTrainer_5epochs for a short training
 
 # How to run it?
@@ -33,7 +33,7 @@ bash nnunetv2/tests/integration_tests/prepare_integration_tests.sh
 
 Now you can run the integration test for each of the datasets:
 ```commandline
-bash nnunetv2/tests/integration_tests/run_integration_test.sh -d DATSET_ID
+bash nnunetv2/tests/integration_tests/run_integration_test.sh DATSET_ID
 ```
 use DATSET_ID 996, 997, 998 and 999. You can run these independently on different GPUs/systems to speed things up. 
 This will take i dunno like 10-30 Minutes!?
@@ -44,7 +44,7 @@ So you need to do the following:
 1) check that none of your runs crashed (duh)
 2) for each run, navigate to the output folder in nnUNet_preprocessed and take a look at the `inference_information.json` file. Does it make sense? If so: NICE!
 
-Once the integration test is completed you can delete all the temporary files assocaited with it by running:
+Once the integration test is completed you can delete all the temporary files associated with it by running:
 
 ```commandline
 python nnunetv2/tests/integration_tests/cleanup_integration_test.py
