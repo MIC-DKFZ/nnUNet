@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 class LabelManager(object):
     def __init__(self, label_dict: dict, regions_class_order: Union[List[int], None], force_use_labels: bool = False,
                  inference_nonlin=None):
+        self._sanity_check(label_dict)
         self.label_dict = label_dict
         self.regions_class_order = regions_class_order
         self._force_use_labels = force_use_labels
@@ -46,6 +47,17 @@ class LabelManager(object):
             self.inference_nonlin = torch.sigmoid if self.has_regions else softmax_helper_dim0
         else:
             self.inference_nonlin = inference_nonlin
+
+    def _sanity_check(self, label_dict: dict):
+        if not 'background' in label_dict.keys():
+            raise RuntimeError('Background label not declared (remeber that this should be label 0!)')
+        bg_label = label_dict['background']
+        if isinstance(bg_label, (tuple, list)):
+            raise RuntimeError(f"Background label must be 0. Not a list. Not a tuple. Your background label: {bg_label}")
+        assert int(bg_label) == 0, f"Background label must be 0. Your background label: {bg_label}"
+        # not sure if we want to allow regions that contain background. I don't immediately see how this could cause
+        # problems so we allow it for now. That doesn't mean that this is explicitly supported. It could be that this
+        # just crashes.
 
     def _get_all_labels(self) -> List[int]:
         all_labels = []

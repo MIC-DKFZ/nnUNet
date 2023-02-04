@@ -87,6 +87,10 @@ class nnUNetDataLoaderBase(DataLoader):
         else:
             if not force_fg and self.has_ignore:
                 selected_class = self.annotated_classes_key
+                if len(class_locations[selected_class]) == 0:
+                    # no annotated pixels in this case. Not good. But we can hardly skip it here
+                    print('Warning! No annotated pixels in image!')
+                    selected_class = None
                 # print(f'I have ignore labels and want to pick a labeled area. annotated_classes_key: {self.annotated_classes_key}')
             elif force_fg:
                 assert class_locations is not None, 'if force_fg is set class_locations cannot be None'
@@ -120,7 +124,7 @@ class nnUNetDataLoaderBase(DataLoader):
                 raise RuntimeError('lol what!?')
             voxels_of_that_class = class_locations[selected_class] if selected_class is not None else None
 
-            if voxels_of_that_class is not None:
+            if voxels_of_that_class is not None and len(voxels_of_that_class) > 0:
                 selected_voxel = voxels_of_that_class[np.random.choice(len(voxels_of_that_class))]
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
                 # Make sure it is within the bounds of lb and ub

@@ -5,7 +5,6 @@ from batchgenerators.utilities.file_and_folder_operations import isdir, join, lo
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.paths import nnUNet_raw
 
-
 if __name__ == '__main__':
     dataset_name = 'IntegrationTest_Hippocampus_regions'
     dataset_id = 997
@@ -14,9 +13,10 @@ if __name__ == '__main__':
     try:
         existing_dataset_name = maybe_convert_to_dataset_name(dataset_id)
         if existing_dataset_name != dataset_name:
-            raise FileExistsError(f"A different dataset with id {dataset_id} already exists :-(: {existing_dataset_name}. If "
-                               f"you intent to delete it, remember to also remove it in nnUNet_preprocessed and "
-                               f"nnUNet_results!")
+            raise FileExistsError(
+                f"A different dataset with id {dataset_id} already exists :-(: {existing_dataset_name}. If "
+                f"you intent to delete it, remember to also remove it in nnUNet_preprocessed and "
+                f"nnUNet_results!")
     except RuntimeError:
         pass
 
@@ -29,8 +29,9 @@ if __name__ == '__main__':
     # additionally optimize entire hippocampus region, remove Posterior
     dj = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
     dj['labels'] = {
+        'background': 0,
         'hippocampus': (1, 2),
         'anterior': 1
     }
     dj['regions_class_order'] = (2, 1)
-    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'))
+    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)

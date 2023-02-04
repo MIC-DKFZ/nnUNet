@@ -52,12 +52,13 @@ if __name__ == '__main__':
     # additionally optimize entire hippocampus region, remove Posterior
     dj = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
     dj['labels'] = {
+        'background': 0,
         'hippocampus': (1, 2),
         'anterior': 1,
         'ignore': 3
     }
     dj['regions_class_order'] = (2, 1)
-    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'))
+    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)
 
     # now add ignore label to segmentation images
     np.random.seed(1234)

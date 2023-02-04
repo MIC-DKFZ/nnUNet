@@ -30,4 +30,4 @@ if __name__ == '__main__':
     dj = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
     dj['labels']['ignore'] = 2
     del dj['labels']['Posterior']
-    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'))
+    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)

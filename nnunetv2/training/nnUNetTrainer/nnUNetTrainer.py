@@ -216,8 +216,10 @@ class nnUNetTrainer(object):
                         pass
                 if k in ['dataloader_train', 'dataloader_val']:
                     dct[k + '.transform'] = str(getattr(self, k).transform)
-                    dct[k + '.generator'] = str(getattr(self, k).generator)
-                    dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
+                    if hasattr(getattr(self, k), 'generator'):
+                        dct[k + '.generator'] = str(getattr(self, k).generator)
+                    if hasattr(getattr(self, k), 'num_processes'):
+                        dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
             import subprocess
             hostname = subprocess.getoutput(['hostname'])
             dct['hostname'] = hostname
