@@ -18,10 +18,10 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
                                 border_val_seg: int = -1,
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
-                                all_labels: Union[Tuple[int, ...], List[int]] = None,
+                                foreground_labels: Union[Tuple[int, ...], List[int]] = None,
                                 regions: List[Union[List[int], Tuple[int, ...], int]] = None,
                                 ignore_label: int = None) -> AbstractTransform:
-        return nnUNetTrainer.get_validation_transforms(deep_supervision_scales, is_cascaded, all_labels,
+        return nnUNetTrainer.get_validation_transforms(deep_supervision_scales, is_cascaded, foreground_labels,
                                                        regions, ignore_label)
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):

@@ -29,14 +29,14 @@ class nnUNetTrainerDAOrd0(nnUNetTrainer):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=0, order_resampling_seg=0,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.label_manager.all_labels,
+                                                        foreground_labels=self.label_manager.all_labels,
                                                         regions=self.label_manager.foreground_regions if
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
@@ -78,14 +78,14 @@ class nnUNetTrainer_onlyMirror01_noSmooth_DASegOrd0(nnUNetTrainer_onlyMirror01_n
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=0,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.label_manager.all_labels,
+                                                        foreground_labels=self.label_manager.all_labels,
                                                         regions=self.label_manager.foreground_regions if
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
@@ -127,14 +127,14 @@ class nnUNetTrainer_DASegOrd0(nnUNetTrainer):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=0,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.label_manager.all_labels,
+                                                        foreground_labels=self.label_manager.all_labels,
                                                         regions=self.label_manager.foreground_regions if
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)

@@ -561,14 +561,14 @@ class nnUNetTrainer(object):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=1,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.label_manager.all_labels,
+                                                        foreground_labels=self.label_manager.foreground_labels,
                                                         regions=self.label_manager.foreground_regions if
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
@@ -628,12 +628,9 @@ class nnUNetTrainer(object):
                                 border_val_seg: int = -1,
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
-                                all_labels: Union[Tuple[int, ...], List[int]] = None,
+                                foreground_labels: Union[Tuple[int, ...], List[int]] = None,
                                 regions: List[Union[List[int], Tuple[int, ...], int]] = None,
                                 ignore_label: int = None) -> AbstractTransform:
-        if is_cascaded and regions is not None:
-            raise NotImplementedError('Region based training is not yet implemented for the cascade!')
-
         tr_transforms = []
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
@@ -681,20 +678,17 @@ class nnUNetTrainer(object):
         tr_transforms.append(RemoveLabelTransform(-1, 0))
 
         if is_cascaded:
-            if ignore_label is not None:
-                raise NotImplementedError('ignore label not yet supported in cascade')
-            assert all_labels is not None, 'We need all_labels for cascade augmentations'
-            use_labels = [i for i in all_labels if i != 0]
-            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
+            assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
+            tr_transforms.append(MoveSegAsOneHotToData(1, foreground_labels, 'seg', 'data'))
             tr_transforms.append(ApplyRandomBinaryOperatorTransform(
-                channel_idx=list(range(-len(use_labels), 0)),
+                channel_idx=list(range(-len(foreground_labels), 0)),
                 p_per_sample=0.4,
                 key="data",
                 strel_size=(1, 8),
                 p_per_label=1))
             tr_transforms.append(
                 RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-                    channel_idx=list(range(-len(use_labels), 0)),
+                    channel_idx=list(range(-len(foreground_labels), 0)),
                     key="data",
                     p_per_sample=0.2,
                     fill_with_other_class_p=0,
@@ -718,19 +712,14 @@ class nnUNetTrainer(object):
     @staticmethod
     def get_validation_transforms(deep_supervision_scales: Union[List, Tuple],
                                   is_cascaded: bool = False,
-                                  all_labels: Union[Tuple[int, ...], List[int]] = None,
+                                  foreground_labels: Union[Tuple[int, ...], List[int]] = None,
                                   regions: List[Union[List[int], Tuple[int, ...], int]] = None,
                                   ignore_label: int = None) -> AbstractTransform:
-        if is_cascaded and regions is not None:
-            raise NotImplementedError('Region based training is not yet implemented for the cascade!')
-
         val_transforms = []
         val_transforms.append(RemoveLabelTransform(-1, 0))
 
         if is_cascaded:
-            if ignore_label is not None:
-                raise NotImplementedError('Ignore label not supported in cascade!')
-            val_transforms.append(MoveSegAsOneHotToData(1, [i for i in all_labels if i != 0], 'seg', 'data'))
+            val_transforms.append(MoveSegAsOneHotToData(1, foreground_labels, 'seg', 'data'))
 
         val_transforms.append(RenameTransform('seg', 'target', True))
 

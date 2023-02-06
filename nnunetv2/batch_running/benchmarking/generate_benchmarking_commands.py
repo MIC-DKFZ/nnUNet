@@ -2,8 +2,8 @@ if __name__ == '__main__':
     """
     This code probably only works within the DKFZ infrastructure (using LSF). You will need to adapt it to your scheduler! 
     """
-    gpu_models = ['UnknownNVIDIAA100_PCIE_40GB', 'NVIDIAGeForceRTX2080Ti', 'NVIDIATITANRTX', 'TeslaV100_SXM2_32GB',
-                  'UnknownNVIDIAA100_SXM4_40GB', 'TeslaV100_PCIE_32GB']
+    gpu_models = ['NVIDIAA100_PCIE_40GB', 'NVIDIAGeForceRTX2080Ti', 'NVIDIATITANRTX', 'TeslaV100_SXM2_32GB',
+                  'NVIDIAA100_SXM4_40GB', 'TeslaV100_PCIE_32GB']
     datasets = [2, 3, 4, 5]
     trainers = ['nnUNetTrainerBenchmark_5epochs', 'nnUNetTrainerBenchmark_5epochs_noDataLoading']
     plans = ['nnUNetPlans']
@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     additional_arguments = f' -num_gpus {num_gpus}'  # ''
 
-    output_file = "/home/fabian/deleteme.txt"
+    output_file = "/home/isensee/deleteme.txt"
     with open(output_file, 'w') as f:
         for g in gpu_models:
             gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmodel={g}"

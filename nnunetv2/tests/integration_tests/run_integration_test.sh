@@ -18,7 +18,7 @@ nnUNetv2_train $1 3d_lowres 2 -tr nnUNetTrainer_5epochs --npz
 nnUNetv2_train $1 3d_lowres 3 -tr nnUNetTrainer_5epochs --npz
 nnUNetv2_train $1 3d_lowres 4 -tr nnUNetTrainer_5epochs --npz
 
-nnUNetv2_train $1 3d_cascade_fullres 0 -tr nnUNetTrainer_5epochs --npz
+nnUNetv2_train 996 3d_cascade_fullres 0 -tr nnUNetTrainer_5epochs --npz
 nnUNetv2_train $1 3d_cascade_fullres 1 -tr nnUNetTrainer_5epochs --npz
 nnUNetv2_train $1 3d_cascade_fullres 2 -tr nnUNetTrainer_5epochs --npz
 nnUNetv2_train $1 3d_cascade_fullres 3 -tr nnUNetTrainer_5epochs --npz

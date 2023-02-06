@@ -103,7 +103,7 @@ class nnUNetTrainerDA5(nnUNetTrainer):
                                 border_val_seg: int = -1,
                                 use_mask_for_norm: List[bool] = None,
                                 is_cascaded: bool = False,
-                                all_labels: Union[Tuple[int, ...], List[int]] = None,
+                                foreground_labels: Union[Tuple[int, ...], List[int]] = None,
                                 regions: List[Union[List[int], Tuple[int, ...], int]] = None,
                                 ignore_label: int = None) -> AbstractTransform:
         matching_axes = np.array([sum([i == j for j in patch_size]) for i in patch_size])
@@ -274,8 +274,8 @@ class nnUNetTrainerDA5(nnUNetTrainer):
         if is_cascaded:
             if ignore_label is not None:
                 raise NotImplementedError('ignore label not yet supported in cascade')
-            assert all_labels is not None, 'We need all_labels for cascade augmentations'
-            use_labels = [i for i in all_labels if i != 0]
+            assert foreground_labels is not None, 'We need all_labels for cascade augmentations'
+            use_labels = [i for i in foreground_labels if i != 0]
             tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
             tr_transforms.append(ApplyRandomBinaryOperatorTransform(
                 channel_idx=list(range(-len(use_labels), 0)),
@@ -329,14 +329,14 @@ class nnUNetTrainerDA5ord0(nnUNetTrainerDA5):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=0, order_resampling_seg=0,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.label_manager.all_labels,
+                                                        foreground_labels=self.label_manager.all_labels,
                                                         regions=self.label_manager.foreground_regions if
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
@@ -378,14 +378,14 @@ class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
             order_resampling_data=3, order_resampling_seg=0,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, all_labels=self.label_manager.all_labels,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.all_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
-                                                        all_labels=self.label_manager.all_labels,
+                                                        foreground_labels=self.label_manager.all_labels,
                                                         regions=self.label_manager.foreground_regions if
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)

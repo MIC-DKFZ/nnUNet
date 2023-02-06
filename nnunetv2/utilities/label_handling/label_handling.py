@@ -286,8 +286,6 @@ def determine_num_input_channels(plans_manager: PlansManager,
 
     # cascade has different number of input channels
     if config_manager.previous_stage_name is not None:
-        if label_manager.has_regions:
-            raise NotImplemented('Cascade not yet implemented region-based training')
         num_label_inputs = len(label_manager.foreground_labels)
         num_input_channels = num_modalities + num_label_inputs
     else:
