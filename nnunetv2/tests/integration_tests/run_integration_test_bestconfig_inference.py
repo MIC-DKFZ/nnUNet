@@ -21,7 +21,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     d = args.d
 
-    dataset_name = maybe_convert_to_dataset_name(args.d)
+    dataset_name = maybe_convert_to_dataset_name(d)
     source_dir = join(nnUNet_raw, dataset_name, 'imagesTs')
     target_dir_base = join(nnUNet_results, dataset_name)
 
