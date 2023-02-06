@@ -172,6 +172,7 @@ def determine_postprocessing(folder_predictions: str,
     # investigated, but due to some things that I am too lazy to explain right now it's going to be alright (I think)
     # to stick to the order in which they are declared in dataset.json (if you want to think about it then think about
     # region_class_order)
+    # 2023_02_06: I hate myself for the comment above. Thanks past me
     if len(labels_or_regions) > 1:
         for label_or_region in labels_or_regions:
             pp_fn = remove_all_but_largest_component_from_segmentation
