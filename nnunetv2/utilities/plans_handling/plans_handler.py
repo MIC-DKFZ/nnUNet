@@ -58,8 +58,8 @@ class ConfigurationManager(object):
         return self.configuration['patch_size']
 
     @property
-    def median_patient_size_in_voxels(self) -> List[int]:
-        return self.configuration['median_patient_size_in_voxels']
+    def median_image_size_in_voxels(self) -> List[int]:
+        return self.configuration['median_image_size_in_voxels']
 
     @property
     def spacing(self) -> List[float]:

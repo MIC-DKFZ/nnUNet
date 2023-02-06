@@ -19,25 +19,25 @@ import numpy as np
 import re
 
 
-def get_caseIDs_from_splitted_dataset_folder(folder: str, suffix: str):
+def get_identifiers_from_splitted_dataset_folder(folder: str, suffix: str):
     files = subfiles(folder, suffix=suffix, join=False)
     # all files must be .nii.gz and have 4 digit modality index
     crop = len(suffix) + 5
     files = [i[:-crop] for i in files]
-    # only unique patient ids
+    # only unique image ids
     files = np.unique(files)
     return files
 
 
-def create_lists_from_splitted_dataset_folder(folder: str, suffix: str, case_ids: List[str] = None) -> List[List[str]]:
+def create_lists_from_splitted_dataset_folder(folder: str, suffix: str, identifiers: List[str] = None) -> List[List[str]]:
     """
     does not rely on dataset.json
     """
-    if case_ids is None:
-        case_ids = get_caseIDs_from_splitted_dataset_folder(folder, suffix)
+    if identifiers is None:
+        identifiers = get_identifiers_from_splitted_dataset_folder(folder, suffix)
     files = subfiles(folder, suffix=suffix, join=False, sort=True)
     list_of_lists = []
-    for f in case_ids:
+    for f in identifiers:
         p = re.compile(f + "_\d\d\d\d" + suffix)
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists

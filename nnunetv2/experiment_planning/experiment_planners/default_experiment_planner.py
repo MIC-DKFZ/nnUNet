@@ -16,7 +16,7 @@ from nnunetv2.preprocessing.normalization.map_modality_to_normalization import g
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder
 
 
 class ExperimentPlanner(object):
@@ -77,8 +77,8 @@ class ExperimentPlanner(object):
         self.plans = None
 
     def determine_reader_writer(self):
-        training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(self.raw_dataset_folder, 'imagesTr'),
-                                                                        self.dataset_json['file_ending'])
+        training_identifiers = get_identifiers_from_splitted_dataset_folder(join(self.raw_dataset_folder, 'imagesTr'),
+                                                                            self.dataset_json['file_ending'])
         return determine_reader_writer_from_dataset_json(self.dataset_json, join(self.raw_dataset_folder, 'imagesTr',
                                                                                  training_identifiers[0] + '_0000' +
                                                                                  self.dataset_json['file_ending']))
@@ -346,7 +346,7 @@ class ExperimentPlanner(object):
             'preprocessor_name': self.preprocessor_name,
             'batch_size': batch_size,
             'patch_size': patch_size,
-            'median_patient_size_in_voxels': median_shape,
+            'median_image_size_in_voxels': median_shape,
             'spacing': spacing,
             'normalization_schemes': normalization_schemes,
             'use_mask_for_norm': mask_is_used_for_norm,

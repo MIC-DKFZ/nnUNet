@@ -17,19 +17,19 @@ class SparseSegBlobsPreprocessor(DefaultPreprocessor):
         seg = seg[0]
         label_manager = plans_manager.get_label_manager(dataset_json)
 
-        median_patient_size = configuration_manager.median_patient_size_in_voxels
+        median_image_size = configuration_manager.median_image_size_in_voxels
         spacing = configuration_manager.spacing
 
-        if len(median_patient_size) == 2:
+        if len(median_image_size) == 2:
             try:
                 fullres_config = plans_manager.get_configuration('3d_fullres')
-                median_patient_size = fullres_config.median_patient_size_in_voxels
+                median_image_size = fullres_config.median_image_size_in_voxels
                 spacing = fullres_config.spacing
             except KeyError:
                 raise RuntimeError('This preprocessor does not work on 2D datasets')
 
-        median_patient_volume = np.prod(median_patient_size, dtype=np.int64)
-        sphere_volume_pixels = self.labeled_fraction / self.num_blobs * median_patient_volume
+        median_image_volume = np.prod(median_image_size, dtype=np.int64)
+        sphere_volume_pixels = self.labeled_fraction / self.num_blobs * median_image_volume
         vol_per_pixel = np.prod(spacing)
         sphere_volume = vol_per_pixel * sphere_volume_pixels
 
@@ -139,19 +139,19 @@ class SparseSegRandomBlobsPreprocessor(DefaultPreprocessor):
         seg = seg[0]
         label_manager = plans_manager.get_label_manager(dataset_json)
 
-        median_patient_size = configuration_manager.median_patient_size_in_voxels
+        median_image_size = configuration_manager.median_image_size_in_voxels
         spacing = configuration_manager.spacing
 
-        if len(median_patient_size) == 2:
+        if len(median_image_size) == 2:
             try:
                 fullres_config = plans_manager.get_configuration('3d_fullres')
-                median_patient_size = fullres_config.median_patient_size_in_voxels
+                median_image_size = fullres_config.median_image_size_in_voxels
                 spacing = fullres_config.spacing
             except KeyError:
                 raise RuntimeError('This preprocessor does not work on 2D datasets')
 
-        median_patient_volume = np.prod(median_patient_size, dtype=np.int64)
-        sphere_volume_pixels = self.labeled_fraction / self.num_blobs * median_patient_volume
+        median_image_volume = np.prod(median_image_size, dtype=np.int64)
+        sphere_volume_pixels = self.labeled_fraction / self.num_blobs * median_image_volume
         vol_per_pixel = np.prod(spacing)
         sphere_volume = vol_per_pixel * sphere_volume_pixels
 

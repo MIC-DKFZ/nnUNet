@@ -10,7 +10,7 @@ from nnunetv2.training.dataloading.utils import get_case_identifiers
 
 class nnUNetDataset(object):
     def __init__(self, folder: str, case_identifiers: List[str] = None,
-                 num_cases_properties_loading_threshold: int = 0,
+                 num_images_properties_loading_threshold: int = 0,
                  folder_with_segs_from_previous_stage: str = None):
         """
         This does not actually load the dataset. It merely creates a dictionary where the keys are training case names and
@@ -20,7 +20,7 @@ class nnUNetDataset(object):
         - dataset[case_identifier]['properties']['data_file'] -> the full path to the npz file associated with the training case
         - dataset[case_identifier]['properties']['properties_file'] -> the pkl file containing the case properties
 
-        In addition, if the total number of cases is < num_cases_properties_loading_threshold we load all the pickle files
+        In addition, if the total number of cases is < num_images_properties_loading_threshold we load all the pickle files
         (containing auxiliary information). This is done for small datasets so that we don't spend too much CPU time on
         reading pkl files on the fly during training. However, for large datasets storing all the aux info (which also
         contains locations of foreground voxels in the images) can cause too much RAM utilization. In that
@@ -48,7 +48,7 @@ class nnUNetDataset(object):
             if folder_with_segs_from_previous_stage is not None:
                 self.dataset[c]['seg_from_prev_stage_file'] = join(folder_with_segs_from_previous_stage, "%s.npz" % c)
 
-        if len(case_identifiers) <= num_cases_properties_loading_threshold:
+        if len(case_identifiers) <= num_images_properties_loading_threshold:
             for i in self.dataset.keys():
                 self.dataset[i]['properties'] = load_pickle(self.dataset[i]['properties_file'])
 
@@ -115,14 +115,14 @@ if __name__ == '__main__':
     # this is a mini test. Todo: We can move this to tests in the future (requires simulated dataset)
 
     folder = '/media/fabian/data/nnUNet_preprocessed/Dataset003_Liver/3d_lowres'
-    ds = nnUNetDataset(folder, num_cases_properties_loading_threshold=0) # this should not load the properties!
+    ds = nnUNetDataset(folder, num_images_properties_loading_threshold=0) # this should not load the properties!
     # this SHOULD HAVE the properties
     ks = ds['liver_0'].keys()
     assert 'properties' in ks
     # amazing. I am the best.
 
     # this should have the properties
-    ds = nnUNetDataset(folder, num_cases_properties_loading_threshold=1000)
+    ds = nnUNetDataset(folder, num_images_properties_loading_threshold=1000)
     # now rename the properties file so that it doesnt exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now we should still be able to access the properties because they have already been loaded
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     shutil.move(join(folder, 'liver_XXX.pkl'), join(folder, 'liver_0.pkl'))
 
     # this should not have the properties
-    ds = nnUNetDataset(folder, num_cases_properties_loading_threshold=0)
+    ds = nnUNetDataset(folder, num_images_properties_loading_threshold=0)
     # now rename the properties file so that it doesnt exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now this should crash

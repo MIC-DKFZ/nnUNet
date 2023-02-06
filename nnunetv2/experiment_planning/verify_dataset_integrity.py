@@ -24,7 +24,7 @@ from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
-from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder
 
 
 def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected_labels: List[int]) -> bool:
@@ -144,7 +144,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                          else dataset_json['modality'].keys())
     file_suffix = dataset_json['file_ending']
 
-    training_identifiers = get_caseIDs_from_splitted_dataset_folder(join(folder, 'imagesTr'), suffix=file_suffix)
+    training_identifiers = get_identifiers_from_splitted_dataset_folder(join(folder, 'imagesTr'), suffix=file_suffix)
 
     # check if the right number of training cases is present
     assert len(training_identifiers) == expected_num_training, 'Did not find the expected number of training cases ' \

@@ -24,7 +24,7 @@ from nnunetv2.preprocessing.resampling.default_resampling import compute_new_sha
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
-from nnunetv2.utilities.utils import get_caseIDs_from_splitted_dataset_folder, \
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
 
 
@@ -202,8 +202,8 @@ class DefaultPreprocessor(object):
             raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
                                'Your labels go larger than that')
 
-        caseids = get_caseIDs_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
-                                                           dataset_json['file_ending'])
+        identifiers = get_identifiers_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
+                                                               dataset_json['file_ending'])
         output_directory = join(nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier)
 
         if isdir(output_directory):
@@ -211,14 +211,14 @@ class DefaultPreprocessor(object):
 
         maybe_mkdir_p(output_directory)
 
-        output_filenames_truncated = [join(output_directory, i) for i in caseids]
+        output_filenames_truncated = [join(output_directory, i) for i in identifiers]
 
         suffix = dataset_json['file_ending']
         # list of lists with image filenames
         image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), suffix,
-                                                                 caseids)
+                                                                 identifiers)
         # list of segmentation filenames
-        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in caseids]
+        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in identifiers]
 
         _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
                   processes=num_processes, zipped=True, plans_manager=plans_manager,

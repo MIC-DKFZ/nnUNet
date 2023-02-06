@@ -17,7 +17,7 @@ if __name__ == '__main__':
             "data_identifier": "nnUNetPlans_3d_lowres",  # do not be a dumbo and forget this. I was a dumbo. And I paid dearly with ~10 min debugging time
             'inherits_from': '3d_fullres',
             "patch_size": [20, 28, 20],
-            "median_patient_size_in_voxels": [18.0, 25.0, 18.0],
+            "median_image_size_in_voxels": [18.0, 25.0, 18.0],
             "spacing": [2.0, 2.0, 2.0],
             "n_conv_per_stage_encoder": [2, 2, 2],
             "n_conv_per_stage_decoder": [2, 2],

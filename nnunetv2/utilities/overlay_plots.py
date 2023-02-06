@@ -15,7 +15,6 @@ from multiprocessing.pool import Pool
 from typing import Tuple, Union
 
 import numpy as np
-import SimpleITK as sitk
 import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_processes
@@ -23,7 +22,7 @@ from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder, get_caseIDs_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder
 
 color_cycle = (
     "000000",
@@ -195,7 +194,7 @@ def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folde
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     folder = join(nnUNet_raw, dataset_name)
     dataset_json = load_json(join(folder, 'dataset.json'))
-    identifiers = get_caseIDs_from_splitted_dataset_folder(join(folder, 'imagesTr'), dataset_json['file_ending'])
+    identifiers = get_identifiers_from_splitted_dataset_folder(join(folder, 'imagesTr'), dataset_json['file_ending'])
 
     image_files = [join(folder, 'imagesTr', i + "_%04.0d.nii.gz" % channel_idx) for i in identifiers]
     seg_files = [join(folder, 'labelsTr', i + ".nii.gz") for i in identifiers]

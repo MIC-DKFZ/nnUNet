@@ -27,7 +27,7 @@ class nnUNetDataLoaderBase(DataLoader):
         self.patch_size = patch_size
         self.list_of_keys = list(self._data.keys())
         # need_to_pad denotes by how much we need to pad the data so that if we sample a patch of size final_patch_size
-        # (which is what the network will get) these patches will also cover the border of the patients
+        # (which is what the network will get) these patches will also cover the border of the images
         self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
         if pad_sides is not None:
             if not isinstance(pad_sides, np.ndarray):
