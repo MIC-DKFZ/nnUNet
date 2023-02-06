@@ -217,7 +217,7 @@ def determine_postprocessing(folder_predictions: str,
                 print(f'Removing all but the largest component for {label_or_region} did not improve results! '
                       f'Dice before: {round(baseline_results["mean"][label_or_region]["Dice"], 5)} '
                       f'after: {round(pp_results["mean"][label_or_region]["Dice"], 5)}')
-    [shutil.move(join(source, i), join(output_folder, i)) for i in subfiles(source, join=False)]
+    [shutil.copy(join(source, i), join(output_folder, i)) for i in subfiles(source, join=False)]
     save_pickle((pp_fns, pp_fn_kwargs), join(folder_predictions, 'postprocessing.pkl'))
 
     baseline_results = load_summary_json(join(folder_predictions, 'summary.json'))
