@@ -74,6 +74,9 @@ def main():
                              "running postprocessing on each fold is computationally cheap, but some users have "
                              "reported issues with very large images. If your images are large (>600x600x600 voxels) "
                              "you should consider setting this flag.")
+    parser.add_argument("--disable_validation_inference", required=False, action="store_true",
+                        help="If set nnU-Net will not run inference on the validation set. This is useful if you are "
+                             "only interested in the test set results and want to save some disk space and time.")
     # parser.add_argument("--interp_order", required=False, default=3, type=int,
     #                     help="order of interpolation for segmentations. Testing purpose only. Hands off")
     # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
@@ -185,10 +188,13 @@ def main():
 
         trainer.network.eval()
 
-        # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
-                         run_postprocessing_on_folds=not disable_postprocessing_on_folds,
-                         overwrite=args.val_disable_overwrite)
+        if args.disable_validation_inference:
+            print("Validation inference was disabled. Not running inference on validation set.")
+        else:
+            # predict validation
+            trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
+                            run_postprocessing_on_folds=not disable_postprocessing_on_folds,
+                            overwrite=args.val_disable_overwrite)
 
         if network == '3d_lowres' and not args.disable_next_stage_pred:
             print("predicting segmentations for the next stage of the cascade")

@@ -110,6 +110,7 @@ ENV/
 *.png
 *.jpg
 *.jpeg
+.DS_Store
 
 *.model
 
