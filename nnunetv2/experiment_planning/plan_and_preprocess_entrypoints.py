@@ -1,7 +1,10 @@
 import shutil
 
-import nnunetv2
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles
+
+import nnunetv2
+from nnunetv2.configuration import default_num_processes
+from nnunetv2.experiment_planning.plan_and_preprocess_api import extract_fingerprints, plan_experiments, preprocess
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name, maybe_convert_to_dataset_name
@@ -9,17 +12,18 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
-def extract_fingerprint():
+def extract_fingerprint_entry():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', nargs='+',
+    parser.add_argument('-d', nargs='+', type=int,
                         help="[REQUIRED] List of dataset IDs. Example: 2 4 5. This will run fingerprint extraction, experiment "
                              "planning and preprocessing for these datasets. Can of course also be just one dataset")
     parser.add_argument('-fpe', type=str, required=False, default='DatasetFingerprintExtractor',
                         help='[OPTIONAL] Name of the Dataset Fingerprint Extractor class that should be used. Default is '
                              '\'DatasetFingerprintExtractor\'.')
-    parser.add_argument('-np', type=int, default=8, required=False,
-                        help='[OPTIONAL] Number of processes used for fingerprint extraction. Default: 8')
+    parser.add_argument('-np', type=int, default=default_num_processes, required=False,
+                        help=f'[OPTIONAL] Number of processes used for fingerprint extraction. '
+                             f'Default: {default_num_processes}')
     parser.add_argument("--verify_dataset_integrity", required=False, default=False, action="store_true",
                         help="[RECOMMENDED] set this flag to check the dataset integrity. This is useful and should be done once for "
                              "each dataset!")
@@ -30,34 +34,20 @@ def extract_fingerprint():
                         help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
-
-    fingerprint_extractor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
-                                                              args.fpe,
-                                                              current_module="nnunetv2.experiment_planning")
-    for d in args.d:
-        d = int(d)
-
-        dataset_name = convert_id_to_dataset_name(d)
-        print(dataset_name)
-
-        if args.verify_dataset_integrity:
-            verify_dataset_integrity(join(nnUNet_raw, dataset_name), args.np)
-
-        fpe = fingerprint_extractor_class(d, args.np, verbose=args.verbose)
-        fpe.run(overwrite_existing=args.clean)
+    extract_fingerprints(args.d, args.fpe, args.np, args.verify_dataset_integrity, args.clean, args.verbose)
 
 
-def plan_experiment():
+def plan_experiment_entry():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', nargs='+',
+    parser.add_argument('-d', nargs='+', type=int,
                         help="[REQUIRED] List of dataset IDs. Example: 2 4 5. This will run fingerprint extraction, experiment "
                              "planning and preprocessing for these datasets. Can of course also be just one dataset")
     parser.add_argument('-pl', type=str, default='ExperimentPlanner', required=False,
                         help='[OPTIONAL] Name of the Experiment Planner class that should be used. Default is '
                              '\'ExperimentPlanner\'. Note: There is no longer a distinction between 2d and 3d planner. '
                              'It\'s an all in one solution now. Wuch. Such amazing.')
-    parser.add_argument('-gpu_memory_target', default=8, type=int, required=False,
+    parser.add_argument('-gpu_memory_target', default=8, type=float, required=False,
                         help='[OPTIONAL] DANGER ZONE! Sets a custom GPU memory target. Default: 8 [GB]. Changing this will '
                              'affect patch and batch size and will '
                              'definitely affect your models performance! Only use this if you really know what you '
@@ -82,29 +72,14 @@ def plan_experiment():
                              'overwritten. You will then need to specify your custom plans file with -p whenever '
                              'running other nnunet commands (training, inference etc)')
     args, unrecognized_args = parser.parse_known_args()
-    experiment_planner = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
-                                                     args.pl,
-                                                     current_module="nnunetv2.experiment_planning")
-    for d in args.d:
-        d = int(d)
-        print(maybe_convert_to_dataset_name(d))
-        kwargs = {}
-        if args.overwrite_plans_name is not None:
-            kwargs['plans_name'] = args.overwrite_plans_name
-        experiment_planner(d,
-                           gpu_memory_target_in_gb=args.gpu_memory_target,
-                           preprocessor_name=args.preprocessor_name,
-                           overwrite_target_spacing=[float(i) for i in args.overwrite_target_spacing] if
-                           args.overwrite_target_spacing is not None else args.overwrite_target_spacing,
-                           suppress_transpose=False,  # might expose this later,
-                           **kwargs
-                           ).plan_experiment()
+    plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing,
+                     args.overwrite_plans_name)
 
 
-def preprocess():
+def preprocess_entry():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', nargs='+',
+    parser.add_argument('-d', nargs='+', type=int,
                         help="[REQUIRED] List of dataset IDs. Example: 2 4 5. This will run fingerprint extraction, experiment "
                              "planning and preprocessing for these datasets. Can of course also be just one dataset")
     parser.add_argument('-plans_name', default='nnUNetPlans', required=False,
@@ -129,39 +104,13 @@ def preprocess():
                         help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
-
-    np = args.np
-    if len(np) == 1:
-        np = np * len(args.c)
-    if len(np) != len(args.c):
-        raise RuntimeError(f'The list provided with -np must either have len 1 or as many elements as there are '
-                           f'configurations (see --help). Number of configurations: {len(args.c)}, length of np: '
-                           f'{len(np)}')
-
-    for d in args.d:
-        d = int(d)
-        dataset_name = convert_id_to_dataset_name(d)
-        print(f'{dataset_name}')
-        plans_file = join(nnUNet_preprocessed, dataset_name, args.plans_name + '.json')
-        plans_manager = PlansManager(plans_file)
-        for n, c in zip(np, args.c):
-            print(f'Configuration: {c}...')
-            if c not in plans_manager.available_configurations:
-                print(
-                    f"INFO: Configuration {c} not found in plans file {args.plans_name + '.json'} of dataset {d}. Skipping.")
-                continue
-            configuration_manager = plans_manager.get_configuration(c)
-            preprocessor = configuration_manager.preprocessor_class(verbose=args.verbose)
-            preprocessor.run(d, c, args.plans_name, num_processes=n)
-        maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
-        [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in
-         subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
+    preprocess(args.d, args.plans_name)
 
 
-def plan_and_preprocess():
+def plan_and_preprocess_entry():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', nargs='+',
+    parser.add_argument('-d', nargs='+', type=int,
                         help="[REQUIRED] List of dataset IDs. Example: 2 4 5. This will run fingerprint extraction, experiment "
                              "planning and preprocessing for these datasets. Can of course also be just one dataset")
     parser.add_argument('-fpe', type=str, required=False, default='DatasetFingerprintExtractor',
@@ -201,7 +150,7 @@ def plan_and_preprocess():
                              'know what you are doing and NEVER use this without running the default nnU-Net first '
                              '(as a baseline). Changing the target spacing for the other configurations is currently '
                              'not implemented. New target spacing must be a list of three numbers!')
-    parser.add_argument('-overwrite_plans_name', default=None, required=False,
+    parser.add_argument('-overwrite_plans_name', default='nnUNetPlans', required=False,
                         help='[OPTIONAL] uSE A CUSTOM PLANS IDENTIFIER. If you used -gpu_memory_target, '
                              '-preprocessor_name or '
                              '-overwrite_target_spacing it is best practice to use -overwrite_plans_name to generate a '
@@ -230,77 +179,17 @@ def plan_and_preprocess():
     args = parser.parse_args()
 
     # fingerprint extraction
-    fingerprint_extractor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
-                                                              args.fpe,
-                                                              current_module="nnunetv2.experiment_planning")
     print("Fingerprint extraction...")
-    for d in args.d:
-        d = int(d)
-
-        dataset_name = convert_id_to_dataset_name(d)
-        print(f"{dataset_name}")
-
-        if args.verify_dataset_integrity:
-            verify_dataset_integrity(join(nnUNet_raw, dataset_name), args.npfp)
-
-        fpe = fingerprint_extractor_class(d, args.npfp, verbose=args.verbose)
-        fpe.run(overwrite_existing=args.clean)
+    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose)
 
     # experiment planning
     print('Experiment planning...')
-    experiment_planner_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
-                                                     args.pl,
-                                                     current_module="nnunetv2.experiment_planning")
-    for d in args.d:
-        d = int(d)
-
-        dataset_name = convert_id_to_dataset_name(d)
-        print(f'{dataset_name}')
-
-        kwargs = {}
-        if args.overwrite_plans_name is not None:
-            kwargs['plans_name'] = args.overwrite_plans_name
-        experiment_planner = experiment_planner_class(d,
-                           gpu_memory_target_in_gb=args.gpu_memory_target,
-                           preprocessor_name=args.preprocessor_name,
-                           overwrite_target_spacing=[float(i) for i in args.overwrite_target_spacing] if
-                           args.overwrite_target_spacing is not None else args.overwrite_target_spacing,
-                           suppress_transpose=False,  # might expose this later
-                           **kwargs
-                           )
-        experiment_planner.plan_experiment()
+    plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing, args.overwrite_plans_name)
 
     # preprocessing
     print('Preprocessing...')
-    if not args.no_pp:
-        np = args.np
-        if len(np) == 1:
-            np = np * len(args.c)
-        if len(np) != len(args.c):
-            raise RuntimeError(f'The list provided with -np must either have len 1 or as many elements as there are '
-                               f'configurations (see --help). Number of configurations: {len(args.c)}, length of np: '
-                               f'{len(np)}')
-
-        for d in args.d:
-            d = int(d)
-            dataset_name = convert_id_to_dataset_name(d)
-            print(d)
-            plans_name = experiment_planner.plans_identifier
-            plans_file = join(nnUNet_preprocessed, dataset_name, plans_name + '.json')
-            plans_manager = PlansManager(plans_file)
-            for n, c in zip(np, args.c):
-                print(f'Configuration: {c}...')
-                if c not in plans_manager.available_configurations:
-                    print(
-                        f"INFO: Configuration {c} not found in plans file {plans_name + '.json'} of dataset {d}. "
-                        f"Skipping.")
-                    continue
-                configuration_manager = plans_manager.get_configuration(c)
-                preprocessor = configuration_manager.preprocessor_class(verbose=args.verbose)
-                preprocessor.run(d, c, plans_name, num_processes=n)
-            maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
-            [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
+    preprocess(args.d, args.overwrite_plans_name, args.c, args.np, args.verbose)
 
 
 if __name__ == '__main__':
-    plan_and_preprocess()
+    plan_and_preprocess_entry()

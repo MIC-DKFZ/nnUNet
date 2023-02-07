@@ -99,7 +99,7 @@ class DatasetFingerprintExtractor(object):
         return shape_after_crop, spacing, foreground_intensities_by_modality, foreground_intensity_stats_by_modality, \
                relative_size_after_cropping
 
-    def run(self, overwrite_existing: bool = False) -> None:
+    def run(self, overwrite_existing: bool = False) -> dict:
         # we do not save the properties file in self.input_folder because that folder might be read-only. We can only
         # reliably write in nnUNet_preprocessed and nnUNet_results, so nnUNet_preprocessed it is
         preprocessed_output_folder = join(nnUNet_preprocessed, self.dataset_name)
@@ -152,17 +152,22 @@ class DatasetFingerprintExtractor(object):
                     'percentile_00_5': float(np.percentile(foreground_intensities_by_modality[i], 0.5)),
                 }
 
-            try:
-                save_json({
+            fingerprint = {
                     "spacings": spacings,
                     "shapes_after_crop": shapes_after_crop,
                     'foreground_intensity_properties_by_modality': intensity_statistics_by_modality,
                     "median_relative_size_after_cropping": median_relative_size_after_cropping
-                }, properties_file)
+                }
+
+            try:
+                save_json(fingerprint, properties_file)
             except Exception as e:
                 if isfile(properties_file):
                     os.remove(properties_file)
                 raise e
+        else:
+            fingerprint = load_json(properties_file)
+        return fingerprint
 
 
 if __name__ == '__main__':
