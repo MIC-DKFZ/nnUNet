@@ -48,16 +48,33 @@ def merge_files(list_of_files,
 def ensemble_folders(list_of_input_folders: List[str],
                      output_folder: str,
                      save_merged_probabilities: bool = False,
-                     num_processes: int = default_num_processes):
+                     num_processes: int = default_num_processes,
+                     dataset_json_file_or_dict: str = None,
+                     plans_json_file_or_dict: str = None):
     """we need too much shit for this function. Problem is that we now have to support region-based training plus
     multiple input/output formats so there isn't really a way around this.
-    We assume each of the folders has a plans.json and dataset.json in it. These are usually copied into those folders
-    by nnU-Net during prediction.
+
+    If plans and dataset json are not specified, we assume each of the folders has a corresponding plans.json
+    and/or dataset.json in it. These are usually copied into those folders by nnU-Net during prediction.
     We just pick the dataset.json and plans.json from the first of the folders and we DONT check whether the 5
-    folders contain the same files! This can be a feature if results from different datasets are to be merged (only
+    folders contain the same plans etc! This can be a feature if results from different datasets are to be merged (only
     works if label dict in dataset.json is the same between these datasets!!!)"""
-    dataset_json = load_json(join(list_of_input_folders[0], 'dataset.json'))
-    plans = load_json(join(list_of_input_folders[0], 'plans.json'))
+    if dataset_json_file_or_dict is not None:
+        if isinstance(dataset_json_file_or_dict, str):
+            dataset_json = load_json(dataset_json_file_or_dict)
+        else:
+            dataset_json = dataset_json_file_or_dict
+    else:
+        dataset_json = load_json(join(list_of_input_folders[0], 'dataset.json'))
+
+    if plans_json_file_or_dict is not None:
+        if isinstance(plans_json_file_or_dict, str):
+            plans = load_json(plans_json_file_or_dict)
+        else:
+            plans = plans_json_file_or_dict
+    else:
+        plans = load_json(join(list_of_input_folders[0], 'dataset.json'))
+
     plans_manager = PlansManager(plans)
 
     # now collect the files in each of the folders and enforce that all files are present in all folders

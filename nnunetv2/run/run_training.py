@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Optional
 
 import nnunetv2
 import torch.cuda
@@ -100,31 +100,94 @@ def cleanup_ddp():
     dist.destroy_process_group()
 
 
-def run_ddp(rank, args, world_size):
+def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, use_compressed, disable_checkpointing, c, val, pretrained_weights, npz, world_size):
     setup_ddp(rank, world_size)
 
-    nnunet_trainer = get_trainer_from_args(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
-                                           args.use_compressed)
+    nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p,
+                                           use_compressed)
 
-    if args.disable_checkpointing:
-        nnunet_trainer.disable_checkpointing = args.disable_checkpointing
+    if disable_checkpointing:
+        nnunet_trainer.disable_checkpointing = disable_checkpointing
 
-    assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
+    assert not (c and val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
-    maybe_load_checkpoint(nnunet_trainer, args.c, args.val, args.pretrained_weights)
+    maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights)
 
     if torch.cuda.is_available():
         cudnn.deterministic = False
         cudnn.benchmark = True
 
-    if not args.val:
+    if not val:
         nnunet_trainer.run_training()
 
-    nnunet_trainer.perform_actual_validation(args.npz)
+    nnunet_trainer.perform_actual_validation(npz)
     cleanup_ddp()
 
 
-def nnUNet_train_from_args():
+def run_training(dataset_name_or_id: Union[str, int],
+                 configuration: str, fold: Union[int, str],
+                 trainer_class_name: str = 'nnUNetTrainer',
+                 plans_identifier: str = 'nnUNetPlans',
+                 pretrained_weights: Optional[str] = None,
+                 num_gpus: int = 1,
+                 use_compressed_data: bool = False,
+                 export_validation_probabilities: bool = False,
+                 continue_training: bool = False,
+                 only_run_validation: bool = False,
+                 disable_checkpointing: bool = False):
+    if isinstance(fold, str):
+        if fold != 'all':
+            try:
+                fold = int(fold)
+            except ValueError as e:
+                print(f'Unable to convert given value for fold to int: {fold}. fold must bei either "all" or an integer!')
+                raise e
+
+    if num_gpus > 1:
+        os.environ['MASTER_ADDR'] = 'localhost'
+        if 'MASTER_PORT' not in os.environ.keys():
+            port = str(find_free_network_port())
+            print(f"using port {port}")
+            os.environ['MASTER_PORT'] = port  # str(port)
+
+        mp.spawn(run_ddp,
+                 args=(
+                     dataset_name_or_id,
+                     configuration,
+                     fold,
+                     trainer_class_name,
+                     plans_identifier,
+                     use_compressed_data,
+                     disable_checkpointing,
+                     continue_training,
+                     only_run_validation,
+                     pretrained_weights,
+                     export_validation_probabilities,
+                     num_gpus),
+                 nprocs=num_gpus,
+                 join=True)
+    else:
+        nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
+                                               plans_identifier, use_compressed_data)
+
+        if disable_checkpointing:
+            nnunet_trainer.disable_checkpointing = disable_checkpointing
+
+        assert not (continue_training and only_run_validation), f'Cannot set --c and --val flag at the same time. Dummy.'
+
+        maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, pretrained_weights)
+
+        if torch.cuda.is_available():
+            cudnn.deterministic = False
+            cudnn.benchmark = True
+
+        if not only_run_validation:
+            nnunet_trainer.run_training()
+
+        nnunet_trainer.perform_actual_validation(export_validation_probabilities)
+
+
+def run_training_entry():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_name_or_id', type=str,
@@ -158,38 +221,8 @@ def nnUNet_train_from_args():
                              'you dont want to flood your hard drive with checkpoints.')
     args = parser.parse_args()
 
-    args.fold = args.fold if args.fold == 'all' else int(args.fold)
-
-    if args.num_gpus > 1:
-        os.environ['MASTER_ADDR'] = 'localhost'
-        if 'MASTER_PORT' not in os.environ.keys():
-            port = str(find_free_network_port())
-            print(f"using port {port}")
-            os.environ['MASTER_PORT'] = port  # str(port)
-
-        mp.spawn(run_ddp,
-                 args=(args, args.num_gpus),
-                 nprocs=args.num_gpus,
-                 join=True)
-    else:
-        nnunet_trainer = get_trainer_from_args(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
-                                               args.use_compressed)
-
-        if args.disable_checkpointing:
-            nnunet_trainer.disable_checkpointing = args.disable_checkpointing
-
-        assert not (args.c and args.val), f'Cannot set --c and --val flag at the same time. Dummy.'
-
-        maybe_load_checkpoint(nnunet_trainer, args.c, args.val, args.pretrained_weights)
-
-        if torch.cuda.is_available():
-            cudnn.deterministic = False
-            cudnn.benchmark = True
-
-        if not args.val:
-            nnunet_trainer.run_training()
-
-        nnunet_trainer.perform_actual_validation(args.npz)
+    run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
+                 args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing)
 
 
 if __name__ == '__main__':
