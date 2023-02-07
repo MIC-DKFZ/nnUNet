@@ -94,57 +94,8 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
 
 if __name__ == '__main__':
     use_these_trainers = {
-        'nnUNetModule': ('nnUNetPlans', ),  # lightning variant
         'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetPlans'),  # my trainer
-        'nnUNetTrainer_switchToDiceep800': ('nnUNetPlans',),
-        'nnUNetTrainer_switchToDiceep100': ('nnUNetPlans',),
-        'nnUNetTrainer_switchToDiceep100noSmooth': ('nnUNetPlans',),
-        'nnUNetTrainer_DiceUseClip_noSmooth': ('nnUNetPlans',),
-        'nnUNetTrainer_DiceUseClip': ('nnUNetPlans',),
-        'nnUNetTrainer_probabilisticOversampling': ('nnUNetPlans',),
-        'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetPlans',),
-        'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetPlans',),
-        'nnUNetTrainerFocalLoss2': ('nnUNetPlans',),
-        'nnUNetTrainerFocalLoss': ('nnUNetPlans',),
-        'nnUNetTrainerFocalLoss3': ('nnUNetPlans',),
-        'nnUNetTrainerFocalandDiceLoss': ('nnUNetPlans',),
-        'nnUNetTrainerAdan': ('nnUNetPlans',),
-        'nnUNetTrainerAdan3en4': ('nnUNetPlans',),
-        'nnUNetTrainerAdan1en3': ('nnUNetPlans',),
-        'nnUNetTrainerAdam': ('nnUNetPlans',),
-        'nnUNetTrainerAdam3en4': ('nnUNetPlans',),
-        'nnUNetTrainerAdam1en3': ('nnUNetPlans',),
-        'nnUNetTrainerAdanCosAnneal': ('nnUNetPlans',),
-        'nnUNetTrainerCosAnneal': ('nnUNetPlans',),
-        # 'nnUNetTrainerResEncUNet': ('nnUNetPlans',),
-        'nnUNetTrainerCELoss': ('nnUNetPlans',),
-        'nnUNetTrainerCELossLS01': ('nnUNetPlans',),
-        'nnUNetTrainerTopk10Loss': ('nnUNetPlans',),
-        'nnUNetTrainerTopk10LossLS01': ('nnUNetPlans',),
-        'nnUNetTrainerDiceTopK10Loss': ('nnUNetPlans',),
-        'nnUNetTrainerDiceLossClip1': ('nnUNetPlans',),
-        'nnUNetTrainerDiceLoss': ('nnUNetPlans',),
-        'nnUNetTrainerDiceLossLS01': ('nnUNetPlans',),
-        'nnUNetTrainerDiceCELossLS01': ('nnUNetPlans',),
-        'nnUNetTrainerNoMirroring': ('nnUNetPlans',),
-        'nnUNetTrainerNoDA': ('nnUNetPlans',),
-        'nnUNetTrainerNoDeepSupervision': ('nnUNetPlans',),
-        'nnUNetTrainerDA5': ('nnUNetPlans',),
-        'nnUNetTrainerDA5ord0': ('nnUNetPlans',),
-        'nnUNetTrainerDiceCELossClip1': ('nnUNetPlans',),
-        'nnUNetTrainerDAOrd0': ('nnUNetPlans',),
-        'nnUNetTrainerDiceLossClip10_2': ('nnUNetPlans',),
-        'nnUNetTrainerVanillaAdam': ('nnUNetPlans',),
-        'nnUNetTrainerVanillaAdam1en3': ('nnUNetPlans',),
-        'nnUNetTrainerVanillaAdam3en4': ('nnUNetPlans',),
-        'nnUNetTrainerBN': ('nnUNetPlans',),
-        'anon_nnUNetTrainer1': ('nnUNetPlans', 'nnUNetResEncUNetPlans'),
-        'anon_nnUNetTrainer2': ('nnUNetPlans',),
-        'anon_nnUNetTrainer1_dord0_sord0': ('nnUNetPlans',),
-        'anon_nnUNetTrainer1_dord1_sord1': ('nnUNetPlans',),
-        'nnUNetTrainerMemEffCEDice': ('nnUNetPlans',),
-
-    }
+     }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
     datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
     collect_results(use_these_trainers, datasets, all_results_file)

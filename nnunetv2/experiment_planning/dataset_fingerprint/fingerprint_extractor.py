@@ -1,5 +1,4 @@
 import os
-from multiprocessing import Pool
 from typing import List, Type, Union
 
 import numpy as np
@@ -11,7 +10,8 @@ from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, create_lists_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
+    create_lists_from_splitted_dataset_folder
 
 
 class DatasetFingerprintExtractor(object):

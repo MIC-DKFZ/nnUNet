@@ -27,9 +27,6 @@ from nnunetv2.training.data_augmentation.custom_transforms.region_based_training
     ConvertSegmentationToRegionsTransform
 from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_2d import Convert3DTo2DTransform, \
     Convert2DTo3DTransform
-from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
-from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 
@@ -403,45 +400,6 @@ class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
                                            max(1, allowed_num_processes // 2), 3, None, True, 0.02)
 
         return mt_gen_train, mt_gen_val
-
-
-class nnUNetTrainerDA5Segord0_mirror01_noSmooth(nnUNetTrainerDA5Segord0):
-    def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
-        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
-            super().configure_rotation_dummyDA_mirroring_and_inital_patch_size()
-        patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
-        if dim == 2:
-            mirror_axes = (0, )
-        else:
-            mirror_axes = (0, 1)
-        self.inference_allowed_mirroring_axes = mirror_axes
-        return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
-
-    def _build_loss(self):
-        # set smooth to 0
-        if self.label_manager.has_regions:
-            loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.configuration_manager.batch_dice,
-                                    'do_bg': True, 'smooth': 0, 'ddp': self.is_ddp},
-                                   use_ignore_label=self.label_manager.ignore_label is not None,
-                                   dice_class=MemoryEfficientSoftDiceLoss)
-        else:
-            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                   'smooth': 0, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
-
-        deep_supervision_scales = self._get_deep_supervision_scales()
-
-        # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
-        # this gives higher resolution outputs more weight in the loss
-        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
-
-        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-        weights = weights / weights.sum()
-        # now wrap the loss
-        loss = DeepSupervisionWrapper(loss, weights)
-        return loss
 
 
 class nnUNetTrainerDA5_10epochs(nnUNetTrainerDA5):

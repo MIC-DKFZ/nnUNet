@@ -1,2 +1,0 @@
-nnUNetv2_preprocess -d 216 -np 200 -c \
- 3d_lowres_sparse_patches_10 3d_lowres_sparse_patches_30

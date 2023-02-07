@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
     from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
 
+
 class ConfigurationManager(object):
     def __init__(self, configuration_dict: dict):
         self.configuration = configuration_dict

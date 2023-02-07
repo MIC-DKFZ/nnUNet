@@ -38,6 +38,12 @@ bash nnunetv2/tests/integration_tests/run_integration_test.sh DATSET_ID
 use DATSET_ID 996, 997, 998 and 999. You can run these independently on different GPUs/systems to speed things up. 
 This will take i dunno like 10-30 Minutes!?
 
+Also run 
+```commandline
+bash nnunetv2/tests/integration_tests/run_integration_test_trainingOnly_DDP.sh DATSET_ID
+```
+to verify DDP is working (needs 2 GPUs!)
+
 # How to check if the test was successful?
 If I was not as lazy as I am I would have programmed some automatism that checks if Dice scores etc are in an acceptable range.
 So you need to do the following:

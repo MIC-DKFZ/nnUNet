@@ -2,7 +2,6 @@ from torch.optim import Adam, AdamW
 
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 class nnUNetTrainerAdam(nnUNetTrainer):
