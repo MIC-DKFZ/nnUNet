@@ -5,7 +5,7 @@ To use the full functionality of nnU-Net, the following three environment variab
 
 1) `nnUNet_raw`: This is where you place the raw datasets. This folder will have one subfolder for each dataset names 
 DatasetXXX_YYY where XXX is a 3-digit identifier (such as 001, 002, 043, 999, ...) and YYY is the (unique) 
-dataset name. The datasets must be in nnU-Net format, see [here](dataset_conversion.md).
+dataset name. The datasets must be in nnU-Net format, see [here](dataset_format.md).
 
     Example tree structure:
     ```
@@ -35,7 +35,7 @@ throughput (such as a nvme SSD (PCIe gen 3 is sufficient)).
 is where it will save them.
 
 ### How to set environment variables
-(nnU-Net was developed for Ubuntu/Linux. The following guide is intended for this operating system and will not work on 
+(nnU-Net was developed for Linux. The following guide is intended for this operating system and will not work on 
 others. We do not provide support for other operating systems!)
 
 There are several ways you can do this. The most common one is to set the paths in your .bashrc file, which is located 
@@ -54,12 +54,12 @@ export nnUNet_results="/media/fabian/nnUNet_trained_models"
 
 Then save and exit. Reload the .bashrc by running `source /home/fabian/.bashrc`. Reloading 
 needs only be done on terminal sessions that were already open before you saved the changes. Any new terminal you open 
-after will have these paths set. You can verify that the paths are set up properly by typing `echo nnUNet_results` 
+after will have these paths set. You can verify that the paths are set up properly by typing `echo $nnUNet_results` 
 etc and it should print out the correct folder.
 
 ### An alternative way of setting these paths
 The method above sets the paths permanently (until you delete the lines from your .bashrc) on your system. If you wish 
-to set them only temporarily, you can run the export commands in your terminal:
+to set them only temporarily, you can run the export commands in your terminal prior to executing nnU-Net commands:
 
 ```
 export nnUNet_raw="/media/fabian/nnUNet_raw_data_base"
