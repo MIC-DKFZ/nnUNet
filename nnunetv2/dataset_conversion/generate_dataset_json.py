@@ -77,7 +77,7 @@ def generate_dataset_json(output_folder: str,
 
     dataset_json = {
         'channel_names': channel_names,  # previously this was called 'modality'. I didnt like this so this is
-        # channel_names now. Live with it. (we are backwards compatible)
+        # channel_names now. Live with it.
         'labels': labels,
         'numTraining': num_training_cases,
         'file_ending': file_ending,

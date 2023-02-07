@@ -152,7 +152,7 @@ def plot_overlay_preprocessed(case_file: str, output_file: str, overlay_intensit
     data = np.load(case_file)['data']
     seg = np.load(case_file)['seg'][0]
 
-    assert channel_idx < (data.shape[0]), 'This dataset only supports modality index up to %d' % (data.shape[0] - 1)
+    assert channel_idx < (data.shape[0]), 'This dataset only supports channel index up to %d' % (data.shape[0] - 1)
 
     image = data[channel_idx]
     seg[seg < 0] = 0

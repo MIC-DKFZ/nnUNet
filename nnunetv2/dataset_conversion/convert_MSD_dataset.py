@@ -105,7 +105,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     dataset_json = load_json(dataset_json)
     dataset_json['labels'] = {j: int(i) for i, j in dataset_json['labels'].items()}
     dataset_json['file_ending'] = ".nii.gz"
-    dataset_json["channel_names"]=dataset_json["modality"]
+    dataset_json["channel_names"] = dataset_json["modality"]
     del dataset_json["modality"]
     del dataset_json["training"]
     del dataset_json["test"]

@@ -9,7 +9,7 @@ import numpy as np
 class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
     """
     sampling of foreground happens randomly and not for the last 33% of samples in a batch
-    since most trainings happen with batch size 2 and nnuent guarantees at least one fg sample, effectively this can
+    since most trainings happen with batch size 2 and nnunet guarantees at least one fg sample, effectively this can
     be 50%
     Here we compute the actual oversampling percentage used by nnUNetTrainer in order to be as consistent as possible.
     If we switch to this oversampling then we can keep it at a constant 0.33 or whatever.

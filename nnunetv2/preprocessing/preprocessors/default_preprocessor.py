@@ -96,7 +96,7 @@ class DefaultPreprocessor(object):
 
         # normalize
         data = self._normalize(data, seg, configuration_manager.normalization_schemes,
-                               plans_manager.foreground_intensity_properties_by_modality)
+                               plans_manager.foreground_intensity_properties_per_channel)
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
@@ -158,7 +158,7 @@ class DefaultPreprocessor(object):
         return class_locs
 
     def _normalize(self, data: np.ndarray, seg: np.ndarray, normalization_schemes: List[str],
-                   foreground_intensity_properties_by_modality: dict) -> np.ndarray:
+                   foreground_intensity_properties_per_channel: dict) -> np.ndarray:
         for c in range(data.shape[0]):
             scheme = normalization_schemes[c]
             normalizer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing", "normalization"),
@@ -167,7 +167,7 @@ class DefaultPreprocessor(object):
             if normalizer_class is None:
                 raise RuntimeError('Unable to locate class \'%s\' for normalization' % scheme)
             normalizer = normalizer_class(normalization_schemes,
-                                          foreground_intensity_properties_by_modality[str(c)])
+                                          foreground_intensity_properties_per_channel[str(c)])
             data[c] = normalizer.run(data[c], seg[0])
         return data
 
@@ -238,7 +238,7 @@ def example_test_case_preprocessing():
     plans_file = 'nnUNetPlans.json'
     dataset_json_file = 'dataset.json'
     input_images = ['prostate_00_0000.nii.gz',
-                    'prostate_00_0001.nii.gz']  # if you only have one modality, you still need a list: ['case000_0000.nii.gz']
+                    'prostate_00_0001.nii.gz']  # if you only have one channel, you still need a list: ['case000_0000.nii.gz']
 
     configuration = '2d'
     pp = DefaultPreprocessor()

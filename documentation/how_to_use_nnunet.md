@@ -254,7 +254,7 @@ nnUNet_download_pretrained_model Task029_LiTS
 ```
 After downloading is complete, you can use this model to run [inference](#run-inference). Keep in mind that each of
 these models has specific data requirements (Task029_LiTS runs on abdominal CT scans, others require several image
-modalities as input in a specific order).
+modalities/channels as input in a specific order).
 
 When using the pretrained models you must adhere to the license of the dataset they are trained on! If you run
 `nnUNet_download_pretrained_model` you will find a link where you can find the license for each dataset.

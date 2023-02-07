@@ -27,7 +27,7 @@ class Tiff3DIO(BaseReaderWriter):
     If you have 2D tiffs, use NaturalImage2DIO
 
     Supports the use of auxiliary files for spacing information. If used, the auxiliary files are expected to end
-    with .json and omit the modality identifier. So, for example, the corresponding of image image1_0000.tif is
+    with .json and omit the channel identifier. So, for example, the corresponding of image image1_0000.tif is
     expected to be image1.json)!
     """
     supported_file_endings = [

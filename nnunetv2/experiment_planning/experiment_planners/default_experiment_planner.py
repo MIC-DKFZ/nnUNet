@@ -12,7 +12,7 @@ from nnunetv2.configuration import ANISO_THRESHOLD
 from nnunetv2.experiment_planning.experiment_planners.network_topology import get_pool_and_conv_props
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
-from nnunetv2.preprocessing.normalization.map_modality_to_normalization import get_normalization_scheme
+from nnunetv2.preprocessing.normalization.map_channel_name_to_normalization import get_normalization_scheme
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
@@ -472,8 +472,8 @@ class ExperimentPlanner(object):
             'configurations': {'2d': plan_2d},
             'experiment_planner_used': self.__class__.__name__,
             'label_manager': 'LabelManager',
-            'foreground_intensity_properties_by_modality': self.dataset_fingerprint[
-                'foreground_intensity_properties_by_modality']
+            'foreground_intensity_properties_per_channel': self.dataset_fingerprint[
+                'foreground_intensity_properties_per_channel']
         }
 
         if plan_3d_lowres is not None:

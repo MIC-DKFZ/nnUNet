@@ -21,7 +21,7 @@ class DatasetFingerprintExtractor(object):
         json file in the input_folder
 
         Philosophy here is to do only what we really need. Don't store stuff that we can easily read from somewhere
-        else. Don't compute stuff we don't need (except for intensity_statistics_by_modality)
+        else. Don't compute stuff we don't need (except for intensity_statistics_per_channel)
         """
         dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
         self.verbose = verbose
@@ -47,9 +47,9 @@ class DatasetFingerprintExtractor(object):
 
         rs = np.random.RandomState(seed)
 
-        intensities_per_modality = []
-        # we don't use the intensity_statistics_by_modality at all, it's just something that might be nice to have
-        intensity_statistics_by_modality = []
+        intensities_per_channel = []
+        # we don't use the intensity_statistics_per_channel at all, it's just something that might be nice to have
+        intensity_statistics_per_channel = []
 
         # segmentation is 4d: 1,x,y,z. We need to remove the empty dimension for the following code to work
         foreground_mask = segmentation[0] > 0
@@ -60,9 +60,9 @@ class DatasetFingerprintExtractor(object):
             # sample with replacement so that we don't get issues with cases that have less than num_samples
             # foreground_pixels. We could also just sample less in those cases but that would than cause these
             # training cases to be underrepresented
-            intensities_per_modality.append(
+            intensities_per_channel.append(
                 rs.choice(foreground_pixels, num_samples, replace=True) if num_fg > 0 else [])
-            intensity_statistics_by_modality.append({
+            intensity_statistics_per_channel.append({
                 'mean': np.mean(foreground_pixels) if num_fg > 0 else np.nan,
                 'median': np.median(foreground_pixels) if num_fg > 0 else np.nan,
                 'min': np.min(foreground_pixels) if num_fg > 0 else np.nan,
@@ -72,7 +72,7 @@ class DatasetFingerprintExtractor(object):
 
             })
 
-        return intensities_per_modality, intensity_statistics_by_modality
+        return intensities_per_channel, intensity_statistics_per_channel
 
     @staticmethod
     def analyze_case(image_files: List[str], segmentation_file: str, reader_writer_class: Type[BaseReaderWriter],
@@ -87,7 +87,7 @@ class DatasetFingerprintExtractor(object):
         # way. This is only possible because we are now using our new input/output interface.
         data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
 
-        foreground_intensities_by_modality, foreground_intensity_stats_by_modality = \
+        foreground_intensities_per_channel, foreground_intensity_stats_per_channel = \
             DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
                                                                        num_samples=num_samples)
 
@@ -96,7 +96,7 @@ class DatasetFingerprintExtractor(object):
         shape_before_crop = images.shape[1:]
         shape_after_crop = data_cropped.shape[1:]
         relative_size_after_cropping = np.prod(shape_after_crop) / np.prod(shape_before_crop)
-        return shape_after_crop, spacing, foreground_intensities_by_modality, foreground_intensity_stats_by_modality, \
+        return shape_after_crop, spacing, foreground_intensities_per_channel, foreground_intensity_stats_per_channel, \
                relative_size_after_cropping
 
     def run(self, overwrite_existing: bool = False) -> dict:
@@ -131,31 +131,31 @@ class DatasetFingerprintExtractor(object):
 
             shapes_after_crop = [r[0] for r in results]
             spacings = [r[1] for r in results]
-            foreground_intensities_by_modality = [np.concatenate([r[2][i] for r in results]) for i in
+            foreground_intensities_per_channel = [np.concatenate([r[2][i] for r in results]) for i in
                                                   range(len(results[0][2]))]
             # we drop this so that the json file is somewhat human readable
             # foreground_intensity_stats_by_case_and_modality = [r[3] for r in results]
             median_relative_size_after_cropping = np.median([r[4] for r in results], 0)
 
-            num_modalities = len(self.dataset_json['channel_names'].keys()
+            num_channels = len(self.dataset_json['channel_names'].keys()
                                  if 'channel_names' in self.dataset_json.keys()
                                  else self.dataset_json['modality'].keys())
-            intensity_statistics_by_modality = {}
-            for i in range(num_modalities):
-                intensity_statistics_by_modality[i] = {
-                    'mean': float(np.mean(foreground_intensities_by_modality[i])),
-                    'median': float(np.median(foreground_intensities_by_modality[i])),
-                    'std': float(np.std(foreground_intensities_by_modality[i])),
-                    'min': float(np.min(foreground_intensities_by_modality[i])),
-                    'max': float(np.max(foreground_intensities_by_modality[i])),
-                    'percentile_99_5': float(np.percentile(foreground_intensities_by_modality[i], 99.5)),
-                    'percentile_00_5': float(np.percentile(foreground_intensities_by_modality[i], 0.5)),
+            intensity_statistics_per_channel = {}
+            for i in range(num_channels):
+                intensity_statistics_per_channel[i] = {
+                    'mean': float(np.mean(foreground_intensities_per_channel[i])),
+                    'median': float(np.median(foreground_intensities_per_channel[i])),
+                    'std': float(np.std(foreground_intensities_per_channel[i])),
+                    'min': float(np.min(foreground_intensities_per_channel[i])),
+                    'max': float(np.max(foreground_intensities_per_channel[i])),
+                    'percentile_99_5': float(np.percentile(foreground_intensities_per_channel[i], 99.5)),
+                    'percentile_00_5': float(np.percentile(foreground_intensities_per_channel[i], 0.5)),
                 }
 
             fingerprint = {
                     "spacings": spacings,
                     "shapes_after_crop": shapes_after_crop,
-                    'foreground_intensity_properties_by_modality': intensity_statistics_by_modality,
+                    'foreground_intensity_properties_per_channel': intensity_statistics_per_channel,
                     "median_relative_size_after_cropping": median_relative_size_after_cropping
                 }
 

@@ -282,8 +282,8 @@ class PlansManager(object):
                                         **kwargs)
 
     @property
-    def foreground_intensity_properties_by_modality(self) -> dict:
-        return self.plans['foreground_intensity_properties_by_modality']
+    def foreground_intensity_properties_per_channel(self) -> dict:
+        return self.plans['foreground_intensity_properties_per_channel']
 
 
 if __name__ == '__main__':

@@ -42,7 +42,7 @@ def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected
     return True
 
 
-def check_cases(base_folder: str, case_identifier: str, expected_num_modalities: int,
+def check_cases(base_folder: str, case_identifier: str, expected_num_channels: int,
                 readerclass: Type[BaseReaderWriter], file_ending: str) -> bool:
     rw = readerclass()
     ret = True
@@ -74,9 +74,9 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_modalities:
         ret = False
 
     # check modalities
-    if not len(images) == expected_num_modalities:
+    if not len(images) == expected_num_channels:
         print('Error: Unexpected number of modalities. \nExpected: %d. \nGot: %d. \nImages: %s\n'
-              % (expected_num_modalities, len(images), files_image))
+              % (expected_num_channels, len(images), files_image))
         ret = False
 
     # nibabel checks

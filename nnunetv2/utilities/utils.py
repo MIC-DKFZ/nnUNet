@@ -21,7 +21,7 @@ import re
 
 def get_identifiers_from_splitted_dataset_folder(folder: str, suffix: str):
     files = subfiles(folder, suffix=suffix, join=False)
-    # all files must be .nii.gz and have 4 digit modality index
+    # all files must be .nii.gz and have 4 digit channel index
     crop = len(suffix) + 5
     files = [i[:-crop] for i in files]
     # only unique image ids

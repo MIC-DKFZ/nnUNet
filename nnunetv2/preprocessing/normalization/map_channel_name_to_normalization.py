@@ -3,7 +3,7 @@ from typing import Type
 from nnunetv2.preprocessing.normalization.default_normalization_schemes import CTNormalization, NoNormalization, \
     ZScoreNormalization, RescaleTo01Normalization, RGBTo01Normalization, ImageNormalization
 
-modality_to_normalization_mapping = {
+channel_name_to_normalization_mapping = {
     'CT': CTNormalization,
     'noNorm': NoNormalization,
     'zscore': ZScoreNormalization,
@@ -12,12 +12,12 @@ modality_to_normalization_mapping = {
 }
 
 
-def get_normalization_scheme(modality_name: str) -> Type[ImageNormalization]:
+def get_normalization_scheme(channel_name: str) -> Type[ImageNormalization]:
     """
-    If we find the modality_name in modality_to_normalization_mapping return the corresponding normalization. If it is
+    If we find the channel_name in channel_name_to_normalization_mapping return the corresponding normalization. If it is
     not found, use the default (ZScoreNormalization)
     """
-    norm_scheme = modality_to_normalization_mapping.get(modality_name)
+    norm_scheme = channel_name_to_normalization_mapping.get(channel_name)
     if norm_scheme is None:
         norm_scheme = ZScoreNormalization
     # print('Using %s for image normalization' % norm_scheme.__name__)
