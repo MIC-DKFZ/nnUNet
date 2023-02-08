@@ -57,7 +57,7 @@ if __name__ == "__main__":
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=1G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster4.sh && "
-    train_command = 'nnUNetv2_train'
+    train_command = 'nnUNet_results=/dkfz/cluster/gpu/checkpoints/OE0441/isensee/nnUNet_results_remake_release nnUNetv2_train'
 
     folds = (0, )
     # use_this = configurations_2d_only
@@ -65,7 +65,8 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainerMemEffCEDice': ('nnUNetPlans',),
+        'nnUNetTrainer': ('nnUNetPlans',),
+        'nnUNetTrainerDiceCELoss_noSmooth': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

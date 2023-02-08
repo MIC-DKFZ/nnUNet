@@ -60,7 +60,7 @@ Alternatively you can always specify it when running nnU-Net: `OMP_NUM_THREADS=1
    plots of the network topologies it generates (see [Model training](#model-training)). To install hiddenlayer,
    run the following commands:
     ```bash
-    pip install --upgrade git+https://github.com/FabianIsensee/hiddenlayer.git@more_plotted_details#egg=hiddenlayer
+    pip install --upgrade git+https://github.com/julien-blanchon/hiddenlayer.git
     ```
 
 Installing nnU-Net will add several new commands to your terminal. These commands are used to run the entire nnU-Net

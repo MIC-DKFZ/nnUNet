@@ -22,22 +22,97 @@ import nibabel
 
 
 class NibabelIO(BaseReaderWriter):
+    """
+    Nibabel loads the images in a different order than sitk. We convert the axes to the sitk order to be
+    consistent. This is of course considered properly in segmentation export as well.
+
+    IMPORTANT: Run nnUNet_plot_dataset_pngs to verify that this did not destroy the alignment of data and seg!
+    """
     supported_file_endings = [
         '.nii.gz',
         '.nrrd',
         '.mha'
     ]
 
-    def __init__(self):
-        """
-        Reorients images to RAS
+    def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
+        images = []
+        original_affines = []
 
-        Nibabel loads the images in a different order than sitk. We convert the axes to the sitk order to be
-        consistent. This is of course considered properly in segmentation export as well.
+        spacings_for_nnunet = []
+        for f in image_fnames:
+            nib_image = nibabel.load(f)
+            assert len(nib_image.shape) == 3, 'only 3d images are supported by NibabelIO'
+            original_affine = nib_image.affine
 
-        IMPORTANT: Run nnUNet_plot_dataset_pngs to verify that this did not destroy the alignment of data and seg!
-        """
-        super().__init__()
+            original_affines.append(original_affine)
+
+            # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
+            spacings_for_nnunet.append((
+                original_affine[2, 2],
+                original_affine[1, 1],
+                original_affine[0, 0],
+            ))
+
+            # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
+            images.append(nib_image.get_fdata().transpose((2, 1, 0))[None])
+
+        if not self._check_all_same([i.shape for i in images]):
+            print('ERROR! Not all input images have the same shape!')
+            print('Shapes:')
+            print([i.shape for i in images])
+            print('Image files:')
+            print(image_fnames)
+            raise RuntimeError()
+        if not self._check_all_same_array(original_affines):
+            print('WARNING! Not all input images have the same original_affines!')
+            print('Affines:')
+            print(original_affines)
+            print('Image files:')
+            print(image_fnames)
+            print('It is up to you to decide whether that\'s a problem. You should run nnUNet_plot_dataset_pngs to verify '
+                  'that segmentations and data overlap.')
+        if not self._check_all_same(spacings_for_nnunet):
+            print('ERROR! Not all input images have the same spacing_for_nnunet! This might be caused by them not '
+                  'having the same affine')
+            print('spacings_for_nnunet:')
+            print(spacings_for_nnunet)
+            print('Image files:')
+            print(image_fnames)
+            raise RuntimeError()
+
+        stacked_images = np.vstack(images)
+        dict = {
+            'nibabel_stuff': {
+                'original_affine': original_affines[0],
+            },
+            'spacing': spacings_for_nnunet[0]
+        }
+        return stacked_images.astype(np.float32), dict
+
+    def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
+        return self.read_images((seg_fname, ))
+
+    def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
+        # revert transpose
+        seg = seg.transpose((2, 1, 0)).astype(np.uint8)
+        seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['original_affine'])
+        nibabel.save(seg_nib, output_fname)
+
+
+class NibabelIOWithReorient(BaseReaderWriter):
+    """
+    Reorients images to RAS
+
+    Nibabel loads the images in a different order than sitk. We convert the axes to the sitk order to be
+    consistent. This is of course considered properly in segmentation export as well.
+
+    IMPORTANT: Run nnUNet_plot_dataset_pngs to verify that this did not destroy the alignment of data and seg!
+    """
+    supported_file_endings = [
+        '.nii.gz',
+        '.nrrd',
+        '.mha'
+    ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
         images = []
@@ -111,3 +186,19 @@ class NibabelIO(BaseReaderWriter):
         assert np.all(np.isclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine)), \
             'restored affine does not match original affine'
         nibabel.save(seg_nib_reoriented, output_fname)
+
+
+if __name__ == '__main__':
+    img_file = '/media/isensee/raw_data/nnUNet_raw/Dataset064_KiTS_labelsFixed/imagesTr/case_00002_0000.nii.gz'
+    seg_file = '/media/isensee/raw_data/nnUNet_raw/Dataset064_KiTS_labelsFixed/labelsTr/case_00002.nii.gz'
+
+    nibio = NibabelIO()
+    images, dct = nibio.read_images([img_file])
+    seg, dctseg = nibio.read_seg(seg_file)
+
+    nibio_r = NibabelIOWithReorient()
+    images_r, dct_r = nibio_r.read_images([img_file])
+    seg_r, dctseg_r = nibio_r.read_seg(seg_file)
+
+    nibio.write_seg(seg[0], '/home/isensee/seg_nibio.nii.gz', dctseg)
+    nibio_r.write_seg(seg_r[0], '/home/isensee/seg_nibio_r.nii.gz', dctseg_r)
