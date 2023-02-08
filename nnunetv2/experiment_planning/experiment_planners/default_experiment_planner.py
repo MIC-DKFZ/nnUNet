@@ -496,6 +496,7 @@ class ExperimentPlanner(object):
 
         self.plans = plans
         self.save_plans(plans)
+        return plans
 
     def save_plans(self, plans):
         recursive_fix_for_json_export(plans)
