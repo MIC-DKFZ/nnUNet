@@ -1,4 +1,4 @@
-<span style="font-size:3.5em;">Welcome to the new nnU-Net!</span>
+# Welcome to the new nnU-Net!
 
 Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/master) if you were looking for the old one instead.
 
