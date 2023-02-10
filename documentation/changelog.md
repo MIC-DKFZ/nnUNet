@@ -2,10 +2,10 @@
 
 - We now support **hierarchical labels** (named regions in nnU-Net). For example, instead of training BraTS with the 
 'edema', 'necrosis' and 'enhancing tumor' labels you can directly train it on the target areas 'whole tumor', 
-'tumor core' and 'enhancing tumor'. See [here](TODO) for a detailed description + also have a look at the 
+'tumor core' and 'enhancing tumor'. See [here](region_based_training.md) for a detailed description + also have a look at the 
 [BraTS 2021 conversion script](../nnunetv2/dataset_conversion/Dataset137_BraTS21.py)
 - nnU-Net now also natively supports an **ignore label**. Pixels with this label will not contribute to the loss. 
-Use this to learn from sparsely annotated data, or excluding irrelevant areas from training. Read more [here](TODO).
+Use this to learn from sparsely annotated data, or excluding irrelevant areas from training. Read more [here](ignore_label.md).
 
 - unified trainer class: nnUNetTrainer. No messing around with cascaded trainer, DDP trainer, region-based trainer, ignore trainer etc. All default functionality is in there!
 - Supports more input/output data formats through ImageIO classes
@@ -37,6 +37,6 @@ Folder structures are different and more user-friendly:
   - results are now sorted as follows: DATASET_NAME/TRAINERCLASS__PLANSIDENTIFIER__CONFIGURATION/FOLD
 
 ## What other changes are planned and not yet implemented?
-- Windows support (really? WoooOoOooooowwwwWWww)
+- Windows support (really? WoooOoOooooowwwwWWww!11111!!!!!!!1!!!)
 - integration into MONAI (together with our friends at Nvidia)
 - new pretrained weights for a large number of datasets

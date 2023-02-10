@@ -40,25 +40,31 @@ install the latest version and (IMPORTANT!) choose
 the highest CUDA version compatible with your drivers for maximum performance (check cuda version in nvidia-smi on Linux). 
 **DO NOT JUST `pip install nnunetv2` WITHOUT PROPERLY INSTALLING PYTORCH FIRST**. For maximum performance, consider 
 [compiling pytorch yourself](https://github.com/pytorch/pytorch#from-source) (experienced users only!). 
-2) Install nnU-Net depending on your use case:
-    1) For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running 
+2) Install dependencies:
+   ```bash
+   pip install --upgrade git+https://github.com/MIC-DKFZ/acvl_utils.git
+   pip install --upgrade git+https://github.com/MIC-DKFZ/dynamic-network-architectures.git
+   ```
+   (these will be provided as proper python packages in the future)
+3) Install nnU-Net depending on your use case:
+    1) [DOES NOT WORK YET] For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running 
      **inference with pretrained models**:
 
        ```pip install nnunetv2```
 
-    2) For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you can modify it as needed):
+    2) [USE THIS!] For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you can modify it as needed):
           ```bash
           git clone https://github.com/MIC-DKFZ/nnUNet.git
           cd nnUNet
           pip install -e .
           ```
-3) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
+4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
    set a few of environment variables. Please follow the instructions [here](documentation/setting_up_paths.md).
-4) Add OMP_NUM_THREADS=1 to your environment. Linux/bash example: add `export OMP_NUM_THREADS=1` to your .bashrc file. 
+5) Add OMP_NUM_THREADS=1 to your environment. Linux/bash example: add `export OMP_NUM_THREADS=1` to your .bashrc file. 
 Alternatively you can always specify it when running nnU-Net: `OMP_NUM_THREADS=1 nnUNetv2_train [...]` 
-5) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
+6) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
    plots of the network topologies it generates (see [Model training](#model-training)). To install hiddenlayer,
-   run the following commands:
+   run the following command:
     ```bash
     pip install --upgrade git+https://github.com/julien-blanchon/hiddenlayer.git
     ```

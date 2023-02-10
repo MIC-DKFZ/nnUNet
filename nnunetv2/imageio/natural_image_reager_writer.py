@@ -30,7 +30,7 @@ class NaturalImage2DIO(BaseReaderWriter):
         # '.jpg',
         # '.jpeg', # jpg not supported because we cannot allow lossy compression! segmentation maps!
         '.bmp',
-        'tif'
+        '.tif'
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:

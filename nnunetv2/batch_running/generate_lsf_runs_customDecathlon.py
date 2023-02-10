@@ -67,6 +67,7 @@ if __name__ == "__main__":
     use_these_modules = {
         'nnUNetTrainer': ('nnUNetPlans',),
         'nnUNetTrainerDiceCELoss_noSmooth': ('nnUNetPlans',),
+        'nnUNetTrainer_DASegOrd0': ('nnUNetPlans',),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''

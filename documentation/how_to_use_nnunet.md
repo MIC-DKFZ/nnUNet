@@ -236,7 +236,8 @@ as the effect of the postprocessing plus some debug information.
 
 ### Run inference
 Remember that the data located in the input folder must have the file endings as the dataset you trained the model on 
-and must adhere to the nnU-Net naming scheme for image files (see [dataset format](dataset_format.md)!)
+and must adhere to the nnU-Net naming scheme for image files (see [dataset format](dataset_format.md) and 
+[inference data format](dataset_format_inference.md)!)
 
 `nnUNetv2_find_best_configuration` (see above) will print a string to the terminal with the inference commands you need to use.
 The easiest way to run inference is to simply use these commands.
