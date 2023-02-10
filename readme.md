@@ -1,5 +1,9 @@
+<font size="20"> Welcome to the new nnU-Net! </font>
+
+Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/master) if you were looking for the old one instead.
+
 # What is nnU-Net?
-Image datasets are enormously diverse: image dimensionality (2D, 3D) modalities (RBG image, CT, MRI, microscopy, ...), 
+Image datasets are enormously diverse: image dimensionality (2D, 3D) modalities/input channels (RBG image, CT, MRI, microscopy, ...), 
 image sizes, voxel sizes, class ratio, target structure properties and more change substantially between datasets. 
 Traditionally, given a new problem, a tailored solution needs to be manually designed and optimized  - a process that 
 is prone to errors, not scalable and where success is overwhelmingly determined by the skill of the experimenter. Even 
@@ -17,6 +21,11 @@ with handcrafted solutions for each respective dataset, nnU-Net's fully automate
 open leaderboards! Since then nnU-Net has stood the test of time: it continues to be used as baseline and method 
 development framework: 9 out of 10 challenge winners at MICCAI build their methods on top of nnU-Net!
 
+Please cite the following paper when using nnU-Net:
+
+    Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). nnU-Net: a self-configuring 
+    method for deep learning-based biomedical image segmentation. Nature methods, 18(2), 203-211.
+
 
 ## What can nnU-Net do for you?
 If you are a **domain scientist** (biologist, radiologist, ...) looking to analyze your own images, nnU-Net provides 
@@ -33,8 +42,9 @@ in segmentation challenges
 dataset properties and best-fitting segmentation pipelines?
 
 ## What is the scope of nnU-Net?
-nnU-Net is built for semantic segmentation. It can handle 2D and 3D images with arbitrary input modalities. It can understand 
-voxel spacings, anisotropies and is robust even if classes are highly imbalanced.
+nnU-Net is built for semantic segmentation. It can handle 2D and 3D images with arbitrary 
+input modalities/channels. It can understand voxel spacings, anisotropies and is robust even if classes are highly
+imbalanced.
 
 nnU-Net relies on supervised learning, meaning you need to provide training cases for your application! The number of 
 required training cases highly varies depending on the complexity of the segmentation problem. No 
@@ -43,11 +53,11 @@ even less due to our extensive use of data augmentation.
 
 nnU-Net expects to be able to process entire images at once during preprocessing and postprocessing, so it cannot 
 handle enormous images. As a reference: we tested images from 40x40x40 pixels all the way up to 1500x1500x1500 in 3D 
-and 40x40 up to ~30000x30000 in 2D!
+and 40x40 up to ~30000x30000 in 2D! If your RAM allows it, larger is always possible.
 
 ## How does nnU-Net work?
 Given a new dataset, nnU-Net will systematically analyze the provided training cases and create a 'dataset fingerprint'. 
-nnU-Net then creates several different U-Net configurations for each dataset: 
+nnU-Net then creates several U-Net configurations for each dataset: 
 - `2d`: a 2D U-Net (for 2D and 3D datasets)
 - `3d_fullres`: a 3D U-Net that operates on a high image resolution (for 3D datasets only)
 - `3d_lowres` -> `3d_cascade_fullres`: a 3D U-Net cascade where first a 3D U-Net operates on low resolution images and 
@@ -59,9 +69,21 @@ simply be used all the time. This includes for example nnU-Net's loss function, 
 - **Rule-based parameters** use the dataset fingerprint to adapt certain segmentation pipeline properties by following 
 hard-coded heuristic rules. For example, the network topology (pooling behavior and depth of the network architecture) 
 are adapted to the patch size; the patch size, network topology and batch size are optimized jointly given some GPU 
-memory constrained. 
+memory constraint. 
 - **Empirical parameters** are essentially trial-end-error. For example the selection of the best U-net configuration 
 for the given dataset (2D, 3D highres, 3D cascade) and the optimization of the postprocessing strategy.
+
+## How to get started?
+Read these:
+- [Installation instructions](docmentation/installation_instructions.md)
+- [Dataset conversion](documentation/dataset_format.md)
+- [Usage instructions](documentation/how_to_use_nnunet.md)
+
+Additional information:
+- [Region-based training](documentation/region_based_training.md)
+- [Ignore label](documentation/ignore_label.md)
+- [Manual data splits](documentation/manual_data_splits.md)
+- [Pretraining and finetuning](documentation/pretraining_and_finetuning.md)
 
 
 ## Where does nnU-net perform well and where does it not perform?
@@ -78,39 +100,18 @@ they 1) are not useful for segmentation problems that deviate from the standard 
 datasets), 2) would typically only support 2D architectures and 3) conflict with our core design principle of carefully adapting 
 the network topology for each dataset (if the topology is changed one can no longer transfer pretrained weights!) 
 
+## What happened to the old nnU-Net?
+The core of the old nnU-Net was hacked together in a short time period while participating in the Medical Segmentation 
+Decathlon challenge in 2018. Consequently, code structure and quality were not the best. Many features 
+were added later on and didn't quite fit into the nnU-Net design principles. Overall quite messy, really. And annoying to work with.
 
-
-# Extending or Changing nnU-Net
-Please refer to [this](documentation/extending_nnunet.md) guide.
-
-# Information on run time and potential performance bottlenecks.
-
-We have compiled a list of expected epoch times on standardized datasets across many different GPUs. You can use them
-to verify that your system is performing as expected. There are also tips on how to identify bottlenecks and what
-to do about them.
-
-Click [here](documentation/expected_epoch_times.md).
-
-# Common questions and issues
-
-We have collected solutions to common [questions](documentation/common_questions.md) and
-[problems](documentation/common_problems_and_solutions.md). Please consult these documents before you open a new issue.
-
-# Useful Resources
-
-* The [nnU-Net Workshop](https://github.com/IML-DKFZ/nnunet-workshop) is a step-by-step introduction to nnU-Net and visualizing
-results using MITK. Regarding nnU-Net, it includes training and inference examples and an example to train on a new dataset.
-The workshop itself is a jupyter notebook, which can be executed in GoogleColab.
-
-* This RSNA 2021 Deep Learning Lab [notebook](https://github.com/RSNA/AI-Deep-Learning-Lab-2021/blob/main/sessions/tcia-idc/RSNA_2021_IDC_and_TCIA.ipynb) demonstrates how nnU-Net can be used to analyze public DICOM datasets available in US National Cancer Institute [Imaging Data Commons (IDC)](https://imaging.datacommons.cancer.gov). This notebook demonstrates how datasets suitable for the analysis with nnU-Net can be identified within IDC, how they can be preprocessed from the DICOM format to be usable with nnU-Net, and how the results of the analysis can be visualized in the notebook without having to download anything. NCI Imaging Data Commons is a cloud-based repository of publicly available cancer imaging data co-located with the analysis and exploration tools and resources. IDC is a node within the broader NCI [Cancer Research Data Commons (CRDC)](https://datacommons.cancer.gov/) infrastructure that provides secure access to a large, comprehensive, and expanding collection of cancer research data.
-
-* A [Google Colab notebook](documentation/celltrackingchallenge/MIC-DKFZ.ipynb) example has been added to the repository allowing to train and apply a model to some of the 
-[cell tracking challenge](http://celltrackingchallenge.net/) datasets. 
-You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook 
-for the process to work.
+The new nnU-Net is a complete overhaul. The "delete everything and start again" kind. So everything is better (in my 
+opinion lol). While the segmentation performance remains the same, a lot of cool stuff has been added. It is now also 
+much easier to use it as a development framework and to manually fine tune its configuration to new datasets. A big 
+driver for the reimplementation was also my (sorta) migration to Helmholtz Imaging, prompting me to opening up nnU-Net 
+to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
 
 # Acknowledgements
-
 <img src="HI_Logo.png" width="512px" />
 
 nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de).

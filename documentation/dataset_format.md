@@ -164,6 +164,11 @@ Here is what the dataset.json should look like at the example of the Dataset005_
      "overwrite_image_reader_writer": "SimpleITKIO"  # optional! If not provided nnU-Net will automatically determine the ReaderWriter
      }
 
+The channel_names determine the normalization used by nnU-Net. If a channel is marked as 'CT', then a global 
+normalization based on the intensities in the foreground pixels will be used. If it is something else, per-channel 
+z-scoring will be used. See our paper for more details. nnU-Net v2 intoduces a few more normalization schemes to 
+choose from and allows you to define your own, see [here](explanation_normalization.md) for more information. 
+
 Important changes relative to nnU-Net V1:
 - "modality" is now called "channel_names" to remove strong bias to medical images
 - labels are structured differently (name -> int instead if int -> name). This was needed to support [region-based training](region_based_training.md)
