@@ -129,28 +129,6 @@ class ExperimentPlanner3D_residual_v21_bfnnUNet(ExperimentPlanner3D_v21):
         return plan
 
     def run_preprocessing(self, num_threads):
-        pass
-
-
-class ExperimentPlanner3D_residual_v21_bfnnUNet_31(ExperimentPlanner3D_residual_v21_bfnnUNet):
-    def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
-        super().__init__(folder_with_cropped_data, preprocessed_output_folder)
-        self.data_identifier = "nnUNetData_bfnnUNet_31"
-        self.plans_fname = join(self.preprocessed_output_folder,
-                                "nnUNetPlans_bfnnUNet_fabresnet_31_plans_3D.pkl")
-        self.preprocessor_name = 'Preprocessor3DBetterResampling'
-
-    def plan_experiment(self):
-        super().plan_experiment()
-
-        self.plans['segmentation_export_params'] = {
-            'force_separate_z': False,
-            'interpolation_order': 1,
-            'interpolation_order_z': 999999 # not used
-        }
-        self.save_my_plans()
-
-    def run_preprocessing(self, num_threads):
         if os.path.isdir(join(self.preprocessed_output_folder, "gt_segmentations")):
             shutil.rmtree(join(self.preprocessed_output_folder, "gt_segmentations"))
         shutil.copytree(join(self.folder_with_cropped_data, "gt_segmentations"), join(self.preprocessed_output_folder,
@@ -171,6 +149,25 @@ class ExperimentPlanner3D_residual_v21_bfnnUNet_31(ExperimentPlanner3D_residual_
             num_threads = num_threads[-1]
         preprocessor.run(target_spacings, self.folder_with_cropped_data, self.preprocessed_output_folder,
                          self.plans['data_identifier'], num_threads, force_separate_z=False)
+
+
+class ExperimentPlanner3D_residual_v21_bfnnUNet_31(ExperimentPlanner3D_residual_v21_bfnnUNet):
+    def __init__(self, folder_with_cropped_data, preprocessed_output_folder):
+        super().__init__(folder_with_cropped_data, preprocessed_output_folder)
+        self.data_identifier = "nnUNetData_bfnnUNet_31"
+        self.plans_fname = join(self.preprocessed_output_folder,
+                                "nnUNetPlans_bfnnUNet_fabresnet_31_plans_3D.pkl")
+        self.preprocessor_name = 'Preprocessor3DBetterResampling'
+
+    def plan_experiment(self):
+        super().plan_experiment()
+
+        self.plans['segmentation_export_params'] = {
+            'force_separate_z': False,
+            'interpolation_order': 1,
+            'interpolation_order_z': 999999 # not used
+        }
+        self.save_my_plans()
 
 
 class ExperimentPlanner3D_residual_v21_bfnnUNet_31_spRegnnU(ExperimentPlanner3D_residual_v21_bfnnUNet_31):
