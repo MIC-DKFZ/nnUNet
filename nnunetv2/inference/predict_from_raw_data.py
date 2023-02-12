@@ -268,7 +268,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                             prediction /= len(parameters)
 
                 except RuntimeError:
-                    print('Predicton with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
+                    print('Prediction with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
                           'Falling back to perform_everything_on_gpu=False. Not a big deal, just slower...')
                     print('Error:')
                     traceback.print_exc()
