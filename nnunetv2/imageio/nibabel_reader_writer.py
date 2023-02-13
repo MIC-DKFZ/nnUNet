@@ -52,6 +52,7 @@ class NibabelIO(BaseReaderWriter):
                 original_affine[1, 1],
                 original_affine[0, 0],
             ))
+            spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
             images.append(nib_image.get_fdata().transpose((2, 1, 0))[None])
@@ -136,6 +137,7 @@ class NibabelIOWithReorient(BaseReaderWriter):
                 reoriented_affine[1, 1],
                 reoriented_affine[0, 0],
             ))
+            spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
             images.append(reoriented_image.get_fdata().transpose((2, 1, 0))[None])
@@ -189,8 +191,8 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
 
 if __name__ == '__main__':
-    img_file = '/media/isensee/raw_data/nnUNet_raw/Dataset064_KiTS_labelsFixed/imagesTr/case_00002_0000.nii.gz'
-    seg_file = '/media/isensee/raw_data/nnUNet_raw/Dataset064_KiTS_labelsFixed/labelsTr/case_00002.nii.gz'
+    img_file = '/home/isensee/drives/E132-Rohdaten/nnUNet/nnUNet_raw_data_base/nnUNet_raw_data/Task027_ACDC/imagesTr/patient028_frame01_0000.nii.gz'
+    seg_file = '/home/isensee/drives/E132-Rohdaten/nnUNet/nnUNet_raw_data_base/nnUNet_raw_data/Task027_ACDC/labelsTr/patient028_frame01.nii.gz'
 
     nibio = NibabelIO()
     images, dct = nibio.read_images([img_file])
@@ -202,3 +204,7 @@ if __name__ == '__main__':
 
     nibio.write_seg(seg[0], '/home/isensee/seg_nibio.nii.gz', dctseg)
     nibio_r.write_seg(seg_r[0], '/home/isensee/seg_nibio_r.nii.gz', dctseg_r)
+
+    s_orig = nibabel.load(seg_file).get_fdata()
+    s_nibio = nibabel.load('/home/isensee/seg_nibio.nii.gz').get_fdata()
+    s_nibio_r = nibabel.load('/home/isensee/seg_nibio_r.nii.gz').get_fdata()

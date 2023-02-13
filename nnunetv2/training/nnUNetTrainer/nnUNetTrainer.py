@@ -207,9 +207,9 @@ class nnUNetTrainer(object):
             dct = {}
             for k in self.__dir__():
                 if not k.startswith("__"):
-                    if not callable(getattr(self, k)) or k in ['loss',]:
+                    if not callable(getattr(self, k)) or k in ['loss', ]:
                         dct[k] = str(getattr(self, k))
-                    elif k in ['network',]:
+                    elif k in ['network', ]:
                         dct[k] = str(getattr(self, k).__class__.__name__)
                     else:
                         # print(k)
@@ -1106,7 +1106,8 @@ class nnUNetTrainer(object):
 
                     try:
                         # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
-                        tmp = nnUNetDataset(expected_preprocessed_folder, [k], num_images_properties_loading_threshold=0)
+                        tmp = nnUNetDataset(expected_preprocessed_folder, [k],
+                                            num_images_properties_loading_threshold=0)
                         d, s, p = tmp.load_case(k)
                     except FileNotFoundError:
                         self.print_to_log_file(
@@ -1143,14 +1144,16 @@ class nnUNetTrainer(object):
             dist.barrier()
 
         if self.local_rank == 0:
-            compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
-                                      validation_output_folder,
-                                      join(validation_output_folder, 'summary.json'),
-                                      self.plans_manager.image_reader_writer_class(),
-                                      self.dataset_json["file_ending"],
-                                      self.label_manager.foreground_regions if self.label_manager.has_regions else
-                                      self.label_manager.foreground_labels,
-                                      self.label_manager.ignore_label, chill=True)
+            metrics = compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
+                                                validation_output_folder,
+                                                join(validation_output_folder, 'summary.json'),
+                                                self.plans_manager.image_reader_writer_class(),
+                                                self.dataset_json["file_ending"],
+                                                self.label_manager.foreground_regions if self.label_manager.has_regions else
+                                                self.label_manager.foreground_labels,
+                                                self.label_manager.ignore_label, chill=True)
+            self.print_to_log_file("Validation complete", also_print_to_console=True)
+            self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]), also_print_to_console=True)
 
         if self.is_ddp:
             self.network.module.decoder.deep_supervision = True

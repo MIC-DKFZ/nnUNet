@@ -56,6 +56,7 @@ class SimpleITKIO(BaseReaderWriter):
                 raise RuntimeError("Unexpected number of dimensions: %d in file %s" % (len(npy_image.shape), f))
 
             images.append(npy_image)
+            spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))
 
         if not self._check_all_same([i.shape for i in images]):
             print('ERROR! Not all input images have the same shape!')

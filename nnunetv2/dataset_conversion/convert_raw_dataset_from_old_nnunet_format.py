@@ -1,4 +1,5 @@
 import shutil
+from copy import deepcopy
 
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, isdir, load_json, save_json
 from nnunetv2.paths import nnUNet_raw
@@ -31,6 +32,8 @@ def convert(source_folder, target_dataset_name):
     del dataset_json['numTest']
     del dataset_json['training']
     del dataset_json['test']
+    dataset_json['channel_names'] = deepcopy(dataset_json['modalities'])
+    del dataset_json['modalities']
 
     dataset_json['labels'] = {j: int(i) for i, j in dataset_json['labels'].items()}
     dataset_json['file_ending'] = ".nii.gz"

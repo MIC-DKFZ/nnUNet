@@ -92,6 +92,7 @@ class Tiff3DIO(BaseReaderWriter):
         if isfile(expected_aux_file):
             spacing = load_json(expected_aux_file)['spacing']
             assert len(spacing) == 3, 'spacing must have 3 entries, one for each dimension of the image. File: %s' % expected_aux_file
+            assert all([i > 0 for i in spacing]), f"Spacing must be > 0, spacing: {spacing}"
         else:
             print(f'WARNING no spacing file found for segmentation {seg_fname}\nAssuming spacing (1, 1, 1).')
             spacing = (1, 1, 1)

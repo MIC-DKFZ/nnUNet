@@ -231,6 +231,7 @@ class ExperimentPlanner(object):
                                     median_shape: Union[np.ndarray, Tuple[int, ...], List[int]],
                                     data_identifier: str,
                                     approximate_n_voxels_dataset: float) -> dict:
+        assert all([i > 0 for i in spacing]), f"Spacing must be > 0! Spacing: {spacing}"
         # print(spacing, median_shape, approximate_n_voxels_dataset)
         # find an initial patch size
         # we first use the spacing to get an aspect ratio

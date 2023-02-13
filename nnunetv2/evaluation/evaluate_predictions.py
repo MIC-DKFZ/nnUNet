@@ -1,7 +1,7 @@
 import os
 from copy import deepcopy
 from multiprocessing import Pool
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Optional
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import subfiles, join, save_json, load_json, \
@@ -124,11 +124,12 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
                               regions_or_labels: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                               ignore_label: int = None,
                               num_processes: int = default_num_processes,
-                              chill: bool = True) -> None:
+                              chill: bool = True) -> dict:
     """
-    output_file must end with .json
+    output_file must end with .json; can be None
     """
-    assert output_file.endswith('.json'), 'output_file should end with .json'
+    if output_file is not None:
+        assert output_file.endswith('.json'), 'output_file should end with .json'
     files_pred = subfiles(folder_pred, suffix=suffix, join=False)
     files_ref = subfiles(folder_ref, suffix=suffix, join=False)
     if not chill:
@@ -168,7 +169,10 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     [recursive_fix_for_json_export(i) for i in results]
     recursive_fix_for_json_export(means)
     recursive_fix_for_json_export(foreground_mean)
-    save_summary_json({'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}, output_file)
+    result = {'metric_per_case': results, 'mean': means, 'foreground_mean': foreground_mean}
+    if output_file is not None:
+        save_summary_json(result, output_file)
+    return result
     # print('DONE')
 
 
