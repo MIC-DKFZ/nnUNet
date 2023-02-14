@@ -75,7 +75,7 @@ for the given dataset (2D, 3D highres, 3D cascade) and the optimization of the p
 
 ## How to get started?
 Read these:
-- [Installation instructions](docmentation/installation_instructions.md)
+- [Installation instructions](documentation/installation_instructions.md)
 - [Dataset conversion](documentation/dataset_format.md)
 - [Usage instructions](documentation/how_to_use_nnunet.md)
 
