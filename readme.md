@@ -10,7 +10,7 @@ is prone to errors, not scalable and where success is overwhelmingly determined 
 for experts, this process is all but simple: there are not only many design choices and data properties that need to 
 be considered, but they are also tightly interconnected, rendering reliable manual pipeline optimization all but impossible! 
 
-![nnU-Net overview](nnU-Net_overview.png)
+![nnU-Net overview](documentation/assets/nnU-Net_overview.png)
 
 **nnU-Net is a semantic segmentation method that automatically adapts to a given dataset. It will analyze the provided 
 training cases and automatically configure a matching U-Net-based segmentation pipeline. No expertise required on your 
@@ -112,6 +112,6 @@ driver for the reimplementation was also my (sorta) migration to Helmholtz Imagi
 to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
 
 # Acknowledgements
-<img src="HI_Logo.png" width="512px" />
+<img src="documentation/assets/HI_Logo.png" width="512px" />
 
 nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de).
