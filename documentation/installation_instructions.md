@@ -35,6 +35,8 @@ compile pytorch from source (see below), you will need to use conda instead of p
 
 Use a recent version of Python! 3.9 or newer is guaranteed to work!
 
+nnU-Net v2 can coexist with nnU-Net v1! Both can be installed at the same time.
+
 1) Install [PyTorch](https://pytorch.org/get-started/locally/) as described on their website (conda/pip). Please 
 install the latest version and (IMPORTANT!) choose 
 the highest CUDA version compatible with your drivers for maximum performance (check cuda version in nvidia-smi on Linux). 
@@ -56,6 +58,8 @@ the highest CUDA version compatible with your drivers for maximum performance (c
           ```bash
           git clone https://github.com/MIC-DKFZ/nnUNet.git
           cd nnUNet
+          git checkout nnunet_remake
+          git pull  # just for good measure
           pip install -e .
           ```
 4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
