@@ -84,6 +84,9 @@ Additional information:
 - [Ignore label](documentation/ignore_label.md)
 - [Manual data splits](documentation/manual_data_splits.md)
 - [Pretraining and finetuning](documentation/pretraining_and_finetuning.md)
+- [Intensity Normalization in nnU-Net](documentation/explanation_normalization.md)
+- [Manually editing nnU-Net configurations](documentation/explanation_plans_files.md)
+- [Extending nnU-Net](documentation/extending_nnunet.md)
 
 
 ## Where does nnU-net perform well and where does it not perform?
