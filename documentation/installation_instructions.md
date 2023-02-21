@@ -63,7 +63,7 @@ the highest CUDA version compatible with your drivers for maximum performance (c
           pip install -e .
           ```
 4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
-   set a few of environment variables. Please follow the instructions [here](documentation/setting_up_paths.md).
+   set a few of environment variables. Please follow the instructions [here](setting_up_paths.md).
 5) Add OMP_NUM_THREADS=1 to your environment. Linux/bash example: add `export OMP_NUM_THREADS=1` to your .bashrc file. 
 Alternatively you can always specify it when running nnU-Net: `OMP_NUM_THREADS=1 nnUNetv2_train [...]` 
 6) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
