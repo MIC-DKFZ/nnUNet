@@ -63,15 +63,22 @@ nnunetv2.preprocessing.preprocessors
 probably False for all other datasets). Interacts with ImageNormalization class
 - `normalization_schemes`: mapping of channel identifier to ImageNormalization class name. ImageNormalization 
 classes must be located in nnunetv2.preprocessing.normalization. Also see [here](explanation_normalization.md)
-- `resampling_fn_data`:
-- `resampling_fn_data_kwargs`:
-- `resampling_fn_probabilities`:
-- `resampling_fn_probabilities_kwargs`:
-- `resampling_fn_seg`:
-- `resampling_fn_seg_kwargs`:
-- `UNet_class_name`:
-- `UNet_base_num_features`:
-- `unet_max_num_features`:
+- `resampling_fn_data`: name of resampling function to be used for resizing image data. resampling function must be 
+callable(data, current_spacing, new_spacing, **kwargs). It must be located in nnunetv2.preprocessing.resampling
+- `resampling_fn_data_kwargs`: kwargs for resampling_fn_data
+- `resampling_fn_probabilities`: name of resampling function to be used for resizing predicted class probabilities/logits. 
+resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in 
+nnunetv2.preprocessing.resampling
+- `resampling_fn_probabilities_kwargs`: kwargs for resampling_fn_probabilities
+- `resampling_fn_seg`: name of resampling function to be used for resizing segmentation maps (integer: 0, 1, 2, 3, etc). 
+resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in 
+nnunetv2.preprocessing.resampling
+- `resampling_fn_seg_kwargs`: kwargs for resampling_fn_seg
+- `UNet_class_name`: UNet class name, can be used to integrate custom dynamic architectures
+- `UNet_base_num_features`: The number of starting features for the UNet architecture. Default is 32. Default: Features
+are doubled with each downsampling 
+- `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). Purpose is to 
+prevent parameters from exploding too much. 
 - `conv_kernel_sizes`: the convolutional kernel sizes used by nnU-Net in each stage of the encoder. The decoder 
   mirrors the encoder and is therefore not explicitly listed here! The list is as long as `n_conv_per_stage_encoder` has 
   entries
@@ -94,3 +101,85 @@ is because we need to export predictions in the correct spacing when running the
 be a string or a list of strings
 
 # Examples
+
+## Increasing the batch size for large datasets
+If your dataset is large the training can benefit from larger batch_sizes. To do this, simply create a new 
+configuration in the `configurations` dict
+
+    "configurations": {
+      "3d_fullres_bs40": {
+        "inherits_from": "3d_fullres",
+        "batch_size": 40
+      }
+    }
+
+No need to change the data_identifier. `3d_fullres_bs40` will just use the preprocessed data from `3d_fullres`.
+No need to rerun `nnUNetv2_preprocess` because we can use already existing data (if available) from `3d_fullres`.
+
+## Using custom preprocessors
+If you would like to use a different preprocessor class then this can be specified as follows:
+
+    "configurations": {
+      "3d_fullres_my_preprocesor": {
+        "inherits_from": "3d_fullres",
+        "preprocessor_name": MY_PREPROCESSOR,
+        "data_identifier": "3d_fullres_my_preprocesor"
+      }
+    }
+
+You need to run preprocessing for this new configuration: 
+`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_preprocesor` because it changes the preprocessing. Remember to 
+set a unique `data_identifier` whenever you make modifications to the preprocessed data!
+
+## Change target spacing
+
+    "configurations": {
+      "3d_fullres_my_spacing": {
+        "inherits_from": "3d_fullres",
+        "spacing": [X, Y, Z],
+        "data_identifier": "3d_fullres_my_spacing"
+      }
+    }
+
+You need to run preprocessing for this new configuration: 
+`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_spacing` because it changes the preprocessing. Remember to 
+set a unique `data_identifier` whenever you make modifications to the preprocessed data!
+
+## Adding a cascade to a dataset where it does not exist
+Hippocampus is small. It doesn't have a cascade. It also doesn't really make sense to add a cascade here but hey for 
+the sake of demonstration we can do that.
+We change the following things here:
+
+- spacing: The lowres stage should operate at a lower resolution
+- we modify the `median_image_size_in_voxels` entry as a guide for what original image sizes we deal with
+- we set some patch size that is inspired by `median_image_size_in_voxels`
+- we need to remember that the patch size must be divisible by 2**num_pool in each axis!
+- network parameters such as kernel sizes, pooling operations are changed accordingly
+- we need to specify the name of the next stage
+- we need to add the highres stage
+
+This is how this would look like (comparisons with 3d_fullres given as reference):
+
+    "configurations": {
+      "3d_lowres": {
+        "inherits_from": "3d_fullres",
+        "data_identifier": "3d_lowres"
+        "spacing": [2.0, 2.0, 2.0], # from [1.0, 1.0, 1.0] in 3d_fullres
+        "median_image_size_in_voxels": [18, 25, 18], # from [36, 50, 35]
+        "patch_size": [20, 28, 20], # from [40, 56, 40]
+        "n_conv_per_stage_encoder": [2, 2, 2], # one less entry than 3d_fullres ([2, 2, 2, 2])
+        "n_conv_per_stage_decoder": [2, 2], # one less entry than 3d_fullres
+        "num_pool_per_axis": [2, 2, 2], # one less pooling than 3d_fullres in each dimension (3d_fullres: [3, 3, 3])
+        "pool_op_kernel_sizes": [[1, 1, 1], [2, 2, 2], [2, 2, 2]], # one less [2, 2, 2]
+        "conv_kernel_sizes": [[3, 3, 3], [3, 3, 3], [3, 3, 3]], # one less [3, 3, 3]
+        "next_stage": "3d_cascade_fullres" # name of the next stage in the cascade
+      },
+      "3d_cascade_fullres": { # does not need a data_identifier because we can use the data of 3d_fullres
+        "inherits_from": "3d_fullres",
+        "previous_stage": "3d_lowres" # name of the previous stage
+      }
+    }
+
+To better understand the components describing the network topology in our plans files, please read section 6.2 
+in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf) 
+(page 13) of our paper!

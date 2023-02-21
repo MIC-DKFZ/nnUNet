@@ -35,7 +35,7 @@ compile pytorch from source (see below), you will need to use conda instead of p
 
 Use a recent version of Python! 3.9 or newer is guaranteed to work!
 
-nnU-Net v2 can coexist with nnU-Net v1! Both can be installed at the same time.
+**nnU-Net v2 can coexist with nnU-Net v1! Both can be installed at the same time.**
 
 1) Install [PyTorch](https://pytorch.org/get-started/locally/) as described on their website (conda/pip). Please 
 install the latest version and (IMPORTANT!) choose 
