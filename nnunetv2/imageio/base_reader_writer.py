@@ -19,7 +19,8 @@ import numpy as np
 
 
 class BaseReaderWriter(ABC):
-    def _check_all_same(self, input_list):
+    @staticmethod
+    def _check_all_same(input_list):
         # compare all entries to the first
         for i in input_list[1:]:
             if not len(i) == len(input_list[0]):
@@ -29,7 +30,8 @@ class BaseReaderWriter(ABC):
                 return False
         return True
 
-    def _check_all_same_array(self, input_list):
+    @staticmethod
+    def _check_all_same_array(input_list):
         # compare all entries to the first
         for i in input_list[1:]:
             if not all([a == b for a, b in zip(i.shape, input_list[0].shape)]):
@@ -69,7 +71,7 @@ class BaseReaderWriter(ABC):
     @abstractmethod
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         """
-        Same requirements as ImageReaderWriter.read_image. Returned segmentations must have shape 1,x,y,z. Multiple
+        Same requirements as BaseReaderWriter.read_image. Returned segmentations must have shape 1,x,y,z. Multiple
         segmentations are not (yet?) allowed
 
         If images and segmentations can be read the same way you can just `return self.read_image((image_fname,))`

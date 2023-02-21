@@ -1,7 +1,7 @@
 # Data format for Inference 
 
-The data format for inference must match the one used for the raw data (specifically, the images must be in exactly 
-the same format as in the imagesTr folder). As before, the filenames must start with a
+The data format for inference must match the one used for the raw data (**specifically, the images must be in exactly 
+the same format as in the imagesTr folder**). As before, the filenames must start with a
 unique identifier, followed by a 4-digit modality identifier. Here is an example for two different datasets:
 
 1) Task005_Prostate:
