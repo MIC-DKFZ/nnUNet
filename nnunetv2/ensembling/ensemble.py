@@ -73,7 +73,7 @@ def ensemble_folders(list_of_input_folders: List[str],
         else:
             plans = plans_json_file_or_dict
     else:
-        plans = load_json(join(list_of_input_folders[0], 'dataset.json'))
+        plans = load_json(join(list_of_input_folders[0], 'plans.json'))
 
     plans_manager = PlansManager(plans)
 

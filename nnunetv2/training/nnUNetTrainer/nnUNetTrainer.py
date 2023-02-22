@@ -420,7 +420,8 @@ class nnUNetTrainer(object):
         if self.local_rank == 0:
             dct = deepcopy(self.plans_manager.plans)
             del dct['configurations']
-            self.print_to_log_file('\n##################\nThis is the configuration used by this training:\n',
+            self.print_to_log_file(f"\n##################\nThis is the configuration used by this "
+                                   f"training:\nConfiguration name: {self.configuration_name}\n",
                                    self.configuration_manager, '\n', add_timestamp=False)
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
