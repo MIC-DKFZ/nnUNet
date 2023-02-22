@@ -104,7 +104,7 @@ def preprocess_entry():
                         help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
-    preprocess(args.d, args.plans_name)
+    preprocess(args.d, args.plans_name, configurations=args.c, num_processes=args.np, verbose=args.verbose)
 
 
 def plan_and_preprocess_entry():
