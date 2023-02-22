@@ -111,6 +111,12 @@ def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: st
                     ]
                 for s in source_files:
                     zipf.write(s, os.path.relpath(s, nnUNet_results))
+        inference_information_file = join(nnUNet_results, dataset_name, 'inference_information.json')
+        if isfile(inference_information_file):
+            zipf.write(inference_information_file, os.path.relpath(inference_information_file, nnUNet_results))
+        inference_information_txt_file = join(nnUNet_results, dataset_name, 'inference_information.txt')
+        if isfile(inference_information_txt_file):
+            zipf.write(inference_information_txt_file, os.path.relpath(inference_information_txt_file, nnUNet_results))
     print('Done')
 
 
