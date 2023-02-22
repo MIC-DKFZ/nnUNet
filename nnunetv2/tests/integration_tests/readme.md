@@ -48,7 +48,8 @@ to verify DDP is working (needs 2 GPUs!)
 If I was not as lazy as I am I would have programmed some automatism that checks if Dice scores etc are in an acceptable range.
 So you need to do the following:
 1) check that none of your runs crashed (duh)
-2) for each run, navigate to the output folder in nnUNet_preprocessed and take a look at the `inference_information.json` file. Does it make sense? If so: NICE!
+2) for each run, navigate to `nnUNet_results/DATASET_NAME` and take a look at the `inference_information.json` file. 
+Does it make sense? If so: NICE!
 
 Once the integration test is completed you can delete all the temporary files associated with it by running:
 
