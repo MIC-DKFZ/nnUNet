@@ -44,7 +44,9 @@ def convert_entry_point():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("input_folder", type=str,
-                        help='Raw old nnUNet dataset. This must be the folder with imagesTr,labelsTr etc subfolders!')
+                        help='Raw old nnUNet dataset. This must be the folder with imagesTr,labelsTr etc subfolders! '
+                             'Please provide the PATH to the old Task, not just the task name. nnU-Net V2 does not '
+                             'know where V1 tasks are.')
     parser.add_argument("output_dataset_name", type=str,
                         help='New dataset name. Must follow the DatasetXXX_NAME convention!')
     args = parser.parse_args()

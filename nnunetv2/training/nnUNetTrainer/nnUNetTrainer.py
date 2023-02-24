@@ -215,11 +215,12 @@ class nnUNetTrainer(object):
                         # print(k)
                         pass
                 if k in ['dataloader_train', 'dataloader_val']:
-                    dct[k + '.transform'] = str(getattr(self, k).transform)
                     if hasattr(getattr(self, k), 'generator'):
                         dct[k + '.generator'] = str(getattr(self, k).generator)
                     if hasattr(getattr(self, k), 'num_processes'):
                         dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
+                    if hasattr(getattr(self, k), 'transform'):
+                        dct[k + '.transform'] = str(getattr(self, k).transform)
             import subprocess
             hostname = subprocess.getoutput(['hostname'])
             dct['hostname'] = hostname
@@ -255,6 +256,9 @@ class nnUNetTrainer(object):
         If you need to know how many segmentation outputs your custom architecture needs to have, use the following snippet:
         > label_manager = plans_manager.get_label_manager(dataset_json)
         > label_manager.num_segmentation_heads
+        (why so complicated? -> We can have either classical training (classes) or regions. If we have regions,
+        the number of outputs is != the number of classes. Also there is the ignore label for which no output
+        should be generated. label_manager takes care of all that for you.)
 
         """
         return get_network_from_plans(plans_manager, dataset_json, configuration_manager,

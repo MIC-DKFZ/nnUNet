@@ -19,6 +19,7 @@ documentation to learn more!**
 
 **Datasets from nnU-Net V1 can be converted to V2 by running `nnUNetv2_convert_old_nnUNet_dataset INPUT_FOLDER 
 OUTPUT_DATASET_NAME`.** Remember that v2 calls datasets DatasetXXX_Name (not Task) where XXX is a 3-digit number.
+Please provide the **path** to the old task, not just the Task name. nnU-Net V2 doesn't know where V1 tasks were! 
 
 ### Experiment planning and preprocessing
 Given a new dataset, nnU-Net will extract a dataset fingerprint (a set of dataset-specific properties such as
