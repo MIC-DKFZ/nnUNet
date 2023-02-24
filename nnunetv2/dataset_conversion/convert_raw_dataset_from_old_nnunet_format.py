@@ -32,7 +32,7 @@ def convert(source_folder, target_dataset_name):
     del dataset_json['numTest']
     del dataset_json['training']
     del dataset_json['test']
-    dataset_json['channel_names'] = deepcopy(dataset_json['modalities'])
+    dataset_json['channel_names'] = deepcopy(dataset_json['modality'])
     del dataset_json['modality']
 
     dataset_json['labels'] = {j: int(i) for i, j in dataset_json['labels'].items()}
