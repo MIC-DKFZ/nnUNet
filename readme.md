@@ -31,8 +31,8 @@ Please cite the [following paper](https://www.google.com/url?q=https://www.natur
 
 ## What can nnU-Net do for you?
 If you are a **domain scientist** (biologist, radiologist, ...) looking to analyze your own images, nnU-Net provides 
-an out-of-the box solution that is all but guaranteed to provide excellent results on your individual dataset. Simply 
-convert your dataset into the nnU-net format and enjoy the power of AI - no expertise required!
+an out-of-the-box solution that is all but guaranteed to provide excellent results on your individual dataset. Simply 
+convert your dataset into the nnU-Net format and enjoy the power of AI - no expertise required!
 
 If you are an **AI researcher** developing segmentation methods, nnU-Net:
 - offers a fantastic out-of-the-box applicable baseline algorithm to compete against
@@ -45,12 +45,12 @@ dataset properties and best-fitting segmentation pipelines?
 
 ## What is the scope of nnU-Net?
 nnU-Net is built for semantic segmentation. It can handle 2D and 3D images with arbitrary 
-input modalities/channels. It can understand voxel spacings, anisotropies and is robust even if classes are highly
+input modalities/channels. It can understand voxel spacings, anisotropies and is robust even when classes are highly
 imbalanced.
 
-nnU-Net relies on supervised learning, meaning you need to provide training cases for your application! The number of 
-required training cases highly varies depending on the complexity of the segmentation problem. No 
-one-fits-all number can be provided here! nnU-net does not require more training cases than other solutions - maybe 
+nnU-Net relies on supervised learning, which means that you need to provide training cases for your application. The number of 
+required training cases varies heavily depending on the complexity of the segmentation problem. No 
+one-fits-all number can be provided here! nnU-Net does not require more training cases than other solutions - maybe 
 even less due to our extensive use of data augmentation. 
 
 nnU-Net expects to be able to process entire images at once during preprocessing and postprocessing, so it cannot 
@@ -62,18 +62,18 @@ Given a new dataset, nnU-Net will systematically analyze the provided training c
 nnU-Net then creates several U-Net configurations for each dataset: 
 - `2d`: a 2D U-Net (for 2D and 3D datasets)
 - `3d_fullres`: a 3D U-Net that operates on a high image resolution (for 3D datasets only)
-- `3d_lowres` -> `3d_cascade_fullres`: a 3D U-Net cascade where first a 3D U-Net operates on low resolution images and 
+- `3d_lowres` → `3d_cascade_fullres`: a 3D U-Net cascade where first a 3D U-Net operates on low resolution images and 
 then a second high-resolution 3D U-Net refined the predictions of the former (for 3D datasets with large image sizes only)
 
 nnU-Net then configures these segmentation pipelines based on a three-step recipe:
-- **Fixed parameters** are not adapted. During development of nnU-Net we identified a robust configuration that can 
-simply be used all the time. This includes for example nnU-Net's loss function, (most of the) data augmentation strategy and learning rate.
+- **Fixed parameters** are not adapted. During development of nnU-Net we identified a robust configuration (that is, certain architecture and training properties) that can 
+simply be used all the time. This includes, for example, nnU-Net's loss function, (most of the) data augmentation strategy and learning rate.
 - **Rule-based parameters** use the dataset fingerprint to adapt certain segmentation pipeline properties by following 
 hard-coded heuristic rules. For example, the network topology (pooling behavior and depth of the network architecture) 
 are adapted to the patch size; the patch size, network topology and batch size are optimized jointly given some GPU 
 memory constraint. 
 - **Empirical parameters** are essentially trial-end-error. For example the selection of the best U-net configuration 
-for the given dataset (2D, 3D highres, 3D cascade) and the optimization of the postprocessing strategy.
+for the given dataset (2D, 3D full resolution, 3D low resolution, 3D cascade) and the optimization of the postprocessing strategy.
 
 ## How to get started?
 Read these:
@@ -95,12 +95,12 @@ Additional information:
 ## Where does nnU-net perform well and where does it not perform?
 nnU-Net excels in segmentation problems that need to be solved by training from scratch, 
 for example: research applications that feature non-standard image modalities and input channels,
-challenge datasets from the biomedical domain, majority of 3D segmentation problems, ... . We have yet to find a 
+challenge datasets from the biomedical domain, majority of 3D segmentation problems, etc . We have yet to find a 
 dataset for which nnU-Net's working principle fails!
 
 Note: On standard segmentation 
-problems, such as 2D RGB images in ADE20k and Cityscapes, finetuning a foundation model (that was pretrained on a large corpus of 
-similar images (Imagenet 22k, JFT-300M)) will provide better performance than nnU-Net! That is simply because these 
+problems, such as 2D RGB images in ADE20k and Cityscapes, fine-tuning a foundation model (that was pretrained on a large corpus of 
+similar images, e.g. Imagenet 22k, JFT-300M) will provide better performance than nnU-Net! That is simply because these 
 models allow much better initialization. Foundation models are not supported by nnU-Net as 
 they 1) are not useful for segmentation problems that deviate from the standard setting (see above mentioned 
 datasets), 2) would typically only support 2D architectures and 3) conflict with our core design principle of carefully adapting 
@@ -111,11 +111,11 @@ The core of the old nnU-Net was hacked together in a short time period while par
 Decathlon challenge in 2018. Consequently, code structure and quality were not the best. Many features 
 were added later on and didn't quite fit into the nnU-Net design principles. Overall quite messy, really. And annoying to work with.
 
-The new nnU-Net is a complete overhaul. The "delete everything and start again" kind. So everything is better 
+nnU-Net V2 is a complete overhaul. The "delete everything and start again" kind. So everything is better 
 (in the author's opinion haha). While the segmentation performance remains the same, a lot of cool stuff has been added. 
-It is now also much easier to use it as a development framework and to manually fine tune its configuration to new 
-datasets. A big driver for the reimplementation was also the emergence of Helmholtz Imaging, prompting us to open 
-up nnU-Net to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
+It is now also much easier to use it as a development framework and to manually fine-tune its configuration to new 
+datasets. A big driver for the reimplementation was also the emergence of [Helmholtz Imaging](http://helmholtz-imaging.de), 
+prompting us to extend nnU-Net to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
 
 # Acknowledgements
 <img src="documentation/assets/HI_Logo.png" width="512px" />

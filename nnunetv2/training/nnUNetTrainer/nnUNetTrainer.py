@@ -748,6 +748,10 @@ class nnUNetTrainer(object):
         return val_transforms
 
     def set_deep_supervision_enabled(self, enabled: bool):
+        """
+        This function is specific for the default architecture in nnU-Net. If you change the architecture, there are
+        chances you need to change this as well!
+        """
         if self.is_ddp:
             self.network.module.decoder.deep_supervision = enabled
         else:
