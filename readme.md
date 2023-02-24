@@ -87,6 +87,7 @@ Additional information:
 - [Intensity Normalization in nnU-Net](documentation/explanation_normalization.md)
 - [Manually editing nnU-Net configurations](documentation/explanation_plans_files.md)
 - [Extending nnU-Net](documentation/extending_nnunet.md)
+- [What is different in V2?](documentation/changelog.md)
 
 
 ## Where does nnU-net perform well and where does it not perform?
