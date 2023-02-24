@@ -108,11 +108,11 @@ The core of the old nnU-Net was hacked together in a short time period while par
 Decathlon challenge in 2018. Consequently, code structure and quality were not the best. Many features 
 were added later on and didn't quite fit into the nnU-Net design principles. Overall quite messy, really. And annoying to work with.
 
-The new nnU-Net is a complete overhaul. The "delete everything and start again" kind. So everything is better (in my 
-opinion lol). While the segmentation performance remains the same, a lot of cool stuff has been added. It is now also 
-much easier to use it as a development framework and to manually fine tune its configuration to new datasets. A big 
-driver for the reimplementation was also my (sorta) migration to Helmholtz Imaging, prompting me to opening up nnU-Net 
-to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
+The new nnU-Net is a complete overhaul. The "delete everything and start again" kind. So everything is better 
+(in the author's opinion haha). While the segmentation performance remains the same, a lot of cool stuff has been added. 
+It is now also much easier to use it as a development framework and to manually fine tune its configuration to new 
+datasets. A big driver for the reimplementation was also the emergence of Helmholtz Imaging, prompting us to open 
+up nnU-Net to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
 
 # Acknowledgements
 <img src="documentation/assets/HI_Logo.png" width="512px" />
