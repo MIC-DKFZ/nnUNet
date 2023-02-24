@@ -4,6 +4,7 @@ The only way to bring your data into nnU-Net is by storing it in a specific form
 diverged, see also [here](#how-to-use-decathlon-datasets)) from the format used in the MSD.
 
 **If you are migrating from the old nnU-Net, convert your existing datasets with `nnUNetv2_convert_old_nnUNet_dataset`!**
+Use `nnUNetv2_convert_old_nnUNet_dataset -h` for usage instructions.
 
 Datasets consist of three components: raw images, corresponding segmentation maps and a dataset.json file specifying 
 some metadata. 

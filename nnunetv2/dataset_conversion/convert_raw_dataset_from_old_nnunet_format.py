@@ -48,6 +48,6 @@ def convert_entry_point():
                              'Please provide the PATH to the old Task, not just the task name. nnU-Net V2 does not '
                              'know where V1 tasks are.')
     parser.add_argument("output_dataset_name", type=str,
-                        help='New dataset name. Must follow the DatasetXXX_NAME convention!')
+                        help='New dataset NAME (not path!). Must follow the DatasetXXX_NAME convention!')
     args = parser.parse_args()
     convert(args.input_folder, args.output_dataset_name)

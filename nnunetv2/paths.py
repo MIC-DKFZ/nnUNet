@@ -18,9 +18,9 @@ import os
 PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
 
-nnUNet_raw = os.environ['nnUNet_raw'] if "nnUNet_raw" in os.environ.keys() else None
-nnUNet_preprocessed = os.environ['nnUNet_preprocessed'] if "nnUNet_preprocessed" in os.environ.keys() else None
-nnUNet_results = os.path.join(os.environ['nnUNet_results']) if "nnUNet_results" in os.environ.keys() else None
+nnUNet_raw = os.environ.get('nnUNet_raw')
+nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
+nnUNet_results = os.environ.get('nnUNet_results')
 
 if nnUNet_raw is None:
     print("nnUNet_raw is not defined and nnU-Net can only be used on data for which preprocessed files "
