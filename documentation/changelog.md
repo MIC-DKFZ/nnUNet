@@ -10,13 +10,17 @@ Use this to learn from sparsely annotated data, or excluding irrelevant areas fr
 - unified trainer class: nnUNetTrainer. No messing around with cascaded trainer, DDP trainer, region-based trainer, ignore trainer etc. All default functionality is in there!
 - Supports more input/output data formats through ImageIO classes
 - I/O formats can be extended by implementing new Adapters based on `BaseReaderWriter`
-- The nnUNet_raw_cropped folder no longer exists -> saves disk space!
-- Preprocessed data and segmentation are stored in different files when unpacked. Seg is stored as int8 and thus takes 1/4 of the disk space per pixel (and I/O throughput) as in v1
-- native support for multi-gpu training (DDP). Multi-gpu inference still best runs with `CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] -num_parts Y -part_id X`
+- The nnUNet_raw_cropped folder no longer exists -> saves disk space at no performance penalty. magic! (no jk the 
+saving of cropped npz files was really slow, so it's actually faster to crop on the fly)
+- Preprocessed data and segmentation are stored in different files when unpacked. Seg is stored as int8 and thus 
+takes 1/4 of the disk space per pixel (and I/O throughput) as in v1.
+- native support for multi-gpu (DDP) TRAINING. 
+Multi-gpu INFERENCE should still be run with `CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] -num_parts Y -part_id X`. 
+There is no cross-GPU communication in inference, so it doesn't make sense to add additional complexity with DDP
 - all nnU-Net functionality is now also accessible via API. Check the corresponding entry point in setup.py to see what functions you need to call
 - dataset fingerprint is now explicitly created and saved in a json file (see nnUNet_preprocessed)
 
-- Complete overhaul of plans files:
+- Complete overhaul of plans files (read also [this](explanation_plans_files.md):
   - are now .json and can be opened and read more easily
   - configurations are explicitly named ("3d_fullres" , ...)
   - configurations can inherit from each other to make manual experimentation easier
