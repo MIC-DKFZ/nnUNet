@@ -8,7 +8,6 @@ from nnunetv2.utilities.label_handling.label_handling import determine_num_input
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-
 class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
     def _build_loss(self):
         if self.label_manager.has_regions:
@@ -49,19 +48,8 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
                                "That should not happen.")
 
-    def perform_actual_validation(self, save_probabilities: bool = False):
-        super().perform_actual_validation(save_probabilities)
-        if self.is_ddp:
-            self.network.module.decoder.deep_supervision = False
-        else:
-            self.network.decoder.deep_supervision = False
-
-    def on_train_start(self):
-        super().on_train_start()
-        if self.is_ddp:
-            self.network.module.decoder.deep_supervision = False
-        else:
-            self.network.decoder.deep_supervision = False
+    def set_deep_supervision_enabled(self, enabled: bool):
+        pass
 
     def validation_step(self, batch: dict) -> dict:
         data = batch['data']

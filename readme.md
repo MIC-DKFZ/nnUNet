@@ -19,7 +19,8 @@ end! You can simply train the models and use them for your application**.
 Upon release, nnU-Net was evaluated on 23 datasets belonging to competitions from the biomedical domain. Despite competing 
 with handcrafted solutions for each respective dataset, nnU-Net's fully automated pipeline scored several first places on 
 open leaderboards! Since then nnU-Net has stood the test of time: it continues to be used as a baseline and method 
-development framework ([9 out of 10 challenge winners at MICCAI 2020](https://arxiv.org/abs/2101.00232) and 5 out of 7 in 2021 built their methods on top of nnU-Net, 
+development framework ([9 out of 10 challenge winners at MICCAI 2020](https://arxiv.org/abs/2101.00232) and 5 out of 7 
+in MICCAI 2021 built their methods on top of nnU-Net, 
  [we won AMOS2022 with nnU-Net](https://amos22.grand-challenge.org/final-ranking/))!
 
 Please cite the [following paper](https://www.google.com/url?q=https://www.nature.com/articles/s41592-020-01008-z&sa=D&source=docs&ust=1677235958581755&usg=AOvVaw3dWL0SrITLhCJUBiNIHCQO) when using nnU-Net:

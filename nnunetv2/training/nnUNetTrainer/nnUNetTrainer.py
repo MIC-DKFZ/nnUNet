@@ -747,6 +747,12 @@ class nnUNetTrainer(object):
         val_transforms = Compose(val_transforms)
         return val_transforms
 
+    def set_deep_supervision_enabled(self, enabled: bool):
+        if self.is_ddp:
+            self.network.module.decoder.deep_supervision = enabled
+        else:
+            self.network.decoder.deep_supervision = enabled
+
     def on_train_start(self):
         if not self.was_initialized:
             self.initialize()
@@ -754,11 +760,7 @@ class nnUNetTrainer(object):
         maybe_mkdir_p(self.output_folder)
 
         # make sure deep supervision is on in the network
-        if self.is_ddp:
-            self.network.module.decoder.deep_supervision = True
-            # print(self.network.module.encoder.stages[0][0].convs[0].conv.weight[0])
-        else:
-            self.network.decoder.deep_supervision = True
+        self.set_deep_supervision_enabled(True)
 
         self.print_plans()
 
@@ -1024,10 +1026,7 @@ class nnUNetTrainer(object):
         self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
     def perform_actual_validation(self, save_probabilities: bool = False):
-        if self.is_ddp:
-            self.network.module.decoder.deep_supervision = False
-        else:
-            self.network.decoder.deep_supervision = False
+        self.set_deep_supervision_enabled(False)
         self.network.eval()
 
         num_seg_heads = self.label_manager.num_segmentation_heads
@@ -1165,10 +1164,7 @@ class nnUNetTrainer(object):
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]), also_print_to_console=True)
 
-        if self.is_ddp:
-            self.network.module.decoder.deep_supervision = True
-        else:
-            self.network.decoder.deep_supervision = True
+        self.set_deep_supervision_enabled(True)
 
     def run_training(self):
         self.on_train_start()
