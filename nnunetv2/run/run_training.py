@@ -226,4 +226,4 @@ def run_training_entry():
 
 
 if __name__ == '__main__':
-    nnUNet_train_from_args()
+    run_training_entry()
