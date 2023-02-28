@@ -107,17 +107,17 @@ class DatasetFingerprintExtractor(object):
         properties_file = join(preprocessed_output_folder, 'dataset_fingerprint.json')
 
         if not isfile(properties_file) or overwrite_existing:
-            file_suffix = self.dataset_json['file_ending']
+            file_ending = self.dataset_json['file_ending']
             training_identifiers = get_identifiers_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),
-                                                                                file_suffix)
+                                                                                file_ending)
             reader_writer_class = determine_reader_writer_from_dataset_json(self.dataset_json,
                                                                             join(self.input_folder, 'imagesTr',
                                                                                  training_identifiers[
-                                                                                     0] + '_0000' + file_suffix))
+                                                                                     0] + '_0000' + file_ending))
 
             training_images_per_case = create_lists_from_splitted_dataset_folder(join(self.input_folder, 'imagesTr'),
-                                                                                 file_suffix)
-            training_labels_per_case = [join(self.input_folder, 'labelsTr', i + file_suffix) for i in
+                                                                                 file_ending)
+            training_labels_per_case = [join(self.input_folder, 'labelsTr', i + file_ending) for i in
                                         training_identifiers]
 
             # determine how many foreground voxels we need to sample per training case

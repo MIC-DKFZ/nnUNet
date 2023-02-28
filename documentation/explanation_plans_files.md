@@ -1,14 +1,14 @@
 # Modifying the nnU-Net Configurations
 
 nnU-Net provides unprecedented out-of-the-box segmentation performance for essentially any dataset we have evaluated 
-it on. That said, there is always room for improvements. A fool-proof strategy for sequeezing our the last bit of 
+it on. That said, there is always room for improvements. A fool-proof strategy for squeezing out the last bit of 
 performance is to start with the default nnU-Net, and then further tune it manually to a concrete dataset at hand.
 **This guide is about changes to the nnU-Net configuration you can make via the plans files. It does not cover code 
 extensions of nnU-Net. For that, take a look [here](extending_nnunet.md)**
 
-In nnU-Net V2, plans files are SO MUCH MORE powerful than they were in V1. There are a lot more knobs that you can 
+In nnU-Net V2, plans files are SO MUCH MORE powerful than they were in v1. There are a lot more knobs that you can 
 turn without resorting to hacky solutions or even having to touch the nnU-Net code at all! And as an added bonus: 
-plans files are now also .json files and no longer require users to fiddle with picke. Just open them in your text 
+plans files are now also .json files and no longer require users to fiddle with pickle. Just open them in your text 
 editor of choice!
 
 If overwhelmed, look at our [Examples](#examples)!
@@ -22,15 +22,15 @@ local settings are attached to a specific configuration.
 
 - `foreground_intensity_properties_by_modality`: Intensity statistics of the foreground regions (all labels except 
 background and ignore label), computed over all training cases. Used by [CT normalization scheme](explanation_normalization.md).
-- `image_reader_writer`: Name of the image reader/wrriter class that should be used with this dataset. You might want 
-to change this if, for example, you would like to run inference with a files that have a different file format. The 
-class that is names here must be located in nnunetv2.imageio!
+- `image_reader_writer`: Name of the image reader/writer class that should be used with this dataset. You might want 
+to change this if, for example, you would like to run inference with files that have a different file format. The 
+class that is named here must be located in nnunetv2.imageio!
 - `label_manager`: The name of the class that does label handling. Take a look at 
 nnunetv2.utilities.label_handling.LabelManager to see what it does. If you decide to change it, place your version 
 in nnunetv2.utilities.label_handling!
 - `transpose_forward`: nnU-Net transposes the input data so that the axes with the highest resolution (lowest spacing) 
 come last. This is because the 2D U-Net operates on the trailing dimensions (more efficient slicing due to internal 
-memory layout of arrays). Future work might move this to setting to affect only individual configurations. 
+memory layout of arrays). Future work might move this setting to affect only individual configurations. 
 - transpose_backward is what numpy.transpose gets as new axis ordering.
 - `transpose_backward`: the axis ordering that inverts "transpose_forward"
 - \[`original_median_shape_after_transp`\]: just here for your information
@@ -77,7 +77,7 @@ nnunetv2.preprocessing.resampling
 - `UNet_class_name`: UNet class name, can be used to integrate custom dynamic architectures
 - `UNet_base_num_features`: The number of starting features for the UNet architecture. Default is 32. Default: Features
 are doubled with each downsampling 
-- `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). Purpose is to 
+- `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). The purpose is to 
 prevent parameters from exploding too much. 
 - `conv_kernel_sizes`: the convolutional kernel sizes used by nnU-Net in each stage of the encoder. The decoder 
   mirrors the encoder and is therefore not explicitly listed here! The list is as long as `n_conv_per_stage_encoder` has 
@@ -150,7 +150,7 @@ Hippocampus is small. It doesn't have a cascade. It also doesn't really make sen
 the sake of demonstration we can do that.
 We change the following things here:
 
-- spacing: The lowres stage should operate at a lower resolution
+- `spacing`: The lowres stage should operate at a lower resolution
 - we modify the `median_image_size_in_voxels` entry as a guide for what original image sizes we deal with
 - we set some patch size that is inspired by `median_image_size_in_voxels`
 - we need to remember that the patch size must be divisible by 2**num_pool in each axis!

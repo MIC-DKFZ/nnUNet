@@ -336,7 +336,7 @@ def predict_entry_point_modelfolder():
                                                  'model. This is useful when the nnunet environment variables '
                                                  '(nnUNet_results) are not set.')
     parser.add_argument('-i', type=str, required=True,
-                        help='input folder. Remember to use the correct suffixes for your files (_0000 etc). '
+                        help='input folder. Remember to use the correct channel numberings for your files (_0000 etc). '
                              'File endings must be the same as the training dataset!')
     parser.add_argument('-o', type=str, required=True,
                         help='Output folder. If it does not exist it will be created. Predicted segmentations will '
@@ -400,7 +400,7 @@ def predict_entry_point():
                                                  'model. This is useful when the nnunet environment variables '
                                                  '(nnUNet_results) are not set.')
     parser.add_argument('-i', type=str, required=True,
-                        help='input folder. Remember to use the correct suffixes for your files (_0000 etc). '
+                        help='input folder. Remember to use the correct channel numberings for your files (_0000 etc). '
                              'File endings must be the same as the training dataset!')
     parser.add_argument('-o', type=str, required=True,
                         help='Output folder. If it does not exist it will be created. Predicted segmentations will '

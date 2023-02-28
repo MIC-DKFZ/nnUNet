@@ -191,8 +191,8 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
 
 if __name__ == '__main__':
-    img_file = '/home/isensee/drives/E132-Rohdaten/nnUNet/nnUNet_raw_data_base/nnUNet_raw_data/Task027_ACDC/imagesTr/patient028_frame01_0000.nii.gz'
-    seg_file = '/home/isensee/drives/E132-Rohdaten/nnUNet/nnUNet_raw_data_base/nnUNet_raw_data/Task027_ACDC/labelsTr/patient028_frame01.nii.gz'
+    img_file = 'patient028_frame01_0000.nii.gz'
+    seg_file = 'patient028_frame01.nii.gz'
 
     nibio = NibabelIO()
     images, dct = nibio.read_images([img_file])

@@ -120,7 +120,7 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
 
 def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: str,
                               image_reader_writer: BaseReaderWriter,
-                              suffix: str,
+                              file_ending: str,
                               regions_or_labels: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                               ignore_label: int = None,
                               num_processes: int = default_num_processes,
@@ -130,8 +130,8 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
     """
     if output_file is not None:
         assert output_file.endswith('.json'), 'output_file should end with .json'
-    files_pred = subfiles(folder_pred, suffix=suffix, join=False)
-    files_ref = subfiles(folder_ref, suffix=suffix, join=False)
+    files_pred = subfiles(folder_pred, suffix=file_ending, join=False)
+    files_ref = subfiles(folder_ref, suffix=file_ending, join=False)
     if not chill:
         present = [isfile(join(folder_pred, i)) for i in files_ref]
         assert all(present), "Not all files in folder_pred exist in folder_ref"
@@ -256,9 +256,9 @@ if __name__ == '__main__':
     folder_pred = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetModule__nnUNetPlans__3d_fullres/fold_0/validation'
     output_file = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetModule__nnUNetPlans__3d_fullres/fold_0/validation/summary.json'
     image_reader_writer = SimpleITKIO()
-    suffix = '.nii.gz'
+    file_ending = '.nii.gz'
     regions = labels_to_list_of_regions([1, 2])
     ignore_label = None
     num_processes = 12
-    compute_metrics_on_folder(folder_ref, folder_pred, output_file, image_reader_writer, suffix, regions, ignore_label,
+    compute_metrics_on_folder(folder_ref, folder_pred, output_file, image_reader_writer, file_ending, regions, ignore_label,
                               num_processes)

@@ -142,9 +142,9 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     num_modalities = len(dataset_json['channel_names'].keys()
                          if 'channel_names' in dataset_json.keys()
                          else dataset_json['modality'].keys())
-    file_suffix = dataset_json['file_ending']
+    file_ending = dataset_json['file_ending']
 
-    training_identifiers = get_identifiers_from_splitted_dataset_folder(join(folder, 'imagesTr'), suffix=file_suffix)
+    training_identifiers = get_identifiers_from_splitted_dataset_folder(join(folder, 'imagesTr'), file_ending=file_ending)
 
     # check if the right number of training cases is present
     assert len(training_identifiers) == expected_num_training, 'Did not find the expected number of training cases ' \
@@ -153,8 +153,8 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                                                                 training_identifiers[:5])
 
     # check if corresponding labels are present
-    labelfiles = subfiles(join(folder, 'labelsTr'), suffix=file_suffix, join=False)
-    label_identifiers = [i[:-len(file_suffix)] for i in labelfiles]
+    labelfiles = subfiles(join(folder, 'labelsTr'), suffix=file_ending, join=False)
+    label_identifiers = [i[:-len(file_ending)] for i in labelfiles]
     labels_present = [i in label_identifiers for i in training_identifiers]
     missing = [i for j, i in enumerate(training_identifiers) if not labels_present[j]]
     assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
@@ -172,7 +172,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     # determine reader/writer class
     reader_writer_class = determine_reader_writer_from_dataset_json(dataset_json, join(folder, 'imagesTr',
                                                                                        training_identifiers[
-                                                                                           0] + '_0000' + file_suffix))
+                                                                                           0] + '_0000' + file_ending))
 
     # check whether only the desired labels are present
     p = Pool(num_processes)
@@ -190,7 +190,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     result = p.starmap(
         check_cases,
         zip([folder] * expected_num_training, training_identifiers, [num_modalities] * expected_num_training,
-            [reader_writer_class] * expected_num_training, [file_suffix] * expected_num_training)
+            [reader_writer_class] * expected_num_training, [file_ending] * expected_num_training)
     )
     if not all(result):
         raise RuntimeError(

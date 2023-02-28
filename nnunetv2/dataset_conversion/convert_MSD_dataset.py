@@ -39,6 +39,9 @@ def split_4d_nifti(filename, output_folder):
 
 def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] = None,
                         num_processes: int = default_num_processes) -> None:
+    if source_folder.endswith('/') or source_folder.endswith('\\'):
+        source_folder = source_folder[:-1]
+
     labelsTr = join(source_folder, 'labelsTr')
     imagesTs = join(source_folder, 'imagesTs')
     imagesTr = join(source_folder, 'imagesTr')
@@ -115,7 +118,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
 def entry_point():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True,
-                        help='Downloaded and extracted MSD dataset folder. CANNOT be nnUNetV1 dataset! Example: '
+                        help='Downloaded and extracted MSD dataset folder. CANNOT be nnUNetv1 dataset! Example: '
                              '/home/fabian/Downloads/Task05_Prostate')
     parser.add_argument('-overwrite_id', type=int, required=False, default=None,
                         help='Overwrite the dataset id. If not set we use the id of the MSD task (inferred from '

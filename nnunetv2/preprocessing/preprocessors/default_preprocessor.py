@@ -213,12 +213,12 @@ class DefaultPreprocessor(object):
 
         output_filenames_truncated = [join(output_directory, i) for i in identifiers]
 
-        suffix = dataset_json['file_ending']
+        file_ending = dataset_json['file_ending']
         # list of lists with image filenames
-        image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), suffix,
+        image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), file_ending,
                                                                  identifiers)
         # list of segmentation filenames
-        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + suffix) for i in identifiers]
+        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + file_ending) for i in identifiers]
 
         _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
                   processes=num_processes, zipped=True, plans_manager=plans_manager,

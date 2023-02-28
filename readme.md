@@ -72,7 +72,7 @@ simply be used all the time. This includes, for example, nnU-Net's loss function
 hard-coded heuristic rules. For example, the network topology (pooling behavior and depth of the network architecture) 
 are adapted to the patch size; the patch size, network topology and batch size are optimized jointly given some GPU 
 memory constraint. 
-- **Empirical parameters** are essentially trial-end-error. For example the selection of the best U-net configuration 
+- **Empirical parameters** are essentially trial-and-error. For example the selection of the best U-net configuration 
 for the given dataset (2D, 3D full resolution, 3D low resolution, 3D cascade) and the optimization of the postprocessing strategy.
 
 ## How to get started?
@@ -120,4 +120,8 @@ prompting us to extend nnU-Net to more image formats and domains. Take a look [h
 # Acknowledgements
 <img src="documentation/assets/HI_Logo.png" width="512px" />
 
-nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de).
+<img src="documentation/assets/dkfz_logo.png" width="512px" />
+
+nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de) 
+and the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) at the 
+[German Cancer Research Center (DKFZ)](https://www.dkfz.de/en/index.html).

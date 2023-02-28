@@ -3,8 +3,8 @@
 
 ## What is this about?
 The _ignore label_ can be used to mark regions that should be ignored by nnU-Net. No gradients are propagated from 
-pixels marked with ignore label and these pixels will also be excluded from model evaluation. The two most common 
-use-cases for the ignore label are sparse annotations (labeling just a subset of slices, scribble annotations etc) or 
+pixels marked with the ignore label and these pixels will also be excluded from model evaluation. The two most common 
+use-cases for the ignore label are sparse annotations (labeling just a subset of slices, scribble annotations etc.) or 
 defining areas within the image that should be ignored for other reasons.
 
 The most useful application of the ignore label certainly (according to us) is sparse data annotation. To drive home 
@@ -35,11 +35,12 @@ clearly a promising direction to consider!
 ## How to use it in nnU-Net
 
 The ignore label MUST be the highest integer label value in your segmentations! So if you have background + 2 real 
-labels then the ignore label must be value 3! (Remember that nnU-Net expects your labels to be consecutive integers!)
+labels, then the ignore label must be value 3! (Remember that nnU-Net expects your labels to be consecutive integers!)
 
 First you need to generate sparse annotations (duh). This is best done by first setting the entire segmentation to 
-ignore label, and then annotating selected regions. The form of these regions doesn't matter. It can be slices, 
-patches, scribbles, individual pixels or whatever your heart desires. 
+the ignore label, and then annotating selected regions. The form of these regions doesn't matter. It can be slices, 
+patches, scribbles, individual pixels or whatever your heart desires. Remember to annotate ALL classes/regions, 
+including background!
 
 The ignore label must be declared as "ignore" in the dataset.json (BraTS used as an example):
 
@@ -66,7 +67,7 @@ Of course, the ignore label is compatible with [region-based training](region_ba
     "enhancing_tumor": 3,  # or (3, )
     "ignore": 4
 },
-"regions_class_order": (1, 2, 3),  # dont declare ignore label here! It is not predicted (duh)
+"regions_class_order": (1, 2, 3),  # don't declare ignore label here! It is not predicted
 ...
 ```
 
@@ -74,5 +75,5 @@ Then use the dataset as you would any other.
 
 Remember that nnU-Net runs a cross-validation. Thus, it will also evaluate on your partially annotated data. This 
 will of course work! If you wish to compare different sparse annotation strategies (through simulations for example),
-we recommend to evaluate on densely annotated images by running inference and then using `nnUNetv2_evaluate_folder` or 
+we recommend evaluating on densely annotated images by running inference and then using `nnUNetv2_evaluate_folder` or 
 `nnUNetv2_evaluate_simple`.

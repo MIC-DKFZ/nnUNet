@@ -46,7 +46,7 @@ class ExperimentPlanner(object):
 
         self.UNet_base_num_features = 32
         self.UNet_class = PlainConvUNet
-        # the following two numbers are really arbitrary and were set to reproduce nnU-Net V1's configurations as
+        # the following two numbers are really arbitrary and were set to reproduce nnU-Net v1's configurations as
         # much as possible
         self.UNet_reference_val_3d = 560000000  # 455600128  550000000
         self.UNet_reference_val_2d = 85000000  # 83252480
@@ -250,7 +250,7 @@ class ExperimentPlanner(object):
             raise RuntimeError()
 
         # clip initial patch size to median_shape. It makes little sense to have it be larger than that. Note that
-        # this is different from how nnU-Net V1 does it!
+        # this is different from how nnU-Net v1 does it!
         # todo patch size can still get too large because we pad the patch size to a multiple of 2**n
         initial_patch_size = np.array([min(i, j) for i, j in zip(initial_patch_size, median_shape[:len(spacing)])])
 

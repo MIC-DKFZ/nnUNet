@@ -19,12 +19,12 @@ nnU-Net's region-based training allows you to learn areas that are constructed b
 some segmentation tasks this provides a benefit, as this shifts the importance allocated to different labels during training. 
 Most prominently, this feature can be used to represent **hierarchical classes**, for example when organs + 
 substructures are to be segmented. Imagine a liver segmentation problem, where vessels and tumors are also to be 
-segmented. The first target region could thus be the entire liver (including the substructures) while the remaining 
-targets are the substructues.
+segmented. The first target region could thus be the entire liver (including the substructures), while the remaining 
+targets are the individual substructues.
 
 Important: nnU-Net still requires integer label maps as input and will produce integer label maps as output! 
 Region-based training can be used to learn overlapping labels, but there must be a way to model these overlaps 
-for nnU-Net to work (see below how this is done)
+for nnU-Net to work (see below how this is done).
 
 ## How do you use it?
 
@@ -50,19 +50,20 @@ For region-based training, the labels need to be changed to the following:
 ...
 "labels": {
     "background": 0,
-    "whole_tumor": (1, 2, 3),
-    "tumor_core": (2, 3),
-    "enhancing_tumor": 3  # or (3, )
+    "whole_tumor": [1, 2, 3],
+    "tumor_core": [2, 3],
+    "enhancing_tumor": 3  # or [3]
 },
-"regions_class_order": (1, 2, 3),
+"regions_class_order": [1, 2, 3],
 ...
 ```
 This corresponds to the bottom row in the figure above. Note how an additional entry in the dataset.json is 
-required: `regions_class_order`. This tells nnU-Net how to convert the regions representation back to an integer map. 
+required: `regions_class_order`. This tells nnU-Net how to convert the region representations back to an integer map. 
 It essentially just tells nnU-Net what labels to place for which region in what order. Concretely, for the example 
 given here, nnU-Net will place the label 1 for the 'whole_tumor' region, then place the label 2 where the "tumor_core" 
 is and finally place the label 3 in the 'enhancing_tumor' area. With each step, part of the previously set pixels 
-will be overwritten with the new label!
+will be overwritten with the new label! So when setting your `regions_class_order`, place encompassing regions 
+(like whole tumor etc) first, followed by substructures.
 
 **IMPORTANT** Because the conversion back to a segmentation map is sensitive to the order in which the regions are 
 declared ("place label X in the first region") you need to make sure that this order is not perturbed! When 

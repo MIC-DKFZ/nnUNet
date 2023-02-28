@@ -17,9 +17,9 @@ the [Medical Segmentation Decthlon](http://medicaldecathlon.com/). Please read
 **Since version 2 we support multiple image file formats (.nii.gz, .png, .tif, ...)! Read the dataset_format 
 documentation to learn more!**
 
-**Datasets from nnU-Net V1 can be converted to V2 by running `nnUNetv2_convert_old_nnUNet_dataset INPUT_FOLDER 
+**Datasets from nnU-Net v1 can be converted to V2 by running `nnUNetv2_convert_old_nnUNet_dataset INPUT_FOLDER 
 OUTPUT_DATASET_NAME`.** Remember that v2 calls datasets DatasetXXX_Name (not Task) where XXX is a 3-digit number.
-Please provide the **path** to the old task, not just the Task name. nnU-Net V2 doesn't know where V1 tasks were!
+Please provide the **path** to the old task, not just the Task name. nnU-Net V2 doesn't know where v1 tasks were!
 
 ### Experiment planning and preprocessing
 Given a new dataset, nnU-Net will extract a dataset fingerprint (a set of dataset-specific properties such as
@@ -286,8 +286,8 @@ from the respective training). You can pick these files from any of the ensemble
 
 
 ## How to run inference with pretrained models
-**Important:** Pretrained weights from nnU-Net V1 are NOT compatible with V2. You will need to retrain with the new 
-version. But honestly, you already have a fully trained model with which you can run inference (in V1), so 
+**Important:** Pretrained weights from nnU-Net v1 are NOT compatible with V2. You will need to retrain with the new 
+version. But honestly, you already have a fully trained model with which you can run inference (in v1), so 
 just continue using that!
 
 Not yet available for V2 :-(

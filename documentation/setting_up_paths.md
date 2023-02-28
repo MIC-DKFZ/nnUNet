@@ -9,7 +9,7 @@ dataset name. The datasets must be in nnU-Net format, see [here](dataset_format.
 
     Example tree structure:
     ```
-    nnUNet_raw/nnUNet_raw_data/Dataset001_NAME1
+    nnUNet_raw/Dataset001_NAME1
     ├── dataset.json
     ├── imagesTr
     │   ├── ...
@@ -17,7 +17,7 @@ dataset name. The datasets must be in nnU-Net format, see [here](dataset_format.
     │   ├── ...
     └── labelsTr
         ├── ...
-    nnUNet_raw/nnUNet_raw_data/Dataset002_NAME2
+    nnUNet_raw/Dataset002_NAME2
     ├── dataset.json
     ├── imagesTr
     │   ├── ...
@@ -46,7 +46,7 @@ ensure that you see it. In rare cases it may not be present and you can simply c
 
 Once the file is open in a text editor, add the following lines to the bottom (adapt paths to your system!):
 ```
-export nnUNet_raw="/media/fabian/nnUNet_raw_data_base"
+export nnUNet_raw="/media/fabian/nnUNet_raw"
 export nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
 export nnUNet_results="/media/fabian/nnUNet_trained_models"
 ```
@@ -63,7 +63,7 @@ The method above sets the paths permanently (until you delete the lines from you
 to set them only temporarily, you can run the export commands in your terminal prior to executing nnU-Net commands:
 
 ```
-export nnUNet_raw="/media/fabian/nnUNet_raw_data_base"
+export nnUNet_raw="/media/fabian/nnUNet_raw"
 export nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
 export nnUNet_results="/media/fabian/nnUNet_trained_models"
 ```

@@ -2,19 +2,19 @@
 
 ## Intro
 
-So far nnU-net only supports supervised pre-training meaning that you train a regular nnU-Net on some source dataset 
+So far nnU-Net only supports supervised pre-training, meaning that you train a regular nnU-Net on some source dataset 
 and then use the final network weights as initialization for your target dataset. 
 
 As a reminder, many training hyperparameters such as patch size and network topology differ between datasets as a 
-result of the automated dataset analysis and experiment planning nnU-Net is known for. So out of the box, it is not 
+result of the automated dataset analysis and experiment planning nnU-Net is known for. So, out of the box, it is not 
 possible to simply take the network weights from some dataset and then reuse them for another.
 
-Consequently, the plans need to be aligned between the two tasks. In this readme we show how this can be achieved and 
+Consequently, the plans need to be aligned between the two tasks. In this README we show how this can be achieved and 
 how the resulting weights can then be used for initialization.
 
 ### Terminology
 
-Throughout this readme we use the following terminology:
+Throughout this README we use the following terminology:
 
 - `source dataset` is the dataset you intend to run the pretraining on
 - `target dataset` is the dataset you are interested in; the one you wish to fine tune on
@@ -38,14 +38,14 @@ nnUNetv2_extract_fingerprint -d SOURCE_DATASET
 Now we can take the plans from the target dataset and transfer it to the source:
 
 ```bash
-nnUNetv2_move_plans_between_datasets -s SOURCE_DATSET -t TARGET_DATASET -sp SOURCE_PLANS_IDENTIFIER -st TARGET_PLANS_IDENTIFIER
+nnUNetv2_move_plans_between_datasets -s SOURCE_DATSET -t TARGET_DATASET -sp SOURCE_PLANS_IDENTIFIER -tp TARGET_PLANS_IDENTIFIER
 ```
 
 `SOURCE_PLANS_IDENTIFIER` is hereby probably nnUNetPlans unless you changed the experiment planner in 
 nnUNetv2_plan_and_preprocess. For `TARGET_PLANS_IDENTIFIER` we recommend you set something custom in order to not 
 overwrite default plans.
 
-Note that EVERTHING is transferred between the datasets. Not just the network topology, batch size and patch size but 
+Note that EVERYTHING is transferred between the datasets. Not just the network topology, batch size and patch size but 
 also the normalization scheme! Therefore, a transfer between datasets that use different normalization schemes may not 
 work well (but it could, depending on the schemes!).
 
@@ -60,7 +60,7 @@ nnUNetv2_preprocess -d SOURCE_DATSET -plans_name TARGET_PLANS_IDENTIFIER
 And run the training as usual:
 
 ```bash
-nnUNetv2_train SOURCE_DATSET CONFIG all
+nnUNetv2_train SOURCE_DATSET CONFIG all -p TARGET_PLANS_IDENTIFIER
 ```
 
 Note how we use the 'all' fold to train on all available data. For pretraining it does not make sense to split the data.
@@ -78,5 +78,5 @@ Specify the checkpoint in PATH_TO_CHECKPOINT.
 When loading pretrained weights, all layers except the segmentation layers will be used! 
 
 So far there are no specific nnUNet trainers for fine tuning, so the current recommendation is to just use 
-nnUNetTrainer. You can however easily write your own trainers with learning rate rampup, fine tuning of segmentation 
+nnUNetTrainer. You can however easily write your own trainers with learning rate ramp up, fine-tuning of segmentation 
 heads or shorter training time.
