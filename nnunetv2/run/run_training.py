@@ -1,19 +1,18 @@
+import os
+import socket
 from typing import Union, Optional
 
 import nnunetv2
 import torch.cuda
+import torch.distributed as dist
+import torch.multiprocessing as mp
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
-import os
-import torch.multiprocessing as mp
-import torch.distributed as dist
-import socket
 
 
 def find_free_network_port() -> int:
