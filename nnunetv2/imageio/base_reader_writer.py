@@ -52,7 +52,7 @@ class BaseReaderWriter(ABC):
         for exporting the predicted segmentations, so make sure you have everything you need in there!
 
         IMPORTANT: dict MUST have a 'spacing' key with a tuple/list of length 3 with the voxel spacing of the np.ndarray.
-        Example: my_dict = {'spacing': (3, 0.5, 0.5), 'other_stuff': other_metadata}. This is needed for planning and
+        Example: my_dict = {'spacing': (3, 0.5, 0.5), ...}. This is needed for planning and
         preprocessing. The ordering of the numbers must correspond to the axis ordering in the returned numpy array. So
         if the array has shape c,x,y,z and the spacing is (a,b,c) then a must be the spacing of x, b the spacing of y
         and c the spacing of z.
@@ -61,10 +61,16 @@ class BaseReaderWriter(ABC):
         (999, sp_x, sp_y). Make sure 999 is larger than sp_x and sp_y! Example: shape=(3, 1, 224, 224),
         spacing=(999, 1, 1)
 
-        For images that don't have a spacing, set the spacing to 1 (2d exception applies!)
+        For images that don't have a spacing, set the spacing to 1 (2d exception with 999 for the first axis still applies!)
 
         :param image_fnames:
         :return:
+            1) a np.ndarray of shape (c, x, y, z) where c is the number of image channels (can be 1) and x, y, z are
+            the spatial dimensions (set x=1 for 2D! Example: (3, 1, 224, 224) for RGB image).
+            2) a dictionary with metadata. This can be anything. BUT it HAS to inclue a {'spacing': (a, b, c)} where a
+            is the spacing of x, b of y and c of z! If an image doesn't have spacing, just set this to 1. For 2D, set
+            a=999 (largest spacing value! Make it larger than b and c)
+
         """
         pass
 
@@ -77,6 +83,11 @@ class BaseReaderWriter(ABC):
         If images and segmentations can be read the same way you can just `return self.read_image((image_fname,))`
         :param seg_fname:
         :return:
+            1) a np.ndarray of shape (1, x, y, z) where x, y, z are
+            the spatial dimensions (set x=1 for 2D! Example: (1, 1, 224, 224) for 2D segmentation).
+            2) a dictionary with metadata. This can be anything. BUT it HAS to inclue a {'spacing': (a, b, c)} where a
+            is the spacing of x, b of y and c of z! If an image doesn't have spacing, just set this to 1. For 2D, set
+            a=999 (largest spacing value! Make it larger than b and c)
         """
         pass
 
@@ -93,9 +104,10 @@ class BaseReaderWriter(ABC):
         1,x,y. You need to catch that and export accordingly (for 2d images you need to convert the 3d segmentation
         to 2d via seg = seg[0])!
 
-        :param seg:
+        :param seg: A segmentation (np.ndarray, integer) of shape (x, y, z). For 2D segmentations this will be (1, y, z)!
         :param output_fname:
-        :param properties:
+        :param properties: the dictionary that you created in read_images (the ones this segmentation is based on).
+        Use this to restore metadata
         :return:
         """
         pass

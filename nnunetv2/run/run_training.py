@@ -7,6 +7,7 @@ from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
 import os
@@ -33,7 +34,8 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           fold: int,
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
-                          use_compressed: bool = False):
+                          use_compressed: bool = False,
+                          device: str = 'cuda'):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -62,7 +64,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     plans = load_json(plans_file)
     dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
     nnunet_trainer = nnunet_trainer(plans=plans, configuration=configuration, fold=fold,
-                                    dataset_json=dataset_json, unpack_dataset=not use_compressed)
+                                    dataset_json=dataset_json, unpack_dataset=not use_compressed, device=device)
     return nnunet_trainer
 
 
@@ -134,7 +136,13 @@ def run_training(dataset_name_or_id: Union[str, int],
                  export_validation_probabilities: bool = False,
                  continue_training: bool = False,
                  only_run_validation: bool = False,
-                 disable_checkpointing: bool = False):
+                 disable_checkpointing: bool = False,
+                 device: str = 'cuda'):
+    if device != 'cuda':
+        assert num_gpus == 1, f"Can not run DDP training if device is not 'cuda'. Device: {device}"
+        import multiprocessing
+        torch.set_num_threads(multiprocessing.cpu_count())
+
     if isinstance(fold, str):
         if fold != 'all':
             try:
@@ -168,7 +176,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                  join=True)
     else:
         nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
-                                               plans_identifier, use_compressed_data)
+                                               plans_identifier, use_compressed_data, device=device)
 
         if disable_checkpointing:
             nnunet_trainer.disable_checkpointing = disable_checkpointing
@@ -219,10 +227,14 @@ def run_training_entry():
     parser.add_argument('--disable_checkpointing', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
+    parser.add_argument('-device', default='cuda', required=False, type=str,
+                        help="Set this to 'cpu' to run on CPU. DO NOT use this to set the GPU id! This should be "
+                             "done with CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...]")
     args = parser.parse_args()
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
-                 args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing)
+                 args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing,
+                 device=args.device)
 
 
 if __name__ == '__main__':

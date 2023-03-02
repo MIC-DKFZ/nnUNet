@@ -8,6 +8,7 @@ some metadata.
 
 If you are migrating from nnU-Net v1, read [this](#how-to-use-nnu-net-v1-tasks) to convert your existing Tasks.
 
+
 ## What do training cases look like?
 Each training case is associated with an identifier = a unique name for that case. This identifier is used by nnU-Net to 
 connect images with the correct segmentation.
@@ -50,6 +51,10 @@ See [here](../nnunetv2/imageio/readme.md).
 
 As a nice bonus, nnU-Net now also natively supports 2D input images and you no longer have to mess around with 
 conversions to pseudo 3D niftis. Yuck. That was disgusting.
+
+Note that internally (for storing and accessing preprocessed images) nnU-Net will use its own file format, irrespective 
+of what the raw data was provided in! This is for performance reasons.
+
 
 By default, the following file formats are supported:
 - NaturalImage2DIO: .png, .bmp, .tif

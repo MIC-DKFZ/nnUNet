@@ -86,7 +86,7 @@ class nnUNetTrainer(object):
         else:
             self.device = f"{device}:{0}"
 
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and self.device.startswith('cuda'):
             print(f"I am local rank {self.local_rank}. {device_count()} GPUs are available. "
                   f"Setting device to {self.device}")
             torch.cuda.set_device(self.device)
@@ -225,13 +225,14 @@ class nnUNetTrainer(object):
             hostname = subprocess.getoutput(['hostname'])
             dct['hostname'] = hostname
             torch_version = torch.__version__
-            if torch.cuda.is_available():
+            if torch.cuda.is_available() and self.device.startswith('cuda'):
                 gpu_name = torch.cuda.get_device_name()
                 dct['gpu_name'] = gpu_name
-            if torch.backends.cudnn.is_available():
+            if torch.backends.cudnn.is_available() and self.device.startswith('cuda'):
                 cudnn_version = torch.backends.cudnn.version()
             else:
                 cudnn_version = 'None'
+            dct['device'] = self.device
             dct['torch_version'] = torch_version
             dct['cudnn_version'] = cudnn_version
             save_json(dct, join(self.output_folder, "debug.json"))
@@ -472,7 +473,7 @@ class nnUNetTrainer(object):
                 # self.print_to_log_file(self.network)
                 # self.print_to_log_file("\n")
             finally:
-                if torch.cuda.is_available():
+                if torch.cuda.is_available() and self.device.startswith('cuda'):
                     torch.cuda.empty_cache()
 
     def do_split(self):
@@ -591,9 +592,9 @@ class nnUNetTrainer(object):
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
             mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
+                                             allowed_num_processes, 6, None, self.device.startswith('cuda'), 0.02)
             mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
+                                           max(1, allowed_num_processes // 2), 3, None, self.device.startswith('cuda'), 0.02)
         return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
@@ -768,7 +769,7 @@ class nnUNetTrainer(object):
 
         self.print_plans()
 
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and self.device.startswith('cuda'):
             torch.cuda.empty_cache()
 
         # maybe unpack
@@ -807,7 +808,7 @@ class nnUNetTrainer(object):
         if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
 
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and self.device.startswith('cuda'):
             torch.cuda.empty_cache()
 
     def on_train_epoch_start(self):
@@ -837,11 +838,16 @@ class nnUNetTrainer(object):
             del data
             l = self.loss(output, target)
 
-        self.grad_scaler.scale(l).backward()
-        self.grad_scaler.unscale_(self.optimizer)
-        torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-        self.grad_scaler.step(self.optimizer)
-        self.grad_scaler.update()
+        if self.grad_scaler is not None:
+            self.grad_scaler.scale(l).backward()
+            self.grad_scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+            self.grad_scaler.step(self.optimizer)
+            self.grad_scaler.update()
+        else:
+            l.backward()
+            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+            self.optimizer.step()
         return {'loss': l.detach().cpu().numpy()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
