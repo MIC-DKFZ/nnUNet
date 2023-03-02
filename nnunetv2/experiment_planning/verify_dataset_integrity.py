@@ -55,6 +55,15 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
     images, properties_image = rw.read_images(files_image)
     segmentation, properties_seg = rw.read_seg(file_seg)
 
+    # check for nans
+    if np.any(np.isnan(images)):
+        print(f'Images of case identifier {case_identifier} contain NaN pixel values. You need to fix that by '
+              f'replacing NaN values with something that makes sense for your images!')
+        ret = False
+    if np.any(np.isnan(segmentation)):
+        print(f'Segmentation of case identifier {case_identifier} contains NaN pixel values. You need to fix that.')
+        ret = False
+
     # check shapes
     shape_image = images.shape[1:]
     shape_seg = segmentation.shape[1:]
