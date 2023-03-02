@@ -125,8 +125,9 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           num_processes_segmentation_export: int = default_num_processes,
                           folder_with_segs_from_prev_stage: str = None,
                           num_parts: int = 1,
-                          part_id: int = 0):
-    if not torch.cuda.is_available():
+                          part_id: int = 0,
+                          device: str = 'cuda'):
+    if not torch.cuda.is_available() or not device.startswith('cuda'):
         perform_everything_on_gpu = False
 
     # let's store the input arguments so that its clear what was used to generate the prediction
@@ -163,7 +164,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                   use_folds, tile_step_size, use_gaussian, use_mirroring, perform_everything_on_gpu,
                                   verbose, False, overwrite, checkpoint_name,
                                   num_processes_preprocessing, num_processes_segmentation_export, None,
-                                  num_parts=num_parts, part_id=part_id)
+                                  num_parts=num_parts, part_id=part_id, device=device)
 
     # sort out input and output filenames
     if isinstance(list_of_lists_or_source_folder, str):
@@ -199,13 +200,13 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
                             output_filename_truncated, plans_manager, dataset_json,
                             configuration_manager, num_processes)
-    mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=True)
+    mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=device.startswith('cuda'))
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
     # precompute gaussian
     inference_gaussian = torch.from_numpy(
         compute_gaussian(configuration_manager.patch_size)).half()
-    if perform_everything_on_gpu:
+    if perform_everything_on_gpu and device.startswith('cuda'):
         inference_gaussian = inference_gaussian.to('cuda')
 
     # num seg heads is needed because we need to preallocate the results in predict_sliding_window_return_logits
@@ -217,7 +218,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # export_pool = multiprocessing.get_context('spawn').Pool(num_processes_segmentation_export)
     export_pool = multiprocessing.Pool(num_processes_segmentation_export)
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and device.startswith('cuda'):
         network = network.to('cuda')
 
     r = []
@@ -253,7 +254,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                 use_gaussian=use_gaussian,
                                 precomputed_gaussian=inference_gaussian,
                                 perform_everything_on_gpu=perform_everything_on_gpu,
-                                verbose=verbose)
+                                verbose=verbose,
+                                device=device)
                         else:
                             prediction += predict_sliding_window_return_logits(
                                 network, data, num_seg_heads,
@@ -263,7 +265,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                 use_gaussian=use_gaussian,
                                 precomputed_gaussian=inference_gaussian,
                                 perform_everything_on_gpu=perform_everything_on_gpu,
-                                verbose=verbose)
+                                verbose=verbose,
+                                device=device)
                         if len(parameters) > 1:
                             prediction /= len(parameters)
 
@@ -287,7 +290,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                             use_gaussian=use_gaussian,
                             precomputed_gaussian=inference_gaussian,
                             perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
-                            verbose=verbose)
+                            verbose=verbose,
+                            device=device)
                     else:
                         prediction += predict_sliding_window_return_logits(
                             network, data, num_seg_heads,
@@ -297,7 +301,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                             use_gaussian=use_gaussian,
                             precomputed_gaussian=inference_gaussian,
                             perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
-                            verbose=verbose)
+                            verbose=verbose,
+                            device=device)
                     if len(parameters) > 1:
                         prediction /= len(parameters)
 
@@ -370,11 +375,25 @@ def predict_entry_point_modelfolder():
                              'out-of-RAM issues. Default: 3')
     parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
+    parser.add_argument('-device', type=str, default=None, required=False,
+                    help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
+                         "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
 
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
+
+    if args.device is None:
+        if torch.cuda.is_available():
+            device = 'cuda'
+        else:
+            device = 'cpu'
+    else:
+        device = args.device
+
+    if device == 'cpu':
+        torch.set_num_threads(multiprocessing.cpu_count())
 
     predict_from_raw_data(args.i,
                           args.o,
@@ -390,7 +409,8 @@ def predict_entry_point_modelfolder():
                           checkpoint_name=args.chk,
                           num_processes_preprocessing=args.npp,
                           num_processes_segmentation_export=args.nps,
-                          folder_with_segs_from_prev_stage=args.prev_stage_predictions)
+                          folder_with_segs_from_prev_stage=args.prev_stage_predictions,
+                          device=device)
 
 
 def predict_entry_point():
@@ -449,6 +469,9 @@ def predict_entry_point():
                              'num_parts - 1. So when you submit 5 nnUNetv2_predict calls you need to set -num_parts '
                              '5 and use -part_id 0, 1, 2, 3 and 4. Simple, right? Note: You are yourself responsible '
                              'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
+    parser.add_argument('-device', type=str, default=None, required=False,
+                        help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
+                             "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
 
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
@@ -460,6 +483,17 @@ def predict_entry_point():
 
     # slightly passive agressive haha
     assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
+
+    if args.device is None:
+        if torch.cuda.is_available():
+            device = 'cuda'
+        else:
+            device = 'cpu'
+    else:
+        device = args.device
+
+    if device == 'cpu':
+        torch.set_num_threads(multiprocessing.cpu_count())
 
     predict_from_raw_data(args.i,
                           args.o,
@@ -477,7 +511,8 @@ def predict_entry_point():
                           num_processes_segmentation_export=args.nps,
                           folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                           num_parts=args.num_parts,
-                          part_id=args.part_id)
+                          part_id=args.part_id,
+                          device=device)
 
 
 if __name__ == '__main__':

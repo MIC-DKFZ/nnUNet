@@ -138,11 +138,6 @@ def run_training(dataset_name_or_id: Union[str, int],
                  only_run_validation: bool = False,
                  disable_checkpointing: bool = False,
                  device: str = 'cuda'):
-    if device != 'cuda':
-        assert num_gpus == 1, f"Can not run DDP training if device is not 'cuda'. Device: {device}"
-        import multiprocessing
-        torch.set_num_threads(multiprocessing.cpu_count())
-
     if isinstance(fold, str):
         if fold != 'all':
             try:
@@ -152,6 +147,8 @@ def run_training(dataset_name_or_id: Union[str, int],
                 raise e
 
     if num_gpus > 1:
+        assert device.startswith('cuda'), f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
+
         os.environ['MASTER_ADDR'] = 'localhost'
         if 'MASTER_PORT' not in os.environ.keys():
             port = str(find_free_network_port())
@@ -227,14 +224,26 @@ def run_training_entry():
     parser.add_argument('--disable_checkpointing', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
-    parser.add_argument('-device', default='cuda', required=False, type=str,
-                        help="Set this to 'cpu' to run on CPU. DO NOT use this to set the GPU id! This should be "
-                             "done with CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...]")
+    parser.add_argument('-device', type=str, default=None, required=False,
+                    help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
+                         "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     args = parser.parse_args()
+
+    if args.device is None:
+        if torch.cuda.is_available():
+            device = 'cuda'
+        else:
+            device = 'cpu'
+    else:
+        device = args.device
+
+    if device == 'cpu':
+        import multiprocessing
+        torch.set_num_threads(multiprocessing.cpu_count())
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
                  args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing,
-                 device=args.device)
+                 device=device)
 
 
 if __name__ == '__main__':
