@@ -45,6 +45,9 @@ class DatasetFingerprintExtractor(object):
         assert len(images.shape) == 4
         assert len(segmentation.shape) == 4
 
+        assert not np.any(np.isnan(segmentation)), "Segmentation contains NaN values. grrrr.... :-("
+        assert not np.any(np.isnan(images)), "Images contains NaN values. grrrr.... :-("
+
         rs = np.random.RandomState(seed)
 
         intensities_per_channel = []
