@@ -38,7 +38,7 @@ def convert_amos_task2(amos_base_dir: str, nnunet_dataset_id: int = 219):
         shutil.copy(join(amos_base_dir, 'imagesVa', vl + '.nii.gz'), join(imagestr, f'{vl}_0000.nii.gz'))
         shutil.copy(join(amos_base_dir, 'labelsVa', vl + '.nii.gz'), join(labelstr, f'{vl}.nii.gz'))
 
-    generate_dataset_json(out_base, {0: "either_CT_or_MR"}, labels={int(v): k for k,v in dataset_json_source['labels'].items()},
+    generate_dataset_json(out_base, {0: "either_CT_or_MR"}, labels={v: int(k) for k,v in dataset_json_source['labels'].items()},
                           num_training_cases=len(training_identifiers) + len(val_identifiers), file_ending='.nii.gz',
                           dataset_name=task_name, reference='https://amos22.grand-challenge.org/',
                           release='https://zenodo.org/record/7262581',
