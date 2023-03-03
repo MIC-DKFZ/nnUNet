@@ -223,26 +223,19 @@ def run_training_entry():
     parser.add_argument('--disable_checkpointing', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
-    parser.add_argument('-device', type=str, default=None, required=False,
+    parser.add_argument('-device', type=str, default='cuda', required=False,
                     help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
                          "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     args = parser.parse_args()
 
-    if args.device is None:
-        if torch.cuda.is_available():
-            device = 'cuda'
-        else:
-            device = 'cpu'
-    else:
-        device = args.device
-
-    if device == 'cpu':
+    assert args.device in ['cpu', 'cuda'], f'-device must be either cpu or cuda. Got: {args.device}'
+    if args.device == 'cpu':
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
                  args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing,
-                 device=device)
+                 device=args.device)
 
 
 if __name__ == '__main__':

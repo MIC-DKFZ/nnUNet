@@ -375,7 +375,7 @@ def predict_entry_point_modelfolder():
                              'out-of-RAM issues. Default: 3')
     parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
-    parser.add_argument('-device', type=str, default=None, required=False,
+    parser.add_argument('-device', type=str, default='cuda', required=False,
                     help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
                          "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     args = parser.parse_args()
@@ -384,15 +384,9 @@ def predict_entry_point_modelfolder():
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
 
-    if args.device is None:
-        if torch.cuda.is_available():
-            device = 'cuda'
-        else:
-            device = 'cpu'
-    else:
-        device = args.device
-
-    if device == 'cpu':
+    assert args.device in ['cpu', 'cuda'], f'-device must be either cpu or cuda. Got: {args.device}'
+    if args.device == 'cpu':
+        import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
 
     predict_from_raw_data(args.i,
@@ -410,7 +404,7 @@ def predict_entry_point_modelfolder():
                           num_processes_preprocessing=args.npp,
                           num_processes_segmentation_export=args.nps,
                           folder_with_segs_from_prev_stage=args.prev_stage_predictions,
-                          device=device)
+                          device=args.device)
 
 
 def predict_entry_point():
@@ -469,9 +463,9 @@ def predict_entry_point():
                              'num_parts - 1. So when you submit 5 nnUNetv2_predict calls you need to set -num_parts '
                              '5 and use -part_id 0, 1, 2, 3 and 4. Simple, right? Note: You are yourself responsible '
                              'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
-    parser.add_argument('-device', type=str, default=None, required=False,
-                        help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
-                             "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+    parser.add_argument('-device', type=str, default='cuda', required=False,
+                    help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
+                         "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
 
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
@@ -484,15 +478,9 @@ def predict_entry_point():
     # slightly passive agressive haha
     assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
 
-    if args.device is None:
-        if torch.cuda.is_available():
-            device = 'cuda'
-        else:
-            device = 'cpu'
-    else:
-        device = args.device
-
-    if device == 'cpu':
+    assert args.device in ['cpu', 'cuda'], f'-device must be either cpu or cuda. Got: {args.device}'
+    if args.device == 'cpu':
+        import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
 
     predict_from_raw_data(args.i,
@@ -512,7 +500,7 @@ def predict_entry_point():
                           folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                           num_parts=args.num_parts,
                           part_id=args.part_id,
-                          device=device)
+                          device=args.device)
 
 
 if __name__ == '__main__':
