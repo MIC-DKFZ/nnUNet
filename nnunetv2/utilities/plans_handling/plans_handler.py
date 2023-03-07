@@ -71,7 +71,7 @@ class ConfigurationManager(object):
         return self.configuration['normalization_schemes']
 
     @property
-    def use_mask_for_norm(self) -> bool:
+    def use_mask_for_norm(self) -> List[bool]:
         return self.configuration['use_mask_for_norm']
 
     @property

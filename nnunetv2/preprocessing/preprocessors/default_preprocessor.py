@@ -85,6 +85,12 @@ class DefaultPreprocessor(object):
             target_spacing = [original_spacing[0]] + target_spacing
         new_shape = compute_new_shape(data.shape[1:], original_spacing, target_spacing)
 
+        # normalize
+        # normalization MUST happen before resampling or we get huge problems with resampled nonzero masks no
+        # longer fitting the images perfectly!
+        data = self._normalize(data, seg, configuration_manager,
+                               plans_manager.foreground_intensity_properties_per_channel)
+
         # print('current shape', data.shape[1:], 'current_spacing', original_spacing,
         #       '\ntarget shape', new_shape, 'target_spacing', target_spacing)
         old_shape = data.shape[1:]
@@ -93,10 +99,6 @@ class DefaultPreprocessor(object):
         if self.verbose:
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
-
-        # normalize
-        data = self._normalize(data, seg, configuration_manager.normalization_schemes,
-                               plans_manager.foreground_intensity_properties_per_channel)
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
         if seg_file is not None:
@@ -157,17 +159,17 @@ class DefaultPreprocessor(object):
                 print(c, target_num_samples)
         return class_locs
 
-    def _normalize(self, data: np.ndarray, seg: np.ndarray, normalization_schemes: List[str],
+    def _normalize(self, data: np.ndarray, seg: np.ndarray, configuration_manager: ConfigurationManager,
                    foreground_intensity_properties_per_channel: dict) -> np.ndarray:
         for c in range(data.shape[0]):
-            scheme = normalization_schemes[c]
+            scheme = configuration_manager.normalization_schemes[c]
             normalizer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing", "normalization"),
                                                            scheme,
                                                            'nnunetv2.preprocessing.normalization')
             if normalizer_class is None:
                 raise RuntimeError('Unable to locate class \'%s\' for normalization' % scheme)
-            normalizer = normalizer_class(normalization_schemes,
-                                          foreground_intensity_properties_per_channel[str(c)])
+            normalizer = normalizer_class(use_mask_for_norm=configuration_manager.use_mask_for_norm[c],
+                                          intensityproperties=foreground_intensity_properties_per_channel[str(c)])
             data[c] = normalizer.run(data[c], seg[0])
         return data
 
@@ -235,12 +237,11 @@ class DefaultPreprocessor(object):
 
 def example_test_case_preprocessing():
     # (paths to files may need adaptations)
-    plans_file = 'nnUNetPlans.json'
-    dataset_json_file = 'dataset.json'
-    input_images = ['prostate_00_0000.nii.gz',
-                    'prostate_00_0001.nii.gz']  # if you only have one channel, you still need a list: ['case000_0000.nii.gz']
+    plans_file = '/home/isensee/drives/gpu_data/nnUNet_preprocessed/Dataset219_AMOS2022_postChallenge_task2/nnUNetPlans.json'
+    dataset_json_file = '/home/isensee/drives/gpu_data/nnUNet_preprocessed/Dataset219_AMOS2022_postChallenge_task2/dataset.json'
+    input_images = ['/home/isensee/drives/e132-rohdaten/nnUNetv2/Dataset219_AMOS2022_postChallenge_task2/imagesTr/amos_0600_0000.nii.gz', ]  # if you only have one channel, you still need a list: ['case000_0000.nii.gz']
 
-    configuration = '2d'
+    configuration = '3d_fullres'
     pp = DefaultPreprocessor()
 
     # _ because this position would be the segmentation if seg_file was not None (training case)
@@ -257,8 +258,9 @@ def example_test_case_preprocessing():
 
 
 if __name__ == '__main__':
-    pp = DefaultPreprocessor()
-    pp.run(2, '2d', 'nnUNetPlans', 8)
+    example_test_case_preprocessing()
+    # pp = DefaultPreprocessor()
+    # pp.run(2, '2d', 'nnUNetPlans', 8)
 
     ###########################################################################################################
     # how to process a test cases? This is an example:
