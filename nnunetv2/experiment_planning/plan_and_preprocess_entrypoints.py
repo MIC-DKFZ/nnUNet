@@ -1,15 +1,5 @@
-import shutil
-
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles
-
-import nnunetv2
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.experiment_planning.plan_and_preprocess_api import extract_fingerprints, plan_experiments, preprocess
-from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
-from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name, maybe_convert_to_dataset_name
-from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 def extract_fingerprint_entry():
@@ -187,8 +177,9 @@ def plan_and_preprocess_entry():
     plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing, args.overwrite_plans_name)
 
     # preprocessing
-    print('Preprocessing...')
-    preprocess(args.d, args.overwrite_plans_name, args.c, args.np, args.verbose)
+    if not args.no_pp:
+        print('Preprocessing...')
+        preprocess(args.d, args.overwrite_plans_name, args.c, args.np, args.verbose)
 
 
 if __name__ == '__main__':

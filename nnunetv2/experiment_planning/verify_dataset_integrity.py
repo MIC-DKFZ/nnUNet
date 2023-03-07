@@ -98,7 +98,6 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
                   'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
                   'nnUNet_plot_dataset_pngs to verify if everything is OK!\n'
                   % (affine_image, affine_seg, files_image, file_seg))
-            ret = False
 
     # sitk checks
     if 'sitk_stuff' in properties_image.keys():
@@ -110,14 +109,12 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
             print('Warning: Origin mismatch between segmentation and corresponding images. \nOrigin images: %s. '
                   '\nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n' %
                   (origin_image, origin_seg, files_image, file_seg))
-            ret = False
         direction_image = properties_image['sitk_stuff']['direction']
         direction_seg = properties_seg['sitk_stuff']['direction']
         if not np.all(np.isclose(direction_image, direction_seg)):
             print('Warning: Direction mismatch between segmentation and corresponding images. \nDirection images: %s. '
                   '\nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n' %
                   (direction_image, direction_seg, files_image, file_seg))
-            ret = False
 
     return ret
 
