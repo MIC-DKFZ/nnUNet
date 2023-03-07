@@ -34,7 +34,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
                           use_compressed: bool = False,
-                          device: str = 'cuda'):
+                          device: torch.device = torch.device('cuda')):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -136,7 +136,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                  continue_training: bool = False,
                  only_run_validation: bool = False,
                  disable_checkpointing: bool = False,
-                 device: str = 'cuda'):
+                 device: torch.device = torch.device('cuda')):
     if isinstance(fold, str):
         if fold != 'all':
             try:
@@ -146,7 +146,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                 raise e
 
     if num_gpus > 1:
-        assert device.startswith('cuda'), f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
+        assert device.type == 'cuda', f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
 
         os.environ['MASTER_ADDR'] = 'localhost'
         if 'MASTER_PORT' not in os.environ.keys():
@@ -224,21 +224,28 @@ def run_training_entry():
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
-                         "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+                    help="Use this to set the device the training should run with. Available options are 'cuda' "
+                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                         "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
     args = parser.parse_args()
 
-    assert args.device in ['cpu', 'cuda'], f'-device must be either cpu or cuda. Got: {args.device}'
+    assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
     if args.device == 'cpu':
+        # let's allow torch to use hella threads
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
-    else:
+        device = torch.device('cpu')
+    elif args.device == 'cuda':
+        # multithreading in torch doesn't help nnU-Net if run on GPU
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
+        device = torch.device('cuda')
+    else:
+        device = torch.device('mps')
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
                  args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing,
-                 device=args.device)
+                 device=device)
 
 
 if __name__ == '__main__':

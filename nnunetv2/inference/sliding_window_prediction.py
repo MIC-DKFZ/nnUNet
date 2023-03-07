@@ -7,6 +7,8 @@ from acvl_utils.cropping_and_padding.padding import pad_nd_image
 from scipy.ndimage import gaussian_filter
 from torch import nn
 
+from nnunetv2.utilities.helpers import empty_cache
+
 
 def compute_gaussian(tile_size: Tuple[int, ...], sigma_scale: float = 1. / 8, dtype=np.float16) \
         -> np.ndarray:
@@ -115,14 +117,17 @@ def predict_sliding_window_return_logits(network: nn.Module,
                                          precomputed_gaussian: torch.Tensor = None,
                                          perform_everything_on_gpu: bool = True,
                                          verbose: bool = True,
-                                         device: str = 'cuda') -> Union[np.ndarray, torch.Tensor]:
+                                         device: torch.device = torch.device('cuda')) -> Union[np.ndarray, torch.Tensor]:
+    if perform_everything_on_gpu:
+        assert device.type == 'cuda', 'Can use perform_everything_on_gpu=True only when device="cuda"'
+
+    network = network.to(device)
     network.eval()
 
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    empty_cache(device)
 
     with torch.no_grad():
-        with torch.autocast('cuda' if device.startswith('cuda') else 'cpu'):
+        with torch.autocast(device.type, enabled=device.type != 'cpu'):
             assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
             if not torch.cuda.is_available():
@@ -130,7 +135,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
                     print('WARNING! "perform_everything_on_gpu" was True but cuda is not available! Set it to False...')
                 perform_everything_on_gpu = False
 
-            results_device = 'cuda' if perform_everything_on_gpu else 'cpu'
+            results_device = device if perform_everything_on_gpu else torch.device('cpu')
 
             if verbose: print("step_size:", tile_step_size)
             if verbose: print("mirror_axes:", mirror_axes)
@@ -165,15 +170,14 @@ def predict_sliding_window_return_logits(network: nn.Module,
                 gaussian = gaussian.to(results_device)
             except RuntimeError:
                 # sometimes the stuff is too large for GPUs. In that case fall back to CPU
-                results_device = 'cpu'
+                results_device = torch.device('cpu')
                 predicted_logits = torch.zeros((num_segmentation_heads, *data.shape[1:]), dtype=torch.half,
                                                device=results_device)
                 n_predictions = torch.zeros(data.shape[1:], dtype=torch.half,
                                             device=results_device)
                 gaussian = gaussian.to(results_device)
             finally:
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                empty_cache(device)
 
             for sl in slicers:
                 workon = data[sl][None]
@@ -185,8 +189,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
                 n_predictions[sl[1:]] += (gaussian if use_gaussian else 1)
 
             predicted_logits /= n_predictions
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    empty_cache(device)
     return predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
 
 

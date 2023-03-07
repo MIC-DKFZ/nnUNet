@@ -126,8 +126,11 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           folder_with_segs_from_prev_stage: str = None,
                           num_parts: int = 1,
                           part_id: int = 0,
-                          device: str = 'cuda'):
-    if not torch.cuda.is_available() or not device.startswith('cuda'):
+                          device: torch.device = torch.device('cuda')):
+    if device.type == 'cuda':
+        device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
+
+    if device.type != 'cuda':
         perform_everything_on_gpu = False
 
     # let's store the input arguments so that its clear what was used to generate the prediction
@@ -200,14 +203,14 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     ppa = PreprocessAdapter(list_of_lists_or_source_folder, seg_from_prev_stage_files, preprocessor,
                             output_filename_truncated, plans_manager, dataset_json,
                             configuration_manager, num_processes)
-    mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=device.startswith('cuda'))
+    mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=device.type == 'cuda')
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
     # precompute gaussian
     inference_gaussian = torch.from_numpy(
         compute_gaussian(configuration_manager.patch_size)).half()
-    if perform_everything_on_gpu and device.startswith('cuda'):
-        inference_gaussian = inference_gaussian.to('cuda')
+    if perform_everything_on_gpu:
+        inference_gaussian = inference_gaussian.to(device)
 
     # num seg heads is needed because we need to preallocate the results in predict_sliding_window_return_logits
     label_manager = plans_manager.get_label_manager(dataset_json)
@@ -218,8 +221,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # export_pool = multiprocessing.get_context('spawn').Pool(num_processes_segmentation_export)
     export_pool = multiprocessing.Pool(num_processes_segmentation_export)
 
-    if torch.cuda.is_available() and device.startswith('cuda'):
-        network = network.to('cuda')
+    network = network.to(device)
 
     r = []
     with torch.no_grad():
@@ -376,18 +378,28 @@ def predict_entry_point_modelfolder():
     parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
-                         "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+                    help="Use this to set the device the inference should run with. Available options are 'cuda' "
+                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                         "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
 
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
 
-    assert args.device in ['cpu', 'cuda'], f'-device must be either cpu or cuda. Got: {args.device}'
+    assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
     if args.device == 'cpu':
+        # let's allow torch to use hella threads
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
+        device = torch.device('cpu')
+    elif args.device == 'cuda':
+        # multithreading in torch doesn't help nnU-Net if run on GPU
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+        device = torch.device('cuda')
+    else:
+        device = torch.device('mps')
 
     predict_from_raw_data(args.i,
                           args.o,
@@ -404,7 +416,7 @@ def predict_entry_point_modelfolder():
                           num_processes_preprocessing=args.npp,
                           num_processes_segmentation_export=args.nps,
                           folder_with_segs_from_prev_stage=args.prev_stage_predictions,
-                          device=args.device)
+                          device=device)
 
 
 def predict_entry_point():
@@ -464,8 +476,9 @@ def predict_entry_point():
                              '5 and use -part_id 0, 1, 2, 3 and 4. Simple, right? Note: You are yourself responsible '
                              'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Set device to 'cpu' to predict using the CPU. Do NOT use this to set which GPU inference "
-                         "should be run on. Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+                    help="Use this to set the device the inference should run with. Available options are 'cuda' "
+                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                         "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
 
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
@@ -478,10 +491,19 @@ def predict_entry_point():
     # slightly passive agressive haha
     assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
 
-    assert args.device in ['cpu', 'cuda'], f'-device must be either cpu or cuda. Got: {args.device}'
+    assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
     if args.device == 'cpu':
+        # let's allow torch to use hella threads
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
+        device = torch.device('cpu')
+    elif args.device == 'cuda':
+        # multithreading in torch doesn't help nnU-Net if run on GPU
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+        device = torch.device('cuda')
+    else:
+        device = torch.device('mps')
 
     predict_from_raw_data(args.i,
                           args.o,
@@ -500,7 +522,7 @@ def predict_entry_point():
                           folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                           num_parts=args.num_parts,
                           part_id=args.part_id,
-                          device=args.device)
+                          device=device)
 
 
 if __name__ == '__main__':

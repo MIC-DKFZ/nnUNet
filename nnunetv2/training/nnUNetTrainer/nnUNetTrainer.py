@@ -49,6 +49,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.helpers import empty_cache
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from sklearn.model_selection import KFold
@@ -61,7 +62,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda'):
+                 device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
@@ -80,16 +81,20 @@ class nnUNetTrainer(object):
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
 
-        if self.is_ddp:
-            assert device == 'cuda', 'DDP is only implemented for single host multi GPU'
-            self.device = f"{device}:{self.local_rank}"
-        else:
-            self.device = f"{device}:{0}"
+        self.device = device
 
-        if torch.cuda.is_available() and self.device.startswith('cuda'):
-            print(f"I am local rank {self.local_rank}. {device_count()} GPUs are available. "
+        # print what device we are using
+        if self.is_ddp:  # implicitly it's clear that we use cuda in this case
+            print(f"I am local rank {self.local_rank}. {device_count()} GPUs are available. The world size is "
+                  f"{dist.get_world_size()}."
                   f"Setting device to {self.device}")
-            torch.cuda.set_device(self.device)
+            self.device = torch.device(type='cuda', index=self.local_rank)
+        else:
+            if self.device.type == 'cuda':
+                # we might want to let the user pick this but for now please pick the correct GPU with CUDA_VISIBLE_DEVICES=X
+                self.device = torch.device(type='cuda', index=0)
+                torch.cuda.set_device(self.device) # this seems to be a cuda only operation?
+            print(f"Using device: {self.device}")
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
@@ -105,8 +110,6 @@ class nnUNetTrainer(object):
         self.dataset_json = dataset_json
         self.fold = fold
         self.unpack_dataset = unpack_dataset
-        # autograd needs this
-        self.device_type = device
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -147,7 +150,7 @@ class nnUNetTrainer(object):
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self._get_network()
         self.optimizer = self.lr_scheduler = None  # -> self.initialize
-        self.grad_scaler = GradScaler() if self.device_type == 'cuda' else None
+        self.grad_scaler = GradScaler() if self.device.type == 'cuda' else None
         self.loss = None  # -> self.initialize
 
         ### Simple logging. Don't take that away from me!
@@ -225,14 +228,13 @@ class nnUNetTrainer(object):
             hostname = subprocess.getoutput(['hostname'])
             dct['hostname'] = hostname
             torch_version = torch.__version__
-            if torch.cuda.is_available() and self.device.startswith('cuda'):
+            if self.device.type == 'cuda':
                 gpu_name = torch.cuda.get_device_name()
                 dct['gpu_name'] = gpu_name
-            if torch.backends.cudnn.is_available() and self.device.startswith('cuda'):
                 cudnn_version = torch.backends.cudnn.version()
             else:
                 cudnn_version = 'None'
-            dct['device'] = self.device
+            dct['device'] = str(self.device)
             dct['torch_version'] = torch_version
             dct['cudnn_version'] = cudnn_version
             save_json(dct, join(self.output_folder, "debug.json"))
@@ -473,8 +475,7 @@ class nnUNetTrainer(object):
                 # self.print_to_log_file(self.network)
                 # self.print_to_log_file("\n")
             finally:
-                if torch.cuda.is_available() and self.device.startswith('cuda'):
-                    torch.cuda.empty_cache()
+                empty_cache(self.device)
 
     def do_split(self):
         """
@@ -591,10 +592,13 @@ class nnUNetTrainer(object):
             mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, self.device.startswith('cuda'), 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, self.device.startswith('cuda'), 0.02)
+            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, data_loader=dl_tr, transform=tr_transforms,
+                                             num_processes=allowed_num_processes, num_cached=6, seeds=None,
+                                             pin_memory=self.device.type == 'cuda', wait_time=0.02)
+            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, data_loader=dl_val,
+                                           transform=val_transforms, num_processes=max(1, allowed_num_processes // 2),
+                                           num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
+                                           wait_time=0.02)
         return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
@@ -768,9 +772,7 @@ class nnUNetTrainer(object):
         self.set_deep_supervision_enabled(True)
 
         self.print_plans()
-
-        if torch.cuda.is_available() and self.device.startswith('cuda'):
-            torch.cuda.empty_cache()
+        empty_cache(self.device)
 
         # maybe unpack
         if self.unpack_dataset and self.local_rank == 0:
@@ -808,8 +810,7 @@ class nnUNetTrainer(object):
         if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
 
-        if torch.cuda.is_available() and self.device.startswith('cuda'):
-            torch.cuda.empty_cache()
+        empty_cache(self.device)
 
     def on_train_epoch_start(self):
         self.network.train()
@@ -832,10 +833,10 @@ class nnUNetTrainer(object):
             target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad()
-
-        with autocast(self.device_type):
+        # autocast is slow as shit on my CPU? It's way faster to disable it...
+        with autocast(self.device.type, enabled=self.device.type != 'cpu'):
             output = self.network(data)
-            del data
+            # del data
             l = self.loss(output, target)
 
         if self.grad_scaler is not None:
@@ -875,7 +876,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        with autocast(self.device_type):
+        with autocast(self.device.type, enabled=self.device.type != 'cpu'):
             output = self.network(data)
             del data
             l = self.loss(output, target)
@@ -994,7 +995,7 @@ class nnUNetTrainer(object):
                 checkpoint = {
                     'network_weights': self.network.module.state_dict() if self.is_ddp else self.network.state_dict(),
                     'optimizer_state': self.optimizer.state_dict(),
-                    'grad_scaler_state': self.grad_scaler.state_dict(),
+                    'grad_scaler_state': self.grad_scaler.state_dict() if self.grad_scaler is not None else None,
                     'logging': self.logger.get_checkpoint(),
                     '_best_ema': self._best_ema,
                     'current_epoch': self.current_epoch + 1,
@@ -1033,7 +1034,9 @@ class nnUNetTrainer(object):
         else:
             self.network.load_state_dict(new_state_dict)
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
-        self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
+        if self.grad_scaler is not None:
+            if checkpoint['grad_scaler_state'] is not None:
+                self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
     def perform_actual_validation(self, save_probabilities: bool = False):
         self.set_deep_supervision_enabled(False)

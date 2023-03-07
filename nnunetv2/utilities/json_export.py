@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 
 import numpy as np
+import torch
 
 
 def recursive_fix_for_json_export(my_dict: dict):
@@ -29,6 +30,8 @@ def recursive_fix_for_json_export(my_dict: dict):
             my_dict[k] = fix_types_iterable(my_dict[k], output_type=type(my_dict[k]))
         elif isinstance(my_dict[k], tuple):
             my_dict[k] = fix_types_iterable(my_dict[k], output_type=tuple)
+        elif isinstance(my_dict[k], torch.device):
+            my_dict[k] = str(my_dict[k])
         else:
             pass  # pray it can be serialized
 

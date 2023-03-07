@@ -1,6 +1,7 @@
 from typing import List, Union, Tuple
 
 import numpy as np
+import torch
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.abstract_transforms import AbstractTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessTransform, ContrastAugmentationTransform, \
@@ -404,6 +405,6 @@ class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
 
 class nnUNetTrainerDA5_10epochs(nnUNetTrainerDA5):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda'):
+                 device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.num_epochs = 10

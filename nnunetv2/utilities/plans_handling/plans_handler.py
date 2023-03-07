@@ -283,6 +283,9 @@ class PlansManager(object):
 
     @property
     def foreground_intensity_properties_per_channel(self) -> dict:
+        if 'foreground_intensity_properties_per_channel' not in self.plans.keys():
+            if 'foreground_intensity_properties_by_modality' in self.plans.keys():
+                return self.plans['foreground_intensity_properties_by_modality']
         return self.plans['foreground_intensity_properties_per_channel']
 
 

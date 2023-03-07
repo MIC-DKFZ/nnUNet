@@ -63,7 +63,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
 
         self.optimizer.zero_grad()
 
-        with autocast(self.device_type):
+        with autocast(self.device.type, enabled=self.device.type != 'cpu'):
             output = self.network(data)
             del data
             l = self.loss(output, target)

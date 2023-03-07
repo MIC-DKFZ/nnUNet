@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import torch
+
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
@@ -15,7 +17,7 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
     If we switch to this oversampling then we can keep it at a constant 0.33 or whatever.
     """
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda'):
+                 device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = float(np.mean(
             [not sample_idx < round(self.configuration_manager.batch_size * (1 - self.oversample_foreground_percent))
@@ -60,14 +62,14 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
 
 class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda'):
+                 device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = 0.33
 
 
 class nnUNetTrainer_probabilisticOversampling_010(nnUNetTrainer_probabilisticOversampling):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: str = 'cuda'):
+                 device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = 0.1
 
