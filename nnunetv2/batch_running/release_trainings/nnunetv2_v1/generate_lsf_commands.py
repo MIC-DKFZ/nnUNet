@@ -21,25 +21,25 @@ if __name__ == "__main__":
     # after the Nature Methods paper we switch our evaluation to a different (more stable/high quality) set of
     # datasets for evaluation and future development
     configurations_all = {
-        1: ("3d_fullres", "2d"),
+        # 1: ("3d_fullres", "2d"),
         2: ("3d_fullres", "2d"),
-        3: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        4: ("2d", "3d_fullres"),
+        # 3: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 4: ("2d", "3d_fullres"),
         5: ("2d", "3d_fullres"),
-        6: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        7: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        8: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        9: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        10: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        17: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 6: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 7: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 8: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 9: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 10: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 17: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         20: ("2d", "3d_fullres"),
         24: ("2d", "3d_fullres"),
         27: ("2d", "3d_fullres"),
         35: ("2d", "3d_fullres"),
         38: ("2d", "3d_fullres"),
-        55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        64: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        82: ("2d", "3d_fullres"),
+        # 55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 64: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 82: ("2d", "3d_fullres"),
         # 83: ("2d", "3d_fullres"),
     }
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=1G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster4.sh && "
-    train_command = 'nnUNet_results=/dkfz/cluster/gpu/data/OE0441/isensee/nnUNet_results_remake_release nnUNetv2_train'
+    train_command = 'nnUNet_results=/dkfz/cluster/gpu/data/OE0441/isensee/nnUNet_results_remake_release_normfix nnUNetv2_train'
 
     folds = (0, 1, 2, 3, 4)
     # use_this = configurations_2d_only
