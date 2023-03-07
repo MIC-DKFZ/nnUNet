@@ -112,7 +112,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     del dataset_json["modality"]
     del dataset_json["training"]
     del dataset_json["test"]
-    save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'))
+    save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'), sort_keys=False)
 
 
 def entry_point():

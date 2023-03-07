@@ -30,4 +30,4 @@ if __name__ == '__main__':
             'inherits_from': '3d_fullres',
             "previous_stage": "3d_lowres"
         }
-        save_json(plans, join(nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'))
+        save_json(plans, join(nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'), sort_keys=False)

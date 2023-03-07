@@ -232,6 +232,9 @@ def run_training_entry():
     if args.device == 'cpu':
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
+    else:
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
                  args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing,

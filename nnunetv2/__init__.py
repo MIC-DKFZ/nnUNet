@@ -1,2 +1,3 @@
 import os
+# we don't really need this anymore but let's be safe...
 os.environ['OMP_NUM_THREADS'] = '1'

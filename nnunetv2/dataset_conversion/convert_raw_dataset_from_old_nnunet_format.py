@@ -37,7 +37,7 @@ def convert(source_folder, target_dataset_name):
 
     dataset_json['labels'] = {j: int(i) for i, j in dataset_json['labels'].items()}
     dataset_json['file_ending'] = ".nii.gz"
-    save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'))
+    save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'), sort_keys=False)
 
 
 def convert_entry_point():

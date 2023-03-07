@@ -787,8 +787,8 @@ class nnUNetTrainer(object):
         self.dataloader_train, self.dataloader_val = self.get_dataloaders()
 
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
-        save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'))
-        save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'))
+        save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'), sort_keys=False)
+        save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'), sort_keys=False)
 
         # we don't really need the fingerprint but its still handy to have it with the others
         shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
