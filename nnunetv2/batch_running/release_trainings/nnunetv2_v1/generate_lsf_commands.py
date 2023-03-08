@@ -65,7 +65,7 @@ if __name__ == "__main__":
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=1G"
     queue = "-q gpu-lowprio"
     preamble = "-L /bin/bash \"source ~/load_env_cluster4.sh && "
-    train_command = 'nnUNet_results=/dkfz/cluster/gpu/data/OE0441/isensee/nnUNet_results_remake_release_normfix nnUNetv2_train'
+    train_command = 'nnUNet_keep_files_open=True nnUNet_results=/dkfz/cluster/gpu/data/OE0441/isensee/nnUNet_results_remake_release_normfix nnUNetv2_train'
 
     folds = (0, 1, 2, 3, 4)
     # use_this = configurations_2d_only

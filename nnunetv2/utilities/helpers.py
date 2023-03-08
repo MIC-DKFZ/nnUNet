@@ -13,6 +13,7 @@ def empty_cache(device: torch.device):
     if device.type == 'cuda':
         torch.cuda.empty_cache()
     elif device.type == 'mps':
-        torch.mps.empty_cache()
+        from torch import mps
+        mps.empty_cache()
     else:
         pass
