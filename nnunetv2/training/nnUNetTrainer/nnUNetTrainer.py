@@ -49,7 +49,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-from nnunetv2.utilities.helpers import empty_cache
+from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from sklearn.model_selection import KFold
@@ -834,7 +834,7 @@ class nnUNetTrainer(object):
 
         self.optimizer.zero_grad()
         # autocast is slow as shit on my CPU? It's way faster to disable it...
-        with autocast(self.device.type, enabled=self.device.type != 'cpu'):
+        with autocast(self.device.type, enabled=self.device.type != 'cpu') if self.device.type != 'mps' else dummy_context():
             output = self.network(data)
             # del data
             l = self.loss(output, target)
@@ -876,7 +876,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        with autocast(self.device.type, enabled=self.device.type != 'cpu'):
+        with autocast(self.device.type, enabled=self.device.type != 'cpu') if self.device.type != 'mps' else dummy_context():
             output = self.network(data)
             del data
             l = self.loss(output, target)

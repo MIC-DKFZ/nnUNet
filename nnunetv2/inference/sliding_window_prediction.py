@@ -7,7 +7,7 @@ from acvl_utils.cropping_and_padding.padding import pad_nd_image
 from scipy.ndimage import gaussian_filter
 from torch import nn
 
-from nnunetv2.utilities.helpers import empty_cache
+from nnunetv2.utilities.helpers import empty_cache, dummy_context
 
 
 def compute_gaussian(tile_size: Tuple[int, ...], sigma_scale: float = 1. / 8, dtype=np.float16) \
@@ -127,7 +127,7 @@ def predict_sliding_window_return_logits(network: nn.Module,
     empty_cache(device)
 
     with torch.no_grad():
-        with torch.autocast(device.type, enabled=device.type != 'cpu'):
+        with torch.autocast(device.type, enabled=device.type != 'cpu') if device.type != 'mps' else dummy_context():
             assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
             if not torch.cuda.is_available():

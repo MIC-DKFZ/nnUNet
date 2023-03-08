@@ -4,6 +4,7 @@ from torch import autocast
 from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.utilities.helpers import dummy_context
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -63,7 +64,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
 
         self.optimizer.zero_grad()
 
-        with autocast(self.device.type, enabled=self.device.type != 'cpu'):
+        with autocast(self.device.type, enabled=self.device.type != 'cpu') if self.device.type != 'mps' else dummy_context():
             output = self.network(data)
             del data
             l = self.loss(output, target)
