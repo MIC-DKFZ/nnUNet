@@ -127,7 +127,11 @@ def predict_sliding_window_return_logits(network: nn.Module,
     empty_cache(device)
 
     with torch.no_grad():
-        with torch.autocast(device.type, enabled=device.type != 'cpu') if device.type != 'mps' else dummy_context():
+        # Autocast is a little bitch.
+        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
+        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
+        # So autocast will only be active if we have a cuda device.
+        with torch.autocast(device.type, enabled=True) if device.type == 'cuda' else dummy_context():
             assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
             if not torch.cuda.is_available():
