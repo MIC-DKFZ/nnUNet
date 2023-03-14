@@ -20,7 +20,7 @@ import numpy as np
 import torch
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
-from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
+from nnunet.utilities.to_torch import maybe_to_torch
 from nnunet.network_architecture.generic_UNet import Generic_UNet
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
@@ -31,7 +31,7 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.cuda.amp import autocast
+from nnunet.backends import backend, is_backend_cuda
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
 
@@ -87,6 +87,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
             self.ds_loss_weights = weights
             # now wrap the loss
             self.loss = MultipleOutputLoss2(self.loss, self.ds_loss_weights)
+            backend.to(self.loss)
             ################# END ###################
 
             self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
@@ -157,14 +158,16 @@ class nnUNetTrainerV2(nnUNetTrainer):
                                     dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        if torch.cuda.is_available():
-            self.network.cuda()
+        
+        if backend.is_available():
+            self.network = backend.to(self.network)
+
         self.network.inference_apply_nonlin = softmax_helper
 
     def initialize_optimizer_and_scheduler(self):
         assert self.network is not None, "self.initialize_network must be called first"
-        self.optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                         momentum=0.99, nesterov=True)
+        self.network, self.optimizer = backend.optimizer(model=self.network, optimizer=torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+                                         momentum=0.99, nesterov=True))
         self.lr_scheduler = None
 
     def run_online_evaluation(self, output, target):
@@ -236,24 +239,28 @@ class nnUNetTrainerV2(nnUNetTrainer):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        if torch.cuda.is_available():
-            data = to_cuda(data)
-            target = to_cuda(target)
+        if backend.is_available():
+            data = backend.to(data)
+            target = backend.to(target)
 
         self.optimizer.zero_grad()
 
         if self.fp16:
-            with autocast():
+            with backend.autocast():
                 output = self.network(data)
                 del data
                 l = self.loss(output, target)
 
-            if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.unscale_(self.optimizer)
+            if do_backprop and self.grad_scaler:
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
+            elif do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
         else:
             output = self.network(data)
             del data

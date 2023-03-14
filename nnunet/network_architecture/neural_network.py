@@ -16,13 +16,13 @@
 import numpy as np
 from batchgenerators.augmentations.utils import pad_nd_image
 from nnunet.utilities.random_stuff import no_op
-from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
+from nnunet.utilities.to_torch import maybe_to_torch
 from torch import nn
 import torch
 from scipy.ndimage.filters import gaussian_filter
 from typing import Union, Tuple, List
 
-from torch.cuda.amp import autocast
+from nnunet.backends import backend
 
 
 class NeuralNetwork(nn.Module):
@@ -39,7 +39,7 @@ class NeuralNetwork(nn.Module):
         if device == "cpu":
             self.cpu()
         else:
-            self.cuda(device)
+            backend.to(device)
 
     def forward(self, x):
         raise NotImplementedError
@@ -108,7 +108,7 @@ class SegmentationNetwork(NeuralNetwork):
         :param mixed_precision: if True, will run inference in mixed precision with autocast()
         :return:
         """
-        torch.cuda.empty_cache()
+        backend.empty_cache()
 
         assert step_size <= 1, 'step_size must be smaller than 1. Otherwise there will be a gap between consecutive ' \
                                'predictions'
@@ -134,7 +134,7 @@ class SegmentationNetwork(NeuralNetwork):
         assert len(x.shape) == 4, "data must have shape (c,x,y,z)"
 
         if mixed_precision:
-            context = autocast
+            context = backend.autocast
         else:
             context = no_op
 
@@ -198,7 +198,7 @@ class SegmentationNetwork(NeuralNetwork):
         :param verbose: Do you want a wall of text? If yes then set this to True
         :return:
         """
-        torch.cuda.empty_cache()
+        backend.empty_cache()
 
         assert step_size <= 1, 'step_size must be smaler than 1. Otherwise there will be a gap between consecutive ' \
                                'predictions'
@@ -223,7 +223,7 @@ class SegmentationNetwork(NeuralNetwork):
         assert len(x.shape) == 3, "data must have shape (c,x,y)"
 
         if mixed_precision:
-            context = autocast
+            context = backend.autocast
         else:
             context = no_op
 
@@ -329,8 +329,8 @@ class SegmentationNetwork(NeuralNetwork):
             gaussian_importance_map = torch.from_numpy(gaussian_importance_map)
 
             #predict on cpu if cuda not available
-            if torch.cuda.is_available():
-                gaussian_importance_map = gaussian_importance_map.cuda(self.get_device(), non_blocking=True)
+            if backend.is_available():
+                gaussian_importance_map = backend.to(gaussian_importance_map, self.get_device(), non_blocking=True)
 
         else:
             gaussian_importance_map = None
@@ -357,7 +357,7 @@ class SegmentationNetwork(NeuralNetwork):
                                              device=self.get_device())
 
             if verbose: print("moving data to GPU")
-            data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
+            data = backend.to(torch.from_numpy(data), self.get_device(), non_blocking=True)
 
             if verbose: print("initializing result_numsamples (on GPU)")
             aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
@@ -511,14 +511,14 @@ class SegmentationNetwork(NeuralNetwork):
         result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
                                    dtype=torch.float)
 
-        if torch.cuda.is_available():
-            x = to_cuda(x, gpu_id=self.get_device())
-            result_torch = result_torch.cuda(self.get_device(), non_blocking=True)
+        if backend.is_available():
+            x = backend.to(x, gpu_id=self.get_device())
+            result_torch = backend.to(result_torch, self.get_device(), non_blocking=True)
 
         if mult is not None:
             mult = maybe_to_torch(mult)
-            if torch.cuda.is_available():
-                mult = to_cuda(mult, gpu_id=self.get_device())
+            if backend.is_available():
+                mult = backend.to(mult, gpu_id=self.get_device())
 
         if do_mirroring:
             mirror_idx = 8
@@ -577,14 +577,14 @@ class SegmentationNetwork(NeuralNetwork):
         x = maybe_to_torch(x)
         result_torch = torch.zeros([x.shape[0], self.num_classes] + list(x.shape[2:]), dtype=torch.float)
 
-        if torch.cuda.is_available():
-            x = to_cuda(x, gpu_id=self.get_device())
-            result_torch = result_torch.cuda(self.get_device(), non_blocking=True)
+        if backend.is_available():
+            x = backend.to(x, gpu_id=self.get_device())
+            result_torch = backend.to(result_torch, self.get_device(), non_blocking=True)
 
         if mult is not None:
             mult = maybe_to_torch(mult)
-            if torch.cuda.is_available():
-                mult = to_cuda(mult, gpu_id=self.get_device())
+            if backend.is_available():
+                mult = backend.to(mult, gpu_id=self.get_device())
 
         if do_mirroring:
             mirror_idx = 4
@@ -657,8 +657,8 @@ class SegmentationNetwork(NeuralNetwork):
                 gaussian_importance_map = self._gaussian_2d
 
             gaussian_importance_map = torch.from_numpy(gaussian_importance_map)
-            if torch.cuda.is_available():
-                gaussian_importance_map = gaussian_importance_map.cuda(self.get_device(), non_blocking=True)
+            if backend.is_available():
+                gaussian_importance_map = backend.to(gaussian_importance_map, self.get_device(), non_blocking=True)
 
         else:
             gaussian_importance_map = None
@@ -685,7 +685,7 @@ class SegmentationNetwork(NeuralNetwork):
                                              device=self.get_device())
 
             if verbose: print("moving data to GPU")
-            data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
+            data = backend.to(torch.from_numpy(data), self.get_device(), non_blocking=True)
 
             if verbose: print("initializing result_numsamples (on GPU)")
             aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,

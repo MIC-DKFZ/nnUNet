@@ -37,13 +37,13 @@ from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.utilities.distributed import awesome_allgather_function
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
-from nnunet.utilities.to_torch import to_cuda, maybe_to_torch
+from nnunet.utilities.to_torch import maybe_to_torch
 from torch import nn, distributed
-from torch.backends import cudnn
-from torch.cuda.amp import autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim.lr_scheduler import _LRScheduler
 from tqdm import trange
+
+from nnunet.backends import backend
 
 
 class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
@@ -58,12 +58,12 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         self.distribute_batch_size = distribute_batch_size
         np.random.seed(local_rank)
         torch.manual_seed(local_rank)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(local_rank)
+        if backend.is_available():
+            backend.manual_seed_all(local_rank)
         self.local_rank = local_rank
 
-        if torch.cuda.is_available():
-            torch.cuda.set_device(local_rank)
+        if backend.is_available():
+            backend.set_device(local_rank)
         dist.init_process_group(backend='nccl', init_method='env://')
 
         self.loss = None
@@ -209,24 +209,28 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        if torch.cuda.is_available():
-            data = to_cuda(data, gpu_id=None)
-            target = to_cuda(target, gpu_id=None)
+        if backend.is_available():
+            data = backend.to(data, gpu_id=None)
+            target = backend.to(target, gpu_id=None)
 
         self.optimizer.zero_grad()
 
         if self.fp16:
-            with autocast():
+            with backend.autocast():
                 output = self.network(data)
                 del data
                 l = self.compute_loss(output, target)
 
-            if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.unscale_(self.optimizer)
+            if do_backprop and self.grad_scaler:
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
+            elif do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
         else:
             output = self.network(data)
             del data
@@ -323,8 +327,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         if self.local_rank == 0:
             self.save_debug_information()
 
-        if not torch.cuda.is_available():
-            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (torch.cuda.is_available() is False). This can be VERY slow!")
+        if not backend.is_available():
+            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (no CUDA/XPU accelerator found). This can be VERY slow!")
 
         self.maybe_update_lr(self.epoch)  # if we dont overwrite epoch then self.epoch+1 is used which is not what we
         # want at the start of the training
@@ -338,17 +342,17 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if backend.is_available():
+            backend.empty_cache()
 
         self._maybe_init_amp()
 
         maybe_mkdir_p(self.output_folder)
         self.plot_network_architecture()
 
-        if cudnn.benchmark and cudnn.deterministic:
-            warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
-                 "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
+        if backend.is_benchmark() and backend.is_deterministic():
+            warn(f"{backend.name()}.deterministic is True indicating a deterministic training is desired. "
+                 f"But {backend.name()}.benchmark is True as well and this will prevent deterministic training! "
                  "If you want deterministic then set benchmark=False")
 
         if not self.was_initialized:
@@ -653,7 +657,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         if self.fp16:
             self._maybe_init_amp()
             if 'amp_grad_scaler' in checkpoint.keys():
-                self.amp_grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
+                self.grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
 
         self.network.load_state_dict(new_state_dict)
         self.epoch = checkpoint['epoch']

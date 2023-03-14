@@ -43,6 +43,8 @@ from nnunet.training.network_training.network_trainer import NetworkTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
 
+from nnunet.backends import backend
+
 matplotlib.use("agg")
 
 
@@ -260,13 +262,13 @@ class nnUNetTrainer(NetworkTrainer):
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         self.network.inference_apply_nonlin = softmax_helper
 
-        if torch.cuda.is_available():
-            self.network.cuda()
+        if backend.is_available():
+            self.network = backend.to(self.network)
 
     def initialize_optimizer_and_scheduler(self):
         assert self.network is not None, "self.initialize_network must be called first"
-        self.optimizer = torch.optim.Adam(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                          amsgrad=True)
+        self.network, self.optimizer = backend.optimizer(model=self.network, optimizer=torch.optim.Adam(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+                                          amsgrad=True))
         self.lr_scheduler = lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.2,
                                                            patience=self.lr_scheduler_patience,
                                                            verbose=True, threshold=self.lr_scheduler_eps,
@@ -276,8 +278,8 @@ class nnUNetTrainer(NetworkTrainer):
         try:
             from batchgenerators.utilities.file_and_folder_operations import join
             import hiddenlayer as hl
-            if torch.cuda.is_available():
-                g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)).cuda(),
+            if backend.is_available():
+                g = hl.build_graph(self.network, backend.to(torch.rand((1, self.num_input_channels, *self.patch_size))),
                                    transforms=None)
             else:
                 g = hl.build_graph(self.network, torch.rand((1, self.num_input_channels, *self.patch_size)),
@@ -292,8 +294,8 @@ class nnUNetTrainer(NetworkTrainer):
             self.print_to_log_file(self.network)
             self.print_to_log_file("\n")
         finally:
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            if backend.is_available():
+                backend.empty_cache()
 
     def save_debug_information(self):
         # saving some debug information
