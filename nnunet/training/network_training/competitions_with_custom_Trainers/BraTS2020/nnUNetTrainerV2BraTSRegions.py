@@ -33,7 +33,9 @@ from nnunet.training.loss_functions.dice_loss import DC_and_BCE_loss, get_tp_fp_
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.network_training.nnUNetTrainerV2_DDP import nnUNetTrainerV2_DDP
 from nnunet.utilities.distributed import awesome_allgather_function
-from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
+from nnunet.utilities.to_torch import maybe_to_torch
+
+from nnunet.backends import backend
 
 
 class nnUNetTrainerV2BraTSRegions_BN(nnUNetTrainerV2):
@@ -331,9 +333,9 @@ class nnUNetTrainerV2BraTSRegions_DDP(nnUNetTrainerV2_DDP):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        if torch.cuda.is_available():
-            data = to_cuda(data, gpu_id=None)
-            target = to_cuda(target, gpu_id=None)
+        if backend.is_available():
+            data = backend.to(data, gpu_id=None)
+            target = backend.to(target, gpu_id=None)
 
         self.optimizer.zero_grad()
 

@@ -22,6 +22,8 @@ from torch import nn
 import numpy as np
 from torch.optim import SGD
 
+from nnunet.backends import backend
+
 """
 The idea behind this modular U-net ist that we decouple encoder and decoder and thus make things a) a lot more easy to 
 combine and b) enable easy swapping between segmentation or classification mode of the same architecture
@@ -403,15 +405,15 @@ if __name__ == "__main__":
                             (2, 2))
     patch_size = (256, 256)
     batch_size = 56
-    unet = PlainConvUNet(4, 32, (2, 2, 2, 2, 2, 2, 2), 2, pool_op_kernel_sizes, conv_op_kernel_sizes,
-                         get_default_network_config(2, dropout_p=None), 4, (2, 2, 2, 2, 2, 2), False, False, max_features=512).cuda()
+    unet = backend.to(PlainConvUNet(4, 32, (2, 2, 2, 2, 2, 2, 2), 2, pool_op_kernel_sizes, conv_op_kernel_sizes,
+                         get_default_network_config(2, dropout_p=None), 4, (2, 2, 2, 2, 2, 2), False, False, max_features=512))
     optimizer = SGD(unet.parameters(), lr=0.1, momentum=0.95)
 
     unet.compute_reference_for_vram_consumption_3d()
     unet.compute_reference_for_vram_consumption_2d()
 
-    dummy_input = torch.rand((batch_size, 4, *patch_size)).cuda()
-    dummy_gt = (torch.rand((batch_size, 1, *patch_size)) * 4).round().clamp_(0, 3).cuda().long()
+    dummy_input = backend.to(torch.rand((batch_size, 4, *patch_size)))
+    dummy_gt = backend.to((torch.rand((batch_size, 1, *patch_size)) * 4).round().clamp_(0, 3)).long()
 
     optimizer.zero_grad()
     skips = unet.encoder(dummy_input)

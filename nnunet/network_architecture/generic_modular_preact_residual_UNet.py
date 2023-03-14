@@ -1,8 +1,9 @@
 import numpy as np
 from copy import deepcopy
 import torch
-from torch.backends import cudnn
-from torch.cuda.amp import GradScaler, autocast
+
+from nnunet.backends import backend
+
 from torch.nn import Identity
 
 from nnunet.network_architecture.generic_UNet import Upsample
@@ -492,8 +493,8 @@ class FabiansPreActUNet(SegmentationNetwork):
 
 
 def find_3d_configuration():
-    cudnn.benchmark = True
-    cudnn.deterministic = False
+    backend.set_benchmark(True)
+    backend.set_deterministic(False)
 
     conv_op_kernel_sizes = ((3, 3, 3),
                             (3, 3, 3),
@@ -518,11 +519,11 @@ def find_3d_configuration():
     max_features = 320
     batch_size = 2
 
-    unet = FabiansPreActUNet(input_modalities, base_num_features, blocks_per_stage_encoder, feat_map_mult_on_downscale,
+    unet = backend.to(FabiansPreActUNet(input_modalities, base_num_features, blocks_per_stage_encoder, feat_map_mult_on_downscale,
     pool_op_kernel_sizes, conv_op_kernel_sizes, get_default_network_config(3, dropout_p=None), num_classes,
-    blocks_per_stage_decoder, True, False, max_features=max_features).cuda()
+    blocks_per_stage_decoder, True, False, max_features=max_features))
 
-    scaler = GradScaler()
+    scaler = backend.get_gradscaler()
     optimizer = SGD(unet.parameters(), lr=0.1, momentum=0.95)
 
     print(unet.compute_approx_vram_consumption(patch_size, base_num_features, max_features, input_modalities,
@@ -531,13 +532,13 @@ def find_3d_configuration():
 
     loss = DC_and_CE_loss({'batch_dice': True, 'smooth': 1e-5, 'do_bg': False}, {})
 
-    dummy_input = torch.rand((batch_size, input_modalities, *patch_size)).cuda()
-    dummy_gt = (torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, num_classes-1).cuda().long()
+    dummy_input = backend.to(torch.rand((batch_size, input_modalities, *patch_size)))
+    dummy_gt = backend.to((torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, num_classes-1)).long()
 
     for i in range(10):
         optimizer.zero_grad()
 
-        with autocast():
+        with backend.autocast():
             skips = unet.encoder(dummy_input)
             print([i.shape for i in skips])
             output = unet.decoder(skips)[0]
@@ -548,15 +549,15 @@ def find_3d_configuration():
             scaler.step(optimizer)
             scaler.update()
 
-    with autocast():
+    with backend.autocast():
         import hiddenlayer as hl
         g = hl.build_graph(unet, dummy_input, transforms=None)
         g.save("/home/fabian/test_arch.pdf")
 
 
 def find_2d_configuration():
-    cudnn.benchmark = True
-    cudnn.deterministic = False
+    backend.set_benchmark(True)
+    backend.set_deterministic(False)
 
     conv_op_kernel_sizes = ((3, 3),
                             (3, 3),
@@ -583,11 +584,11 @@ def find_2d_configuration():
     max_features = 512
     batch_size = 50
 
-    unet = FabiansPreActUNet(input_modalities, base_num_features, blocks_per_stage_encoder, feat_map_mult_on_downscale,
+    unet = backend.to(FabiansPreActUNet(input_modalities, base_num_features, blocks_per_stage_encoder, feat_map_mult_on_downscale,
     pool_op_kernel_sizes, conv_op_kernel_sizes, get_default_network_config(2, dropout_p=None), num_classes,
-    blocks_per_stage_decoder, True, False, max_features=max_features).cuda()
+    blocks_per_stage_decoder, True, False, max_features=max_features))
 
-    scaler = GradScaler()
+    scaler = backend.get_gradscaler()
     optimizer = SGD(unet.parameters(), lr=0.1, momentum=0.95)
 
     print(unet.compute_approx_vram_consumption(patch_size, base_num_features, max_features, input_modalities,
@@ -596,13 +597,13 @@ def find_2d_configuration():
 
     loss = DC_and_CE_loss({'batch_dice': True, 'smooth': 1e-5, 'do_bg': False}, {})
 
-    dummy_input = torch.rand((batch_size, input_modalities, *patch_size)).cuda()
-    dummy_gt = (torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, num_classes-1).cuda().long()
+    dummy_input = backend.to(torch.rand((batch_size, input_modalities, *patch_size)))
+    dummy_gt = backend.to((torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, num_classes-1)).long()
 
     for i in range(10):
         optimizer.zero_grad()
 
-        with autocast():
+        with backend.autocast():
             skips = unet.encoder(dummy_input)
             print([i.shape for i in skips])
             output = unet.decoder(skips)[0]
@@ -613,7 +614,7 @@ def find_2d_configuration():
             scaler.step(optimizer)
             scaler.update()
 
-    with autocast():
+    with backend.autocast():
         import hiddenlayer as hl
         g = hl.build_graph(unet, dummy_input, transforms=None)
         g.save("/home/fabian/test_arch.pdf")

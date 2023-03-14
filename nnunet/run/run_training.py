@@ -12,6 +12,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+# ensure that ipex extensions are loaded in the propper order
+from nnunet.backends import backend
 
 import argparse
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -138,6 +140,7 @@ def main():
 
     plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
     trainer_class = get_default_configuration(network, task, network_trainer, plans_identifier)
+    print(f'Using training class {trainer_class} {trainer_class.__module__}')
 
     if trainer_class is None:
         raise RuntimeError("Could not find trainer class in nnunet.training.network_training")
@@ -179,7 +182,13 @@ def main():
                 # new training without pretraine weights, do nothing
                 pass
 
-            trainer.run_training()
+            from torch.profiler import profile, record_function, ProfilerActivity
+
+            print(dir(ProfilerActivity))
+            with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+                trainer.run_training()
+            prof.export_chrome_trace("trace.json")
+
         else:
             if valbest:
                 trainer.load_best_checkpoint(train=False)

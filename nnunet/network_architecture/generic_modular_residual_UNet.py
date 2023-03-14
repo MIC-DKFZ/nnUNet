@@ -22,7 +22,8 @@ from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from torch import nn
 from torch.optim import SGD
-from torch.backends import cudnn
+
+from nnunet.backends import backend
 
 
 class ResidualUNetEncoder(nn.Module):
@@ -380,8 +381,8 @@ def find_3d_configuration():
 
     # since this is more parameter intensive than the UNet, we will test a configuration that has a lot of parameters
     # herefore we copy the UNet configuration for Task005_Prostate
-    cudnn.deterministic = False
-    cudnn.benchmark = True
+    backend.set_deterministic(False)
+    backend.set_benchmark(True)
 
     patch_size = (20, 320, 256)
     max_num_features = 320
@@ -411,17 +412,17 @@ def find_3d_configuration():
                             [3, 3, 3],
                             [3, 3, 3]]
 
-    unet = FabiansUNet(num_modalities, initial_num_features, blocks_per_stage_encoder[:len(conv_op_kernel_sizes)], 2,
+    unet = backend.to(FabiansUNet(num_modalities, initial_num_features, blocks_per_stage_encoder[:len(conv_op_kernel_sizes)], 2,
                        pool_op_kernel_sizes, conv_op_kernel_sizes,
                        get_default_network_config(3, dropout_p=None), num_classes,
                        blocks_per_stage_decoder[:len(conv_op_kernel_sizes)-1], False, False,
-                       max_features=max_num_features).cuda()
+                       max_features=max_num_features))
 
     optimizer = SGD(unet.parameters(), lr=0.1, momentum=0.95)
     loss = DC_and_CE_loss({'batch_dice': True, 'smooth': 1e-5, 'do_bg': False}, {})
 
-    dummy_input = torch.rand((batch_size, num_modalities, *patch_size)).cuda()
-    dummy_gt = (torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, 2).cuda().long()
+    dummy_input = backend.to(torch.rand((batch_size, num_modalities, *patch_size)))
+    dummy_gt = backend.to((torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, 2))
 
     for _ in range(20):
         optimizer.zero_grad()
@@ -434,7 +435,7 @@ def find_3d_configuration():
 
         optimizer.step()
         if _ == 0:
-            torch.cuda.empty_cache()
+            backend.empty_cache()
 
     # that should do. Now take the network hyperparameters and insert them in FabiansUNet.compute_approx_vram_consumption
     # whatever number this spits out, save it to FabiansUNet.use_this_for_batch_size_computation_3D
@@ -454,8 +455,8 @@ def find_2d_configuration():
 
     # since this is more parameter intensive than the UNet, we will test a configuration that has a lot of parameters
     # herefore we copy the UNet configuration for Task003_Liver
-    cudnn.deterministic = False
-    cudnn.benchmark = True
+    backend.set_deterministic(False)
+    backend.set_benchmark(True)
 
     patch_size = (512, 512)
     max_num_features = 512
@@ -487,17 +488,17 @@ def find_2d_configuration():
                            [3, 3],
                            [3, 3]]
 
-    unet = FabiansUNet(num_modalities, initial_num_features, blocks_per_stage_encoder[:len(conv_op_kernel_sizes)], 2,
+    unet = backend.to(FabiansUNet(num_modalities, initial_num_features, blocks_per_stage_encoder[:len(conv_op_kernel_sizes)], 2,
                        pool_op_kernel_sizes, conv_op_kernel_sizes,
                        get_default_network_config(2, dropout_p=None), num_classes,
                        blocks_per_stage_decoder[:len(conv_op_kernel_sizes)-1], False, False,
-                       max_features=max_num_features).cuda()
+                       max_features=max_num_features))
 
     optimizer = SGD(unet.parameters(), lr=0.1, momentum=0.95)
     loss = DC_and_CE_loss({'batch_dice': True, 'smooth': 1e-5, 'do_bg': False}, {})
 
-    dummy_input = torch.rand((batch_size, num_modalities, *patch_size)).cuda()
-    dummy_gt = (torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, 2).cuda().long()
+    dummy_input = backend.to(torch.rand((batch_size, num_modalities, *patch_size)))
+    dummy_gt = backend.to((torch.rand((batch_size, 1, *patch_size)) * num_classes).round().clamp_(0, 2)).long()
 
     for _ in range(20):
         optimizer.zero_grad()
@@ -510,7 +511,7 @@ def find_2d_configuration():
 
         optimizer.step()
         if _ == 0:
-            torch.cuda.empty_cache()
+            backend.empty_cache()
 
     # that should do. Now take the network hyperparameters and insert them in FabiansUNet.compute_approx_vram_consumption
     # whatever number this spits out, save it to FabiansUNet.use_this_for_batch_size_computation_2D

@@ -21,8 +21,9 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from sklearn.model_selection import KFold
 from torch import nn
-from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import _LRScheduler
+
+from nnunet.backends import backend
 
 matplotlib.use("agg")
 from time import time, sleep
@@ -32,11 +33,10 @@ from torch.optim import lr_scheduler
 import matplotlib.pyplot as plt
 import sys
 from collections import OrderedDict
-import torch.backends.cudnn as cudnn
 from abc import abstractmethod
 from datetime import datetime
 from tqdm import trange
-from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
+from nnunet.utilities.to_torch import maybe_to_torch
 
 
 class NetworkTrainer(object):
@@ -57,18 +57,18 @@ class NetworkTrainer(object):
         - predict_test_case
         """
         self.fp16 = fp16
-        self.amp_grad_scaler = None
+        self.grad_scaler = None
 
         if deterministic:
             np.random.seed(12345)
             torch.manual_seed(12345)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(12345)
-            cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
+            if backend.is_available():
+                backend.manual_seed_all(12345)
+            backend.set_deterministic(True)
+            backend.set_benchmark(False)
         else:
-            cudnn.deterministic = False
-            torch.backends.cudnn.benchmark = True
+            backend.set_deterministic(False)
+            backend.set_benchmark(True)
 
         ################# SET THESE IN self.initialize() ###################################
         self.network: Tuple[SegmentationNetwork, nn.DataParallel] = None
@@ -281,8 +281,8 @@ class NetworkTrainer(object):
             'plot_stuff': (self.all_tr_losses, self.all_val_losses, self.all_val_losses_tr_mode,
                            self.all_val_eval_metrics),
             'best_stuff' : (self.best_epoch_based_on_MA_tr_loss, self.best_MA_tr_loss_for_patience, self.best_val_eval_criterion_MA)}
-        if self.amp_grad_scaler is not None:
-            save_this['amp_grad_scaler'] = self.amp_grad_scaler.state_dict()
+        if self.grad_scaler is not None:
+            save_this['amp_grad_scaler'] = self.grad_scaler.state_dict()
 
         torch.save(save_this, fname)
         self.print_to_log_file("done, saving took %.2f seconds" % (time() - start_time))
@@ -360,7 +360,7 @@ class NetworkTrainer(object):
             self._maybe_init_amp()
             if train:
                 if 'amp_grad_scaler' in checkpoint.keys():
-                    self.amp_grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
+                    self.grad_scaler.load_state_dict(checkpoint['amp_grad_scaler'])
 
         self.network.load_state_dict(new_state_dict)
         self.epoch = checkpoint['epoch']
@@ -400,8 +400,8 @@ class NetworkTrainer(object):
         self._maybe_init_amp()
 
     def _maybe_init_amp(self):
-        if self.fp16 and self.amp_grad_scaler is None:
-            self.amp_grad_scaler = GradScaler()
+        if self.fp16 and self.grad_scaler is None:
+            self.grad_scaler = backend.get_gradscaler()
 
     def plot_network_architecture(self):
         """
@@ -412,23 +412,23 @@ class NetworkTrainer(object):
         pass
 
     def run_training(self):
-        if not torch.cuda.is_available():
-            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (torch.cuda.is_available() is False). This can be VERY slow!")
+        if not backend.is_available():
+            self.print_to_log_file("WARNING!!! You are attempting to run training on a CPU (no CUDA/XPU accelerator found). This can be VERY slow!")
 
         _ = self.tr_gen.next()
         _ = self.val_gen.next()
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if backend.is_available():
+            backend.empty_cache()
 
         self._maybe_init_amp()
 
         maybe_mkdir_p(self.output_folder)        
         self.plot_network_architecture()
 
-        if cudnn.benchmark and cudnn.deterministic:
-            warn("torch.backends.cudnn.deterministic is True indicating a deterministic training is desired. "
-                 "But torch.backends.cudnn.benchmark is True as well and this will prevent deterministic training! "
+        if backend.is_benchmark() and backend.is_deterministic():
+            warn(f"{backend.name()}.deterministic is True indicating a deterministic training is desired. "
+                 f"But {backend.name()}.benchmark is True as well and this will prevent deterministic training! "
                  "If you want deterministic then set benchmark=False")
 
         if not self.was_initialized:
@@ -632,22 +632,27 @@ class NetworkTrainer(object):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        if torch.cuda.is_available():
-            data = to_cuda(data)
-            target = to_cuda(target)
+        if backend.is_available():
+            data = backend.to(data)
+            target = backend.to(target)
 
         self.optimizer.zero_grad()
 
         if self.fp16:
-            with autocast():
+            with backend.autocast(dtype=torch.float16):
                 output = self.network(data)
                 del data
                 l = self.loss(output, target)
 
-            if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+            if do_backprop and self.grad_scaler:
+                # not all accelerators have a grad scaler implementation that is used in this way
+                # e.g. at the time of writing CUDA supports GradScaler and Intel XPU does not.
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
+            elif do_backprop:
+                l.backward()
+                self.optimizer.step()
         else:
             output = self.network(data)
             del data

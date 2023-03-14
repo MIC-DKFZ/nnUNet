@@ -19,15 +19,16 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.network_architecture.generic_UNet_DP import Generic_UNet_DP
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
-from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
+from nnunet.utilities.to_torch import maybe_to_torch
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.network_architecture.neural_network import SegmentationNetwork
 from nnunet.training.dataloading.dataset_loading import unpack_dataset
 from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
-from torch.cuda.amp import autocast
 from torch.nn.parallel.data_parallel import DataParallel
+
+from nnunet.backends import backend
 
 
 class nnUNetTrainerV2_DP(nnUNetTrainerV2):
@@ -144,14 +145,16 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op, dropout_op_kwargs,
                                     net_nonlin, net_nonlin_kwargs, True, False, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
-        if torch.cuda.is_available():
-            self.network.cuda()
+        
+        if backend.is_available():
+            self.network = backend.to(self.network)
+
         self.network.inference_apply_nonlin = softmax_helper
 
     def initialize_optimizer_and_scheduler(self):
         assert self.network is not None, "self.initialize_network must be called first"
-        self.optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                         momentum=0.99, nesterov=True)
+        self.network, self.optimizer = backend.optimizer(model=self.network, optimizer=torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+                                         momentum=0.99, nesterov=True))
         self.lr_scheduler = None
 
     def run_training(self):
@@ -175,14 +178,14 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         data = maybe_to_torch(data)
         target = maybe_to_torch(target)
 
-        if torch.cuda.is_available():
-            data = to_cuda(data)
-            target = to_cuda(target)
+        if backend.is_available():
+            data = backend.to(data)
+            target = backend.to(target)
 
         self.optimizer.zero_grad()
 
         if self.fp16:
-            with autocast():
+            with backend.autocast():
                 ret = self.network(data, target, return_hard_tp_fp_fn=run_online_evaluation)
                 if run_online_evaluation:
                     ces, tps, fps, fns, tp_hard, fp_hard, fn_hard = ret
@@ -192,12 +195,18 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
                 del data, target
                 l = self.compute_loss(ces, tps, fps, fns)
 
-            if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.unscale_(self.optimizer)
+            if do_backprop and self.grad_scaler:
+                # not all architectures have a grad scaler at the time of writing this code
+                # e.g. CUDA has one, but Intel XPU has not
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
+            elif do_backprop:
+                l.backward()
+                torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+                self.optimizer.step()
         else:
             ret = self.network(data, target, return_hard_tp_fp_fn=run_online_evaluation)
             if run_online_evaluation:

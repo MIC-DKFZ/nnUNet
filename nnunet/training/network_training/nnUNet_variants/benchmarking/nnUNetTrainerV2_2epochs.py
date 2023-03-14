@@ -120,11 +120,11 @@ class nnUNetTrainerV2_5epochs_CEnoDS(nnUNetTrainerV2_noDeepSupervision):
                 l = self.loss(output, target)
 
             if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.unscale_(self.optimizer)
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
         else:
             output = self.network(data)
             del data
@@ -194,11 +194,11 @@ class nnUNetTrainerV2_5epochs_noDS(nnUNetTrainerV2_noDeepSupervision):
                 l = self.loss(output, target)
 
             if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.unscale_(self.optimizer)
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
         else:
             output = self.network(data)
             del data
@@ -270,11 +270,11 @@ class nnUNetTrainerV2_DDP_5epochs_dummyLoad(nnUNetTrainerV2_DDP_5epochs):
                 l = self.compute_loss(output, target)
 
             if do_backprop:
-                self.amp_grad_scaler.scale(l).backward()
-                self.amp_grad_scaler.unscale_(self.optimizer)
+                self.grad_scaler.scale(l).backward()
+                self.grad_scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-                self.amp_grad_scaler.step(self.optimizer)
-                self.amp_grad_scaler.update()
+                self.grad_scaler.step(self.optimizer)
+                self.grad_scaler.update()
         else:
             output = self.network(data)
             del data
