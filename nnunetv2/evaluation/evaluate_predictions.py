@@ -43,7 +43,8 @@ def save_summary_json(results: dict, output_file: str):
         results_converted["metric_per_case"][i]['metrics'] = \
             {label_or_region_to_key(k): results["metric_per_case"][i]['metrics'][k]
              for k in results["metric_per_case"][i]['metrics'].keys()}
-    save_json(results_converted, output_file, sort_keys=False)
+    # sort_keys=True will make foreground_mean the first entry and thus easy to spot
+    save_json(results_converted, output_file, sort_keys=True)
 
 
 def load_summary_json(filename: str):

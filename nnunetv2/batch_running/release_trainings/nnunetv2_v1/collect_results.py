@@ -95,9 +95,10 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
 if __name__ == '__main__':
     use_these_trainers = {
         'nnUNetTrainer': ('nnUNetPlans',),
+        'nnUNetTrainer_v1loss': ('nnUNetPlans',),
      }
     all_results_file = join(nnUNet_results, 'customDecResults.csv')
-    datasets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 20, 24, 27, 35, 38, 48, 55, 64, 82, 83, 137]
+    datasets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 20, 24, 27, 35, 38, 48, 55, 64, 82]
     collect_results(use_these_trainers, datasets, all_results_file)
 
     folds = (0, 1, 2, 3, 4)
