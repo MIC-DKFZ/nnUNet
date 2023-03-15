@@ -209,7 +209,7 @@ class LabelManager(object):
                 ((not isinstance(i, (tuple, list))) and i != 0)
                 or
                 (isinstance(i, (tuple, list)) and not (
-                        len(np.unique(i)) == 1 and np.unique(i)[0] != 0))]
+                        len(np.unique(i)) == 1 and np.unique(i)[0] == 0))]
 
     @property
     def foreground_regions(self):
