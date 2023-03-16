@@ -112,15 +112,15 @@ Decathlon challenge in 2018. Consequently, code structure and quality were not t
 were added later on and didn't quite fit into the nnU-Net design principles. Overall quite messy, really. And annoying to work with.
 
 nnU-Net V2 is a complete overhaul. The "delete everything and start again" kind. So everything is better 
-(in the author's opinion haha). While the segmentation performance remains the same, a lot of cool stuff has been added. 
+(in the author's opinion haha). While the segmentation performance [remains the same](https://docs.google.com/spreadsheets/d/13gqjIKEMPFPyMMMwA1EML57IyoBjfC3-QCTn4zRN_Mg/edit?usp=sharing), a lot of cool stuff has been added. 
 It is now also much easier to use it as a development framework and to manually fine-tune its configuration to new 
 datasets. A big driver for the reimplementation was also the emergence of [Helmholtz Imaging](http://helmholtz-imaging.de), 
 prompting us to extend nnU-Net to more image formats and domains. Take a look [here](documentation/changelog.md) for some highlights.
 
 # Acknowledgements
-<img src="documentation/assets/HI_Logo.png" width="512px" />
+<img src="documentation/assets/HI_Logo.png" height="128px" />
 
-<img src="documentation/assets/dkfz_logo.png" width="512px" />
+<img src="documentation/assets/dkfz_logo.png" height="128px" />
 
 nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de) 
 and the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) at the 

@@ -128,6 +128,12 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                           num_parts: int = 1,
                           part_id: int = 0,
                           device: torch.device = torch.device('cuda')):
+    print("\n#######################################################################\nPlease cite the following paper "
+          "when using nnU-Net:\n"
+          "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
+          "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
+          "Nature methods, 18(2), 203-211.\n#######################################################################\n")
+
     if device.type == 'cuda':
         device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
 
@@ -158,7 +164,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
             print(f'WARNING: The requested configuration is a cascaded model and requires predctions from the '
                   f'previous stage! folder_with_segs_from_prev_stage was not provided. Trying to run the '
                   f'inference of the previous stage...')
-            folder_with_segs_from_prev_stage = join(output_folder, f'prediction_{configuration_manager.previous_stage_name}')
+            folder_with_segs_from_prev_stage = join(output_folder,
+                                                    f'prediction_{configuration_manager.previous_stage_name}')
             predict_from_raw_data(list_of_lists_or_source_folder,
                                   folder_with_segs_from_prev_stage,
                                   get_output_folder(plans_manager.dataset_name,
@@ -320,8 +327,9 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 prediction = prediction.to('cpu').numpy()
 
                 if should_i_save_to_file(prediction, r, export_pool):
-                    print('output is either too large for python process-process communication or all export workers are '
-                          'busy. Saving temporarily to file...')
+                    print(
+                        'output is either too large for python process-process communication or all export workers are '
+                        'busy. Saving temporarily to file...')
                     np.save(ofile + '.npy', prediction)
                     prediction = ofile + '.npy'
 
@@ -385,16 +393,17 @@ def predict_entry_point_modelfolder():
     parser.add_argument('-prev_stage_predictions', type=str, required=False, default=None,
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Use this to set the device the inference should run with. Available options are 'cuda' "
-                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
-                         "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+                        help="Use this to set the device the inference should run with. Available options are 'cuda' "
+                             "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                             "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
 
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
 
-    assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
+    assert args.device in ['cpu', 'cuda',
+                           'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
     if args.device == 'cpu':
         # let's allow torch to use hella threads
         import multiprocessing
@@ -483,9 +492,9 @@ def predict_entry_point():
                              '5 and use -part_id 0, 1, 2, 3 and 4. Simple, right? Note: You are yourself responsible '
                              'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Use this to set the device the inference should run with. Available options are 'cuda' "
-                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
-                         "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+                        help="Use this to set the device the inference should run with. Available options are 'cuda' "
+                             "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                             "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
 
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
@@ -498,7 +507,8 @@ def predict_entry_point():
     # slightly passive agressive haha
     assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
 
-    assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
+    assert args.device in ['cpu', 'cuda',
+                           'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
     if args.device == 'cpu':
         # let's allow torch to use hella threads
         import multiprocessing
