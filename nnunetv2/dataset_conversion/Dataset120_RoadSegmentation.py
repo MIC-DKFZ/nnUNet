@@ -1,3 +1,4 @@
+import multiprocessing
 import shutil
 from multiprocessing import Pool
 
@@ -45,43 +46,42 @@ if __name__ == "__main__":
     train_source = join(source, 'training')
     test_source = join(source, 'testing')
 
-    p = Pool(8)
+    with multiprocessing.get_context("spawn").Pool(8) as p:
 
-    # not all training images have a segmentation
-    valid_ids = subfiles(join(train_source, 'output'), join=False, suffix='png')
-    num_train = len(valid_ids)
-    r = []
-    for v in valid_ids:
-        r.append(
-            p.starmap_async(
-                load_and_covnert_case,
-                ((
-                     join(train_source, 'input', v),
-                     join(train_source, 'output', v),
-                     join(imagestr, v[:-4] + '_0000.png'),
-                     join(labelstr, v),
-                     50
-                 ),)
+        # not all training images have a segmentation
+        valid_ids = subfiles(join(train_source, 'output'), join=False, suffix='png')
+        num_train = len(valid_ids)
+        r = []
+        for v in valid_ids:
+            r.append(
+                p.starmap_async(
+                    load_and_covnert_case,
+                    ((
+                         join(train_source, 'input', v),
+                         join(train_source, 'output', v),
+                         join(imagestr, v[:-4] + '_0000.png'),
+                         join(labelstr, v),
+                         50
+                     ),)
+                )
             )
-        )
 
-    # test set
-    valid_ids = subfiles(join(test_source, 'output'), join=False, suffix='png')
-    for v in valid_ids:
-        r.append(
-            p.starmap_async(
-                load_and_covnert_case,
-                ((
-                     join(test_source, 'input', v),
-                     join(test_source, 'output', v),
-                     join(imagests, v[:-4] + '_0000.png'),
-                     join(labelsts, v),
-                     50
-                 ),)
+        # test set
+        valid_ids = subfiles(join(test_source, 'output'), join=False, suffix='png')
+        for v in valid_ids:
+            r.append(
+                p.starmap_async(
+                    load_and_covnert_case,
+                    ((
+                         join(test_source, 'input', v),
+                         join(test_source, 'output', v),
+                         join(imagests, v[:-4] + '_0000.png'),
+                         join(labelsts, v),
+                         50
+                     ),)
+                )
             )
-        )
-    _ = [i.get() for i in r]
-    p.close()
-    p.join()
+        _ = [i.get() for i in r]
+
     generate_dataset_json(join(nnUNet_raw, dataset_name), {0: 'R', 1: 'G', 2: 'B'}, {'background': 0, 'road': 1},
                           num_train, '.png', dataset_name)

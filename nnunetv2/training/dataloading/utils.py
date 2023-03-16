@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from multiprocessing import Pool
 from typing import List
@@ -27,14 +28,12 @@ def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_exis
     """
     all npz files in this folder belong to the dataset, unpack them all
     """
-    p = Pool(num_processes)
-    npz_files = subfiles(folder, True, None, ".npz", True)
-    p.starmap(_convert_to_npy, zip(npz_files,
-                                   [unpack_segmentation] * len(npz_files),
-                                   [overwrite_existing] * len(npz_files))
-              )
-    p.close()
-    p.join()
+    with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+        npz_files = subfiles(folder, True, None, ".npz", True)
+        p.starmap(_convert_to_npy, zip(npz_files,
+                                       [unpack_segmentation] * len(npz_files),
+                                       [overwrite_existing] * len(npz_files))
+                  )
 
 
 def get_case_identifiers(folder: str) -> List[str]:

@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import shutil
 import traceback
+from asyncio import sleep
 from copy import deepcopy
 from typing import Tuple, Union, List
 
@@ -18,7 +19,7 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction_from_softmax
 from nnunetv2.inference.sliding_window_prediction import predict_sliding_window_return_logits, compute_gaussian
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
-from nnunetv2.utilities.file_path_utilities import get_output_folder, should_i_save_to_file
+from nnunetv2.utilities.file_path_utilities import get_output_folder, should_i_save_to_file, check_workers_busy
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, convert_labelmap_to_one_hot
@@ -219,32 +220,75 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     # go go go
     # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
     # export_pool = multiprocessing.get_context('spawn').Pool(num_processes_segmentation_export)
-    export_pool = multiprocessing.Pool(num_processes_segmentation_export)
+    # export_pool = multiprocessing.Pool(num_processes_segmentation_export)
+    with multiprocessing.get_context("spawn").Pool(num_processes_segmentation_export) as export_pool:
+        network = network.to(device)
 
-    network = network.to(device)
+        r = []
+        with torch.no_grad():
+            for preprocessed in mta:
+                data = preprocessed['data']
+                if isinstance(data, str):
+                    delfile = data
+                    data = torch.from_numpy(np.load(data))
+                    os.remove(delfile)
 
-    r = []
-    with torch.no_grad():
-        for preprocessed in mta:
-            data = preprocessed['data']
-            if isinstance(data, str):
-                delfile = data
-                data = torch.from_numpy(np.load(data))
-                os.remove(delfile)
+                ofile = preprocessed['ofile']
+                print(f'\nPredicting {os.path.basename(ofile)}:')
+                print(f'perform_everything_on_gpu: {perform_everything_on_gpu}')
 
-            ofile = preprocessed['ofile']
-            print(f'\nPredicting {os.path.basename(ofile)}:')
-            print(f'perform_everything_on_gpu: {perform_everything_on_gpu}')
+                properties = preprocessed['data_properites']
 
-            properties = preprocessed['data_properites']
+                # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
+                # npy files
+                proceed = not check_workers_busy(export_pool, r, allowed_num_queued=len(export_pool._pool))
+                while not proceed:
+                    sleep(1)
+                    proceed = not check_workers_busy(export_pool, r, allowed_num_queued=len(export_pool._pool))
 
-            # we have some code duplication here but this allows us to run with perform_everything_on_gpu=True as
-            # default and not have the entire program crash in case of GPU out of memory. Neat. That should make
-            # things a lot faster for some datasets.
-            prediction = None
-            overwrite_perform_everything_on_gpu = perform_everything_on_gpu
-            if perform_everything_on_gpu:
-                try:
+                # we have some code duplication here but this allows us to run with perform_everything_on_gpu=True as
+                # default and not have the entire program crash in case of GPU out of memory. Neat. That should make
+                # things a lot faster for some datasets.
+                prediction = None
+                overwrite_perform_everything_on_gpu = perform_everything_on_gpu
+                if perform_everything_on_gpu:
+                    try:
+                        for params in parameters:
+                            network.load_state_dict(params)
+                            if prediction is None:
+                                prediction = predict_sliding_window_return_logits(
+                                    network, data, num_seg_heads,
+                                    configuration_manager.patch_size,
+                                    mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
+                                    tile_step_size=tile_step_size,
+                                    use_gaussian=use_gaussian,
+                                    precomputed_gaussian=inference_gaussian,
+                                    perform_everything_on_gpu=perform_everything_on_gpu,
+                                    verbose=verbose,
+                                    device=device)
+                            else:
+                                prediction += predict_sliding_window_return_logits(
+                                    network, data, num_seg_heads,
+                                    configuration_manager.patch_size,
+                                    mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
+                                    tile_step_size=tile_step_size,
+                                    use_gaussian=use_gaussian,
+                                    precomputed_gaussian=inference_gaussian,
+                                    perform_everything_on_gpu=perform_everything_on_gpu,
+                                    verbose=verbose,
+                                    device=device)
+                            if len(parameters) > 1:
+                                prediction /= len(parameters)
+
+                    except RuntimeError:
+                        print('Prediction with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
+                              'Falling back to perform_everything_on_gpu=False. Not a big deal, just slower...')
+                        print('Error:')
+                        traceback.print_exc()
+                        prediction = None
+                        overwrite_perform_everything_on_gpu = False
+
+                if prediction is None:
                     for params in parameters:
                         network.load_state_dict(params)
                         if prediction is None:
@@ -255,7 +299,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                 tile_step_size=tile_step_size,
                                 use_gaussian=use_gaussian,
                                 precomputed_gaussian=inference_gaussian,
-                                perform_everything_on_gpu=perform_everything_on_gpu,
+                                perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
                                 verbose=verbose,
                                 device=device)
                         else:
@@ -266,70 +310,33 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                 tile_step_size=tile_step_size,
                                 use_gaussian=use_gaussian,
                                 precomputed_gaussian=inference_gaussian,
-                                perform_everything_on_gpu=perform_everything_on_gpu,
+                                perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
                                 verbose=verbose,
                                 device=device)
                         if len(parameters) > 1:
                             prediction /= len(parameters)
 
-                except RuntimeError:
-                    print('Prediction with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
-                          'Falling back to perform_everything_on_gpu=False. Not a big deal, just slower...')
-                    print('Error:')
-                    traceback.print_exc()
-                    prediction = None
-                    overwrite_perform_everything_on_gpu = False
+                print('Prediction done, transferring to CPU if needed')
+                prediction = prediction.to('cpu').numpy()
 
-            if prediction is None:
-                for params in parameters:
-                    network.load_state_dict(params)
-                    if prediction is None:
-                        prediction = predict_sliding_window_return_logits(
-                            network, data, num_seg_heads,
-                            configuration_manager.patch_size,
-                            mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
-                            tile_step_size=tile_step_size,
-                            use_gaussian=use_gaussian,
-                            precomputed_gaussian=inference_gaussian,
-                            perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
-                            verbose=verbose,
-                            device=device)
-                    else:
-                        prediction += predict_sliding_window_return_logits(
-                            network, data, num_seg_heads,
-                            configuration_manager.patch_size,
-                            mirror_axes=inference_allowed_mirroring_axes if use_mirroring else None,
-                            tile_step_size=tile_step_size,
-                            use_gaussian=use_gaussian,
-                            precomputed_gaussian=inference_gaussian,
-                            perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
-                            verbose=verbose,
-                            device=device)
-                    if len(parameters) > 1:
-                        prediction /= len(parameters)
+                if should_i_save_to_file(prediction, r, export_pool):
+                    print('output is either too large for python process-process communication or all export workers are '
+                          'busy. Saving temporarily to file...')
+                    np.save(ofile + '.npy', prediction)
+                    prediction = ofile + '.npy'
 
-            print('Prediction done, transferring to CPU if needed')
-            prediction = prediction.to('cpu').numpy()
-
-            if should_i_save_to_file(prediction, r, export_pool):
-                print('output is too large for python process-process communication. Saving to file...')
-                np.save(ofile + '.npy', prediction)
-                prediction = ofile + '.npy'
-
-            # this needs to go into background processes
-            # export_prediction(prediction, properties, configuration_name, plans, dataset_json, ofile,
-            #                   save_probabilities)
-            print('sending off prediction to background worker for resampling and export')
-            r.append(
-                export_pool.starmap_async(
-                    export_prediction_from_softmax, ((prediction, properties, configuration_manager, plans_manager,
-                                                      dataset_json, ofile, save_probabilities),)
+                # this needs to go into background processes
+                # export_prediction(prediction, properties, configuration_name, plans, dataset_json, ofile,
+                #                   save_probabilities)
+                print('sending off prediction to background worker for resampling and export')
+                r.append(
+                    export_pool.starmap_async(
+                        export_prediction_from_softmax, ((prediction, properties, configuration_manager, plans_manager,
+                                                          dataset_json, ofile, save_probabilities),)
+                    )
                 )
-            )
-            print(f'done with {os.path.basename(ofile)}')
-    [i.get() for i in r]
-    export_pool.close()
-    export_pool.join()
+                print(f'done with {os.path.basename(ofile)}')
+        [i.get() for i in r]
 
     # we need these two if we want to do things with the predictions like for example apply postprocessing
     shutil.copy(join(model_training_output_dir, 'dataset.json'), join(output_folder, 'dataset.json'))

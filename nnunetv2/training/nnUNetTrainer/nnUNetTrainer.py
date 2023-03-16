@@ -47,7 +47,7 @@ from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDice
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
-from nnunetv2.utilities.file_path_utilities import should_i_save_to_file
+from nnunetv2.utilities.file_path_utilities import should_i_save_to_file, check_workers_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
@@ -1056,118 +1056,123 @@ class nnUNetTrainer(object):
         # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
         # segmentation_export_pool = multiprocessing.get_context('spawn').Pool(default_num_processes)
         # let's not use this until someone really needs it!
-        segmentation_export_pool = multiprocessing.Pool(default_num_processes)
-        validation_output_folder = join(self.output_folder, 'validation')
-        maybe_mkdir_p(validation_output_folder)
+        # segmentation_export_pool = multiprocessing.Pool(default_num_processes)
+        with multiprocessing.get_context("spawn").Pool(default_num_processes) as segmentation_export_pool:
+            validation_output_folder = join(self.output_folder, 'validation')
+            maybe_mkdir_p(validation_output_folder)
 
-        # we cannot use self.get_tr_and_val_datasets() here because we might be DDP and then we have to distribute
-        # the validation keys across the workers.
-        _, val_keys = self.do_split()
-        if self.is_ddp:
-            val_keys = val_keys[self.local_rank:: dist.get_world_size()]
+            # we cannot use self.get_tr_and_val_datasets() here because we might be DDP and then we have to distribute
+            # the validation keys across the workers.
+            _, val_keys = self.do_split()
+            if self.is_ddp:
+                val_keys = val_keys[self.local_rank:: dist.get_world_size()]
 
-        dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                    num_images_properties_loading_threshold=0)
+            dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
+                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                        num_images_properties_loading_threshold=0)
 
-        next_stages = self.configuration_manager.next_stage_names
+            next_stages = self.configuration_manager.next_stage_names
 
-        if next_stages is not None:
-            _ = [maybe_mkdir_p(join(self.output_folder_base, 'predicted_next_stage', n)) for n in next_stages]
+            if next_stages is not None:
+                _ = [maybe_mkdir_p(join(self.output_folder_base, 'predicted_next_stage', n)) for n in next_stages]
 
-        results = []
-        for k in dataset_val.keys():
-            self.print_to_log_file(f"predicting {k}")
-            data, seg, properties = dataset_val.load_case(k)
+            results = []
+            for k in dataset_val.keys():
+                proceed = not check_workers_busy(segmentation_export_pool, results,
+                                                 allowed_num_queued=len(segmentation_export_pool._pool))
+                while not proceed:
+                    sleep(1)
+                    proceed = not check_workers_busy(segmentation_export_pool, results,
+                                                     allowed_num_queued=len(segmentation_export_pool._pool))
 
-            if self.is_cascaded:
-                data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
-                                                                    output_dtype=data.dtype)))
+                self.print_to_log_file(f"predicting {k}")
+                data, seg, properties = dataset_val.load_case(k)
 
-            output_filename_truncated = join(validation_output_folder, k)
+                if self.is_cascaded:
+                    data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
+                                                                        output_dtype=data.dtype)))
 
-            try:
-                prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
-                                                                  tile_size=self.configuration_manager.patch_size,
-                                                                  mirror_axes=self.inference_allowed_mirroring_axes,
-                                                                  tile_step_size=0.5,
-                                                                  use_gaussian=True,
-                                                                  precomputed_gaussian=inference_gaussian,
-                                                                  perform_everything_on_gpu=True,
-                                                                  verbose=False,
-                                                                  device=self.device).cpu().numpy()
-            except RuntimeError:
-                prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
-                                                                  tile_size=self.configuration_manager.patch_size,
-                                                                  mirror_axes=self.inference_allowed_mirroring_axes,
-                                                                  tile_step_size=0.5,
-                                                                  use_gaussian=True,
-                                                                  precomputed_gaussian=inference_gaussian,
-                                                                  perform_everything_on_gpu=False,
-                                                                  verbose=False,
-                                                                  device=self.device).cpu().numpy()
+                output_filename_truncated = join(validation_output_folder, k)
 
-            if should_i_save_to_file(prediction, results, segmentation_export_pool):
-                np.save(output_filename_truncated + '.npy', prediction)
-                prediction_for_export = output_filename_truncated + '.npy'
-            else:
-                prediction_for_export = prediction
+                try:
+                    prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
+                                                                      tile_size=self.configuration_manager.patch_size,
+                                                                      mirror_axes=self.inference_allowed_mirroring_axes,
+                                                                      tile_step_size=0.5,
+                                                                      use_gaussian=True,
+                                                                      precomputed_gaussian=inference_gaussian,
+                                                                      perform_everything_on_gpu=True,
+                                                                      verbose=False,
+                                                                      device=self.device).cpu().numpy()
+                except RuntimeError:
+                    prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
+                                                                      tile_size=self.configuration_manager.patch_size,
+                                                                      mirror_axes=self.inference_allowed_mirroring_axes,
+                                                                      tile_step_size=0.5,
+                                                                      use_gaussian=True,
+                                                                      precomputed_gaussian=inference_gaussian,
+                                                                      perform_everything_on_gpu=False,
+                                                                      verbose=False,
+                                                                      device=self.device).cpu().numpy()
 
-            # this needs to go into background processes
-            results.append(
-                segmentation_export_pool.starmap_async(
-                    export_prediction_from_softmax, (
-                        (prediction_for_export, properties, self.configuration_manager, self.plans_manager,
-                         self.dataset_json, output_filename_truncated, save_probabilities),
+                if should_i_save_to_file(prediction, results, segmentation_export_pool):
+                    np.save(output_filename_truncated + '.npy', prediction)
+                    prediction_for_export = output_filename_truncated + '.npy'
+                else:
+                    prediction_for_export = prediction
+
+                # this needs to go into background processes
+                results.append(
+                    segmentation_export_pool.starmap_async(
+                        export_prediction_from_softmax, (
+                            (prediction_for_export, properties, self.configuration_manager, self.plans_manager,
+                             self.dataset_json, output_filename_truncated, save_probabilities),
+                        )
                     )
                 )
-            )
-            # for debug purposes
-            # export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-            #              output_filename_truncated, save_probabilities)
+                # for debug purposes
+                # export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
+                #              output_filename_truncated, save_probabilities)
 
-            # if needed, export the softmax prediction for the next stage
-            if next_stages is not None:
-                for n in next_stages:
-                    next_stage_config_manager = self.plans_manager.get_configuration(n)
-                    expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans_manager.dataset_name,
-                                                        next_stage_config_manager.data_identifier)
+                # if needed, export the softmax prediction for the next stage
+                if next_stages is not None:
+                    for n in next_stages:
+                        next_stage_config_manager = self.plans_manager.get_configuration(n)
+                        expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans_manager.dataset_name,
+                                                            next_stage_config_manager.data_identifier)
 
-                    try:
-                        # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
-                        tmp = nnUNetDataset(expected_preprocessed_folder, [k],
-                                            num_images_properties_loading_threshold=0)
-                        d, s, p = tmp.load_case(k)
-                    except FileNotFoundError:
-                        self.print_to_log_file(
-                            f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! "
-                            f"Run the preprocessing for this configuration first!")
-                        continue
+                        try:
+                            # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
+                            tmp = nnUNetDataset(expected_preprocessed_folder, [k],
+                                                num_images_properties_loading_threshold=0)
+                            d, s, p = tmp.load_case(k)
+                        except FileNotFoundError:
+                            self.print_to_log_file(
+                                f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! "
+                                f"Run the preprocessing for this configuration first!")
+                            continue
 
-                    target_shape = d.shape[1:]
-                    output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
-                    output_file = join(output_folder, k + '.npz')
+                        target_shape = d.shape[1:]
+                        output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
+                        output_file = join(output_folder, k + '.npz')
 
-                    if should_i_save_to_file(prediction, results, segmentation_export_pool):
-                        np.save(output_file[:-4] + '.npy', prediction)
-                        prediction_for_export = output_file[:-4] + '.npy'
-                    else:
-                        prediction_for_export = prediction
-                    # resample_and_save(prediction, target_shape, output_file, self.plans, self.configuration, properties,
-                    #                   self.dataset_json, n)
-                    results.append(segmentation_export_pool.starmap_async(
-                        resample_and_save, (
-                            (prediction_for_export, target_shape, output_file, self.plans_manager,
-                             self.configuration_manager,
-                             properties,
-                             self.dataset_json, n),
-                        )
-                    ))
+                        if should_i_save_to_file(prediction, results, segmentation_export_pool):
+                            np.save(output_file[:-4] + '.npy', prediction)
+                            prediction_for_export = output_file[:-4] + '.npy'
+                        else:
+                            prediction_for_export = prediction
+                        # resample_and_save(prediction, target_shape, output_file, self.plans, self.configuration, properties,
+                        #                   self.dataset_json, n)
+                        results.append(segmentation_export_pool.starmap_async(
+                            resample_and_save, (
+                                (prediction_for_export, target_shape, output_file, self.plans_manager,
+                                 self.configuration_manager,
+                                 properties,
+                                 self.dataset_json, n),
+                            )
+                        ))
 
-        _ = [r.get() for r in results]
-
-        segmentation_export_pool.close()
-        segmentation_export_pool.join()
+            _ = [r.get() for r in results]
 
         if self.is_ddp:
             dist.barrier()

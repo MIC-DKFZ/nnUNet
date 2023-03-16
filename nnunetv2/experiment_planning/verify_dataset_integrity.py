@@ -12,6 +12,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import multiprocessing
 import re
 from multiprocessing import Pool
 from typing import Type
@@ -181,26 +182,25 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                                                                                            0] + '_0000' + file_ending))
 
     # check whether only the desired labels are present
-    p = Pool(num_processes)
-    result = p.starmap(
-        verify_labels,
-        zip([join(folder, 'labelsTr', i) for i in labelfiles], [reader_writer_class] * len(labelfiles),
-            [expected_labels] * len(labelfiles))
-    )
-    if not all(result):
-        raise RuntimeError(
-            'Some segmentation images contained unexpected labels. Please check text output above to see which one(s).')
+    with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+        result = p.starmap(
+            verify_labels,
+            zip([join(folder, 'labelsTr', i) for i in labelfiles], [reader_writer_class] * len(labelfiles),
+                [expected_labels] * len(labelfiles))
+        )
+        if not all(result):
+            raise RuntimeError(
+                'Some segmentation images contained unexpected labels. Please check text output above to see which one(s).')
 
-    # check whether shapes and spacings match between images and labels
-    p = Pool(num_processes)
-    result = p.starmap(
-        check_cases,
-        zip([folder] * expected_num_training, training_identifiers, [num_modalities] * expected_num_training,
-            [reader_writer_class] * expected_num_training, [file_ending] * expected_num_training)
-    )
-    if not all(result):
-        raise RuntimeError(
-            'Some images have errors. Please check text output above to see which one(s) and what\'s going on.')
+        # check whether shapes and spacings match between images and labels
+        result = p.starmap(
+            check_cases,
+            zip([folder] * expected_num_training, training_identifiers, [num_modalities] * expected_num_training,
+                [reader_writer_class] * expected_num_training, [file_ending] * expected_num_training)
+        )
+        if not all(result):
+            raise RuntimeError(
+                'Some images have errors. Please check text output above to see which one(s) and what\'s going on.')
 
     # check for nans
     # check all same orientation nibabel

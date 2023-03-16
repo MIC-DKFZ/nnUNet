@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import multiprocessing
 from multiprocessing.pool import Pool
 from typing import Tuple, Union
 
@@ -167,26 +168,22 @@ def plot_overlay_preprocessed(case_file: str, output_file: str, overlay_intensit
 def multiprocessing_plot_overlay(list_of_image_files, list_of_seg_files, image_reader_writer,
                                  list_of_output_files, overlay_intensity,
                                  num_processes=8):
-    p = Pool(num_processes)
-    r = p.starmap_async(plot_overlay, zip(
-        list_of_image_files, list_of_seg_files, [image_reader_writer] * len(list_of_output_files),
-        list_of_output_files, [overlay_intensity] * len(list_of_output_files)
-    ))
-    r.get()
-    p.close()
-    p.join()
+    with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+        r = p.starmap_async(plot_overlay, zip(
+            list_of_image_files, list_of_seg_files, [image_reader_writer] * len(list_of_output_files),
+            list_of_output_files, [overlay_intensity] * len(list_of_output_files)
+        ))
+        r.get()
 
 
 def multiprocessing_plot_overlay_preprocessed(list_of_case_files, list_of_output_files, overlay_intensity,
                                               num_processes=8, channel_idx=0):
-    p = Pool(num_processes)
-    r = p.starmap_async(plot_overlay_preprocessed, zip(
-        list_of_case_files, list_of_output_files, [overlay_intensity] * len(list_of_output_files),
-                                                  [channel_idx] * len(list_of_output_files)
-    ))
-    r.get()
-    p.close()
-    p.join()
+    with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+        r = p.starmap_async(plot_overlay_preprocessed, zip(
+            list_of_case_files, list_of_output_files, [overlay_intensity] * len(list_of_output_files),
+                                                      [channel_idx] * len(list_of_output_files)
+        ))
+        r.get()
 
 
 def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folder: str,

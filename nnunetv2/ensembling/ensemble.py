@@ -1,4 +1,5 @@
 import argparse
+import multiprocessing
 import shutil
 from copy import deepcopy
 from multiprocessing import Pool
@@ -95,21 +96,19 @@ def ensemble_folders(list_of_input_folders: List[str],
     maybe_mkdir_p(output_folder)
     shutil.copy(join(list_of_input_folders[0], 'dataset.json'), output_folder)
 
-    pool = Pool(num_processes)
-    num_preds = len(s)
-    _ = pool.starmap(
-        merge_files,
-        zip(
-            lists_of_lists_of_files,
-            output_files_truncated,
-            [dataset_json['file_ending']] * num_preds,
-            [image_reader_writer] * num_preds,
-            [label_manager] * num_preds,
-            [save_merged_probabilities] * num_preds
+    with multiprocessing.get_context("spawn").Pool(num_processes) as pool:
+        num_preds = len(s)
+        _ = pool.starmap(
+            merge_files,
+            zip(
+                lists_of_lists_of_files,
+                output_files_truncated,
+                [dataset_json['file_ending']] * num_preds,
+                [image_reader_writer] * num_preds,
+                [label_manager] * num_preds,
+                [save_merged_probabilities] * num_preds
+            )
         )
-    )
-    pool.close()
-    pool.join()
 
 
 def entry_point_ensemble_folders():
@@ -189,21 +188,19 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
         lists_of_lists_of_files = [lists_of_lists_of_files[i] for i in range(len(tmp)) if not tmp[i]]
         output_files_truncated = [output_files_truncated[i] for i in range(len(tmp)) if not tmp[i]]
 
-    pool = Pool(num_processes)
-    num_preds = len(lists_of_lists_of_files)
-    _ = pool.starmap(
-        merge_files,
-        zip(
-            lists_of_lists_of_files,
-            output_files_truncated,
-            [dataset_json['file_ending']] * num_preds,
-            [image_reader_writer] * num_preds,
-            [label_manager] * num_preds,
-            [False] * num_preds
+    with multiprocessing.get_context("spawn").Pool(num_processes) as pool:
+        num_preds = len(lists_of_lists_of_files)
+        _ = pool.starmap(
+            merge_files,
+            zip(
+                lists_of_lists_of_files,
+                output_files_truncated,
+                [dataset_json['file_ending']] * num_preds,
+                [image_reader_writer] * num_preds,
+                [label_manager] * num_preds,
+                [False] * num_preds
+            )
         )
-    )
-    pool.close()
-    pool.join()
 
     shutil.copy(join(list_of_trained_model_folders[0], 'plans.json'), join(output_folder, 'plans.json'))
     shutil.copy(join(list_of_trained_model_folders[0], 'dataset.json'), join(output_folder, 'dataset.json'))

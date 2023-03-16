@@ -1,4 +1,5 @@
 import argparse
+import multiprocessing
 import shutil
 from multiprocessing import Pool
 from typing import Optional
@@ -70,40 +71,38 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     maybe_mkdir_p(target_imagesTs)
     maybe_mkdir_p(target_labelsTr)
 
-    p = Pool(num_processes)
-    results = []
+    with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+        results = []
 
-    # convert 4d train images
-    source_images = [i for i in subfiles(imagesTr, suffix='.nii.gz', join=False) if
-                     not i.startswith('.') and not i.startswith('_')]
-    source_images = [join(imagesTr, i) for i in source_images]
+        # convert 4d train images
+        source_images = [i for i in subfiles(imagesTr, suffix='.nii.gz', join=False) if
+                         not i.startswith('.') and not i.startswith('_')]
+        source_images = [join(imagesTr, i) for i in source_images]
 
-    results.append(
-        p.starmap_async(
-            split_4d_nifti, zip(source_images, [target_imagesTr] * len(source_images))
+        results.append(
+            p.starmap_async(
+                split_4d_nifti, zip(source_images, [target_imagesTr] * len(source_images))
+            )
         )
-    )
 
-    # convert 4d test images
-    source_images = [i for i in subfiles(imagesTs, suffix='.nii.gz', join=False) if
-                     not i.startswith('.') and not i.startswith('_')]
-    source_images = [join(imagesTs, i) for i in source_images]
+        # convert 4d test images
+        source_images = [i for i in subfiles(imagesTs, suffix='.nii.gz', join=False) if
+                         not i.startswith('.') and not i.startswith('_')]
+        source_images = [join(imagesTs, i) for i in source_images]
 
-    results.append(
-        p.starmap_async(
-            split_4d_nifti, zip(source_images, [target_imagesTs] * len(source_images))
+        results.append(
+            p.starmap_async(
+                split_4d_nifti, zip(source_images, [target_imagesTs] * len(source_images))
+            )
         )
-    )
 
-    # copy segmentations
-    source_images = [i for i in subfiles(labelsTr, suffix='.nii.gz', join=False) if
-                     not i.startswith('.') and not i.startswith('_')]
-    for s in source_images:
-        shutil.copy(join(labelsTr, s), join(target_labelsTr, s))
+        # copy segmentations
+        source_images = [i for i in subfiles(labelsTr, suffix='.nii.gz', join=False) if
+                         not i.startswith('.') and not i.startswith('_')]
+        for s in source_images:
+            shutil.copy(join(labelsTr, s), join(target_labelsTr, s))
 
-    [i.get() for i in results]
-    p.close()
-    p.join()
+        [i.get() for i in results]
 
     dataset_json = load_json(dataset_json)
     dataset_json['labels'] = {j: int(i) for i, j in dataset_json['labels'].items()}

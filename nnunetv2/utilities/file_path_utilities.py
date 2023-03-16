@@ -117,21 +117,32 @@ def should_i_save_to_file(prediction: np.ndarray, results_list: List = None, exp
         print('INFO: Prediction is too large for python process-process communication. Saving to file...')
         return True
     if export_pool is not None:
-        is_alive = [i.is_alive for i in export_pool._pool]
-        if not all(is_alive):
-            raise RuntimeError("Some workers in the export pool are no longer alive. That should not happen. You "
-                               "probably don't have enough RAM :-(")
+        # check if we are still rockin' and rollin'
+        check_is_pool_alive(export_pool)
         if results_list is not None:
-            # We should prevent the task queue from getting too long. This could cause lots of predictions being
-            # stuck in a queue and eating up memory. Best to save to disk instead in that case. Hopefully there
-            # will be fewer people with RAM issues in the future...
-            not_ready = [not i.ready() for i in results_list]
-            if sum(not_ready) > len(is_alive):
-                print('INFO: Prediction is faster than your PC can resample the results. Results are temporarily '
-                      'saved to disk to prevent out of memory issues. If you have more RAM and CPU cores available, '
-                      f'consider setting nnUNet_def_n_proc to a larger number (default is 8, current is '
-                      f'{default_num_processes}).')
+            #    We should prevent the task queue from getting too long. This could cause lots of predictions being
+            #    stuck in a queue and eating up memory. Best to save to disk instead in that case. Hopefully there
+            #    will be fewer people with RAM issues in the future...
+            if check_workers_busy(export_pool, results_list):
                 return True
+    return False
+
+
+def check_is_pool_alive(export_pool: Pool):
+    is_alive = [i.is_alive for i in export_pool._pool]
+    if not all(is_alive):
+        raise RuntimeError("Some workers in the export pool are no longer alive. That should not happen. You "
+                           "probably don't have enough RAM :-(")
+
+
+def check_workers_busy(export_pool: Pool, results_list: List, allowed_num_queued: int = 0):
+    """
+
+    returns True if the number of results that are not ready is greater than the number of available workers + allowed_num_queued
+    """
+    not_ready = [not i.ready() for i in results_list]
+    if sum(not_ready) > (len(export_pool._pool) + allowed_num_queued):
+        return True
     return False
 
 

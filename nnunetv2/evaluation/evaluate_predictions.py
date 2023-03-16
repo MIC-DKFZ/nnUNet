@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from copy import deepcopy
 from multiprocessing import Pool
@@ -138,16 +139,14 @@ def compute_metrics_on_folder(folder_ref: str, folder_pred: str, output_file: st
         assert all(present), "Not all files in folder_pred exist in folder_ref"
     files_ref = [join(folder_ref, i) for i in files_pred]
     files_pred = [join(folder_pred, i) for i in files_pred]
-    pool = Pool(num_processes)
-    # for i in list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred), [ignore_label] * len(files_pred))):
-    #     compute_metrics(*i)
-    results = pool.starmap(
-        compute_metrics,
-        list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred),
-                 [ignore_label] * len(files_pred)))
-    )
-    pool.close()
-    pool.join()
+    with multiprocessing.get_context("spawn").Pool(num_processes) as pool:
+        # for i in list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred), [ignore_label] * len(files_pred))):
+        #     compute_metrics(*i)
+        results = pool.starmap(
+            compute_metrics,
+            list(zip(files_ref, files_pred, [image_reader_writer] * len(files_pred), [regions_or_labels] * len(files_pred),
+                     [ignore_label] * len(files_pred)))
+        )
 
     # mean metric per class
     metric_list = list(results[0]['metrics'][regions_or_labels[0]].keys())

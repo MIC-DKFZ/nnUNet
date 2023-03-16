@@ -1,3 +1,4 @@
+import multiprocessing
 import shutil
 from multiprocessing import Pool
 
@@ -51,10 +52,8 @@ def convert_folder_with_preds_back_to_BraTS_labeling_convention(input_folder: st
     """
     maybe_mkdir_p(output_folder)
     nii = subfiles(input_folder, suffix='.nii.gz', join=False)
-    p = Pool(num_processes)
-    p.starmap(load_convert_labels_back_to_BraTS, zip(nii, [input_folder] * len(nii), [output_folder] * len(nii)))
-    p.close()
-    p.join()
+    with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+        p.starmap(load_convert_labels_back_to_BraTS, zip(nii, [input_folder] * len(nii), [output_folder] * len(nii)))
 
 
 if __name__ == '__main__':
