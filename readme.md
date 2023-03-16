@@ -83,7 +83,6 @@ Read these:
 
 Additional information:
 - [Region-based training](documentation/region_based_training.md)
-- [Ignore label](documentation/ignore_label.md)
 - [Manual data splits](documentation/manual_data_splits.md)
 - [Pretraining and finetuning](documentation/pretraining_and_finetuning.md)
 - [Intensity Normalization in nnU-Net](documentation/explanation_normalization.md)
@@ -91,6 +90,7 @@ Additional information:
 - [Extending nnU-Net](documentation/extending_nnunet.md)
 - [What is different in V2?](documentation/changelog.md)
 
+[//]: # (- [Ignore label]&#40;documentation/ignore_label.md&#41;)
 
 ## Where does nnU-net perform well and where does it not perform?
 nnU-Net excels in segmentation problems that need to be solved by training from scratch, 
