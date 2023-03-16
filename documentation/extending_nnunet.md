@@ -11,7 +11,7 @@ preprocessing, resampling, network topology etc. Read [this](explanation_plans_f
 - [Image normalization](explanation_normalization.md) and [i/o formats](dataset_format.md#supported-file-formats) are easy to extend!
 - Manual data splits can be defined as described [here](manual_data_splits.md)
 - You can chain arbitrary configurations together into cascades, see [this again](explanation_plans_files.md)
-- Read about our support for [ignore label](ignore_label.md) and [region-based training](region_based_training.md)
+- Read about our support for [region-based training](region_based_training.md)
 - If you intend to modify the training procedure (loss, sampling, data augmentation, lr scheduler, etc) then you need 
 to implement your own trainer class. Best practice is to create a class that inherits from nnUNetTrainer and 
 implements the necessary changes. Head over to our [trainer classes folder](../nnunetv2/training/nnUNetTrainer) for 
@@ -33,3 +33,5 @@ are structured similarly to PyTorch lightning trainers, this should also make th
 - Remember that multi-GPU training, region-based training, ignore label and cascaded training are now simply integrated 
 into one unified nnUNetTrainer class. No separate classes needed (remember that when implementing your own trainer 
 classes and ensure support for all of these features! Or raise `NotImplementedError`)
+
+[//]: # (- Read about our support for [ignore label]&#40;ignore_label.md&#41; and [region-based training]&#40;region_based_training.md&#41;)

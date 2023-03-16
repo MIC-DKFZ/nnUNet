@@ -1,9 +1,3 @@
-[//]: # (# Usage)
-
-[//]: # (To familiarize yourself with nnU-Net we recommend you have a look at the [Examples]&#40;#Examples&#41; before you start with)
-
-[//]: # (your own dataset.)
-
 ## How to run nnU-Net on a new dataset
 Given some dataset, nnU-Net fully automatically configures an entire segmentation pipeline that matches its properties.
 nnU-Net covers the entire pipeline, from preprocessing to model configuration, model training, postprocessing
@@ -49,8 +43,8 @@ and `nnUNetv2_preprocess` (in that order).
 
 ### Model training
 #### Overview
-You pick which configurations (2D, 3D fullres, 3D lowres, 3D cascade) should be trained! If you have no idea what performs best 
-on your data, just run all of them and let nnU-Net identify the best one. It's up to you!
+You pick which configurations (2d, 3d_fullres, 3d_lowres, 3d_cascade_fullres) should be trained! If you have no idea 
+what performs best on your data, just run all of them and let nnU-Net identify the best one. It's up to you!
 
 nnU-Net trains all configurations in a 5-fold cross-validation over the training cases. This is 1) needed so that 
 nnU-Net can estimate the performance of each configuration and tell you which one should be used for your 
@@ -63,7 +57,6 @@ prefer to train a single model on all training cases, this is also possible (see
 Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the U-Net
 cascade (and with it the 3d_lowres configuration) is omitted because the patch size of the full resolution U-Net 
 already covers a large part of the input images.
-
 
 Training models is done with the `nnUNetv2_train` command. The general structure of the command is:
 ```bash
@@ -84,6 +77,9 @@ If you ran initially without the `--npz` flag but now require the softmax predic
 ```bash
 nnUNetv2_train DATASET_NAME_OR_ID UNET_CONFIGURATION FOLD --val --npz
 ```
+
+You can specify the device nnU-net should use by using `-device DEVICE`. DEVICE can only be cpu, cuda or mps. If 
+you have multiple GPUs, please select the gpu id using `CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...]` (requires device to be cuda).
 
 See `nnUNetv2_train -h` for additional options.
 
@@ -286,12 +282,7 @@ from the respective training). You can pick these files from any of the ensemble
 
 
 ## How to run inference with pretrained models
-**Important:** Pretrained weights from nnU-Net v1 are NOT compatible with V2. You will need to retrain with the new 
-version. But honestly, you already have a fully trained model with which you can run inference (in v1), so 
-just continue using that!
-
-Not yet available for V2 :-(
-If you wish to run inference with pretrained models, check out the old nnU-Net for now
+See [here](run_inference_with_pretrained_models.md)
 
 [//]: # (## Examples)
 

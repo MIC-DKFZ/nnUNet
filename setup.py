@@ -10,6 +10,8 @@ setup(name='nnunetv2',
       license='Apache License Version 2.0, January 2004',
       install_requires=[
           "torch>=1.8.0a",
+          "acvl-utils>=0.2",
+          "dynamic-network-architectures>=0.2",
           "tqdm",
           "dicom2nifti",
           "scikit-image>=0.14",

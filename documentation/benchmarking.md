@@ -90,13 +90,13 @@ Check the following:
 - [CPU bottleneck] How many CPU threads are running during the training? nnU-Net uses 12 processes for data augmentation by default. 
 If you see those 12 running constantly during training, consider increasing the number of processes used for data 
 augmentation (provided there is headroom on your CPU!). Increase the number until you see less active workers than 
-you configured (or just set the number to 32 and forget about it). You can do so by exporting the `nnUNet_n_proc_DA` environment variable:
-  `export nnUNet_n_proc_DA=XX` followed by the training OR `nnUNet_n_proc_DA=XX nnUNetv2_train [...]`. If you want to 
-make this permanent, add the environment variable to your .bashrc (Linux!). If your CPU does not support more 
-processes (setting more processes than your CPU has threads makes 
+you configured (or just set the number to 32 and forget about it). You can do so by setting the `nnUNet_n_proc_DA` 
+environment variable (Linux: `export nnUNet_n_proc_DA=24`). Read [here](set_environment_variables.md) on how to do this.
+If your CPU does not support more processes (setting more processes than your CPU has threads makes 
 no sense!) you are out of luck and in desperate need of a system upgrade!
 - [I/O bottleneck] If you don't see 12 (or nnUNet_n_proc_DA if you set it) processes running but your training times 
-are still slow then open up `top` (sorry, Windows users) and look at the value left of 'wa' in the row that begins 
+are still slow then open up `top` (sorry, Windows users. I don't know how to do this on Windows) and look at the value 
+left of 'wa' in the row that begins 
 with '%Cpu (s)'. If this is >1.0 (arbitrarily set threshold here, essentially look for unusually high 'wa'. In a 
 healthy training 'wa' will be almost 0) then your storage cannot keep up with data loading. Make sure to set 
 nnUNet_preprocessed to a folder that is located on an SSD. nvme is preferred over SATA. PCIe3 is enough. 3000MB/s 
