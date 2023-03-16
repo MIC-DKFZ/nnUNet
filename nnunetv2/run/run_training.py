@@ -103,6 +103,7 @@ def cleanup_ddp():
 
 def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, use_compressed, disable_checkpointing, c, val, pretrained_weights, npz, world_size):
     setup_ddp(rank, world_size)
+    torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
 
     nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p,
                                            use_compressed)
