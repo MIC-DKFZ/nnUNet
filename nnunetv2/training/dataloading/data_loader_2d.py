@@ -8,8 +8,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
         selected_keys = self.get_indices()
         # preallocate memory for data and seg
         data_all = np.zeros(self.data_shape, dtype=np.float32)
-        # again, no support for more than 127 labels! We gotta save memory, yo
-        seg_all = np.zeros(self.seg_shape, dtype=np.int8)
+        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
         case_properties = []
 
         for j, current_key in enumerate(selected_keys):

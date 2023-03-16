@@ -33,8 +33,6 @@ class DefaultPreprocessor(object):
         self.verbose = verbose
         """
         Everything we need is in the plans. Those are given when run() is called
-
-        CAREFUL! WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL!
         """
 
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
@@ -119,8 +117,11 @@ class DefaultPreprocessor(object):
             data_properites['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
                                                                                    verbose=self.verbose)
             seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
-
-        return data, seg.astype(np.int8), data_properites
+        if np.max(seg) > 127:
+            seg = seg.astype(np.int16)
+        else:
+            seg = seg.astype(np.int8)
+        return data, seg, data_properites
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager,
@@ -196,13 +197,6 @@ class DefaultPreprocessor(object):
 
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
-
-        label_manager = plans_manager.get_label_manager(dataset_json)
-        classes = label_manager.all_labels
-
-        if max(classes) > 127:
-            raise RuntimeError('WE USE INT8 FOR SAVING SEGMENTATIONS (NOT UINT8) SO 127 IS THE MAXIMUM LABEL! '
-                               'Your labels go larger than that')
 
         identifiers = get_identifiers_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
                                                                dataset_json['file_ending'])
