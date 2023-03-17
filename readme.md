@@ -2,6 +2,8 @@
 
 Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/master) if you were looking for the old one instead.
 
+Coming from V1? Check out the [TLDR Migration Guide](documentation/tldr_migration_guide_from_v1.md). Reading the rest of the documentation is still strongly recommended ;-)
+
 # What is nnU-Net?
 Image datasets are enormously diverse: image dimensionality (2D, 3D), modalities/input channels (RGB image, CT, MRI, microscopy, ...), 
 image sizes, voxel sizes, class ratio, target structure properties and more change substantially between datasets. 
