@@ -61,7 +61,10 @@ By default, the following file formats are supported:
 - NibabelIO: .nii.gz, .nrrd, .mha
 - NibabelIOWithReorient: .nii.gz, .nrrd, .mha. This reader will reorient images to RAS!
 - SimpleITKIO: .nii.gz, .nrrd, .mha
-- Tiff3DIO: .tif, .tiff. 3D tif images!
+- Tiff3DIO: .tif, .tiff. 3D tif images! Since TIF does not have a standardized way of storing spacing information, 
+nnU-Net expects each TIF file to be accompanied by an identically named .json file that contains three numbers 
+(no units, no comma. Just separated by whitespace), one for each dimension.
+
 
 The file extension lists are not exhaustive and depend on what the backend supports. For example, nibabel and SimpleITK 
 support more than the three given here. The file endings given here are just the ones we tested!
