@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import shutil
 import traceback
-from asyncio import sleep
+from time import sleep
 from copy import deepcopy
 from typing import Tuple, Union, List
 

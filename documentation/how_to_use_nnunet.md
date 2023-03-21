@@ -244,7 +244,7 @@ If you wish to manually specify the configuration(s) used for inference, use the
 #### Run prediction
 For each of the desired configurations, run:
 ```
-nnUNetv2_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -d DATASET_NAME_OR_ID -m CONFIGURATION --save_probabilities
+nnUNetv2_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -d DATASET_NAME_OR_ID -c CONFIGURATION --save_probabilities
 ```
 
 Only specify `--save_probabilities` if you intend to use ensembling. `--save_probabilities` will make the command save the predicted
