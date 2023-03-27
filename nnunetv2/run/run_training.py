@@ -69,6 +69,9 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
 
 def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
                           pretrained_weights_file: str = None):
+    if continue_training and pretrained_weights_file is not None:
+        raise RuntimeError('Cannot both continue a training AND load pretrained weights. Pretrained weights can only '
+                           'be used at the beginning of the training.')
     if continue_training:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
@@ -85,6 +88,8 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
             raise RuntimeError(f"Cannot run validation because the training is not finished yet!")
     else:
         if pretrained_weights_file is not None:
+            if not nnunet_trainer.was_initialized:
+                nnunet_trainer.initialize()
             load_pretrained_weights(nnunet_trainer.network, pretrained_weights_file, verbose=True)
         expected_checkpoint_file = None
 
