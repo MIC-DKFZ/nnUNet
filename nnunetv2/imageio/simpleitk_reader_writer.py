@@ -43,7 +43,7 @@ class SimpleITKIO(BaseReaderWriter):
                 # 2d
                 npy_image = npy_image[None, None]
                 max_spacing = max(spacings[-1])
-                spacings_for_nnunet.append((max_spacing * 999,list(spacings[-1])[::-1]))
+                spacings_for_nnunet.append((max_spacing * 999, *list(spacings[-1])[::-1]))
             elif len(npy_image.shape) == 3:
                 # 3d, as in original nnunet
                 npy_image = npy_image[None]
