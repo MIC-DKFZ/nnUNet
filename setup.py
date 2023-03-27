@@ -8,6 +8,7 @@ setup(name='nnunetv2',
       author='Helmholtz Imaging Applied Computer Vision Lab, Division of Medical Image Computing, German Cancer Research Center',
       author_email='f.isensee@dkfz-heidelberg.de',
       license='Apache License Version 2.0, January 2004',
+      python_requires=">=3.9",
       install_requires=[
           "torch>1.12",
           "acvl-utils>=0.2",
