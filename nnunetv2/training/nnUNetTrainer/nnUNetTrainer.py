@@ -156,6 +156,7 @@ class nnUNetTrainer(object):
         # initialize log file. This is just our log for the print statements etc. Not to be confused with lightning
         # logging
         timestamp = datetime.now()
+        maybe_mkdir_p(self.output_folder)
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))

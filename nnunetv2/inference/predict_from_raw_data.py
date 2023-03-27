@@ -284,8 +284,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                     perform_everything_on_gpu=perform_everything_on_gpu,
                                     verbose=verbose,
                                     device=device)
-                            if len(parameters) > 1:
-                                prediction /= len(parameters)
+                        if len(parameters) > 1:
+                            prediction /= len(parameters)
 
                     except RuntimeError:
                         print('Prediction with perform_everything_on_gpu=True failed due to insufficient GPU memory. '
@@ -320,8 +320,8 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                                 perform_everything_on_gpu=overwrite_perform_everything_on_gpu,
                                 verbose=verbose,
                                 device=device)
-                        if len(parameters) > 1:
-                            prediction /= len(parameters)
+                    if len(parameters) > 1:
+                        prediction /= len(parameters)
 
                 print('Prediction done, transferring to CPU if needed')
                 prediction = prediction.to('cpu').numpy()
