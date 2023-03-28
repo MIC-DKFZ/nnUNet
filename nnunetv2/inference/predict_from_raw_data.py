@@ -7,6 +7,8 @@ from time import sleep
 from copy import deepcopy
 from typing import Tuple, Union, List
 
+from torch._dynamo import OptimizedModule
+
 import nnunetv2
 import numpy as np
 import torch
@@ -214,6 +216,12 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=device.type == 'cuda')
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
+    if ('nnUNet_compile' not in os.environ.keys()) or not \
+            (os.environ['nnUNet_compile'].lower() in ('false', '0', 'f')) and \
+            (len(list_of_lists_or_source_folder) > 5):  # just a dumb heurisitic in order to skip compiling for few inference cases
+        print('compiling network')
+        network = torch.compile(network, mode='reduce-overhead')
+
     # precompute gaussian
     inference_gaussian = torch.from_numpy(
         compute_gaussian(configuration_manager.patch_size)).half()
@@ -248,10 +256,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
 
                 # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
                 # npy files
-                proceed = not check_workers_busy(export_pool, r, allowed_num_queued=len(export_pool._pool))
+                proceed = not check_workers_busy(export_pool, r, allowed_num_queued=2 * len(export_pool._pool))
                 while not proceed:
-                    sleep(1)
-                    proceed = not check_workers_busy(export_pool, r, allowed_num_queued=len(export_pool._pool))
+                    sleep(0.1)
+                    proceed = not check_workers_busy(export_pool, r, allowed_num_queued=2 * len(export_pool._pool))
 
                 # we have some code duplication here but this allows us to run with perform_everything_on_gpu=True as
                 # default and not have the entire program crash in case of GPU out of memory. Neat. That should make
@@ -261,7 +269,12 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                 if perform_everything_on_gpu:
                     try:
                         for params in parameters:
-                            network.load_state_dict(params)
+                            # messing with state dict names...
+                            if not isinstance(network, OptimizedModule):
+                                network.load_state_dict(params)
+                            else:
+                                network._orig_mod.load_state_dict(params)
+
                             if prediction is None:
                                 prediction = predict_sliding_window_return_logits(
                                     network, data, num_seg_heads,

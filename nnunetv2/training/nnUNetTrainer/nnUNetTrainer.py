@@ -19,6 +19,8 @@ from batchgenerators.transforms.resample_transforms import SimulateLowResolution
 from batchgenerators.transforms.spatial_transforms import SpatialTransform, MirrorTransform
 from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, NumpyToTensor
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from torch._dynamo import OptimizedModule
+
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.inference.export_prediction import export_prediction_from_softmax, resample_and_save
@@ -199,6 +201,11 @@ class nnUNetTrainer(object):
                                                            self.configuration_manager,
                                                            self.num_input_channels,
                                                            enable_deep_supervision=True).to(self.device)
+            # compile network for free speedup
+            if ('nnUNet_compile' not in os.environ.keys()) or not \
+                    (os.environ['nnUNet_compile'].lower() in ('false', '0', 'f')):
+                self.print_to_log_file('Compiling network...')
+                self.network = torch.compile(self.network)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
@@ -1007,8 +1014,15 @@ class nnUNetTrainer(object):
     def save_checkpoint(self, filename: str) -> None:
         if self.local_rank == 0:
             if not self.disable_checkpointing:
+                if self.is_ddp:
+                    mod = self.network.module
+                else:
+                    mod = self.network
+                if isinstance(mod, OptimizedModule):
+                    mod = mod._orig_mod
+
                 checkpoint = {
-                    'network_weights': self.network.module.state_dict() if self.is_ddp else self.network.state_dict(),
+                    'network_weights': mod.state_dict(),
                     'optimizer_state': self.optimizer.state_dict(),
                     'grad_scaler_state': self.grad_scaler.state_dict() if self.grad_scaler is not None else None,
                     'logging': self.logger.get_checkpoint(),
@@ -1044,10 +1058,17 @@ class nnUNetTrainer(object):
         self.inference_allowed_mirroring_axes = checkpoint[
             'inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
 
+        # messing with state dict naming schemes. Facepalm.
         if self.is_ddp:
-            self.network.module.load_state_dict(new_state_dict)
+            if isinstance(self.network.module, OptimizedModule):
+                self.network.module._orig_mod.load_state_dict(new_state_dict)
+            else:
+                self.network.module.load_state_dict(new_state_dict)
         else:
-            self.network.load_state_dict(new_state_dict)
+            if isinstance(self.network, OptimizedModule):
+                self.network._orig_mod.load_state_dict(new_state_dict)
+            else:
+                self.network.load_state_dict(new_state_dict)
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         if self.grad_scaler is not None:
             if checkpoint['grad_scaler_state'] is not None:
@@ -1087,11 +1108,11 @@ class nnUNetTrainer(object):
             results = []
             for k in dataset_val.keys():
                 proceed = not check_workers_busy(segmentation_export_pool, results,
-                                                 allowed_num_queued=len(segmentation_export_pool._pool))
+                                                 allowed_num_queued=2 * len(segmentation_export_pool._pool))
                 while not proceed:
-                    sleep(1)
+                    sleep(0.1)
                     proceed = not check_workers_busy(segmentation_export_pool, results,
-                                                     allowed_num_queued=len(segmentation_export_pool._pool))
+                                                     allowed_num_queued=2 * len(segmentation_export_pool._pool))
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)

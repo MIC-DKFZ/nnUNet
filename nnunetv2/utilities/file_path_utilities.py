@@ -123,7 +123,7 @@ def should_i_save_to_file(prediction: np.ndarray, results_list: List = None, exp
             #    We should prevent the task queue from getting too long. This could cause lots of predictions being
             #    stuck in a queue and eating up memory. Best to save to disk instead in that case. Hopefully there
             #    will be fewer people with RAM issues in the future...
-            if check_workers_busy(export_pool, results_list):
+            if check_workers_busy(export_pool, results_list, allowed_num_queued=len(export_pool._pool)):
                 return True
     return False
 
@@ -141,7 +141,7 @@ def check_workers_busy(export_pool: Pool, results_list: List, allowed_num_queued
     returns True if the number of results that are not ready is greater than the number of available workers + allowed_num_queued
     """
     not_ready = [not i.ready() for i in results_list]
-    if sum(not_ready) > (len(export_pool._pool) + allowed_num_queued):
+    if sum(not_ready) >= (len(export_pool._pool) + allowed_num_queued):
         return True
     return False
 
