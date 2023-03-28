@@ -102,9 +102,9 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         sum_pred = x.sum(axes) if loss_mask is None else (x * loss_mask).sum(axes)
 
         if self.ddp and self.batch_dice:
-            intersect = AllGatherGrad.apply(intersect)
-            sum_pred = AllGatherGrad.apply(sum_pred)
-            sum_gt = AllGatherGrad.apply(sum_gt)
+            intersect = AllGatherGrad.apply(intersect).sum(0)
+            sum_pred = AllGatherGrad.apply(sum_pred).sum(0)
+            sum_gt = AllGatherGrad.apply(sum_gt).sum(0)
 
         if self.batch_dice:
             intersect = intersect.sum(0)
