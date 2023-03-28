@@ -6,7 +6,7 @@
 - Datasets have the same structure (imagesTr, labelsTr, dataset.json) but we now support more 
 [file types](dataset_format.md#supported-file-formats). The dataset.json is simplified. Use `generate_dataset_json` 
 from nnunetv2.dataset_conversion.generate_dataset_json.py. 
-- Careful: labels are now no longer declared as name:value but value:name. This has to do with [hierarchical labels](region_based_training.md). 
+- Careful: labels are now no longer declared as value:name but name:value. This has to do with [hierarchical labels](region_based_training.md). 
 - nnU-Net v2 commands start with `nnUNetv2...`. They work mostly (but not entirely) the same. Just use the `-h` option.
 - You can transfer your V1 raw datasets to V2 with `nnUNetv2_convert_old_nnUNet_dataset`. You cannot transfer trained 
 models. Continue to use the old nnU-Net Version for making inference with those.

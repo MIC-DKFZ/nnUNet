@@ -190,7 +190,7 @@ choose from and allows you to define your own, see [here](explanation_normalizat
 
 Important changes relative to nnU-Net v1:
 - "modality" is now called "channel_names" to remove strong bias to medical images
-- labels are structured differently (name -> int instead if int -> name). This was needed to support [region-based training](region_based_training.md)
+- labels are structured differently (name -> int instead of int -> name). This was needed to support [region-based training](region_based_training.md)
 - "file_ending" is added to support different input file types
 - "overwrite_image_reader_writer" optional! Can be used to specify a certain (custom) ReaderWriter class that should 
 be used with this dataset. If not provided, nnU-Net will automatically determine the ReaderWriter
