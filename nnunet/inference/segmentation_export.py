@@ -113,7 +113,21 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
         seg_old_spacing = segmentation_softmax
 
     if resampled_npz_fname is not None:
-        np.savez_compressed(resampled_npz_fname, softmax=seg_old_spacing.astype(np.float16))
+        # if we reduced the size of the images during preprocessing by cropping to the nonzero area then we need to
+        # revert this cropping also for the softmax output...
+        bbox = deepcopy(properties_dict.get('crop_bbox'))
+        if bbox is not None:
+            softmax_orig_shape = np.zeros((seg_old_spacing.shape[0], *shape_original_before_cropping),
+                                          dtype=shape_original_before_cropping.dtype)
+            for c in range(3):
+                bbox[c][1] = np.min((bbox[c][0] + seg_old_spacing.shape[c+1], shape_original_before_cropping[c]))
+            softmax_orig_shape[:, bbox[0][0]:bbox[0][1],
+            bbox[1][0]:bbox[1][1],
+            bbox[2][0]:bbox[2][1]] = seg_old_spacing
+        else:
+            softmax_orig_shape = seg_old_spacing
+
+        np.savez_compressed(resampled_npz_fname, softmax=softmax_orig_shape.astype(np.float16))
         # this is needed for ensembling if the nonlinearity is sigmoid
         if region_class_order is not None:
             properties_dict['regions_class_order'] = region_class_order
@@ -127,8 +141,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
             seg_old_spacing_final[seg_old_spacing[i] > 0.5] = c
         seg_old_spacing = seg_old_spacing_final
 
-    bbox = properties_dict.get('crop_bbox')
-
+    bbox = deepcopy(properties_dict.get('crop_bbox'))
     if bbox is not None:
         seg_old_size = np.zeros(shape_original_before_cropping, dtype=np.uint8)
         for c in range(3):
