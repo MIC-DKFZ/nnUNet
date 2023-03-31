@@ -7,11 +7,11 @@ if __name__ == '__main__':
     trainers = ['nnUNetTrainerBenchmark_5epochs', 'nnUNetTrainerBenchmark_5epochs_noDataLoading']
     datasets = [2, 3, 4, 5]
     plans = ['nnUNetPlans']
-    configs = ['2d', '3d_fullres']
+    configs = ['2d', '2d_bs3x', '2d_bs6x', '3d_fullres', '3d_fullres_bs3x', '3d_fullres_bs6x']
     output_file = join(nnUNet_results, 'benchmark_results.csv')
 
-    torch_version = "1.12.0a0+git664058f"  #"1.11.0a0+gitbc2c6ed"  #
-    cudnn_version = 8500  # 8302  #
+    torch_version = "2.0.0"#"2.1.0.dev20230328"  #"1.11.0a0+gitbc2c6ed"  #
+    cudnn_version = 8700  # 8302  #
     num_gpus = 1
 
     unique_gpus = set()

@@ -202,8 +202,8 @@ class nnUNetTrainer(object):
                                                            self.num_input_channels,
                                                            enable_deep_supervision=True).to(self.device)
             # compile network for free speedup
-            if ('nnUNet_compile' not in os.environ.keys()) or not \
-                    (os.environ['nnUNet_compile'].lower() in ('false', '0', 'f')):
+            if ('nnUNet_compile' in os.environ.keys()) and (
+                    os.environ['nnUNet_compile'].lower() in ('true', '1', 't')):
                 self.print_to_log_file('Compiling network...')
                 self.network = torch.compile(self.network)
 

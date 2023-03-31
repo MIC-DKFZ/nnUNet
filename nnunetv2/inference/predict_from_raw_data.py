@@ -216,11 +216,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     mta = MultiThreadedAugmenter(ppa, NumpyToTensor(), num_processes, 1, None, pin_memory=device.type == 'cuda')
     # mta = SingleThreadedAugmenter(ppa, NumpyToTensor())
 
-    if ('nnUNet_compile' not in os.environ.keys()) or not \
-            (os.environ['nnUNet_compile'].lower() in ('false', '0', 'f')) and \
-            (len(list_of_lists_or_source_folder) > 5):  # just a dumb heurisitic in order to skip compiling for few inference cases
+    if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) and \
+        (len(list_of_lists_or_source_folder) > 5):  # just a dumb heurisitic in order to skip compiling for few inference cases
         print('compiling network')
-        network = torch.compile(network, mode='reduce-overhead')
+        network = torch.compile(network)
 
     # precompute gaussian
     inference_gaussian = torch.from_numpy(
