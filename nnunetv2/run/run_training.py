@@ -82,6 +82,7 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         if not isfile(expected_checkpoint_file):
             print(f"WARNING: Cannot continue training because there seems to be no checkpoint available to "
                                f"continue from. Starting a new training...")
+            expected_checkpoint_file = None
     elif validation_only:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
