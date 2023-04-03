@@ -48,7 +48,7 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
     rw = readerclass()
     ret = True
     file_seg = join(base_folder, 'labelsTr', case_identifier + file_ending)
-    pattern = re.compile(case_identifier + "_\d\d\d\d" + file_ending)
+    pattern = re.compile(re.escape(case_identifier) + r"_\d\d\d\d" + re.escape(file_ending))
     files_image = [join(base_folder, 'imagesTr', i) for i in subfiles(join(base_folder, 'imagesTr'),
                                                                       prefix=case_identifier,
                                                                       suffix=file_ending,
