@@ -117,7 +117,7 @@ ENV/
 data/
 
 # keep paths the same but locally can be hardcoded for easy debugging
-paths.py
+nnunetv2/paths.py
 
 # vscode stuff  
 *.vscode*
