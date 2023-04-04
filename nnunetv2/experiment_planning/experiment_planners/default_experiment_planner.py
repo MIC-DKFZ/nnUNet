@@ -284,7 +284,7 @@ class ExperimentPlanner(object):
                     (self.UNet_vram_target_GB / self.UNet_reference_val_corresp_GB)
 
         while estimate > reference:
-            # print(patch_size)
+            print(patch_size)
             # patch size seems to be too large, so we need to reduce it. Reduce the axis that currently violates the
             # aspect ratio the most (that is the largest relative to median shape)
             axis_to_be_reduced = np.argsort(patch_size / median_shape[:len(spacing)])[-1]
@@ -302,7 +302,10 @@ class ExperimentPlanner(object):
                                         self.UNet_featuremap_min_edge_length,
                                         999999)
             patch_size[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
-
+###
+            patch_size = [patch_size[axis_to_be_reduced]] * len(patch_size) # Enforce square!
+            print('square', patch_size)
+###
             # now recompute topology
             network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, patch_size, \
             shape_must_be_divisible_by = get_pool_and_conv_props(spacing, patch_size,
@@ -531,4 +534,4 @@ class ExperimentPlanner(object):
 
 
 if __name__ == '__main__':
-    ExperimentPlanner(2, 8).plan_experiment()
+    ExperimentPlanner(1, 8).plan_experiment()
