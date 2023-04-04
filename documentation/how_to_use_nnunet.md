@@ -54,9 +54,9 @@ for prediction) to boost performance.
 You can influence the splits nnU-Net uses for 5-fold cross-validation (see [here](manual_data_splits.md)). If you 
 prefer to train a single model on all training cases, this is also possible (see below).
 
-Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the U-Net
+**Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the U-Net
 cascade (and with it the 3d_lowres configuration) is omitted because the patch size of the full resolution U-Net 
-already covers a large part of the input images.
+already covers a large part of the input images.**
 
 Training models is done with the `nnUNetv2_train` command. The general structure of the command is:
 ```bash

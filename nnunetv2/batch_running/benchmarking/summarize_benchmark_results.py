@@ -10,7 +10,7 @@ if __name__ == '__main__':
     configs = ['2d', '2d_bs3x', '2d_bs6x', '3d_fullres', '3d_fullres_bs3x', '3d_fullres_bs6x']
     output_file = join(nnUNet_results, 'benchmark_results.csv')
 
-    torch_version = "2.0.0"#"2.1.0.dev20230328"  #"1.11.0a0+gitbc2c6ed"  #
+    torch_version = '2.1.0.dev20230330'#"2.0.0"#"2.1.0.dev20230328"  #"1.11.0a0+gitbc2c6ed"  #
     cudnn_version = 8700  # 8302  #
     num_gpus = 1
 

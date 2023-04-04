@@ -168,6 +168,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                   f'inference of the previous stage...')
             folder_with_segs_from_prev_stage = join(output_folder,
                                                     f'prediction_{configuration_manager.previous_stage_name}')
+            RAISE ASSERTION ERROR!
             predict_from_raw_data(list_of_lists_or_source_folder,
                                   folder_with_segs_from_prev_stage,
                                   get_output_folder(plans_manager.dataset_name,
