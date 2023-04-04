@@ -114,6 +114,10 @@ ENV/
 *.model
 
 # set ENVS in git folder
-nnUNet_raw/
-nnUNet_preprocessed/
-nnUNet_results/
+data/
+
+# keep paths the same but locally can be hardcoded for easy debugging
+paths.py
+
+# vscode stuff  
+*.vscode*
