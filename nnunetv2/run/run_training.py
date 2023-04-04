@@ -255,4 +255,8 @@ def run_training_entry():
 
 
 if __name__ == '__main__':
-    run_training_entry()
+    # run_training_entry()
+    print("RUNNING test, dataset 1, 2d model, fold 0, 1 epoch only")
+    # run_training('1', '2d', 0, 'nnUNetTrainer_1epoch') # works but locally out or memory
+    run_training('1', '2d', 0, 'nnUNetTrainer_custom_dataloader_test')
+                 # , args.p, args.pretrained_weights, args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing, device=device)
