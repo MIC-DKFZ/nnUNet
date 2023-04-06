@@ -38,6 +38,6 @@ def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, ide
     files = subfiles(folder, suffix=file_ending, join=False, sort=True)
     list_of_lists = []
     for f in identifiers:
-        p = re.compile(f + "_\d\d\d\d" + file_ending)
+        p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists

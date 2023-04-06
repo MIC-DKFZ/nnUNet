@@ -84,4 +84,4 @@ if __name__ == "__main__":
         _ = [i.get() for i in r]
 
     generate_dataset_json(join(nnUNet_raw, dataset_name), {0: 'R', 1: 'G', 2: 'B'}, {'background': 0, 'road': 1},
-                          num_train, '.png', dataset_name)
+                          num_train, '.png', dataset_name=dataset_name)
