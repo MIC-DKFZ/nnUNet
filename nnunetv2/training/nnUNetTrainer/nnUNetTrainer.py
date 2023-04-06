@@ -825,7 +825,18 @@ class nnUNetTrainer(object):
         if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
 
+        # shut down dataloaders
+        old_stdout = sys.stdout
+        with open(os.devnull, 'w') as f:
+            sys.stdout = f
+            if self.dataloader_train is not None:
+                self.dataloader_train._finish()
+            if self.dataloader_val is not None:
+                self.dataloader_val._finish()
+            sys.stdout = old_stdout
+
         empty_cache(self.device)
+        self.print_to_log_file("Training done.")
 
     def on_train_epoch_start(self):
         self.network.train()
