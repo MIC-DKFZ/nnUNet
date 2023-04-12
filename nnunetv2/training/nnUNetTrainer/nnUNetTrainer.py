@@ -23,7 +23,7 @@ from torch._dynamo import OptimizedModule
 
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
-from nnunetv2.inference.export_prediction import export_prediction_from_softmax, resample_and_save
+from nnunetv2.inference.export_prediction import export_prediction_from_logits, resample_and_save
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -49,7 +49,7 @@ from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDice
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
-from nnunetv2.utilities.file_path_utilities import should_i_save_to_file, check_workers_busy
+from nnunetv2.utilities.file_path_utilities import check_workers_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
@@ -1091,12 +1091,6 @@ class nnUNetTrainer(object):
 
         num_seg_heads = self.label_manager.num_segmentation_heads
 
-        inference_gaussian = torch.from_numpy(
-            compute_gaussian(self.configuration_manager.patch_size, sigma_scale=1. / 8))
-        # spawn allows the use of GPU in the background process in case somebody wants to do this. Not recommended. Trust me.
-        # segmentation_export_pool = multiprocessing.get_context('spawn').Pool(default_num_processes)
-        # let's not use this until someone really needs it!
-        # segmentation_export_pool = multiprocessing.Pool(default_num_processes)
         with multiprocessing.get_context("spawn").Pool(default_num_processes) as segmentation_export_pool:
             validation_output_folder = join(self.output_folder, 'validation')
             maybe_mkdir_p(validation_output_folder)
@@ -1140,7 +1134,7 @@ class nnUNetTrainer(object):
                                                                       mirror_axes=self.inference_allowed_mirroring_axes,
                                                                       tile_step_size=0.5,
                                                                       use_gaussian=True,
-                                                                      precomputed_gaussian=inference_gaussian,
+                                                                      precomputed_gaussian=None,
                                                                       perform_everything_on_gpu=True,
                                                                       verbose=False,
                                                                       device=self.device).cpu().numpy()
@@ -1150,22 +1144,16 @@ class nnUNetTrainer(object):
                                                                       mirror_axes=self.inference_allowed_mirroring_axes,
                                                                       tile_step_size=0.5,
                                                                       use_gaussian=True,
-                                                                      precomputed_gaussian=inference_gaussian,
+                                                                      precomputed_gaussian=None,
                                                                       perform_everything_on_gpu=False,
                                                                       verbose=False,
                                                                       device=self.device).cpu().numpy()
 
-                if should_i_save_to_file(prediction, results, segmentation_export_pool):
-                    np.save(output_filename_truncated + '.npy', prediction)
-                    prediction_for_export = output_filename_truncated + '.npy'
-                else:
-                    prediction_for_export = prediction
-
                 # this needs to go into background processes
                 results.append(
                     segmentation_export_pool.starmap_async(
-                        export_prediction_from_softmax, (
-                            (prediction_for_export, properties, self.configuration_manager, self.plans_manager,
+                        export_prediction_from_logits, (
+                            (prediction, properties, self.configuration_manager, self.plans_manager,
                              self.dataset_json, output_filename_truncated, save_probabilities),
                         )
                     )
@@ -1196,19 +1184,14 @@ class nnUNetTrainer(object):
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file = join(output_folder, k + '.npz')
 
-                        if should_i_save_to_file(prediction, results, segmentation_export_pool):
-                            np.save(output_file[:-4] + '.npy', prediction)
-                            prediction_for_export = output_file[:-4] + '.npy'
-                        else:
-                            prediction_for_export = prediction
                         # resample_and_save(prediction, target_shape, output_file, self.plans, self.configuration, properties,
-                        #                   self.dataset_json, n)
+                        #                   self.dataset_json)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
-                                (prediction_for_export, target_shape, output_file, self.plans_manager,
+                                (prediction, target_shape, output_file, self.plans_manager,
                                  self.configuration_manager,
                                  properties,
-                                 self.dataset_json, n),
+                                 self.dataset_json),
                             )
                         ))
 
@@ -1230,6 +1213,7 @@ class nnUNetTrainer(object):
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]), also_print_to_console=True)
 
         self.set_deep_supervision_enabled(True)
+        compute_gaussian.cache_clear()
 
     def run_training(self):
         self.on_train_start()

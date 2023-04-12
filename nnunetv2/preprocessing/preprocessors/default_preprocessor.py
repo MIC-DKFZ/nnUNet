@@ -35,44 +35,25 @@ class DefaultPreprocessor(object):
         Everything we need is in the plans. Those are given when run() is called
         """
 
-    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
-                 configuration_manager: ConfigurationManager,
-                 dataset_json: Union[dict, str]):
-        """
-        seg file can be none (test cases)
-
-        order of operations is: transpose -> crop -> resample
-        so when we export we need to run the following order: resample -> crop -> transpose (we could also run
-        transpose at a different place, but reverting the order of operations done during preprocessing seems cleaner)
-        """
-        if isinstance(dataset_json, str):
-            dataset_json = load_json(dataset_json)
-
-        rw = plans_manager.image_reader_writer_class()
-
-        # load image(s)
-        data, data_properites = rw.read_images(image_files)
-
-        # if possible, load seg
-        if seg_file is not None:
-            seg, _ = rw.read_seg(seg_file)
-        else:
-            seg = None
+    def run_case_npy(self, data: np.ndarray, seg: Union[np.ndarray, None], properties: dict,
+                     plans_manager: PlansManager, configuration_manager: ConfigurationManager,
+                     dataset_json: Union[dict, str]):
+        has_seg = seg is not None
 
         # apply transpose_forward, this also needs to be applied to the spacing!
         data = data.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
         if seg is not None:
             seg = seg.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
-        original_spacing = [data_properites['spacing'][i] for i in plans_manager.transpose_forward]
+        original_spacing = [properties['spacing'][i] for i in plans_manager.transpose_forward]
 
         # crop, remember to store size before cropping!
         shape_before_cropping = data.shape[1:]
-        data_properites['shape_before_cropping'] = shape_before_cropping
+        properties['shape_before_cropping'] = shape_before_cropping
         # this command will generate a segmentation. This is important because of the nonzero mask which we may need
         data, seg, bbox = crop_to_nonzero(data, seg)
-        data_properites['bbox_used_for_cropping'] = bbox
+        properties['bbox_used_for_cropping'] = bbox
         # print(data.shape, seg.shape)
-        data_properites['shape_after_cropping_and_before_resampling'] = data.shape[1:]
+        properties['shape_after_cropping_and_before_resampling'] = data.shape[1:]
 
         # resample
         target_spacing = configuration_manager.spacing  # this should already be transposed
@@ -99,7 +80,7 @@ class DefaultPreprocessor(object):
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
 
         # if we have a segmentation, sample foreground locations for oversampling and add those to properties
-        if seg_file is not None:
+        if has_seg:
             # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
             # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
             # LabelManager is pretty light computation-wise.
@@ -114,13 +95,41 @@ class DefaultPreprocessor(object):
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
-            data_properites['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
+            properties['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
                                                                                    verbose=self.verbose)
             seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
         if np.max(seg) > 127:
             seg = seg.astype(np.int16)
         else:
             seg = seg.astype(np.int8)
+        return data, seg
+
+    def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
+                 configuration_manager: ConfigurationManager,
+                 dataset_json: Union[dict, str]):
+        """
+        seg file can be none (test cases)
+
+        order of operations is: transpose -> crop -> resample
+        so when we export we need to run the following order: resample -> crop -> transpose (we could also run
+        transpose at a different place, but reverting the order of operations done during preprocessing seems cleaner)
+        """
+        if isinstance(dataset_json, str):
+            dataset_json = load_json(dataset_json)
+
+        rw = plans_manager.image_reader_writer_class()
+
+        # load image(s)
+        data, data_properites = rw.read_images(image_files)
+
+        # if possible, load seg
+        if seg_file is not None:
+            seg, _ = rw.read_seg(seg_file)
+        else:
+            seg = None
+
+        data, seg = self.run_case_npy(data, seg, data_properites, plans_manager, configuration_manager,
+                                      dataset_json)
         return data, seg, data_properites
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,

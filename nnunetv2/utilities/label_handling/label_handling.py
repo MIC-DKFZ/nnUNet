@@ -181,9 +181,9 @@ class LabelManager(object):
         probabilities = self.apply_inference_nonlin(predicted_logits)
         return self.convert_probabilities_to_segmentation(probabilities)
 
-    def revert_cropping(self, predicted_probabilities: np.ndarray,
-                        bbox: List[List[int]],
-                        original_shape: Union[List[int], Tuple[int, ...]]):
+    def revert_cropping_on_probabilities(self, predicted_probabilities: np.ndarray,
+                                         bbox: List[List[int]],
+                                         original_shape: Union[List[int], Tuple[int, ...]]):
         """
         ONLY USE THIS WITH PROBABILITIES, DO NOT USE LOGITS AND DO NOT USE FOR SEGMENTATION MAPS!!!
 

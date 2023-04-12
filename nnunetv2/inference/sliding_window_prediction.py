@@ -1,4 +1,5 @@
 import warnings
+from functools import lru_cache
 
 import numpy as np
 import torch
@@ -10,18 +11,23 @@ from torch import nn
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 
 
-def compute_gaussian(tile_size: Tuple[int, ...], sigma_scale: float = 1. / 8, dtype=np.float16) \
-        -> np.ndarray:
+@lru_cache(maxsize=1)
+def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], sigma_scale: float = 1. / 8,
+                     value_scaling_factor: float = 1, dtype=torch.float16, device=torch.device('cuda', 0)) \
+        -> torch.Tensor:
     tmp = np.zeros(tile_size)
     center_coords = [i // 2 for i in tile_size]
     sigmas = [i * sigma_scale for i in tile_size]
     tmp[tuple(center_coords)] = 1
     gaussian_importance_map = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
-    gaussian_importance_map = gaussian_importance_map / np.max(gaussian_importance_map) * 1
-    gaussian_importance_map = gaussian_importance_map.astype(dtype)
+
+    gaussian_importance_map = torch.from_numpy(gaussian_importance_map).type(dtype).to(device)
+
+    gaussian_importance_map = gaussian_importance_map / torch.max(gaussian_importance_map) * value_scaling_factor
+    gaussian_importance_map = gaussian_importance_map.type(dtype)
 
     # gaussian_importance_map cannot be 0, otherwise we may end up with nans!
-    gaussian_importance_map[gaussian_importance_map == 0] = np.min(
+    gaussian_importance_map[gaussian_importance_map == 0] = torch.min(
         gaussian_importance_map[gaussian_importance_map != 0])
 
     return gaussian_importance_map
@@ -110,7 +116,7 @@ def maybe_mirror_and_predict(network: nn.Module, x: torch.Tensor, mirror_axes: T
 def predict_sliding_window_return_logits(network: nn.Module,
                                          input_image: Union[np.ndarray, torch.Tensor],
                                          num_segmentation_heads: int,
-                                         tile_size: Tuple[int, ...],
+                                         tile_size: Union[Tuple[int, ...], List[int]],
                                          mirror_axes: Tuple[int, ...] = None,
                                          tile_step_size: float = 0.5,
                                          use_gaussian: bool = True,
@@ -155,13 +161,8 @@ def predict_sliding_window_return_logits(network: nn.Module,
             data, slicer_revert_padding = pad_nd_image(input_image, tile_size, 'constant', {'value': 0}, True, None)
 
             if use_gaussian:
-                gaussian = torch.from_numpy(
-                    compute_gaussian(tile_size, sigma_scale=1. / 8)) if precomputed_gaussian is None else precomputed_gaussian
-                gaussian = gaussian.half()
-                # make sure nothing is rounded to zero or we get division by zero :-(
-                mn = gaussian.min()
-                if mn == 0:
-                    gaussian.clip_(min=mn)
+                gaussian = compute_gaussian(tuple(tile_size), sigma_scale=1. / 8, value_scaling_factor=1000,
+                                            device=device) if precomputed_gaussian is None else precomputed_gaussian
 
             slicers = get_sliding_window_generator(data.shape[1:], tile_size, tile_step_size, verbose=verbose)
 
