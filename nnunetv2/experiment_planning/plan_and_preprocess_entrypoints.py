@@ -88,13 +88,22 @@ def preprocess_entry():
                              "know what that is then dont touch it, or at least don't increase it!). DANGER: More "
                              "often than not the number of processes that can be used is limited by the amount of "
                              "RAM available. Image resampling takes up a lot of RAM. MONITOR RAM USAGE AND "
-                             "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 4 8 (=8 processes for 2d, 4 "
-                             "for 3d_fullres and 8 for 3d_lowres if -c is at its default)")
+                             "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 processes for 2d, 4 "
+                             "for 3d_fullres, 8 for 3d_lowres and 4 for everything else")
     parser.add_argument('--verbose', required=False, action='store_true',
                         help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
-    preprocess(args.d, args.plans_name, configurations=args.c, num_processes=args.np, verbose=args.verbose)
+    if args.np is None:
+        default_np = {
+            '2d': 4,
+            '3d_lowres': 8,
+            '3d_fullres': 4
+        }
+        np = {default_np[c] if c in default_np.keys() else 4 for c in args.c}
+    else:
+        np = args.np
+    preprocess(args.d, args.plans_name, configurations=args.c, num_processes=np, verbose=args.verbose)
 
 
 def plan_and_preprocess_entry():
@@ -151,7 +160,7 @@ def plan_and_preprocess_entry():
                         help='[OPTIONAL] Configurations for which the preprocessing should be run. Default: 2d 3f_fullres '
                              '3d_lowres. 3d_cascade_fullres does not need to be specified because it uses the data '
                              'from 3f_fullres. Configurations that do not exist for some dataset will be skipped.')
-    parser.add_argument('-np', type=int, nargs='+', default=[8, 4, 8], required=False,
+    parser.add_argument('-np', type=int, nargs='+', default=None, required=False,
                         help="[OPTIONAL] Use this to define how many processes are to be used. If this is just one number then "
                              "this number of processes is used for all configurations specified with -c. If it's a "
                              "list of numbers this list must have as many elements as there are configurations. We "
@@ -161,8 +170,8 @@ def plan_and_preprocess_entry():
                              "know what that is then dont touch it, or at least don't increase it!). DANGER: More "
                              "often than not the number of processes that can be used is limited by the amount of "
                              "RAM available. Image resampling takes up a lot of RAM. MONITOR RAM USAGE AND "
-                             "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 4 8 (=8 processes for 2d, 4 "
-                             "for 3d_fullres and 8 for 3d_lowres if -c is at its default)")
+                             "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 processes for 2d, 4 "
+                             "for 3d_fullres, 8 for 3d_lowres and 4 for everything else")
     parser.add_argument('--verbose', required=False, action='store_true',
                         help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
                              'Recommended for cluster environments')
@@ -176,10 +185,20 @@ def plan_and_preprocess_entry():
     print('Experiment planning...')
     plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing, args.overwrite_plans_name)
 
+    # manage default np
+    if args.np is None:
+        default_np = {
+            '2d': 4,
+            '3d_lowres': 8,
+            '3d_fullres': 4
+        }
+        np = {default_np[c] if c in default_np.keys() else 4 for c in args.c}
+    else:
+        np = args.np
     # preprocessing
     if not args.no_pp:
         print('Preprocessing...')
-        preprocess(args.d, args.overwrite_plans_name, args.c, args.np, args.verbose)
+        preprocess(args.d, args.overwrite_plans_name, args.c, np, args.verbose)
 
 
 if __name__ == '__main__':
