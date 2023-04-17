@@ -1,15 +1,5 @@
-import os
-import numpy as np
 import torch
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from batchgenerators.utilities.file_and_folder_operations import join, load_json
-
-# Whole slide data dataloader
-if os.name == 'nt':
-    os.add_dll_directory(r"C:\Program Files\openslide\bin") # windows
-from wholeslidedata.iterators import create_batch_iterator
-from wholeslidedata.iterators.batchiterator import BatchIterator
-from copy import deepcopy
 
 # for network building
 from torch import nn
@@ -34,7 +24,7 @@ from datetime import datetime
 from torch.cuda.amp import GradScaler
 import inspect
 from torch.cuda import device_count
-from nnunetv2.paths import nnUNet_results, nnUNet_preprocessed
+from nnunetv2.paths import nnUNet_results
 
 ### TODOS
 # DONE: rgb_to_0_1 via dataset.json
@@ -44,7 +34,7 @@ from nnunetv2.paths import nnUNet_results, nnUNet_preprocessed
 # TODO: Test with simple dataloader instead of dumy data
 # TODO: Use plans file for dataloader initialization
 
-class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
+class nnUNetTrainer_dummy_dataloader_test(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         """used for debugging plans etc"""
@@ -183,80 +173,48 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         #     torch.round(
         #         torch.rand((self.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
         #         max(self.label_manager.all_labels)
-        dummy_data = torch.rand((self.configuration_manager.batch_size, num_input_channels, *patch_size), device=self.device)
+        dummy_data = torch.rand((2, num_input_channels, *patch_size), device=self.device)
         dummy_target = [
             torch.round(
-                torch.rand((self.configuration_manager.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
+                torch.rand((2, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
                 max(self.label_manager.all_labels)
             ) for k in self._get_deep_supervision_scales()]
         self.dummy_batch = {'data': dummy_data, 'target': dummy_target} # only thing we need!
 
-        
-
-
-### TODO: fix this        
-        # self.yaml_source = "C:\Users\joeyspronck\Documents\Github\nnUNet_v2\test_code\example_files.json"
-        # self.spacing
-###
-
-
 ### GET DATALOADERS - as generator objects
     def get_dataloaders(self):
         return None, None
-        print('[Getting WSD dataloaders]')
-        dataloader_template = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'wsd_dataloader_template.json'))
-        files = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'files.json')) 
-        copy_path = 'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
-        labels = self.dataset_json['labels']
-        label_sample_weights = {
-            'invasive tumor': 0.5,
-            'tumor-associated stroma': 0.5
-        }
-        spacing = 0.5
-        patch_size = self.configuration_manager.patch_size
-        patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
-        batch_size = self.configuration_manager.batch_size
-        ds_scales = self._get_deep_supervision_scales()
-        ds_shapes = [list(np.round([int(i * j) for i, j in zip(patch_size, k)])) for k in ds_scales]
-        extra_ds_sizes = [ds_shape for ds_shape in ds_shapes[1:]]
-        extra_ds_shapes = tuple([tuple([batch_size]+ds_shape) for ds_shape in ds_shapes[1:]])
-        device = self.device
 
-        fill_template = dataloader_template['wholeslidedata']['default']
+### RUN TRAINING        
+    def run_training(self):
+        try:
+            self.on_train_start()
 
-        fill_template['yaml_source'] = files
-        fill_template['labels'] = labels
-        fill_template['batch_shape']['batch_size'] = batch_size
-        fill_template['batch_shape']['spacing'] = spacing
-        fill_template['batch_shape']['shape'] = patch_shape
-        fill_template['label_sampler']['labels'] = label_sample_weights
-        fill_template['batch_callbacks'][-1]['sizes'] = extra_ds_sizes
-        fill_template['dataset']['copy_path'] = copy_path
+            for epoch in range(self.current_epoch, self.num_epochs):
+                self.on_epoch_start()
 
-        # TODO: not here
-        class WholeSlidePlainnnUnetBatchIterator(BatchIterator):
-            def __next__(self):
-                x_batch, y_batch, *extras, _ = super().__next__()
-                data = torch.FloatTensor(x_batch.transpose(0,3,1,2) /255.).to(device)
-                target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
-                    torch.FloatTensor(np.expand_dims(extra, 1)).to(device) 
-                    for extra in extras]         
-                return {'data': data, 'target': target}
-            
-        cpus = 4
-        print('[Creating batch iterators]')
-        tiger_batch_iterator = create_batch_iterator(mode="training", 
-                                                    user_config= deepcopy(dataloader_template), 
-                                                    cpus=cpus, 
-                                                    buffer_dtype='uint8',
-                                                    context='spawn' if os.name == 'nt' else 'fork',
-                                                    extras_shapes = extra_ds_shapes,
-                                                    iterator_class=WholeSlidePlainnnUnetBatchIterator
-                                                    )
+                self.on_train_epoch_start()
+                train_outputs = []
+                # for batch_id in range(self.num_iterations_per_epoch):
+                for batch_id in range(4):
+                    train_outputs.append(self.train_step(self.dummy_batch)) ### REPLACE self.dummy_batch with next(self.dataloader_train)
+                    print('done batch')
+                self.on_train_epoch_end(train_outputs)
 
-        print('[Returing batch iterators]')
-        return tiger_batch_iterator, tiger_batch_iterator
+                with torch.no_grad():
+                    self.on_validation_epoch_start()
+                    val_outputs = []
+                    for batch_id in range(self.num_val_iterations_per_epoch):
+                        val_outputs.append(self.validation_step(self.dummy_batch)) ### REPLACE self.dummy_batch with next(self.dataloader_val)
+                    self.on_validation_epoch_end(val_outputs)
 
+                self.on_epoch_end()
+                print('done epoch')
+            self.on_train_end()
+            print('done training')
+        except RuntimeError as e:
+            print(e)
+            self.crashed_with_runtime_error = True
 
 ### build_network_architecture changing to BATCH NORM ###
     @staticmethod
@@ -344,7 +302,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         #     unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
         #                    num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
         #     self.print_to_log_file('unpacking done...')
-        print('No unpacking etc. WholeSlideData will copy data locally if dataset copy path is specified in dataloader config')
+        print('No unpacking etc. WholeSlideData will copy data locally is needed')
 
         if self.is_ddp:
             dist.barrier()
@@ -368,34 +326,3 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
         # print(f"batch size: {self.batch_size}")
         # print(f"oversample: {self.oversample_foreground_percent}")
-
-### RUN TRAINING        
-    def run_training(self):
-        try:
-            self.on_train_start()
-
-            for epoch in range(self.current_epoch, self.num_epochs):
-                self.on_epoch_start()
-
-                self.on_train_epoch_start()
-                train_outputs = []
-                # for batch_id in range(self.num_iterations_per_epoch):
-                for batch_id in range(4):
-                    train_outputs.append(self.train_step(self.dummy_batch)) ### REPLACE self.dummy_batch with next(self.dataloader_train)
-                    print('done batch')
-                self.on_train_epoch_end(train_outputs)
-
-                with torch.no_grad():
-                    self.on_validation_epoch_start()
-                    val_outputs = []
-                    for batch_id in range(self.num_val_iterations_per_epoch):
-                        val_outputs.append(self.validation_step(self.dummy_batch)) ### REPLACE self.dummy_batch with next(self.dataloader_val)
-                    self.on_validation_epoch_end(val_outputs)
-
-                self.on_epoch_end()
-                print('done epoch')
-            self.on_train_end()
-            print('done training')
-        except RuntimeError as e:
-            print(e)
-            self.crashed_with_runtime_error = True
