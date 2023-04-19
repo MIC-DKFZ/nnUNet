@@ -30,7 +30,7 @@ class Dataset3D(Dataset):
         self.list_path = root / list_path
         self.img_ids = [i_id.strip().split() for i_id in open(self.list_path)]
         self.local_crops_number = local_crops_number
-
+        self.rng = np.random.default_rng(420)
         self.files = []
         for item in self.img_ids:
             image_path = item
@@ -55,8 +55,12 @@ class Dataset3D(Dataset):
     def __len__(self):
         return len(self.files)
 
-    # TODO: modify for wise sampling
-    def crop_scale(self, image, scale_range: tuple):
+    def crop_scale(self, image, scale_range: tuple, wise_crop: bool = False, bkgd_val: float = None):
+        
+        assert wise_crop and (bkgd_val is not None), \
+            'If wise cropping needs to be done the background value yo must pass'
+        has_desired_ratio = not wise_crop
+
         _, img_d, img_h, img_w = image.shape
 
         # Define a random crop size that fits inside the image
@@ -82,7 +86,14 @@ class Dataset3D(Dataset):
         w1 = w0 + scale_w
 
         # crop image
-        image_crop = image[:, d0: d1, h0: h1, w0: w1]
+        while not has_desired_ratio:
+            image_crop = image[:, d0: d1, h0: h1, w0: w1]
+            bkgd_ratio = (image_crop == bkgd_val).sum() / np.prod(image_crop.shape)
+            if bkgd_ratio > 0.4:
+                sample = self.rng.uniform(low=0.0, high=1.0)
+                has_desired_ratio = False if sample < bkgd_ratio else True
+            else:
+                has_desired_ratio = True
         return image_crop
 
     def crop_scale_mirror(self, image: np.ndarray, axes=(0, 1, 2), local: bool = False):
@@ -145,7 +156,7 @@ class Dataset3D(Dataset):
         image = image.transpose((0, 3, 1, 2))
 
         img = []
-        image_crop_ori = self.crop_scale(image, (1.4, 1.8))
+        image_crop_ori = self.crop_scale(image, (1.4, 1.8), wise_crop=False)
 
         # Global patches, mirror and scale augmentations
         image_crop1 = self.crop_scale_mirror(image_crop_ori, axes=(0, 1, 2), local=False)
