@@ -65,28 +65,28 @@ class Dataset3D(Dataset):
 
         # Define a random crop size that fits inside the image
         # on height and width, depth is kept fixed
-        scaler_d = 1.
-        scaler_h = np.random.uniform(scale_range[0], scale_range[1])  # 1.4, 1.8
-        if (int(self.global_crop3D_h * scaler_h) >= img_h):
-            scaler_h = 1.
-        scaler_w = np.random.uniform(scale_range[0], scale_range[1])
-        if (int(self.global_crop3D_w * scaler_w) >= img_w):
-            scaler_w = 1.
-        scale_d = int(self.global_crop3D_d * scaler_d)
-        scale_h = int(self.global_crop3D_h * scaler_h)
-        scale_w = int(self.global_crop3D_w * scaler_w)
-
-        # sample a random origin for the crop
-        d0 = random.randint(0, img_d - scale_d)
-        h0 = random.randint(0, img_h - scale_h)
-        w0 = random.randint(0, img_w - scale_w)
-        # define the limits of the crop
-        d1 = d0 + scale_d
-        h1 = h0 + scale_h
-        w1 = w0 + scale_w
-
-        # crop image
         while not has_desired_ratio:
+            scaler_d = 1.
+            scaler_h = np.random.uniform(scale_range[0], scale_range[1])
+            if (int(self.global_crop3D_h * scaler_h) >= img_h):
+                scaler_h = 1.
+            scaler_w = np.random.uniform(scale_range[0], scale_range[1])
+            if (int(self.global_crop3D_w * scaler_w) >= img_w):
+                scaler_w = 1.
+            scale_d = int(self.global_crop3D_d * scaler_d)
+            scale_h = int(self.global_crop3D_h * scaler_h)
+            scale_w = int(self.global_crop3D_w * scaler_w)
+
+            # sample a random origin for the crop
+            d0 = random.randint(0, img_d - scale_d)
+            h0 = random.randint(0, img_h - scale_h)
+            w0 = random.randint(0, img_w - scale_w)
+            # define the limits of the crop
+            d1 = d0 + scale_d
+            h1 = h0 + scale_h
+            w1 = w0 + scale_w
+
+            # crop image
             image_crop = image[:, d0: d1, h0: h1, w0: w1]
             bkgd_ratio = (image_crop == bkgd_val).sum() / np.prod(image_crop.shape)
             if bkgd_ratio > 0.4:
