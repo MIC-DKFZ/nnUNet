@@ -55,7 +55,7 @@ def convert_acdc(src_data_folder: str, dataset_id=27):
     generate_dataset_json(
         str(out_dir),
         channel_names={
-            0: "background",
+            0: "cineMRI",
         },
         labels={
             "background": 0,
