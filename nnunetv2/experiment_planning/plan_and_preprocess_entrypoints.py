@@ -187,7 +187,7 @@ def plan_and_preprocess_entry():
 
     # manage default np
     if args.np is None:
-        default_np = {"2d": 8, "3d_lowres": 8, "3d_fullres": 4}
+        default_np = {"2d": 8, "3d_fullres": 4, "3d_lowres": 8}
         np = [default_np[c] if c in default_np.keys() else 4 for c in args.c]
     else:
         np = args.np
