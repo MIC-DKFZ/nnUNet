@@ -47,12 +47,9 @@ class NibabelIO(BaseReaderWriter):
             original_affines.append(original_affine)
 
             # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
-            spacings_for_nnunet.append((
-                original_affine[2, 2],
-                original_affine[1, 1],
-                original_affine[0, 0],
-            ))
-            spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))
+            spacings_for_nnunet.append(
+                    nib_image.header.get_zooms()[::-1]
+            )
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
             images.append(nib_image.get_fdata().transpose((2, 1, 0))[None])
@@ -132,12 +129,9 @@ class NibabelIOWithReorient(BaseReaderWriter):
             reoriented_affines.append(reoriented_affine)
 
             # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
-            spacings_for_nnunet.append((
-                reoriented_affine[2, 2],
-                reoriented_affine[1, 1],
-                reoriented_affine[0, 0],
-            ))
-            spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))
+            spacings_for_nnunet.append(
+                    nib_image.header.get_zooms()[::-1]
+            )
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
             images.append(reoriented_image.get_fdata().transpose((2, 1, 0))[None])
