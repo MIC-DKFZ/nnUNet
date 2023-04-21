@@ -23,7 +23,7 @@ def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: st
                 else:
                     continue
 
-            expected_fold_folder = ["fold_%d" % i if i != 'all' else 'fold_all' for i in folds]
+            expected_fold_folder = ["fold_%s" % i if i != 'all' else 'fold_all' for i in folds]
             assert all([isdir(join(trainer_output_dir, i)) for i in expected_fold_folder]), \
                 f"not all requested folds are present; {dataset_name} {c}; requested folds: {folds}"
 
