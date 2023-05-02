@@ -48,7 +48,7 @@ class NibabelIO(BaseReaderWriter):
 
             # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
             spacings_for_nnunet.append(
-                    nib_image.header.get_zooms()[::-1]
+                    [float(i) for i in nib_image.header.get_zooms()[::-1]]
             )
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
@@ -130,7 +130,7 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
             # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
             spacings_for_nnunet.append(
-                    nib_image.header.get_zooms()[::-1]
+                    [float(i) for i in reoriented_image.header.get_zooms()[::-1]]
             )
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
