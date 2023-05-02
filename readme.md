@@ -67,7 +67,11 @@ nnU-Net then creates several U-Net configurations for each dataset:
 - `3d_lowres` → `3d_cascade_fullres`: a 3D U-Net cascade where first a 3D U-Net operates on low resolution images and 
 then a second high-resolution 3D U-Net refined the predictions of the former (for 3D datasets with large image sizes only)
 
-nnU-Net then configures these segmentation pipelines based on a three-step recipe:
+**Note that not all U-Net configurations are created for all datasets. In datasets with small image sizes, the 
+U-Net cascade (and with it the 3d_lowres configuration) is omitted because the patch size of the full 
+resolution U-Net already covers a large part of the input images.**
+
+nnU-Net configures its segmentation pipelines based on a three-step recipe:
 - **Fixed parameters** are not adapted. During development of nnU-Net we identified a robust configuration (that is, certain architecture and training properties) that can 
 simply be used all the time. This includes, for example, nnU-Net's loss function, (most of the) data augmentation strategy and learning rate.
 - **Rule-based parameters** use the dataset fingerprint to adapt certain segmentation pipeline properties by following 
