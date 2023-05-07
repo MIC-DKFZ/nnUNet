@@ -5,7 +5,7 @@ import nnunetv2
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles
 
 from nnunetv2.experiment_planning.dataset_fingerprint.fingerprint_extractor import DatasetFingerprintExtractor
-from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
+from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner, ExperimentPlannerSSL
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name, maybe_convert_to_dataset_name
@@ -51,13 +51,18 @@ def plan_experiment_dataset(dataset_id: int,
                             experiment_planner_class: Type[ExperimentPlanner] = ExperimentPlanner,
                             gpu_memory_target_in_gb: float = 8, preprocess_class_name: str = 'DefaultPreprocessor',
                             overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
-                            overwrite_plans_name: Optional[str] = None) -> dict:
+                            overwrite_plans_name: Optional[str] = None,
+                            configuration: Optional[List[str]] = None
+                            ) -> dict:
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
     kwargs = {}
     if overwrite_plans_name is not None:
         kwargs['plans_name'] = overwrite_plans_name
+    if experiment_planner_class == ExperimentPlannerSSL:
+        kwargs['configuration'] = configuration
+        
     return experiment_planner_class(dataset_id,
                                     gpu_memory_target_in_gb=gpu_memory_target_in_gb,
                                     preprocessor_name=preprocess_class_name,
@@ -71,7 +76,8 @@ def plan_experiment_dataset(dataset_id: int,
 def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str = 'ExperimentPlanner',
                      gpu_memory_target_in_gb: float = 8, preprocess_class_name: str = 'DefaultPreprocessor',
                      overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
-                     overwrite_plans_name: Optional[str] = None):
+                     overwrite_plans_name: Optional[str] = None,
+                     configuration: Optional[List[str]] = None):
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
@@ -80,7 +86,7 @@ def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str 
                                                      current_module="nnunetv2.experiment_planning")
     for d in dataset_ids:
         plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb, preprocess_class_name,
-                                overwrite_target_spacing, overwrite_plans_name)
+                                overwrite_target_spacing, overwrite_plans_name, configuration)
 
 
 def preprocess_dataset(dataset_id: int,

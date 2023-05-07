@@ -13,9 +13,10 @@
 #    limitations under the License.
 from typing import Union
 
-from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
-from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import *
+
+from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
 
 
 def find_candidate_datasets(dataset_id: int):

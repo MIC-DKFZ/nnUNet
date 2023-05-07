@@ -10,7 +10,7 @@ setup(name='nnunetv2',
       license='Apache License Version 2.0, January 2004',
       python_requires=">=3.9",
       install_requires=[
-          "torch>=2.0.0",
+          "torch",
           "acvl-utils>=0.2",
           "dynamic-network-architectures>=0.2",
           "tqdm",

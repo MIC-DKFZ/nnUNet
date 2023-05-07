@@ -33,7 +33,7 @@ def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected
     seg, properties = rw.read_seg(label_file)
     found_labels = np.sort(pd.unique(seg.ravel()))  # np.unique(seg)
     unexpected_labels = [i for i in found_labels if i not in expected_labels]
-    if len(found_labels) == 0 and found_labels[0] == 0:
+    if len(found_labels) == 0 and found_labels[0] == 0: # TODO SOLVE BUG
         print('WARNING: File %s only has label 0 (which should be background). This may be intentional or not, '
               'up to you.' % label_file)
     if len(unexpected_labels) > 0:

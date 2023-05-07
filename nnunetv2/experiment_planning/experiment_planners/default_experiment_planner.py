@@ -61,6 +61,7 @@ class ExperimentPlanner(object):
         self.UNet_min_batch_size = 2
         self.UNet_max_features_2d = 512
         self.UNet_max_features_3d = 320
+        self.max_numpool = 999999
 
         self.lowres_creation_threshold = 0.25  # if the patch size of fullres is less than 25% of the voxels in the
         # median shape then we need a lowres config as well
@@ -192,7 +193,7 @@ class ExperimentPlanner(object):
             target_spacing_of_that_axis = np.percentile(spacings_of_that_axis, 10)
             # don't let the spacing of that axis get higher than the other axes
             if target_spacing_of_that_axis < max(other_spacings):
-                target_spacing_of_that_axis = max(max(other_spacings), target_spacing_of_that_axis) + 1e-5
+                target_spacing_of_that_axis = max(max(other_spacings), target_spacing_of_that_axis) + 1e-5  # TODO: here there is a redundant logic
             target[worst_spacing_axis] = target_spacing_of_that_axis
         return target
 
@@ -259,7 +260,7 @@ class ExperimentPlanner(object):
         network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, patch_size, \
         shape_must_be_divisible_by = get_pool_and_conv_props(spacing, initial_patch_size,
                                                              self.UNet_featuremap_min_edge_length,
-                                                             999999)
+                                                             self.max_numpool)
 
         # now estimate vram consumption
         num_stages = len(pool_op_kernel_sizes)
@@ -300,14 +301,14 @@ class ExperimentPlanner(object):
             _, _, _, _, shape_must_be_divisible_by = \
                 get_pool_and_conv_props(spacing, tmp,
                                         self.UNet_featuremap_min_edge_length,
-                                        999999)
+                                        self.max_numpool)
             patch_size[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
 
             # now recompute topology
             network_num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, patch_size, \
             shape_must_be_divisible_by = get_pool_and_conv_props(spacing, patch_size,
                                                                  self.UNet_featuremap_min_edge_length,
-                                                                 999999)
+                                                                 self.max_numpool)
 
             num_stages = len(pool_op_kernel_sizes)
             estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
@@ -528,6 +529,155 @@ class ExperimentPlanner(object):
 
     def load_plans(self, fname: str):
         self.plans = load_json(fname)
+
+
+class ExperimentPlannerSSL(ExperimentPlanner):
+    def __init__(self, dataset_name_or_id: Union[str, int],
+                 gpu_memory_target_in_gb: float = 22,
+                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetPlans',
+                 overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
+                 configuration: List[str] = ['3d_fullres'],
+                 suppress_transpose: bool = False):
+        super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name,
+                         plans_name, overwrite_target_spacing, suppress_transpose)
+        self.configuration = configuration
+        
+    def plan_experiment(self):
+        """
+        MOVE EVERYTHING INTO THE PLANS. MAXIMUM FLEXIBILITY
+
+        Ideally I would like to move transpose_forward/backward into the configurations so that this can also be done
+        differently for each configuration but this would cause problems with identifying the correct axes for 2d. There
+        surely is a way around that but eh. I'm feeling lazy and featuritis must also not be pushed to the extremes.
+
+        So for now if you want a different transpose_forward/backward you need to create a new planner. Also not too
+        hard.
+        """
+
+        # first get transpose
+        transpose_forward, transpose_backward = self.determine_transpose()
+
+        # get fullres spacing and transpose it
+        fullres_spacing = self.determine_fullres_target_spacing()
+        fullres_spacing_transposed = fullres_spacing[transpose_forward]
+
+        # get transposed new median shape (what we would have after resampling)
+        new_shapes = [compute_new_shape(j, i, fullres_spacing) for i, j in
+                      zip(self.dataset_fingerprint['spacings'], self.dataset_fingerprint['shapes_after_crop'])]
+        new_median_shape = np.median(new_shapes, 0)
+        new_median_shape_transposed = new_median_shape[transpose_forward]
+
+        approximate_n_voxels_dataset = float(np.prod(new_median_shape_transposed, dtype=np.float64) *
+                                             self.dataset_json['numTraining'])
+        # only run 3d if this is a 3d dataset
+        if (new_median_shape_transposed[0] != 1) and ('3d_fullres' in self.configuration):
+            plan_3d_fullres = self.get_plans_for_configuration(fullres_spacing_transposed,
+                                                               new_median_shape_transposed,
+                                                               self.generate_data_identifier('3d_fullres'),
+                                                               approximate_n_voxels_dataset)
+            # maybe add 3d_lowres as well
+            patch_size_fullres = plan_3d_fullres['patch_size']
+            median_num_voxels = np.prod(new_median_shape_transposed, dtype=np.float64)
+            num_voxels_in_patch = np.prod(patch_size_fullres, dtype=np.float64)
+
+            plan_3d_lowres = None
+            lowres_spacing = deepcopy(plan_3d_fullres['spacing'])
+
+            spacing_increase_factor = 1.03  # used to be 1.01 but that is slow with new GPU memory estimation!
+
+            while ((num_voxels_in_patch / median_num_voxels < self.lowres_creation_threshold) and \
+                   ('3d_lowres' in self.configuration)):
+                # we incrementally increase the target spacing. We start with the anisotropic axis/axes until it/they
+                # is/are similar (factor 2) to the other ax(i/e)s.
+                max_spacing = max(lowres_spacing)
+                if np.any((max_spacing / lowres_spacing) > 2):
+                    lowres_spacing[(max_spacing / lowres_spacing) > 2] *= spacing_increase_factor
+                else:
+                    lowres_spacing *= spacing_increase_factor
+                median_num_voxels = np.prod(plan_3d_fullres['spacing'] / lowres_spacing * new_median_shape_transposed,
+                                            dtype=np.float64)
+                # print(lowres_spacing)
+                plan_3d_lowres = self.get_plans_for_configuration(lowres_spacing,
+                                                                  [round(i) for i in plan_3d_fullres['spacing'] /
+                                                                   lowres_spacing * new_median_shape_transposed],
+                                                                  self.generate_data_identifier('3d_lowres'),
+                                                                  float(np.prod(median_num_voxels) *
+                                                                        self.dataset_json['numTraining']))
+                num_voxels_in_patch = np.prod(plan_3d_lowres['patch_size'], dtype=np.int64)
+                print(f'Attempting to find 3d_lowres config. '
+                      f'\nCurrent spacing: {lowres_spacing}. '
+                      f'\nCurrent patch size: {plan_3d_lowres["patch_size"]}. '
+                      f'\nCurrent median shape: {plan_3d_fullres["spacing"] / lowres_spacing * new_median_shape_transposed}')
+            if plan_3d_lowres is not None:
+                plan_3d_lowres['batch_dice'] = False
+                plan_3d_fullres['batch_dice'] = True
+            else:
+                plan_3d_fullres['batch_dice'] = False
+        else:
+            plan_3d_fullres = None
+            plan_3d_lowres = None
+
+        # 2D configuration
+        if '2d' in self.configuration:
+            plan_2d = self.get_plans_for_configuration(fullres_spacing_transposed[1:],
+                                                    new_median_shape_transposed[1:],
+                                                    self.generate_data_identifier('2d'), approximate_n_voxels_dataset)
+            plan_2d['batch_dice'] = True
+        else:
+            plan_2d = None
+
+        # median spacing and shape, just for reference when printing the plans
+        median_spacing = np.median(self.dataset_fingerprint['spacings'], 0)[transpose_forward]
+        median_shape = np.median(self.dataset_fingerprint['shapes_after_crop'], 0)[transpose_forward]
+
+        # instead of writing all that into the plans we just copy the original file. More files, but less crowded
+        # per file.
+        shutil.copy(join(self.raw_dataset_folder, 'dataset.json'),
+                    join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
+
+        # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
+        plans = {
+            'dataset_name': self.dataset_name,
+            'plans_name': self.plans_identifier,
+            'original_median_spacing_after_transp': [float(i) for i in median_spacing],
+            'original_median_shape_after_transp': [int(round(i)) for i in median_shape],
+            'image_reader_writer': self.determine_reader_writer().__name__,
+            'transpose_forward': [int(i) for i in transpose_forward],
+            'transpose_backward': [int(i) for i in transpose_backward],
+            'configurations': {},
+            'experiment_planner_used': self.__class__.__name__,
+            'label_manager': 'LabelManager',
+            'foreground_intensity_properties_per_channel': self.dataset_fingerprint[
+                'foreground_intensity_properties_per_channel']
+        }
+        if plan_2d is not None:
+            plans['configurations']['2d'] = plan_2d
+            print('2D U-Net configuration:')
+            print(plan_2d)
+            print()
+
+        if plan_3d_lowres is not None:
+            plans['configurations']['3d_lowres'] = plan_3d_lowres
+            if plan_3d_fullres is not None:
+                plans['configurations']['3d_lowres']['next_stage'] = '3d_cascade_fullres'
+            print('3D lowres U-Net configuration:')
+            print(plan_3d_lowres)
+            print()
+
+        if plan_3d_fullres is not None:
+            plans['configurations']['3d_fullres'] = plan_3d_fullres
+            print('3D fullres U-Net configuration:')
+            print(plan_3d_fullres)
+            print()
+            if plan_3d_lowres is not None:
+                plans['configurations']['3d_cascade_fullres'] = {
+                    'inherits_from': '3d_fullres',
+                    'previous_stage': '3d_lowres'
+                }
+
+        self.plans = plans
+        self.save_plans(plans)
+        return plans
 
 
 if __name__ == '__main__':

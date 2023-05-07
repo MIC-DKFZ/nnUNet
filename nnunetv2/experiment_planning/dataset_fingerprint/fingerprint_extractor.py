@@ -71,8 +71,7 @@ class DatasetFingerprintExtractor(object):
                 'min': np.min(foreground_pixels) if num_fg > 0 else np.nan,
                 'max': np.max(foreground_pixels) if num_fg > 0 else np.nan,
                 'percentile_99_5': np.percentile(foreground_pixels, 99.5) if num_fg > 0 else np.nan,
-                'percentile_00_5': np.percentile(foreground_pixels, 0.5) if num_fg > 0 else np.nan,
-
+                'percentile_00_5': np.percentile(foreground_pixels, 0.5) if num_fg > 0 else np.nan
             })
 
         return intensities_per_channel, intensity_statistics_per_channel

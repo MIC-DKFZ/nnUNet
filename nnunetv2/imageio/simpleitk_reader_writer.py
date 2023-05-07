@@ -98,7 +98,7 @@ class SimpleITKIO(BaseReaderWriter):
             raise RuntimeError()
 
         stacked_images = np.vstack(images)
-        dict = {
+        dict = {                            # TODO: FIX BUG
             'sitk_stuff': {
                 # this saves the sitk geometry information. This part is NOT used by nnU-Net!
                 'spacing': spacings[0],

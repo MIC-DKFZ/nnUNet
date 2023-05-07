@@ -168,7 +168,10 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
                   f'inference of the previous stage...')
             folder_with_segs_from_prev_stage = join(output_folder,
                                                     f'prediction_{configuration_manager.previous_stage_name}')
-            RAISE ASSERTION ERROR!
+            # we can only do this if we do not have multiple parts
+            assert num_parts == 1 and part_id == 0, "folder_with_segs_from_prev_stage was not given and inference " \
+                                                    "is distributed over more than one part (num_parts > 1). Cannot " \
+                                                    "automatically run predictions for the previous stage"
             predict_from_raw_data(list_of_lists_or_source_folder,
                                   folder_with_segs_from_prev_stage,
                                   get_output_folder(plans_manager.dataset_name,
@@ -184,6 +187,7 @@ def predict_from_raw_data(list_of_lists_or_source_folder: Union[str, List[List[s
     if isinstance(list_of_lists_or_source_folder, str):
         list_of_lists_or_source_folder = create_lists_from_splitted_dataset_folder(list_of_lists_or_source_folder,
                                                                                    dataset_json['file_ending'])
+    
     print(f'There are {len(list_of_lists_or_source_folder)} cases in the source folder')
     list_of_lists_or_source_folder = list_of_lists_or_source_folder[part_id::num_parts]
     caseids = [os.path.basename(i[0])[:-(len(dataset_json['file_ending']) + 5)] for i in list_of_lists_or_source_folder]
@@ -412,6 +416,10 @@ def predict_entry_point_modelfolder():
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
 
+    if args.i.endswith('.json') and (args.f[0] != 'all'):
+        splits = load_json(args.i)
+        args.i = splits[args.f[0]]
+
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
 
@@ -511,6 +519,10 @@ def predict_entry_point():
 
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
+
+    if args.i.endswith('.json') and (args.f[0] != 'all'):
+        splits = load_json(args.i)
+        args.i = splits[args.f[0]]
 
     model_folder = get_output_folder(args.d, args.tr, args.p, args.c)
 

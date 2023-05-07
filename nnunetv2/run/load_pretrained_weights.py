@@ -2,7 +2,7 @@ import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-def load_pretrained_weights(network, fname, verbose=False):
+def load_pretrained_weights(network, fname, verbose=False, ssl=False):
     """
     THIS DOES NOT TRANSFER SEGMENTATION HEADS!
 
@@ -15,6 +15,9 @@ def load_pretrained_weights(network, fname, verbose=False):
     skip_strings_in_pretrained = [
         '.seg_layers.',
     ]
+    if ssl:
+        skip_strings_in_pretrained.append('decoder')
+
 
     model_dict = network.state_dict()
     # verify that all but the segmentation layers have the same shape
@@ -49,5 +52,3 @@ def load_pretrained_weights(network, fname, verbose=False):
             print(key[7:] if is_ddp else key)
         print("################### Done ###################")
     network.load_state_dict(model_dict)
-
-

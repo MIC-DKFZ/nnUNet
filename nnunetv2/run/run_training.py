@@ -4,8 +4,10 @@ from typing import Union, Optional
 
 import nnunetv2
 import torch.cuda
+import random
 import torch.distributed as dist
 import torch.multiprocessing as mp
+import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
@@ -90,7 +92,9 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         if pretrained_weights_file is not None:
             if not nnunet_trainer.was_initialized:
                 nnunet_trainer.initialize()
-            load_pretrained_weights(nnunet_trainer.network, pretrained_weights_file, verbose=True)
+            if hasattr(nnunet_trainer, 'ssl_pretrained'):
+                ssl = nnunet_trainer.ssl_pretrained
+            load_pretrained_weights(nnunet_trainer.network, pretrained_weights_file, verbose=True, ssl=ssl)
         expected_checkpoint_file = None
 
     if expected_checkpoint_file is not None:
@@ -177,6 +181,14 @@ def run_training(dataset_name_or_id: Union[str, int],
                  nprocs=num_gpus,
                  join=True)
     else:
+        # random.seed(420)
+        # torch.manual_seed(420)
+        # np.random.seed(420)
+        # if torch.cuda.is_available():
+        #     torch.cuda.manual_seed_all(420)
+        #     cudnn.deterministic = True
+        #     cudnn.benchmark = False
+
         nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
                                                plans_identifier, use_compressed_data, device=device)
 
@@ -192,6 +204,11 @@ def run_training(dataset_name_or_id: Union[str, int],
             cudnn.benchmark = True
 
         if not only_run_validation:
+            if pretrained_weights is not None:
+                model_parameters = filter(lambda p: p.requires_grad, nnunet_trainer.network.parameters())
+                params = sum([np.prod(p.size()) for p in model_parameters])
+                total_params = sum([np.prod(p.size()) for p in nnunet_trainer.network.parameters()])
+                print(f'Before training - The model has {(params/total_params)*100}% of trainable parameters')
             nnunet_trainer.run_training()
 
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
