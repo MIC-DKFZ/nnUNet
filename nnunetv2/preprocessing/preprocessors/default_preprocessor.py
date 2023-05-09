@@ -38,6 +38,11 @@ class DefaultPreprocessor(object):
     def run_case_npy(self, data: np.ndarray, seg: Union[np.ndarray, None], properties: dict,
                      plans_manager: PlansManager, configuration_manager: ConfigurationManager,
                      dataset_json: Union[dict, str]):
+        # let's not mess up the inputs!
+        data = np.copy(data)
+        if seg is not None:
+            seg = np.copy(seg)
+
         has_seg = seg is not None
 
         # apply transpose_forward, this also needs to be applied to the spacing!

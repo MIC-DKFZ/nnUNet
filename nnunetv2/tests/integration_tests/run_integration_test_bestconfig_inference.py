@@ -1,11 +1,12 @@
 import argparse
 
+import torch
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle
 
 from nnunetv2.ensembling.ensemble import ensemble_folders
 from nnunetv2.evaluation.find_best_configuration import find_best_configuration, \
     dumb_trainer_config_plans_to_trained_models_dict
-from nnunetv2.inference.predict_from_raw_data import predict_from_raw_data
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.paths import nnUNet_raw, nnUNet_results
 from nnunetv2.postprocessing.remove_connected_components import apply_postprocessing_to_folder
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
@@ -16,6 +17,9 @@ if __name__ == '__main__':
     """
     Predicts the imagesTs folder with the best configuration and applies postprocessing
     """
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', type=int, help='dataset id')
     args = parser.parse_args()
@@ -49,9 +53,12 @@ if __name__ == '__main__':
         # predict_from_raw_data. Since we allow for
         # dynamically setting 'previous_stage' in the plans I am too lazy to implement this here. This is just an
         # integration test after all. Take a closer look at how this in handled in predict_from_raw_data
-        predict_from_raw_data(list_of_lists_or_source_folder=source_dir, output_folder=output_dir,
-                              model_training_output_dir=model_folder, use_folds=used_folds,
-                              save_probabilities=has_ensemble, verbose=False, overwrite=True)
+        predictor = nnUNetPredictor(verbose=False, allow_tqdm=False)
+        predictor.initialize_from_trained_model_folder(model_folder, used_folds)
+        predictor.predict_from_files(source_dir, output_dir, has_ensemble, overwrite=True)
+        # predict_from_raw_data(list_of_lists_or_source_folder=source_dir, output_folder=output_dir,
+        #                       model_training_output_dir=model_folder, use_folds=used_folds,
+        #                       save_probabilities=has_ensemble, verbose=False, overwrite=True)
         output_folders.append(output_dir)
 
     # if we have an ensemble, we need to ensemble the results
