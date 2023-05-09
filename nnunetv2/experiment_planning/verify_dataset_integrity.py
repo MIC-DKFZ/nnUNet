@@ -77,7 +77,7 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
     # check spacings
     spacing_images = properties_image['spacing']
     spacing_seg = properties_seg['spacing']
-    if not np.all(np.isclose(spacing_seg, spacing_images)):
+    if not np.allclose(spacing_seg, spacing_images):
         print('Error: Spacing mismatch between segmentation and corresponding images. \nSpacing images: %s. '
               '\nSpacing seg: %s. \nImage files: %s. \nSeg file: %s\n' %
               (shape_image, shape_seg, files_image, file_seg))
@@ -94,7 +94,7 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
         # this image was read with NibabelIO
         affine_image = properties_image['nibabel_stuff']['original_affine']
         affine_seg = properties_seg['nibabel_stuff']['original_affine']
-        if not np.all(np.isclose(affine_image, affine_seg)):
+        if not np.allclose(affine_image, affine_seg):
             print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
                   'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
                   'nnUNet_plot_dataset_pngs to verify if everything is OK!\n'
@@ -106,13 +106,13 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
         # spacing has already been checked, only check direction and origin
         origin_image = properties_image['sitk_stuff']['origin']
         origin_seg = properties_seg['sitk_stuff']['origin']
-        if not np.all(np.isclose(origin_image, origin_seg)):
+        if not np.allclose(origin_image, origin_seg):
             print('Warning: Origin mismatch between segmentation and corresponding images. \nOrigin images: %s. '
                   '\nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n' %
                   (origin_image, origin_seg, files_image, file_seg))
         direction_image = properties_image['sitk_stuff']['direction']
         direction_seg = properties_seg['sitk_stuff']['direction']
-        if not np.all(np.isclose(direction_image, direction_seg)):
+        if not np.allclose(direction_image, direction_seg):
             print('Warning: Direction mismatch between segmentation and corresponding images. \nDirection images: %s. '
                   '\nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n' %
                   (direction_image, direction_seg, files_image, file_seg))

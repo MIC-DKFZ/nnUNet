@@ -36,7 +36,7 @@ class BaseReaderWriter(ABC):
         for i in input_list[1:]:
             if not all([a == b for a, b in zip(i.shape, input_list[0].shape)]):
                 return False
-            all_same = np.all(np.isclose(i, input_list[0]))
+            all_same = np.allclose(i, input_list[0])
             if not all_same:
                 return False
         return True
