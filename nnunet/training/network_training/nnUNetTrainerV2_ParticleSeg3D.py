@@ -69,7 +69,7 @@ class nnUNetTrainerV2_ParticleSeg3D(nnUNetTrainerV2):
                         "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
                         "will wait all winter for your model to finish!")
 
-                self.tr_gen, self.val_gen = get_slimDA5_touchV5_augmentation(
+                self.tr_gen, self.val_gen = get_ParticleSeg3D_augmentation(
                     self.dl_tr, self.dl_val,
                     self.data_aug_params[
                         'patch_size_for_spatialtransform'],

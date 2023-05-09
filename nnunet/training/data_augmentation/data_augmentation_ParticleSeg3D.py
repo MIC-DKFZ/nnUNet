@@ -37,7 +37,6 @@ import numpy as np
 import pickle
 import random
 import zarr
-import numpy as np
 from nnunet.training.data_augmentation.slicer import slicer
 from os.path import join
 from skimage.measure import regionprops
