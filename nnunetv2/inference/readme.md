@@ -129,20 +129,18 @@ cons:
 
 ```python
     from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
-    # predict several npy images
+
     img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_147_0000.nii.gz')])
     img2, props2 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_146_0000.nii.gz')])
     img3, props3 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_145_0000.nii.gz')])
     img4, props4 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_144_0000.nii.gz')])
-    # the following line gives us a data iterator that we can then feed into `predictor.predict_from_data_iterator`. 
-    # You can also create your own iterators if you want. Take inspiration on how this is done in nnU-Net though!
     # we do not set output files so that the segmentations will be returned. You can of course also specify output
     # files instead (no return value on that case)
-    iterator = predictor.get_data_iterator_from_raw_npy_data([img, img2, img3, img4],
-                                                             None,
-                                                             [props, props2, props3, props4],
-                                                             None, 1)
-    ret = predictor.predict_from_data_iterator(iterator, False, 1)
+    ret = predictor.predict_from_list_of_npy_arrays([img, img2, img3, img4],
+                                                    None,
+                                                    [props, props2, props3, props4],
+                                                    None, 2, save_probabilities=False,
+                                                    num_processes_segmentation_export=2)
 ```
 
 ## Predicting a single npy array
@@ -165,4 +163,43 @@ cons:
     # predict a single numpy array
     img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')])
     ret = predictor.predict_single_npy_array(img, props, None, None, False)
+```
+
+## Predicting with a custom data iterator
+tldr: 
+- highly flexible
+- not for newbies
+
+pros:
+- you can do everything yourself
+- you have all the freedom you want
+- really fast if you remember to use multiprocessing in your iterator
+
+cons:
+- you need to do everything yourself
+- harder than you might think
+
+```python
+    img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_147_0000.nii.gz')])
+    img2, props2 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_146_0000.nii.gz')])
+    img3, props3 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_145_0000.nii.gz')])
+    img4, props4 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_144_0000.nii.gz')])
+    # each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properites' keys!
+    # If 'ofile' is None, the result will be returned instead of written to a file
+    # the iterator is responsible for performing the correct preprocessing!
+    # note how the iterator here does not use multiprocessing -> preprocessing will be done in the main thread!
+    # take a look at the default iterators for predict_from_files and predict_from_list_of_npy_arrays
+    # (they both use predictor.predict_from_data_iterator) for inspiration!
+    def my_iterator(list_of_input_arrs, list_of_input_props):
+        preprocessor = predictor.configuration_manager.preprocessor_class(verbose=predictor.verbose)
+        for a, p in zip(list_of_input_arrs, list_of_input_props):
+            data, seg = preprocessor.run_case_npy(a,
+                                                  None,
+                                                  p,
+                                                  predictor.plans_manager,
+                                                  predictor.configuration_manager,
+                                                  predictor.dataset_json)
+            yield {'data': torch.from_numpy(data).contiguous().pin_memory(), 'data_properites': p, 'ofile': None}
+    ret = predictor.predict_from_data_iterator(my_iterator([img, img2, img3, img4], [props, props2, props3, props4]),
+                                               save_probabilities=False, num_processes_segmentation_export=3)
 ```

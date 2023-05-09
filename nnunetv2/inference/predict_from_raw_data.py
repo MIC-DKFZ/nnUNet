@@ -315,6 +315,24 @@ class nnUNetPredictor(object):
 
         return pp
 
+    def predict_from_list_of_npy_arrays(self,
+                                        image_or_list_of_images: Union[np.ndarray, List[np.ndarray]],
+                                        segs_from_prev_stage_or_list_of_segs_from_prev_stage: Union[None,
+                                                                                                    np.ndarray,
+                                                                                                    List[
+                                                                                                        np.ndarray]],
+                                        properties_or_list_of_properties: Union[dict, List[dict]],
+                                        truncated_ofname: Union[str, List[str], None],
+                                        num_processes: int = 3,
+                                        save_probabilities: bool = False,
+                                        num_processes_segmentation_export: int = default_num_processes):
+        iterator = self.get_data_iterator_from_raw_npy_data(image_or_list_of_images,
+                                                            segs_from_prev_stage_or_list_of_segs_from_prev_stage,
+                                                            properties_or_list_of_properties,
+                                                            truncated_ofname,
+                                                            num_processes)
+        return self.predict_from_data_iterator(iterator, save_probabilities, num_processes_segmentation_export)
+
     def predict_from_data_iterator(self,
                                    data_iterator,
                                    save_probabilities: bool = False,
