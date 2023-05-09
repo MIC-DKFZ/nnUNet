@@ -225,6 +225,13 @@ class DataLoader3D(SlimDataLoaderBase):
         data = np.zeros(self.data_shape, dtype=np.float32)
         seg = np.zeros(self.seg_shape, dtype=np.float32)
         case_properties = []
+        valid_bbox = []
+        bbox = []
+        before_crop_shape = []
+        after_crop_shape = []
+        after_pad_shape = []
+        padding_tmp = []
+        shapy_shape = []
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
             # (Lung for example)
@@ -282,6 +289,7 @@ class DataLoader3D(SlimDataLoaderBase):
             # we can now choose the bbox from -need_to_pad // 2 to shape - patch_size + need_to_pad // 2. Here we
             # define what the upper and lower bound can be to then sample from them with np.random.randint
             shape = case_all_data.shape[1:]
+            shapy_shape.append(shape)
             lb_x = - need_to_pad[0] // 2
             ub_x = shape[0] + need_to_pad[0] // 2 + need_to_pad[0] % 2 - self.patch_size[0]
             lb_y = - need_to_pad[1] // 2
@@ -331,6 +339,7 @@ class DataLoader3D(SlimDataLoaderBase):
             bbox_x_ub = bbox_x_lb + self.patch_size[0]
             bbox_y_ub = bbox_y_lb + self.patch_size[1]
             bbox_z_ub = bbox_z_lb + self.patch_size[2]
+            bbox.append([bbox_x_lb, bbox_x_ub, bbox_y_lb, bbox_y_ub, bbox_z_lb, bbox_z_ub])
 
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
@@ -342,6 +351,8 @@ class DataLoader3D(SlimDataLoaderBase):
             valid_bbox_y_ub = min(shape[1], bbox_y_ub)
             valid_bbox_z_lb = max(0, bbox_z_lb)
             valid_bbox_z_ub = min(shape[2], bbox_z_ub)
+            valid_bbox.append([valid_bbox_x_lb, valid_bbox_x_ub, valid_bbox_y_lb, valid_bbox_y_ub, valid_bbox_z_lb, valid_bbox_z_ub])
+            before_crop_shape.append(case_all_data.shape)
 
             # At this point you might ask yourself why we would treat seg differently from seg_from_previous_stage.
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
@@ -350,16 +361,24 @@ class DataLoader3D(SlimDataLoaderBase):
             case_all_data = np.copy(case_all_data[:, valid_bbox_x_lb:valid_bbox_x_ub,
                                     valid_bbox_y_lb:valid_bbox_y_ub,
                                     valid_bbox_z_lb:valid_bbox_z_ub])
+            after_crop_shape.append(case_all_data.shape)
             if seg_from_previous_stage is not None:
                 seg_from_previous_stage = seg_from_previous_stage[:, valid_bbox_x_lb:valid_bbox_x_ub,
                                           valid_bbox_y_lb:valid_bbox_y_ub,
                                           valid_bbox_z_lb:valid_bbox_z_ub]
+
+            padding_tmp.append(((0, 0),
+                          (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
+                          (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
+                          (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))))
 
             data[j] = np.pad(case_all_data[:-1], ((0, 0),
                                                   (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
                                                   (-min(0, bbox_y_lb), max(bbox_y_ub - shape[1], 0)),
                                                   (-min(0, bbox_z_lb), max(bbox_z_ub - shape[2], 0))),
                              self.pad_mode, **self.pad_kwargs_data)
+
+            after_pad_shape.append(data[j].shape)
 
             seg[j, 0] = np.pad(case_all_data[-1:], ((0, 0),
                                                     (-min(0, bbox_x_lb), max(bbox_x_ub - shape[0], 0)),
@@ -376,7 +395,8 @@ class DataLoader3D(SlimDataLoaderBase):
                                                               max(bbox_z_ub - shape[2], 0))),
                                    'constant', **{'constant_values': 0})
 
-        return {'data': data, 'seg': seg, 'properties': case_properties, 'keys': selected_keys}
+        return {'data': data, 'seg': seg, 'properties': case_properties, 'keys': selected_keys, 'valid_bbox': valid_bbox,
+                'bbox': bbox, 'before_crop_shape': before_crop_shape, 'after_crop_shape': after_crop_shape, 'after_pad_shape': after_pad_shape, 'padding_tmp': padding_tmp, 'shapy_shape': shapy_shape}
 
 
 class DataLoader2D(SlimDataLoaderBase):

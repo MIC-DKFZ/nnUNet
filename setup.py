@@ -24,6 +24,7 @@ setup(name='nnunet',
             "nibabel", 
             "tifffile", 
             "matplotlib",
+            "zarr"
       ],
       entry_points={
           'console_scripts': [
