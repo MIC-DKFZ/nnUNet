@@ -1,10 +1,7 @@
 import inspect
 import multiprocessing
 import os
-import shutil
 import traceback
-import warnings
-from concurrent.futures.process import ProcessPoolExecutor
 from copy import deepcopy
 from time import sleep
 from typing import Tuple, Union, List, Optional
@@ -13,8 +10,6 @@ import numpy as np
 import torch
 from acvl_utils.cropping_and_padding.padding import pad_nd_image
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
-from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
-from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs, \
     save_json
 from torch import nn
@@ -23,8 +18,8 @@ from tqdm import tqdm
 
 import nnunetv2
 from nnunetv2.configuration import default_num_processes
-from nnunetv2.inference.data_iterators import PreprocessAdapter, \
-    PreprocessAdapterFromNpy, preprocessing_iterator_fromfiles, preprocessing_iterator_fromnpy
+from nnunetv2.inference.data_iterators import PreprocessAdapterFromNpy, preprocessing_iterator_fromfiles, \
+    preprocessing_iterator_fromnpy
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, \
     convert_predicted_logits_to_segmentation_with_correct_shape
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, \
