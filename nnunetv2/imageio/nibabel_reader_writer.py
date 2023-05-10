@@ -179,7 +179,7 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
         seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['reoriented_affine'])
         seg_nib_reoriented = seg_nib.as_reoriented(io_orientation(properties['nibabel_stuff']['original_affine']))
-        assert np.all(np.isclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine)), \
+        assert np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine), \
             'restored affine does not match original affine'
         nibabel.save(seg_nib_reoriented, output_fname)
 
