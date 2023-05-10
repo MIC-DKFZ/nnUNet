@@ -1,0 +1,22 @@
+wholeslidedata:
+    default:
+        yaml_source:
+            training:
+            -   wsi: 
+                    path: C:\Users\joeyspronck\Documents\Other\wsirois\wsi-level-annotations\images\100B.tif
+                wsa: 
+                    path: C:\Users\joeyspronck\Documents\Other\wsirois\wsi-level-annotations\annotations-tissue-cells-xmls\100B.xml
+                        
+        labels:
+            invasive tumor: 1
+            tumor-associated stroma: 2
+            in-situ tumor: 3
+            healthy glands: 4
+            necrosis not in-situ: 5
+            inflamed stroma: 6
+            rest: 7
+            
+        batch_shape:
+            batch_size: 2
+            spacing: 1.0
+            shape: [512, 512, 3]

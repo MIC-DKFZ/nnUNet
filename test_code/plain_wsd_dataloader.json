@@ -1,0 +1,37 @@
+{
+    "wholeslidedata": {
+        "default": {
+            "yaml_source": "",
+            "image_backend": "asap",
+            "labels": "",
+            "annotation_parser": {
+                "sorters": [
+                    "${$wholeslidedata.annotation.selector.sort_by_area_with_roi}"
+                ]
+            },
+            "batch_shape": {
+                "batch_size": "",
+                "spacing": "",
+                "shape": ""
+            },
+            "dataset": {
+                "copy_path": ""
+            },
+            "label_sampler_name": "WeightedLabelSampler",
+            "label_sampler": {
+                "labels": ""
+            },
+            "annotation_sampler_name": "AreaAnnotationSampler",
+            "annotation_sampler": {
+                "dataset": "${dataset}",
+                "weight": 0.5
+            },
+            "batch_callbacks": [
+                {
+                    "*object": "wholeslidedata.samplers.callbacks.DeepSupervisionBatchCallback",
+                    "sizes": []
+                }
+            ]
+        }
+    }
+}
