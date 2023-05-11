@@ -131,7 +131,7 @@ class DatasetFingerprintExtractor(object):
                             (training_images_per_case, training_labels_per_case),
                             processes=self.num_processes, zipped=True, reader_writer_class=reader_writer_class,
                             num_samples=num_foreground_samples_per_case, disable=self.verbose)
-
+            print(results)
             shapes_after_crop = [r[0] for r in results]
             spacings = [r[1] for r in results]
             foreground_intensities_per_channel = [np.concatenate([r[2][i] for r in results]) for i in
