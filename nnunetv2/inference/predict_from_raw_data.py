@@ -197,7 +197,7 @@ class nnUNetPredictor(object):
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
             output_folder = output_folder_or_list_of_truncated_output_files
         elif isinstance(output_folder_or_list_of_truncated_output_files, list):
-            output_folder = os.path.basename(output_folder_or_list_of_truncated_output_files[0])
+            output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
         else:
             output_folder = None
 
