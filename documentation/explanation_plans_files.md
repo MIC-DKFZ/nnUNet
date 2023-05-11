@@ -67,7 +67,7 @@ classes must be located in nnunetv2.preprocessing.normalization. Also see [here]
 callable(data, current_spacing, new_spacing, **kwargs). It must be located in nnunetv2.preprocessing.resampling
 - `resampling_fn_data_kwargs`: kwargs for resampling_fn_data
 - `resampling_fn_probabilities`: name of resampling function to be used for resizing predicted class probabilities/logits. 
-resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in 
+resampling function must be `callable(data: Union[np.ndarray, torch.Tensor], current_spacing, new_spacing, **kwargs)`. It must be located in 
 nnunetv2.preprocessing.resampling
 - `resampling_fn_probabilities_kwargs`: kwargs for resampling_fn_probabilities
 - `resampling_fn_seg`: name of resampling function to be used for resizing segmentation maps (integer: 0, 1, 2, 3, etc). 

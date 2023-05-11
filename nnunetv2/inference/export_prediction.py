@@ -3,20 +3,24 @@ from copy import deepcopy
 from typing import Union, List
 
 import numpy as np
+import torch
 from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
 from batchgenerators.utilities.file_and_folder_operations import load_json, isfile, save_pickle
 
+from nnunetv2.configuration import default_num_processes
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
-def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits: np.ndarray,
+def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits: Union[torch.Tensor, np.ndarray],
                                                                 plans_manager: PlansManager,
                                                                 configuration_manager: ConfigurationManager,
                                                                 label_manager: LabelManager,
                                                                 properties_dict: dict,
-                                                                return_probabilities: bool = False):
-    predicted_logits = predicted_logits.astype(np.float32)
+                                                                return_probabilities: bool = False,
+                                                                num_threads_torch: int = default_num_processes):
+    old_threads = torch.get_num_threads()
+    torch.set_num_threads(num_threads_torch)
 
     # resample to original shape
     current_spacing = configuration_manager.spacing if \
@@ -27,9 +31,15 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
                                             properties_dict['shape_after_cropping_and_before_resampling'],
                                             current_spacing,
                                             properties_dict['spacing'])
+    # return value of resampling_fn_probabilities can be ndarray or Tensor but that doesnt matter because
+    # apply_inference_nonlin will covnert to torch
     predicted_probabilities = label_manager.apply_inference_nonlin(predicted_logits)
     del predicted_logits
     segmentation = label_manager.convert_probabilities_to_segmentation(predicted_probabilities)
+
+    # segmentation may be torch.Tensor but we continue with numpy
+    if isinstance(segmentation, torch.Tensor):
+        segmentation = segmentation.cpu().numpy()
 
     # put segmentation in bbox (revert cropping)
     segmentation_reverted_cropping = np.zeros(properties_dict['shape_before_cropping'],
@@ -50,12 +60,14 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
         # revert transpose
         predicted_probabilities = predicted_probabilities.transpose([0] + [i + 1 for i in
                                                                            plans_manager.transpose_backward])
+        torch.set_num_threads(old_threads)
         return segmentation_reverted_cropping, predicted_probabilities
     else:
+        torch.set_num_threads(old_threads)
         return segmentation_reverted_cropping
 
 
-def export_prediction_from_logits(predicted_array_or_file: np.ndarray, properties_dict: dict,
+def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, torch.Tensor], properties_dict: dict,
                                   configuration_manager: ConfigurationManager,
                                   plans_manager: PlansManager,
                                   dataset_json_dict_or_file: Union[dict, str], output_file_truncated: str,
