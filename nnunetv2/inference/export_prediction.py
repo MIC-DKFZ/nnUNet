@@ -57,6 +57,7 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
                                                                                      'bbox_used_for_cropping'],
                                                                                  properties_dict[
                                                                                      'shape_before_cropping'])
+        predicted_probabilities = predicted_probabilities.cpu().numpy()
         # revert transpose
         predicted_probabilities = predicted_probabilities.transpose([0] + [i + 1 for i in
                                                                            plans_manager.transpose_backward])
