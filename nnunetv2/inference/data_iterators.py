@@ -114,7 +114,7 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
         if pin_memory:
             [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
         yield item
-
+    [p.join() for p in processes]
 
 class PreprocessAdapter(DataLoader):
     def __init__(self, list_of_lists: List[List[str]],
@@ -313,3 +313,4 @@ def preprocessing_iterator_fromnpy(list_of_images: List[np.ndarray],
         if pin_memory:
             [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
         yield item
+    [p.join() for p in processes]
