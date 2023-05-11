@@ -2,7 +2,6 @@ from typing import Callable
 
 import torch
 from nnunetv2.utilities.ddp_allgather import AllGatherGrad
-from nnunetv2.utilities.tensor_utilities import sum_tensor
 from torch import nn
 
 
@@ -174,10 +173,10 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
         tn = tn ** 2
 
     if len(axes) > 0:
-        tp = sum_tensor(tp, axes, keepdim=False)
-        fp = sum_tensor(fp, axes, keepdim=False)
-        fn = sum_tensor(fn, axes, keepdim=False)
-        tn = sum_tensor(tn, axes, keepdim=False)
+        tp = tp.sum(dim=axes, keepdim=False)
+        fp = fp.sum(dim=axes, keepdim=False)
+        fn = fn.sum(dim=axes, keepdim=False)
+        tn = tn.sum(dim=axes, keepdim=False)
 
     return tp, fp, fn, tn
 
