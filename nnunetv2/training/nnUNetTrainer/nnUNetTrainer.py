@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import shutil
 import sys
+import warnings
 from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
@@ -1132,7 +1133,10 @@ class nnUNetTrainer(object):
                 if self.is_cascaded:
                     data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
                                                                         output_dtype=data.dtype)))
-                data = torch.from_numpy(data)
+                with warnings.catch_warnings():
+                    # ignore 'The given NumPy array is not writable' warning
+                    warnings.simplefilter("ignore")
+                    data = torch.from_numpy(data)
 
                 output_filename_truncated = join(validation_output_folder, k)
 
@@ -1142,8 +1146,6 @@ class nnUNetTrainer(object):
                     predictor.perform_everything_on_gpu = False
                     prediction = predictor.predict_sliding_window_return_logits(data)
                     predictor.perform_everything_on_gpu = True
-
-                prediction = prediction.cpu().numpy()
 
                 # this needs to go into background processes
                 results.append(

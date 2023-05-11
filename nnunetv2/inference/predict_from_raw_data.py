@@ -47,13 +47,6 @@ class nnUNetPredictor(object):
         self.verbose_preprocessing = verbose_preprocessing
         self.allow_tqdm = allow_tqdm
 
-        print(
-            "\n#######################################################################\nPlease cite the following paper "
-            "when using nnU-Net:\n"
-            "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
-            "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
-            "Nature methods, 18(2), 203-211.\n#######################################################################\n")
-
         self.plans_manager, self.configuration_manager, self.list_of_parameters, self.network, self.dataset_json, \
         self.trainer_name, self.allowed_mirroring_axes, self.label_manager = None, None, None, None, None, None, None, None
 
@@ -204,7 +197,7 @@ class nnUNetPredictor(object):
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
             output_folder = output_folder_or_list_of_truncated_output_files
         elif isinstance(output_folder_or_list_of_truncated_output_files, list):
-            output_folder = os.path.basename(output_folder_or_list_of_truncated_output_files[0])
+            output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
         else:
             output_folder = None
 
@@ -365,7 +358,6 @@ class nnUNetPredictor(object):
                     proceed = not check_workers_busy(export_pool, r, allowed_num_queued=2 * len(export_pool._pool))
 
                 prediction = self.predict_logits_from_preprocessed_data(data)
-                prediction = prediction.numpy()
 
                 if ofile is not None:
                     # this needs to go into background processes
@@ -426,7 +418,7 @@ class nnUNetPredictor(object):
 
         if self.verbose:
             print('predicting')
-        predicted_logits = self.predict_logits_from_preprocessed_data(dct['data']).numpy()
+        predicted_logits = self.predict_logits_from_preprocessed_data(dct['data']).cpu()
 
         if self.verbose:
             print('resampling to original shape')
@@ -686,6 +678,14 @@ def predict_entry_point_modelfolder():
                         help="Use this to set the device the inference should run with. Available options are 'cuda' "
                              "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                              "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+
+    print(
+        "\n#######################################################################\nPlease cite the following paper "
+        "when using nnU-Net:\n"
+        "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
+        "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
+        "Nature methods, 18(2), 203-211.\n#######################################################################\n")
+
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
 
@@ -782,6 +782,13 @@ def predict_entry_point():
                         help="Use this to set the device the inference should run with. Available options are 'cuda' "
                              "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                              "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
+
+    print(
+        "\n#######################################################################\nPlease cite the following paper "
+        "when using nnU-Net:\n"
+        "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
+        "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
+        "Nature methods, 18(2), 203-211.\n#######################################################################\n")
 
     args = parser.parse_args()
     args.f = [i if i == 'all' else int(i) for i in args.f]
