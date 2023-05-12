@@ -357,7 +357,7 @@ class nnUNetPredictor(object):
                     sleep(0.1)
                     proceed = not check_workers_busy(export_pool, r, allowed_num_queued=2 * len(export_pool._pool))
 
-                prediction = self.predict_logits_from_preprocessed_data(data)
+                prediction = self.predict_logits_from_preprocessed_data(data).cpu()
 
                 if ofile is not None:
                     # this needs to go into background processes

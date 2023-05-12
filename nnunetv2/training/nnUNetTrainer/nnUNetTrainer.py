@@ -1147,6 +1147,8 @@ class nnUNetTrainer(object):
                     prediction = predictor.predict_sliding_window_return_logits(data)
                     predictor.perform_everything_on_gpu = True
 
+                prediction = prediction.cpu()
+
                 # this needs to go into background processes
                 results.append(
                     segmentation_export_pool.starmap_async(
@@ -1182,7 +1184,7 @@ class nnUNetTrainer(object):
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file = join(output_folder, k + '.npz')
 
-                        # resample_and_save(prediction, target_shape, output_file, self.plans, self.configuration, properties,
+                        # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
                         #                   self.dataset_json)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
