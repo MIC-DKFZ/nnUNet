@@ -211,7 +211,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                 print(f'Before training - The model has {(params/total_params)*100}% of trainable parameters')
             nnunet_trainer.run_training()
 
-        nnunet_trainer.perform_actual_validation(export_validation_probabilities)
+        # nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
 
 def run_training_entry():
