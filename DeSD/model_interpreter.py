@@ -1,18 +1,20 @@
 import yaml
 import torch
 import shutil
+import umap
 
 import numpy as np
 import pandas as pd
 import torch.nn as nn
 
 from pathlib import Path
-from sklearn import decomposition
+from sklearn import decomposition, manifold
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from typing import Union, Dict, List
 import captum.attr as attr
 import SimpleITK as sitk
+import multiprocessing as mp
 
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from DeSD.models.res3d import res3d, DINOHead, DynamicMultiCropWrapper
@@ -30,31 +32,28 @@ class NetProjector(nn.Module):
         self.device = device
         self.batch_size = batch_size if batch_size is not None else self.cfg['batch_size']
         self.teacher = res3d(self.cfg, teacher=True, device=device)
-        batch_shape = [self.batch_size, 1] + self.cfg['global_crop_size']
+        n_chnnel = 2 if self.cfg['multichannel_input'] else 1
+        batch_shape = [self.batch_size, n_chnnel] + self.cfg['global_crop_size']
         self.projector = DynamicMultiCropWrapper(self.teacher, DINOHead, self.cfg['out_dim'],
                                                  self.cfg['use_bn_in_head'], batch_shape, True)
+
+        # Turn off gradients
+        for j, p in enumerate(self.projector.parameters()):
+            p.requires_grad_(False)
+
+        # Turn send to device
         self.projector.to(self.device)
+        print(chckpt_file_path)
         state_dict = torch.load(chckpt_file_path, map_location=device)['teacher']
         self.projector.load_state_dict(state_dict, strict=True)
         self.projector.eval()
 
 
 class EmpeddingProjector(NetProjector):
-    def __init__(self, net_projector: NetProjector = None, cfg_file_path: Path = None,
-                 chckpt_file_path: Path = None, device: str = 'cuda', batch_size: int = None):
-        # if not ((net_projector is None) and ((cfg_file_path is not None) and (chckpt_file_path is not None))):
-        #     raise Exception('You either need to pass the net projector or the cfg and checkpt paths')
-        # if not ((net_projector is not None) and ((cfg_file_path is None) and (chckpt_file_path is None))):
-        #     raise Exception('You either need to pass the net projector or the cfg and checkpt paths')
-        if net_projector is None:
-            super(EmpeddingProjector, self).__init__(cfg_file_path, chckpt_file_path, device, batch_size)
-        else:
-            super(EmpeddingProjector, self).__init__()
-            self.cfg = net_projector.cfg
-            self.batch_size = net_projector.batch_size
-            self.teacher = net_projector.teacher
-            self.projector = net_projector.projector
-            self.device = device
+    def __init__(self, cfg_file_path: Path = None, chckpt_file_path: Path = None,
+                 device: str = 'cuda', batch_size: int = None):
+        super(EmpeddingProjector, self).__init__(cfg_file_path, chckpt_file_path,
+                                                 device, batch_size)
 
     def __call__(self, dataset: Union[Dataset, str]):
         nnu_dataset_name = self.cfg['dataset']
@@ -76,8 +75,13 @@ class EmpeddingProjector(NetProjector):
                 files.append(preprocessed_dataset_path / f'{sample["subject"]}.npy')
 
         results = []
-        for idx, npy_path in tqdm(enumerate(files)):
+        for idx, npy_path in tqdm(enumerate(files), total=len(files)):
             array = np.load(npy_path)
+            if (len(array.shape) > 3) and (array.shape[0] == 2):
+                if self.cfg['transformations_cfg']['symmetry'] is not None:
+                    array = np.expand_dims(array[0, ...], axis=0)
+                elif not (self.cfg['multichannel_input']):
+                    array = np.expand_dims(array[0, ...], axis=0)
             array = np.expand_dims(array, axis=0)
             array = torch.tensor(array, device=self.device)
             with torch.no_grad():
@@ -100,9 +104,17 @@ class DimReductor():
         super(DimReductor, self).__init__()
         self.method = method.lower()
 
-        if (self.method in ['pca', 'incrementalpca']) and ('whiten' not in method_kwargs.keys()):
-            method_kwargs['whiten'] = True
-        self.model = decomposition.PCA(**method_kwargs)
+        if self.method == 'pca':
+            if (self.method in ['pca', 'incrementalpca']) and ('whiten' not in method_kwargs.keys()):
+                method_kwargs['whiten'] = True
+            self.model = decomposition.PCA(**method_kwargs)
+        elif self.method == 'tsne':
+            method_kwargs.update({'n_jobs': mp.cpu_count()})
+            self.model = manifold.TSNE(**method_kwargs)
+        elif self.method == 'umap':
+            method_kwargs.update({'n_jobs': mp.cpu_count()})
+            self.model = umap.UMAP(**method_kwargs)
+
         self.rng = np.random.default_rng(seed=seed)
 
     def __call__(self, projections: Union[pd.DataFrame, np.ndarray], n_to_fit: int = None):
@@ -122,7 +134,7 @@ class DimReductor():
             projections = self.model.fit_transform(projections)
 
         projections = pd.DataFrame(projections,
-                                   columns=[f'{self.method}{i}' for i in range(projections.shape[1])])
+                                   columns=[f'feat{i}' for i in range(projections.shape[1])])
         if meta is not None:
             projections = pd.concat([meta, projections], axis=1)
         return projections
@@ -150,25 +162,22 @@ class CAMProjector(NetProjector):
 
 class SaliencyGenerator():
     def __init__(self,
-                 net_projector: NetProjector = None,
                  cfg_file_path: Path = None,
                  chckpt_file_path: Path = None,
                  device: str = 'cuda',
                  dataset: Dataset = None,
                  npy_path: Path = None,
                  raw_path: Path = None,
-                 method: attr.Attribution = None, method_kwargs: Dict = {}, layer: bool = False, suffix: str=''):
-        # assert (net_projector is None) and ((cfg_file_path is not None) and (chckpt_file_path is not None)), \
-        #     'You either need to pass the net projector or the cfg and checkpt paths'
-        # assert (net_projector is not None) and ((cfg_file_path is None) and (chckpt_file_path is None)), \
-        #     'You either need to pass the net projector or the cfg and checkpt paths'
-        if net_projector is None:
-            self.saliency_generator = CAMProjector(None, cfg_file_path, chckpt_file_path, device, 1)
-        # else:
-        #     self.saliency_generator = CAMProjector(net_projector)
+                 method: attr.Attribution = None,
+                 layer: bool = False,
+                 suffix: str=''):
+        
+        self.saliency_generator = CAMProjector(None, cfg_file_path, chckpt_file_path, device, 1)
         self.cfg = self.saliency_generator.cfg
         if layer:
-            self.saliency_generator = method(self.saliency_generator, layer=self.saliency_generator.projector.backbone.net.stages[0][0].convs[1].all_modules[0])
+            self.saliency_generator = method(
+                self.saliency_generator,
+                layer=self.saliency_generator.projector.backbone.net.stages[0][0].convs[1].all_modules[0])
         else:
             self.saliency_generator = method(self.saliency_generator)
         self.dataset = dataset
@@ -188,10 +197,16 @@ class SaliencyGenerator():
             self.raw_path = raw_path
 
 
-    def __call__(self, subjects: List = [], n: int = None,
-                 save_saliency: bool = True, out_path: Path = None):
-        assert (len(subjects) == 0) and ((n != None) and (self.dataset is not None)), \
+    def __call__(self, subjects: List = [],
+                 n: int = None,
+                 save_saliency: bool = True,
+                 out_path: Path = None,
+                 copy_original: bool = False):
+        assert (len(subjects) != 0) and (self.dataset is not None), \
             'You must pass a list of cases or a number of cases to sample and a dataset object'
+        if not out_path.exists():
+            out_path.mkdir(parents=True, exist_ok=True)
+        n = len(subjects) if (n is None) else n
         if len(subjects) == 0:
             n_cases = len(self.dataset)
             indexes = self.rng.integers(0, n_cases, n)
@@ -199,18 +214,19 @@ class SaliencyGenerator():
         files = [self.preprocessed_dataset_path / f'{subj}.npy' for subj in subjects]
 
         suffix = f'_{self.suffix}' if self.suffix != '' else self.suffix
-        results = []
-        for idx, npy_path in enumerate(files):
+        for npy_path in tqdm(files, total=len(files)):
             array = np.load(npy_path)
             array = np.expand_dims(array, axis=0)
             array = torch.tensor(array, device=self.device)
-            results.append(self.saliency_generator.attribute(array)[0, 0, :, :, :].detach().numpy())
+            result = self.saliency_generator.attribute(
+                array, internal_batch_size=1, n_steps=200)[0, 0, :, :, :].detach().cpu().numpy()
             if save_saliency:
                 nii_file = self.raw_path / npy_path.name.replace('.npy', '_0000.nii.gz')
                 ncct_img = sitk.ReadImage(str(nii_file))
-                shutil.copy(nii_file, out_path/nii_file.name)
+                if copy_original:
+                    shutil.copy(nii_file, out_path/nii_file.name)
                 out_filepath = out_path / npy_path.name.replace('.npy', f'_saliency{suffix}.nii.gz')
-                save_img_from_array_using_referece(results[-1], ncct_img, out_filepath)
-        return results
+                save_img_from_array_using_referece(result, ncct_img, out_filepath)
+            torch.cuda.empty_cache()
 
 
