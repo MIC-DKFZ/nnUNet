@@ -110,17 +110,25 @@ def log_scatterplot_figure(proj_df: pd.DataFrame, writer: SummaryWriter,
 
 def log_example_images(images: List[np.ndarray], writer: SummaryWriter,
                        epoch: int) -> None:
-    fig, ax = plt.subplots(1,1,figsize=(15,6))
     rng = np.random.default_rng(420)
     images = np.asarray([i.numpy() for i in images])
     images = np.concatenate(images, 4)
     idx = rng.choice(np.arange(images.shape[0]), 5)
     z_idx = images.shape[2] // 2
-    images = (np.concatenate(images[idx, 0, z_idx, :, :], 0)).T
-    ax.imshow(images, cmap='gray')
+    n_channels = images.shape[1]
+    imgs = (np.concatenate(images[idx, 0, z_idx, :, :], 0)).T
+    fig, ax = plt.subplots(1, 1, figsize=(15, 6))
+    ax.imshow(imgs, cmap='gray')
     plt.tight_layout()
     plt.axis('off')
     writer.add_figure(f'exp_imgs', fig, global_step=epoch)
+    if n_channels == 2:
+        fig, ax = plt.subplots(1, 1, figsize=(15, 6))
+        imgs = (np.concatenate(images[idx, 1, z_idx, :, :], 0)).T
+        ax.imshow(imgs, cmap='gray')
+        plt.tight_layout()
+        plt.axis('off')
+        writer.add_figure(f'exp_imgs_ch2', fig, global_step=epoch)
 
 
 @torch.no_grad()
