@@ -362,8 +362,8 @@ class Dataset3D(Dataset):
                                                        image_crop_bis=image_crop2_bis,
                                                        axes=(0, 1, 2), p=p)
         if self.multichannel_input:
-            image_crop1 = np.stack([image_crop1, image_crop1_bis], axis=0)
-            image_crop2 = np.stack([image_crop2, image_crop1_bis], axis=0)
+            image_crop1 = np.concatenate([image_crop1, image_crop1_bis], axis=0)
+            image_crop2 = np.concatenate([image_crop2, image_crop1_bis], axis=0)
         data_dict1 = {'image': image_crop1.astype(np.float32).copy(),
                       'dataset': dataset_name, 'ais': ais, 'name': name}
         data_dict2 = {'image': image_crop2.astype(np.float32).copy(),
@@ -392,7 +392,7 @@ class Dataset3D(Dataset):
                                                                      image_crop_bis=image_crop_local_bis,
                                                                      axes=(0, 1, 2), p=p)
             if self.multichannel_input:
-                image_crop1 = np.stack([image_crop_local, image_crop_local_bis], axis=0)
+                image_crop1 = np.concatenate([image_crop_local, image_crop_local_bis], axis=0)
             data_dict_local = {
                 'image': image_crop_local.astype(np.float32).copy(),
                 'dataset': dataset_name,
