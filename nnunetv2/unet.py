@@ -216,7 +216,9 @@ class SegmentationHeadL(nn.Module):
 
 
 class UNetDeepSupervisionDoubleEncoder(nn.Module):
-    def __init__(self, n_channels_1, n_channels_2, n_classes_segmentation, deep_supervision=True, encoder=UNetEncoderL,
+    def __init__(self, n_channels_1, n_channels_2,
+                 n_classes_segmentation, deep_supervision=True,
+                 encoder=UNetEncoderL,
                  segmentation_head=SegmentationHeadL):
         super(UNetDeepSupervisionDoubleEncoder, self).__init__()
         self.n_channels_1 = n_channels_1
@@ -233,7 +235,8 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
                                                    self.n_classes_segmentation,
                                                    self.do_ds)
 
-    def forward(self, x, y):
+    def forward(self, x_in):
+        x, y = x_in[:, 0], x_in[:, 0]
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
         # skips = []
