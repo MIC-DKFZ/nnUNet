@@ -279,7 +279,9 @@ class nnUNetTrainer(object):
         should be generated. label_manager takes care of all that for you.)
 
         """
-        return get_network_from_plans(plans_manager, dataset_json, configuration_manager,
+        return UNetDeepSupervisionDoubleEncoder(n_channels_1=1, n_channels_2=1, n_classes_segmentation=31,
+                                         deep_supervision=True, encoder=UNetEncoderS,
+                                         segmentation_head=SegmentationHeadS)get_network_from_plans(plans_manager, dataset_json, configuration_manager,
                                       num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
