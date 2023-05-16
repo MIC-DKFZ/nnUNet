@@ -8,7 +8,7 @@ class UNetEncoderS(nn.Module):
     def __init__(self, channels):
         super(UNetEncoderS, self).__init__()
         self.inc = (DoubleConv(channels, 16))
-        self.down1 = (Down(16, 32, pooling=(2,2,1)))
+        self.down1 = (Down(16, 32, pooling=(1,2,2)))
         self.down2 = (Down(32, 64))
         self.down3 = (Down(64, 128))
         self.down4 = (Down(128, 128))
