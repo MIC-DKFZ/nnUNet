@@ -779,9 +779,9 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
         chances you need to change this as well!
         """
         if self.is_ddp:
-            self.network.module.decoder.deep_supervision = enabled
+            self.network.module.do_ds = enabled
         else:
-            self.network.decoder.deep_supervision = enabled
+            self.network.do_ds = enabled
 
     def on_train_start(self):
         if not self.was_initialized:
