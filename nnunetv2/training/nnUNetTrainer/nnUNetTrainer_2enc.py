@@ -61,9 +61,10 @@ from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.unet import UNetDeepSupervisionDoubleEncoder, SegmentationHeadS, UNetEncoderS
+from nnUNetTrainer import nnUNetTrainer
 
 
-class nnUNetTrainer(object):
+class nnUNetTrainer_2enc(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
