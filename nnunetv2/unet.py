@@ -8,7 +8,7 @@ class UNetEncoderS(nn.Module):
     def __init__(self, channels):
         super(UNetEncoderS, self).__init__()
         self.inc = (DoubleConv(channels, 16))
-        self.down1 = (Down(16, 32))
+        self.down1 = (Down(16, 32, pooling=(2,2,1)))
         self.down2 = (Down(32, 64))
         self.down3 = (Down(64, 128))
         self.down4 = (Down(128, 128))
@@ -129,10 +129,10 @@ class DoubleConv(nn.Module):
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, pooling=(2,2,2)):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool3d(2),
+            nn.MaxPool3d(pooling),
             DoubleConv(in_channels, out_channels, dropout_rate=0.5)
         )
 

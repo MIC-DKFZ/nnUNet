@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import shutil
 import sys
+import warnings
 from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
@@ -24,7 +25,8 @@ from torch._dynamo import OptimizedModule
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, resample_and_save
-from nnunetv2.inference.sliding_window_prediction import compute_gaussian, predict_sliding_window_return_logits
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
+from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
@@ -60,7 +62,6 @@ from torch import distributed as dist
 from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from nnunetv2.unet import UNetDeepSupervisionDoubleEncoder, SegmentationHeadS, UNetEncoderS
 
 
 class nnUNetTrainer(object):
@@ -280,11 +281,8 @@ class nnUNetTrainer(object):
         should be generated. label_manager takes care of all that for you.)
 
         """
-        return UNetDeepSupervisionDoubleEncoder(n_channels_1=1, n_channels_2=1, n_classes_segmentation=31,
-                                         deep_supervision=True, encoder=UNetEncoderS,
-                                         segmentation_head=SegmentationHeadS)
-    #get_network_from_plans(plans_manager, dataset_json, configuration_manager,
-                                      # num_input_channels, deep_supervision=enable_deep_supervision)
+        return get_network_from_plans(plans_manager, dataset_json, configuration_manager,
+                                      num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -1094,7 +1092,12 @@ class nnUNetTrainer(object):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
 
-        num_seg_heads = self.label_manager.num_segmentation_heads
+        predictor = nnUNetPredictor(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
+                                    perform_everything_on_gpu=True, device=self.device, verbose=False,
+                                    verbose_preprocessing=False, allow_tqdm=False)
+        predictor.manual_initialization(self.network, self.plans_manager, self.configuration_manager, None,
+                                        self.dataset_json, self.__class__.__name__,
+                                        self.inference_allowed_mirroring_axes)
 
         with multiprocessing.get_context("spawn").Pool(default_num_processes) as segmentation_export_pool:
             validation_output_folder = join(self.output_folder, 'validation')
@@ -1130,29 +1133,21 @@ class nnUNetTrainer(object):
                 if self.is_cascaded:
                     data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
                                                                         output_dtype=data.dtype)))
+                with warnings.catch_warnings():
+                    # ignore 'The given NumPy array is not writable' warning
+                    warnings.simplefilter("ignore")
+                    data = torch.from_numpy(data)
 
                 output_filename_truncated = join(validation_output_folder, k)
 
                 try:
-                    prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
-                                                                      tile_size=self.configuration_manager.patch_size,
-                                                                      mirror_axes=self.inference_allowed_mirroring_axes,
-                                                                      tile_step_size=0.5,
-                                                                      use_gaussian=True,
-                                                                      precomputed_gaussian=None,
-                                                                      perform_everything_on_gpu=True,
-                                                                      verbose=False,
-                                                                      device=self.device).cpu().numpy()
+                    prediction = predictor.predict_sliding_window_return_logits(data)
                 except RuntimeError:
-                    prediction = predict_sliding_window_return_logits(self.network, data, num_seg_heads,
-                                                                      tile_size=self.configuration_manager.patch_size,
-                                                                      mirror_axes=self.inference_allowed_mirroring_axes,
-                                                                      tile_step_size=0.5,
-                                                                      use_gaussian=True,
-                                                                      precomputed_gaussian=None,
-                                                                      perform_everything_on_gpu=False,
-                                                                      verbose=False,
-                                                                      device=self.device).cpu().numpy()
+                    predictor.perform_everything_on_gpu = False
+                    prediction = predictor.predict_sliding_window_return_logits(data)
+                    predictor.perform_everything_on_gpu = True
+
+                prediction = prediction.cpu()
 
                 # this needs to go into background processes
                 results.append(
@@ -1189,7 +1184,7 @@ class nnUNetTrainer(object):
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file = join(output_folder, k + '.npz')
 
-                        # resample_and_save(prediction, target_shape, output_file, self.plans, self.configuration, properties,
+                        # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
                         #                   self.dataset_json)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
