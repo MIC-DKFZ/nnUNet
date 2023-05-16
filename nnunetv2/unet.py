@@ -242,6 +242,8 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
         print(y.shape)
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
+        print(skips_1.shape)
+        print(features1.shape)
         # skips = []
         # for idx in range(len(skips_1)):
         #     skips.append(torch.cat(skips_1[idx], skips_2[idx]))
