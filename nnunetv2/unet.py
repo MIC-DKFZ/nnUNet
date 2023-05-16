@@ -238,6 +238,8 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
     def forward(self, x_in):
         print(x_in.shape)
         x, y = x_in[:, 0:1, :, :, :], x_in[:, 1:2, :, :, :]
+        print(x.shape)
+        print(y.shape)
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
         # skips = []
