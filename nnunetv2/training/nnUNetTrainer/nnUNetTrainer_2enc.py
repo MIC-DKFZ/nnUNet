@@ -61,7 +61,7 @@ from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.unet import UNetDeepSupervisionDoubleEncoder, SegmentationHeadS, UNetEncoderS
-from nnunetv2.training.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
 
 class nnUNetTrainer_2enc(nnUNetTrainer):
