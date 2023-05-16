@@ -11,7 +11,7 @@ class UNetEncoderS(nn.Module):
         self.down1 = (Down(16, 32))
         self.down2 = (Down(32, 64))
         self.down3 = (Down(64, 128))
-        self.down4 = (Down(128, 128), pooling=(1,2,2))
+        self.down4 = (Down(128, 128, pooling=(1,2,2)))
 
     def forward(self, x):
 
