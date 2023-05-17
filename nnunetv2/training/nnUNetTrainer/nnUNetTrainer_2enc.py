@@ -872,6 +872,8 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             # del data
+            print([out.shape for out in output])
+            print([tar.shape for out in target])
             l = self.loss(output, target)
 
         if self.grad_scaler is not None:
