@@ -242,14 +242,9 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
                                                    self.do_ds)
 
     def forward(self, x_in):
-        print(x_in.shape)
         x, y = x_in[:, 0:1, :, :, :], x_in[:, 1:2, :, :, :]
-        print(x.shape)
-        print(y.shape)
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
-        print([skip.shape for skip in skips_1])
-        print(features1.shape)
         # skips = []
         # for idx in range(len(skips_1)):
         #     skips.append(torch.cat(skips_1[idx], skips_2[idx]))
