@@ -108,7 +108,7 @@ class SegmentationHeadS(nn.Module):
         if self.do_ds:
             outputs.append(self.non_lin(x))
         if self.do_ds:
-            return outputs
+            return outputs[::-1]
         return self.non_lin(x)
 
     def eval(self: T) -> T:
