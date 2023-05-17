@@ -1,7 +1,8 @@
 from typing import T
-from torch import nn
 import torch
 from torch.nn import Conv3d
+from einops import rearrange, repeat
+from torch import nn, einsum
 from inspect import isfunction
 
 
@@ -249,6 +250,39 @@ class CrossAttention(nn.Module):
             nn.Conv3d(inner_dim, query_dim, kernel_size=1),
             nn.Dropout(dropout)
         )
+    
+    def forward(self, x, context=None, mask=None):
+        n = self.heads
+
+        q = self.to_q(x)
+        context = default(context, x)
+        k = self.to_k(context)
+        v = self.to_v(context)
+
+        b, c, h, w, d = x.shape
+        q, k, v = map(lambda t: rearrange(t, 'b (n c) h w l -> (b n) c (h w l)', n=n), (q, k, v))
+
+        # force cast to fp32 to avoid overflowing
+        with torch.autocast(enabled=False, device_type='cuda'):
+            q, k = q.float(), k.float()
+            sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
+
+        del q, k
+
+        if exists(mask):
+            mask = rearrange(mask, 'b ... -> b (...)')
+            max_neg_value = -torch.finfo(sim.dtype).max
+            mask = repeat(mask, 'b j -> (b h) () j', h=h)
+            sim.masked_fill_(~mask, max_neg_value)
+
+        # attention, what we cannot get enough of
+        sim = sim.softmax(dim=-1)
+
+        out = einsum('b i j, b j d -> b i d', sim, v)
+        out = rearrange(out, '(b n) c (h w l) -> b (n c) h w l', n=n, h=h, w=w, l=d)
+        out = self.to_out(out)
+        return out
+
 
 
 class UNetDeepSupervisionDoubleEncoder(nn.Module):
