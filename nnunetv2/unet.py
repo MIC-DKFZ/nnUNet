@@ -183,7 +183,8 @@ class SegmentationHeadL(nn.Module):
         self.up_segmentation1 = (Up(in_features, 256, bilinear=False))
         self.up_segmentation2 = (Up(256, 128, bilinear=False))
         self.up_segmentation3 = (Up(128, 64, bilinear=False))
-        self.up_segmentation4 = (Up(64, 32, bilinear=False))
+        self.up_segmentation4 = (Up(64, 32, bilinear=False,
+                                    pooling=(1, 2, 2)))
         self.outc_segmentation = (OutConv(32, segmentation_classes))
 
         self.do_ds = do_ds
@@ -237,7 +238,10 @@ def default(val, d):
 
 
 class CrossAttention(nn.Module):
-    def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.):
+
+    def __init__(self, query_dim, context_dim=None,
+                 heads=8, dim_head=64, dropout=0.):
+
         super().__init__()
         inner_dim = dim_head * heads
         context_dim = default(context_dim, query_dim)
@@ -245,15 +249,18 @@ class CrossAttention(nn.Module):
         self.scale = dim_head ** -0.5
         self.heads = heads
 
-        self.to_q = nn.Conv3d(query_dim, inner_dim, kernel_size=1, bias=False)
-        self.to_k = nn.Conv3d(context_dim, inner_dim, kernel_size=1, bias=False)
-        self.to_v = nn.Conv3d(context_dim, inner_dim, kernel_size=1, bias=False)
+        self.to_q = nn.Conv3d(query_dim, inner_dim,
+                              kernel_size=1, bias=False)
+        self.to_k = nn.Conv3d(context_dim, inner_dim,
+                              kernel_size=1, bias=False)
+        self.to_v = nn.Conv3d(context_dim, inner_dim,
+                              kernel_size=1, bias=False)
 
         self.to_out = nn.Sequential(
             nn.Conv3d(inner_dim, query_dim, kernel_size=1),
             nn.Dropout(dropout)
         )
-    
+
     def forward(self, x, context=None, mask=None):
         n = self.heads
 
@@ -263,7 +270,9 @@ class CrossAttention(nn.Module):
         v = self.to_v(context)
 
         b, c, h, w, d = x.shape
-        q, k, v = map(lambda t: rearrange(t, 'b (n c) h w l -> (b n) c (h w l)', n=n), (q, k, v))
+        q, k, v = map(lambda t:
+                      rearrange(t, 'b (n c) h w l -> (b n) c (h w l)',
+                                n=n), (q, k, v))
 
         # force cast to fp32 to avoid overflowing
         with torch.autocast(enabled=False, device_type='cuda'):
@@ -285,7 +294,6 @@ class CrossAttention(nn.Module):
         out = rearrange(out, '(b n) c (h w l) -> b (n c) h w l', n=n, h=h, w=w, l=d)
         out = self.to_out(out)
         return out
-
 
 
 class UNetDeepSupervisionDoubleEncoder(nn.Module):
