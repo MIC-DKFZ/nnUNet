@@ -2,6 +2,7 @@ from typing import T
 from torch import nn
 import torch
 from torch.nn import Conv3d
+from inspect import isfunction
 
 
 class UNetEncoderS(nn.Module):
@@ -221,6 +222,35 @@ class SegmentationHeadL(nn.Module):
         return a
 
 
+def exists(val):
+    return val is not None
+
+
+def default(val, d):
+    if exists(val):
+        return val
+    return d() if isfunction(d) else d
+
+
+class CrossAttention(nn.Module):
+    def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.):
+        super().__init__()
+        inner_dim = dim_head * heads
+        context_dim = default(context_dim, query_dim)
+
+        self.scale = dim_head ** -0.5
+        self.heads = heads
+
+        self.to_q = nn.Conv3d(query_dim, inner_dim, kernel_size=1, bias=False)
+        self.to_k = nn.Conv3d(context_dim, inner_dim, kernel_size=1, bias=False)
+        self.to_v = nn.Conv3d(context_dim, inner_dim, kernel_size=1, bias=False)
+
+        self.to_out = nn.Sequential(
+            nn.Conv3d(inner_dim, query_dim, kernel_size=1),
+            nn.Dropout(dropout)
+        )
+
+
 class UNetDeepSupervisionDoubleEncoder(nn.Module):
     def __init__(self, n_channels_1, n_channels_2,
                  n_classes_segmentation, deep_supervision=True,
@@ -240,16 +270,17 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
         self.segmentation_head = segmentation_head(feature_size,
                                                    self.n_classes_segmentation,
                                                    self.do_ds)
+        self.CA = CrossAttention(query_dim=feature_size)
 
     def forward(self, x_in):
         x, y = x_in[:, 0:1, :, :, :], x_in[:, 1:2, :, :, :]
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
+        x = self.CA(features1, context=features2)
         # skips = []
         # for idx in range(len(skips_1)):
         #     skips.append(torch.cat(skips_1[idx], skips_2[idx]))
-        return self.segmentation_head(torch.cat((features1,
-                                                 features2), dim=1), skips_1)
+        return self.segmentation_head(x, skips_1)
 
     def eval(self: T) -> T:
         super(UNetDeepSupervisionDoubleEncoder, self).eval()

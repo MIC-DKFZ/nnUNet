@@ -60,7 +60,7 @@ from torch import distributed as dist
 from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from nnunetv2.unet import UNetDeepSupervisionDoubleEncoder, SegmentationHeadS, UNetEncoderS
+from nnunetv2.unet import UNetDeepSupervisionDoubleEncoder, SegmentationHeadS, UNetEncoderS, SegmentationHeadL, UNetEncoderL
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
 
@@ -282,9 +282,10 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
 
         """
         return UNetDeepSupervisionDoubleEncoder(n_channels_1=1, n_channels_2=1, n_classes_segmentation=31,
-                                         deep_supervision=True, encoder=UNetEncoderS,
-                                         segmentation_head=SegmentationHeadS)
-    #get_network_from_plans(plans_manager, dataset_json, configuration_manager,
+                                         deep_supervision=True, encoder=UNetEncoderL,
+                                         segmentation_head=SegmentationHeadL)
+
+    # get_network_from_plans(plans_manager, dataset_json, configuration_manager,
                                       # num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
