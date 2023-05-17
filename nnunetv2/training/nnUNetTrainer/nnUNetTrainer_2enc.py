@@ -901,6 +901,7 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
     def on_validation_epoch_start(self):
         self.network.eval()
         self.network.do_ds = True
+        self.network.segmentation_head.do_ds = True
 
     def validation_step(self, batch: dict) -> dict:
         data = batch['data']
@@ -919,6 +920,8 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             del data
+            print(type(output))
+            print(type(target))
             l = self.loss(output, target)
 
         # we only need the output with the highest output resolution
