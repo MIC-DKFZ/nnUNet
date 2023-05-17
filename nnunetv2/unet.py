@@ -194,6 +194,9 @@ class SegmentationHeadL(nn.Module):
 
     def forward(self, x, skips):
         x1, x2, x3, x4 = skips
+        print(x.shape)
+        print(x4.shape)
+        print(x3.shape)
         x = self.up_segmentation1(x, x4)
         x = self.up_segmentation2(x, x3)
         if self.do_ds:
