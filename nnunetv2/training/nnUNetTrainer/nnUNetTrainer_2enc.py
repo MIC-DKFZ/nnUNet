@@ -900,6 +900,7 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
 
     def on_validation_epoch_start(self):
         self.network.eval()
+        self.network.do_ds = True
 
     def validation_step(self, batch: dict) -> dict:
         data = batch['data']
