@@ -33,7 +33,7 @@ class UNetEncoderL(nn.Module):
         self.down1 = (Down(32, 64))
         self.down2 = (Down(64, 128))
         self.down3 = (Down(128, 256))
-        self.down4 = (Down(256, 256))
+        self.down4 = (Down(256, 512))
 
     def forward(self, x):
 
