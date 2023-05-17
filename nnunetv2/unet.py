@@ -5,6 +5,7 @@ from torch.nn import Conv3d
 
 
 class UNetEncoderS(nn.Module):
+
     def __init__(self, channels):
         super(UNetEncoderS, self).__init__()
         self.inc = (DoubleConv(channels, 16))
@@ -14,12 +15,18 @@ class UNetEncoderS(nn.Module):
         self.down4 = (Down(128, 128, pooling=(1,2,2)))
 
     def forward(self, x):
-
+        print("enc")
+        print(x.shape)
         x1 = self.inc(x)
+        print(x1.shape)
         x2 = self.down1(x1)
+        print(x2.shape)
         x3 = self.down2(x2)
+        print(x3.shape)
         x4 = self.down3(x3)
+        print(x4.shape)
         x5 = self.down4(x4)
+        print(x5.shape)
         skips = [x1, x2, x3, x4]
         return x5, skips
 
@@ -60,7 +67,8 @@ class SegmentationHeadS(nn.Module):
         super(SegmentationHeadS, self).__init__()
         self.up_segmentation1 = (Up(in_features, 128,
                                     bilinear=False,
-                                    pooling=(1, 2, 2)))
+                                    pooling=(1, 2, 2))
+                                 )
         self.up_segmentation2 = (Up(128, 64, bilinear=False))
         self.up_segmentation3 = (Up(64, 32, bilinear=False))
         self.up_segmentation4 = (Up(32, 16, bilinear=False))
@@ -74,18 +82,29 @@ class SegmentationHeadS(nn.Module):
 
     def forward(self, x, skips):
         x1, x2, x3, x4 = skips
+        print("seg")
+        print(x.shape)
+        print(x4.shape)
         x = self.up_segmentation1(x, x4)
+        print(x.shape)
+        print(x3.shape)
         x = self.up_segmentation2(x, x3)
+        print(x.shape)
+        print(x2.shape)
         if self.do_ds:
             outputs = []
             outputs.append(self.non_lin(self.proj1(x)))
         x = self.up_segmentation3(x, x2)
+        print(x.shape)
+        print(x1.shape)
         if self.do_ds:
             outputs.append(self.non_lin(self.proj2(x)))
         x = self.up_segmentation4(x, x1)
+        print(x.shape)
         if self.do_ds:
             outputs.append(self.non_lin(self.proj3(x)))
         x = self.outc_segmentation(x)
+        print(x.shape)
         if self.do_ds:
             outputs.append(self.non_lin(x))
         if self.do_ds:
