@@ -57,6 +57,7 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
                                                                                      'bbox_used_for_cropping'],
                                                                                  properties_dict[
                                                                                      'shape_before_cropping'])
+        predicted_probabilities = predicted_probabilities.cpu().numpy()
         # revert transpose
         predicted_probabilities = predicted_probabilities.transpose([0] + [i + 1 for i in
                                                                            plans_manager.transpose_backward])
@@ -105,18 +106,19 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
                  properties_dict)
 
 
-def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int], output_file: str,
+def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: List[int], output_file: str,
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager, properties_dict: dict,
-                      dataset_json_dict_or_file: Union[dict, str]) -> None:
-    # needed for cascade
-    if isinstance(predicted, str):
-        assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
-                                  "isfile(segmentation_softmax) must be True"
-        del_file = deepcopy(predicted)
-        predicted = np.load(predicted)
-        os.remove(del_file)
-
-    predicted = predicted.astype(np.float32)
+                      dataset_json_dict_or_file: Union[dict, str], num_threads_torch: int = default_num_processes) \
+        -> None:
+    # # needed for cascade
+    # if isinstance(predicted, str):
+    #     assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
+    #                               "isfile(segmentation_softmax) must be True"
+    #     del_file = deepcopy(predicted)
+    #     predicted = np.load(predicted)
+    #     os.remove(del_file)
+    old_threads = torch.get_num_threads()
+    torch.set_num_threads(num_threads_torch)
 
     if isinstance(dataset_json_dict_or_file, str):
         dataset_json_dict_or_file = load_json(dataset_json_dict_or_file)
@@ -136,5 +138,8 @@ def resample_and_save(predicted: Union[str, np.ndarray], target_shape: List[int]
     # create segmentation (argmax, regions, etc)
     label_manager = plans_manager.get_label_manager(dataset_json_dict_or_file)
     segmentation = label_manager.convert_logits_to_segmentation(predicted_array_or_file)
-
+    # segmentation may be torch.Tensor but we continue with numpy
+    if isinstance(segmentation, torch.Tensor):
+        segmentation = segmentation.cpu().numpy()
     np.savez_compressed(output_file, seg=segmentation.astype(np.uint8))
+    torch.set_num_threads(old_threads)
