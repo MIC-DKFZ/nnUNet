@@ -93,13 +93,11 @@ class SegmentationHeadS(nn.Module):
         print(x.shape)
         print(x3.shape)
         if self.do_ds:
-            outputs = []
             outputs.append(self.non_lin(self.proj2(x)))
         x = self.up_segmentation2(x, x3)
         print(x.shape)
         print(x2.shape)
         if self.do_ds:
-            outputs = []
             outputs.append(self.non_lin(self.proj3(x)))
         x = self.up_segmentation3(x, x2)
         print(x.shape)
