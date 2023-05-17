@@ -172,7 +172,7 @@ class Up(nn.Module):
             self.up = nn.Upsample(scale_factor=pooling, mode='bilinear', align_corners=True)
             self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
         else:
-            self.up = nn.ConvTranspose3d(in_channels, in_channels // 2, kernel_size=pooling, stride=2, bias=False)
+            self.up = nn.ConvTranspose3d(in_channels, in_channels // 2, kernel_size=2, stride=pooling, bias=False)
             self.conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x1, x2):
