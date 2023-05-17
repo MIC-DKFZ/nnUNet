@@ -75,9 +75,10 @@ class SegmentationHeadS(nn.Module):
         self.outc_segmentation = (OutConv(16, segmentation_classes))
 
         self.do_ds = do_ds
-        self.proj1 = Conv3d(64, segmentation_classes, 1)
-        self.proj2 = Conv3d(32, segmentation_classes, 1)
-        self.proj3 = Conv3d(16, segmentation_classes, 1)
+        self.proj1 = Conv3d(256, segmentation_classes, 1)
+        self.proj2 = Conv3d(128, segmentation_classes, 1)
+        self.proj3 = Conv3d(64, segmentation_classes, 1)
+        self.proj4 = Conv3d(32, segmentation_classes, 1)
         self.non_lin = lambda x: x  # torch.softmax(x, 1)
 
     def forward(self, x, skips):
@@ -93,18 +94,18 @@ class SegmentationHeadS(nn.Module):
         print(x3.shape)
         if self.do_ds:
             outputs = []
-            outputs.append(self.non_lin(self.proj1(x)))
+            outputs.append(self.non_lin(self.proj2(x)))
         x = self.up_segmentation2(x, x3)
         print(x.shape)
         print(x2.shape)
         if self.do_ds:
             outputs = []
-            outputs.append(self.non_lin(self.proj1(x)))
+            outputs.append(self.non_lin(self.proj3(x)))
         x = self.up_segmentation3(x, x2)
         print(x.shape)
         print(x1.shape)
         if self.do_ds:
-            outputs.append(self.non_lin(self.proj2(x)))
+            outputs.append(self.non_lin(self.proj4(x)))
         x = self.up_segmentation4(x, x1)
         print(x.shape)
         x = self.outc_segmentation(x)
