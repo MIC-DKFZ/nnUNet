@@ -66,12 +66,12 @@ class SegmentationHeadS(nn.Module):
     def __init__(self, in_features, segmentation_classes, do_ds):
         super(SegmentationHeadS, self).__init__()
         self.up_segmentation1 = (Up(in_features, 128,
-                                    bilinear=False,
-                                    pooling=(1, 2, 2))
+                                    bilinear=False)
                                  )
         self.up_segmentation2 = (Up(128, 64, bilinear=False))
         self.up_segmentation3 = (Up(64, 32, bilinear=False))
-        self.up_segmentation4 = (Up(32, 16, bilinear=False))
+        self.up_segmentation4 = (Up(32, 16, bilinear=False,
+                                    pooling=(1, 2, 2)))
         self.outc_segmentation = (OutConv(16, segmentation_classes))
 
         self.do_ds = do_ds
