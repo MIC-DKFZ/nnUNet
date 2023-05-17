@@ -196,19 +196,19 @@ class SegmentationHeadL(nn.Module):
 
     def forward(self, x, skips):
         x1, x2, x3, x4 = skips
-        x = self.up_segmentation1(x, x4)
         if self.do_ds:
             outputs = []
             outputs.append(self.non_lin(self.proj1(x)))
-        x = self.up_segmentation2(x, x3)
+        x = self.up_segmentation1(x, x4)
         if self.do_ds:
             outputs.append(self.non_lin(self.proj2(x)))
-        x = self.up_segmentation3(x, x2)
+        x = self.up_segmentation2(x, x3)
         if self.do_ds:
             outputs.append(self.non_lin(self.proj3(x)))
-        x = self.up_segmentation4(x, x1)
+        x = self.up_segmentation3(x, x2)
         if self.do_ds:
             outputs.append(self.non_lin(self.proj4(x)))
+        x = self.up_segmentation4(x, x1)
         x = self.outc_segmentation(x)
         if self.do_ds:
             outputs.append(self.non_lin(x))
