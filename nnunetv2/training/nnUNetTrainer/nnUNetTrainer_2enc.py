@@ -920,8 +920,6 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             del data
-            print(type(output))
-            print(type(target))
             l = self.loss(output, target)
 
         # we only need the output with the highest output resolution
