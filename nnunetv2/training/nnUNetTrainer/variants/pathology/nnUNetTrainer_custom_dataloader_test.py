@@ -20,7 +20,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager
 
 
 # for def on_train_start:
-from batchgenerators.utilities.file_and_folder_operations import join, save_json, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import join, save_json, maybe_mkdir_p, isfile
 from torch import distributed as dist
 from nnunetv2.training.dataloading.utils import unpack_dataset
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
@@ -200,9 +200,20 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 ###
 
 
+    def do_split(self):
+        if isfile(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits_final.json')):
+            print('Found splits_final.json')
+        else:
+            pass
+
+
 ### GET DATALOADERS - as generator objects
     def get_dataloaders(self):
-        return None, None
+        
+        self.do_split()
+        
+        
+        # return None, None
         print('[Getting WSD dataloaders]')
         dataloader_template = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'wsd_dataloader_template.json'))
         files = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'files.json')) 
@@ -381,7 +392,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                 train_outputs = []
                 # for batch_id in range(self.num_iterations_per_epoch):
                 for batch_id in range(4):
-                    train_outputs.append(self.train_step(self.dummy_batch)) ### REPLACE self.dummy_batch with next(self.dataloader_train)
+                    train_outputs.append(self.train_step(next(self.dataloader_train))) ### REPLACE self.dummy_batch with next(self.dataloader_train)
                     print('done batch')
                 self.on_train_epoch_end(train_outputs)
 
@@ -389,7 +400,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                     self.on_validation_epoch_start()
                     val_outputs = []
                     for batch_id in range(self.num_val_iterations_per_epoch):
-                        val_outputs.append(self.validation_step(self.dummy_batch)) ### REPLACE self.dummy_batch with next(self.dataloader_val)
+                        val_outputs.append(self.validation_step(next(self.dataloader_val))) ### REPLACE self.dummy_batch with next(self.dataloader_val)
                     self.on_validation_epoch_end(val_outputs)
 
                 self.on_epoch_end()
