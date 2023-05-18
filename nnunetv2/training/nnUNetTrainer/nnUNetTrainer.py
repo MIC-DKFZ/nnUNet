@@ -61,6 +61,21 @@ from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+###
+class PrintTransform(AbstractTransform):
+    def __init__(self, data_key="data", label_key="seg", property_key="properties", p_per_sample=1):
+        self.data_key = data_key
+        self.label_key = label_key
+        self.property_key = property_key
+    def __call__(self, **data_dict):
+        # data = data_dict.get(self.data_key)
+        # seg = data_dict.get(self.label_key)
+        # props = data_dict.get(self.property_key)
+
+        # print('\n\n\nPROPERTIES BEFORE TRANSFORMS', props, '\n\n\n')
+        return data_dict
+###
+
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
@@ -583,6 +598,14 @@ class nnUNetTrainer(object):
         rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
             self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
 
+        print('\nps:', patch_size, '\nrot:', rotation_for_DA, '\nds:',  deep_supervision_scales, '\nma:',  mirror_axes, '\ndo dummy 2d da:',  do_dummy_2d_data_aug,
+            '\nroder resample:', 3, '\norder resample seg:', 1,
+            '\nmask norm:',  self.configuration_manager.use_mask_for_norm,
+            '\nis cascaded:', self.is_cascaded, '\nforeground:', self.label_manager.foreground_labels,
+            '\nregions:', self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            '\nignore label:', self.label_manager.ignore_label)
+
+
         # training pipeline
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
@@ -603,7 +626,9 @@ class nnUNetTrainer(object):
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
         allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
+###
+        if True: #allowed_num_processes == 0:
+###
             mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
@@ -647,6 +672,7 @@ class nnUNetTrainer(object):
                                         sampling_probabilities=None, pad_sides=None)
         return dl_tr, dl_val
 
+
     @staticmethod
     def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
                                 rotation_for_DA: dict,
@@ -669,6 +695,8 @@ class nnUNetTrainer(object):
         else:
             patch_size_spatial = patch_size
             ignore_axes = None
+
+        tr_transforms.append(PrintTransform())
 
         tr_transforms.append(SpatialTransform(
             patch_size_spatial, patch_center_dist_from_border=None,
