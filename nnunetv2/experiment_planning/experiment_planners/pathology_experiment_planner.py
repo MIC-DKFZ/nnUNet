@@ -58,7 +58,7 @@ class PathologyExperimentPlanner(object):
         self.UNet_featuremap_min_edge_length = 4
         self.UNet_blocks_per_stage_encoder = (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         self.UNet_blocks_per_stage_decoder = (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-        self.UNet_min_batch_size = 8 if 'UNet_min_batch_size' not in self.dataset_json else self.dataset_json['UNet_min_batch_size']
+        self.UNet_min_batch_size = 2 
         self.Unet_max_patch_size = [1024, 1024] if 'Unet_max_patch_size' not in self.dataset_json else self.dataset_json['Unet_max_patch_size']
         self.UNet_max_features_2d = 512
         self.UNet_max_features_3d = 320
