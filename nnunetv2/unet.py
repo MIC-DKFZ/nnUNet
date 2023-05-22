@@ -311,7 +311,7 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
 
         self.encoder1 = encoder(self.n_channels_1)
         self.encoder2 = encoder(self.n_channels_2)
-        feature_size = 512  # if encoder == UNetEncoderL else 256
+        feature_size = 512 if encoder == UNetEncoderL else 256
         self.segmentation_head = segmentation_head(feature_size,
                                                    self.n_classes_segmentation,
                                                    self.do_ds)
