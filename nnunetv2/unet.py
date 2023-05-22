@@ -311,20 +311,17 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
 
         self.encoder1 = encoder(self.n_channels_1)
         self.encoder2 = encoder(self.n_channels_2)
-        feature_size = 512 if encoder == UNetEncoderL else 256
+        feature_size = 512  # if encoder == UNetEncoderL else 256
         self.segmentation_head = segmentation_head(feature_size,
                                                    self.n_classes_segmentation,
                                                    self.do_ds)
-        self.CA = CrossAttention(query_dim=feature_size)
+        # self.CA = CrossAttention(query_dim=feature_size)
 
     def forward(self, x_in):
         x, y = x_in[:, 0:1, :, :, :], x_in[:, 1:2, :, :, :]
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
-        x = self.CA(features1, context=features2)
-        # skips = []
-        # for idx in range(len(skips_1)):
-        #     skips.append(torch.cat(skips_1[idx], skips_2[idx]))
+        x = torch.cat([features1, features2], dim=1)#self.CA(features1, context=features2)
         return self.segmentation_head(x, skips_1)
 
     def eval(self: T) -> T:
