@@ -460,9 +460,11 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                    momentum=0.99, nesterov=True)
-        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+        optimizer = torch.optim.AdamW(self.network.parameters(),
+                                      lr=1e-3, weight_decay=1e-3)
+        lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,
+                                                         1, 1e-1,
+                                                         self.num_epochs)
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
