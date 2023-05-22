@@ -321,7 +321,10 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
         x, y = x_in[:, 0:1, :, :, :], x_in[:, 1:2, :, :, :]
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
+        print(features1.shape)
+        print(features2.shape)
         x = torch.cat([features1, features2], dim=1)
+        print(x.shape)
         # self.CA(features1, context=features2)
         return self.segmentation_head(x, skips_1)
 
