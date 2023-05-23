@@ -14,7 +14,7 @@ class UNetEncoderS(nn.Module):
         self.down1 = (Down(16, 32, pooling=(1, 2, 2)))
         self.down2 = (Down(32, 64))
         self.down3 = (Down(64, 128))
-        self.down4 = (Down(128, 128))
+        self.down4 = (Down(128, 256))
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -311,7 +311,7 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
 
         self.encoder1 = encoder(self.n_channels_1)
         self.encoder2 = encoder(self.n_channels_2)
-        feature_size = 512 if encoder == UNetEncoderL else 256
+        feature_size = 512  # if encoder == UNetEncoderL else 256
         self.segmentation_head = segmentation_head(feature_size,
                                                    self.n_classes_segmentation,
                                                    self.do_ds)

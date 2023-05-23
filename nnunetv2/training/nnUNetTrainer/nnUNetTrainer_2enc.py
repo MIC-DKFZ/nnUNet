@@ -461,9 +461,9 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.network.parameters(),
-                                      lr=1e-3, weight_decay=1e-3)
+                                      lr=1e-2, weight_decay=1e-3)
         lr_scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,
-                                                         1, 1e-1,
+                                                         1, 1e-2,
                                                          self.num_epochs)
         return optimizer, lr_scheduler
 
@@ -849,7 +849,6 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
 
     def on_train_epoch_start(self):
         self.network.train()
-        self.lr_scheduler.step(self.current_epoch)
         self.print_to_log_file('')
         self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
@@ -900,6 +899,7 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
             loss_here = np.mean(outputs['loss'])
 
         self.logger.log('train_losses', loss_here, self.current_epoch)
+        self.lr_scheduler.step(self.current_epoch)
 
     def on_validation_epoch_start(self):
         self.network.eval()
