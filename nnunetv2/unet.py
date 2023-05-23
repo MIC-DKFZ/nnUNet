@@ -311,7 +311,7 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
 
         self.encoder1 = encoder(self.n_channels_1)
         self.encoder2 = encoder(self.n_channels_2)
-        feature_size = 512  # if encoder == UNetEncoderL else 256
+        feature_size = 512 if encoder == UNetEncoderL else 256
         self.segmentation_head = segmentation_head(feature_size,
                                                    self.n_classes_segmentation,
                                                    self.do_ds)
@@ -322,8 +322,10 @@ class UNetDeepSupervisionDoubleEncoder(nn.Module):
         features1, skips_1 = self.encoder1(x)
         features2, skips_2 = self.encoder2(y)
         x = torch.cat([features1, features2], dim=1)
+        skip = [torch.cat([s1, s2], dim=1) for s1, s2 in zip(skips_1, skips_2)]
+
         # self.CA(features1, context=features2)
-        return self.segmentation_head(x, skips_1)
+        return self.segmentation_head(x, skip)
 
     def eval(self: T) -> T:
         super(UNetDeepSupervisionDoubleEncoder, self).eval()
