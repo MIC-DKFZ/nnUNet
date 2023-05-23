@@ -283,7 +283,7 @@ class nnUNetTrainer_2enc(nnUNetTrainer):
         """
         return UNetDeepSupervisionDoubleEncoder(n_channels_1=1, n_channels_2=1, n_classes_segmentation=31,
                                          deep_supervision=True, encoder=UNetEncoderS,
-                                         segmentation_head=SegmentationHeadS)
+                                         segmentation_head=SegmentationHeadL)
 
     # get_network_from_plans(plans_manager, dataset_json, configuration_manager,
                                       # num_input_channels, deep_supervision=enable_deep_supervision)
