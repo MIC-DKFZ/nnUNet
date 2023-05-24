@@ -11,12 +11,13 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import multiprocessing
 import shutil
+from time import sleep
 from typing import Union, Tuple
 
 import nnunetv2
 import numpy as np
-from acvl_utils.miscellaneous.ptqdm import ptqdm
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
@@ -26,6 +27,7 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
+from tqdm import tqdm
 
 
 class DefaultPreprocessor(object):
@@ -230,10 +232,27 @@ class DefaultPreprocessor(object):
         # list of segmentation filenames
         seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + file_ending) for i in identifiers]
 
-        _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
-                  processes=num_processes, zipped=True, plans_manager=plans_manager,
-                  configuration_manager=configuration_manager,
-                  dataset_json=dataset_json, disable=self.verbose)
+        # multiprocessing magic.
+        r = []
+        with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+            for outfile, infiles, segfiles in zip(output_filenames_truncated, image_fnames, seg_fnames):
+                r.append(p.starmap_async(self.run_case_save,
+                                         ((outfile, infiles, segfiles, plans_manager, configuration_manager,
+                                           dataset_json),)))
+            remaining = list(range(len(output_filenames_truncated)))
+            # p is pretty nitfi. If we kill workers they just respawn but don't do any work.
+            # So we need to store the original pool of workers.
+            workers = [j for j in p._pool]
+            with tqdm(desc=None, total=len(output_filenames_truncated), disable=self.verbose) as pbar:
+                while len(remaining) > 0:
+                    all_alive = all([j.is_alive() for j in workers])
+                    if not all_alive:
+                        raise RuntimeError('Some background worker is 6 feet under. Yuck.')
+                    done = [i for i in remaining if r[i].ready()]
+                    for _ in done:
+                        pbar.update()
+                    remaining = [i for i in remaining if i not in done]
+                    sleep(0.1)
 
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
                       configuration_manager: ConfigurationManager) -> np.ndarray:

@@ -1,8 +1,9 @@
+import multiprocessing
 import os
+from time import sleep
 from typing import List, Type, Union
 
 import numpy as np
-from acvl_utils.miscellaneous.ptqdm import ptqdm
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
@@ -12,6 +13,7 @@ from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
     create_lists_from_splitted_dataset_folder
+from tqdm import tqdm
 
 
 class DatasetFingerprintExtractor(object):
@@ -127,10 +129,31 @@ class DatasetFingerprintExtractor(object):
             num_foreground_samples_per_case = int(self.num_foreground_voxels_for_intensitystats //
                                                   len(training_identifiers))
 
-            results = ptqdm(DatasetFingerprintExtractor.analyze_case,
-                            (training_images_per_case, training_labels_per_case),
-                            processes=self.num_processes, zipped=True, reader_writer_class=reader_writer_class,
-                            num_samples=num_foreground_samples_per_case, disable=self.verbose)
+            r = []
+            with multiprocessing.get_context("spawn").Pool(self.num_processes) as p:
+                for ti, tl in zip(training_images_per_case, training_labels_per_case):
+                    r.append(p.starmap_async(DatasetFingerprintExtractor.analyze_case,
+                                             ((ti, tl, reader_writer_class, num_foreground_samples_per_case),)))
+                remaining = list(range(len(training_images_per_case)))
+                # p is pretty nitfi. If we kill workers they just respawn but don't do any work.
+                # So we need to store the original pool of workers.
+                workers = [j for j in p._pool]
+                with tqdm(desc=None, total=len(training_images_per_case), disable=self.verbose) as pbar:
+                    while len(remaining) > 0:
+                        all_alive = all([j.is_alive() for j in workers])
+                        if not all_alive:
+                            raise RuntimeError('Some background worker is 6 feet under. Yuck.')
+                        done = [i for i in remaining if r[i].ready()]
+                        for _ in done:
+                            pbar.update()
+                        remaining = [i for i in remaining if i not in done]
+                        sleep(0.1)
+
+            # results = ptqdm(DatasetFingerprintExtractor.analyze_case,
+            #                 (training_images_per_case, training_labels_per_case),
+            #                 processes=self.num_processes, zipped=True, reader_writer_class=reader_writer_class,
+            #                 num_samples=num_foreground_samples_per_case, disable=self.verbose)
+            results = [i.get()[0] for i in r]
 
             shapes_after_crop = [r[0] for r in results]
             spacings = [r[1] for r in results]
