@@ -4,7 +4,6 @@ from time import sleep
 from typing import List, Type, Union
 
 import numpy as np
-from acvl_utils.miscellaneous.ptqdm import ptqdm
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter

@@ -18,7 +18,6 @@ from typing import Union, Tuple
 
 import nnunetv2
 import numpy as np
-from acvl_utils.miscellaneous.ptqdm import ptqdm
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
