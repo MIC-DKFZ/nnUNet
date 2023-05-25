@@ -24,7 +24,7 @@ from nnunetv2.inference.export_prediction import export_prediction_from_logits, 
     convert_predicted_logits_to_segmentation_with_correct_shape
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, \
     compute_steps_for_sliding_window
-from nnunetv2.utilities.file_path_utilities import get_output_folder, check_workers_busy
+from nnunetv2.utilities.file_path_utilities import get_output_folder, check_workers_alive_and_busy
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
@@ -330,7 +330,7 @@ class nnUNetPredictor(object):
         If 'ofile' is None, the result will be returned instead of written to a file
         """
         with multiprocessing.get_context("spawn").Pool(num_processes_segmentation_export) as export_pool:
-
+            worker_list = export_pool._pool
             r = []
             for preprocessed in data_iterator:
                 data = preprocessed['data']
@@ -351,11 +351,11 @@ class nnUNetPredictor(object):
 
                 # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
                 # npy files
-                proceed = not check_workers_busy(export_pool, r, allowed_num_queued=2 * len(export_pool._pool))
+                proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2 * len(export_pool._pool))
                 while not proceed:
                     print('sleeping')
                     sleep(0.1)
-                    proceed = not check_workers_busy(export_pool, r, allowed_num_queued=2 * len(export_pool._pool))
+                    proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2 * len(export_pool._pool))
 
                 prediction = self.predict_logits_from_preprocessed_data(data).cpu()
 
