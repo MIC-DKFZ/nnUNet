@@ -1,9 +1,11 @@
 import shutil
+import sys
 from copy import deepcopy
 from functools import lru_cache
 from typing import List, Union, Tuple, Type
 
 import numpy as np
+import torch
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
@@ -542,8 +544,44 @@ class PathologyExperimentPlanner(object):
         return self.plans_identifier + '_' + confgiuration_name
 
     def load_plans(self, fname: str):
-        self.plans = load_json(fname)
+        self.plans = load_json(fname)\
+        
+    def get_gpu_size():
+        if torch.cuda.is_available():
+            # Get the default CUDA device
+            device = torch.cuda.current_device()
+
+            # Get the GPU properties
+            gpu_properties = torch.cuda.get_device_properties(device)
+
+            # Retrieve the GPU memory size in bytes
+            gpu_memory_bytes = gpu_properties.total_memory
+
+            # Convert bytes to gigabytes
+            gpu_memory_gb = int(gpu_memory_bytes / 1e9)
+
+            print(f"GPU Memory Size: {gpu_memory_gb:.2f} GB")
+            return gpu_memory_gb
+        else:
+            print("No GPU available.")
+            sys.exit(1)  # Exit the script with a non-zero exit code
 
 
 if __name__ == '__main__':
-    PathologyExperimentPlanner(3, 4).plan_experiment()
+    # import argparse
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('dataset_name_or_id', type=str,
+    #                     help="Dataset name or ID to train with", default=1)
+    # parser.add_argument('--gpu_gb',
+    #                     help="Size of the GPU in GB", type=int, default=0)
+    # args = parser.parse_args()
+
+    # if args.gpu_gb == 0:
+    #     print("GPU size not specified, resorting to autmatic extraction of current system's GPU size")
+    #     args.gpu_gb = PathologyExperimentPlanner.get_gpu_size()
+
+    # PathologyExperimentPlanner(args.dataset_name_or_id, args.gpu_gb).plan_experiment()
+
+
+    gpu = PathologyExperimentPlanner.get_gpu_size()
+    PathologyExperimentPlanner(1, gpu).plan_experiment()  
