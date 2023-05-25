@@ -1,0 +1,102 @@
+# FROM nvidia/cuda:11.1.1-cudnn8-runtime-ubuntu20.04
+FROM doduo1.umcn.nl/uokbaseimage/diag:tf2.9-pt1.11-v1
+
+
+# ENV TZ=Europe/Amsterdam
+# RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# # Install python3.8
+# RUN : \
+#     && apt-get update \
+#     && apt-get install -y --no-install-recommends software-properties-common \
+#     && add-apt-repository -y ppa:deadsnakes \
+#     && apt-get install -y --no-install-recommends python3.9-venv \
+#     && apt-get install libpython3.9-dev -y \
+#     && apt-get clean \
+#     && :
+    
+# # Add env to PATH
+# RUN python3.9 -m venv /venv
+# ENV PATH=/venv/bin:$PATH
+
+# Install ASAP
+RUN : \
+    && apt-get update \
+    && apt-get -y install curl \
+    && curl --remote-name --location "https://github.com/computationalpathologygroup/ASAP/releases/download/ASAP-2.1-(Nightly)/ASAP-2.1-Ubuntu2004.deb" \
+    && dpkg --install ASAP-2.1-Ubuntu2004.deb || true \
+    && apt-get -f install --fix-missing --fix-broken --assume-yes \
+    && ldconfig -v \
+    && apt-get clean \
+    && echo "/opt/ASAP/bin" > /venv/lib/python3.9/site-packages/asap.pth \
+    && rm ASAP-2.1-Ubuntu2004.deb \
+    && :
+
+
+# Install modules 
+ARG SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        openslide-tools \
+        libopenslide-dev \
+        build-essential \
+        git \
+    && RUN python3 -m pip install --upgrade pip \
+    && python3 -m pip install --no-cache-dir \
+        wheel \
+        torch torchvision torchaudio \
+        shapely==1.7.1 \
+        # wholeslidedata==0.0.15 \
+        # git+https://github.com/DIAGNijmegen/pathology-whole-slide-data@main \
+        numpy==1.23.5 \
+        albumentations==1.1.0 \
+        tqdm \
+        # git+https://github.com/DIAGNijmegen/nnUNet_v2@pathology \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN echo "PYTHONUNBUFFERED=1" >> /etc/environment
+
+# RUN groupadd -r user && \
+#     useradd -r -g user user && \
+#     mkdir /home/user && \
+#     chown -R user /home/user
+
+RUN git config --global advice.detachedHead false && \
+    git clone https://github.com/DIAGNijmegen/nnUNet_v2 /home/user/nnunet && \
+    git -C /home/user/nnunet checkout pathology && \
+    chown -R user /home/user/nnunet && \
+    pip3 install -e /home/user/nnunet
+    # rm -rf ~/.cache/pip
+
+RUN python3 -m pip install git+https://github.com/DIAGNijmegen/pathology-whole-slide-data@main
+
+# FROM doduo2.umcn.nl/pathology_lung_til/nnunet:9.4-midl2023
+
+# Make user
+
+# RUN mkdir -p /output/images/breast-cancer-segmentation-for-tils/ \
+#     && chown -R user:user /output/ \
+#     && mkdir -p /input/images \
+#     && chown -R user:user /input/ /input/images \
+#     && mkdir -p /home/user/tmp/configs \
+#     && chown -R user:user /home/user /output/images/breast-cancer-segmentation-for-tils/ /home/user/tmp/configs 
+# USER user
+
+# WORKDIR /home/user
+
+# # Copy data
+# COPY tiger_nnunet /home/user/pathology-tiger-algorithm/tiger_nnunet
+
+# # Cmd and entrypoint
+# ENTRYPOINT ["python3"]
+# CMD ["/home/user/pathology-tiger-algorithm/tiger_nnunet/main_default.py"]
+
+# # Compute requirements
+# LABEL processor.cpus="1"
+# LABEL processor.cpu.capabilities="null"
+# LABEL processor.memory="28G"
+# LABEL processor.gpu_count="1"
+# LABEL processor.gpu.compute_capability="null"
+# LABEL processor.gpu.memory="11G"
