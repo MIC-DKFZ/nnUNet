@@ -1,0 +1,782 @@
+training:
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/100B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/100B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/122S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/122S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/133S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/133S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/136B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/136B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/196S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/196S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/198B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/198B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/201B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/201B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/207B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/207B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/225B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/225B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/231S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/231S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/234B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/234B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/240S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/240S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/250B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/250B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000003_C0001_B104.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000003_C0001_B104.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000007_C0001_B103.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000007_C0001_B103.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000010_C0001_B204.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000010_C0001_B204.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000013_C0001_B204.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000013_C0001_B204.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000024_C0001_B102.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000024_C0001_B102.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000030_C0001_B208.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000030_C0001_B208.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000039_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000039_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000054_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000054_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000060_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000060_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000080_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000080_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000113_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000113_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000115_C0001_B105.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000115_C0001_B105.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000130_C0001_B104.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000130_C0001_B104.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000135_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000135_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000145_C0001_B102.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000145_C0001_B102.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000147_C0001_B104.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000147_C0001_B104.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000159_C0001_B108.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000159_C0001_B108.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000183_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000183_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A1-A0SK-01Z-00-DX1.A44D70FA-4D96-43F4-9DD7-A61535786297.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A1-A0SK-01Z-00-DX1.A44D70FA-4D96-43F4-9DD7-A61535786297.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A1-A0SP-01Z-00-DX1.20D689C6-EFA5-4694-BE76-24475A89ACC0.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A1-A0SP-01Z-00-DX1.20D689C6-EFA5-4694-BE76-24475A89ACC0.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A04P-01Z-00-DX1.5B481E02-D269-4732-8FDD-6494E6EE2B71.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A04P-01Z-00-DX1.5B481E02-D269-4732-8FDD-6494E6EE2B71.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A04Q-01Z-00-DX1.DF7ED6B6-7701-486D-9007-F26B6F0682C4.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A04Q-01Z-00-DX1.DF7ED6B6-7701-486D-9007-F26B6F0682C4.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A04T-01Z-00-DX1.71444266-BD56-4183-9603-C7AC20C9DA1E.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A04T-01Z-00-DX1.71444266-BD56-4183-9603-C7AC20C9DA1E.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0CM-01Z-00-DX1.AC4901DE-4B6D-4185-BB9F-156033839828.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0CM-01Z-00-DX1.AC4901DE-4B6D-4185-BB9F-156033839828.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0D0-01Z-00-DX1.4FF6B8E5-703B-400F-920A-104F56E0F874.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0D0-01Z-00-DX1.4FF6B8E5-703B-400F-920A-104F56E0F874.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0D2-01Z-00-DX1.ECD890F5-BA01-4998-B472-7B683BD6D7B1.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0D2-01Z-00-DX1.ECD890F5-BA01-4998-B472-7B683BD6D7B1.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0ST-01Z-00-DX1.AE05A5DB-4861-40DE-B0F5-7955FC903A96.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0ST-01Z-00-DX1.AE05A5DB-4861-40DE-B0F5-7955FC903A96.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0SX-01Z-00-DX1.219A994C-8974-4458-98FA-FB1F14868E04.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0SX-01Z-00-DX1.219A994C-8974-4458-98FA-FB1F14868E04.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0T0-01Z-00-DX1.51F904DA-A4B5-4451-8AEF-58E7EF7651DB.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0T0-01Z-00-DX1.51F904DA-A4B5-4451-8AEF-58E7EF7651DB.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A1G6-01Z-00-DX1.BCC3EC46-CEBF-4B37-BCF0-266D18170B54.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A1G6-01Z-00-DX1.BCC3EC46-CEBF-4B37-BCF0-266D18170B54.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A3XS-01Z-00-DX1.867925C0-91D8-40A0-9FEA-25A635AC31E7.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A3XS-01Z-00-DX1.867925C0-91D8-40A0-9FEA-25A635AC31E7.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A3XT-01Z-00-DX1.336D6C78-576A-481B-8C83-F3A0FC4B182C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A3XT-01Z-00-DX1.336D6C78-576A-481B-8C83-F3A0FC4B182C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A3XU-01Z-00-DX1.174A92D4-50B2-4A59-AD31-D5EC5BBF2F65.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A3XU-01Z-00-DX1.174A92D4-50B2-4A59-AD31-D5EC5BBF2F65.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A3XX-01Z-00-DX1.03C6D70F-2833-4E97-91B7-DE70CD083D92.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A3XX-01Z-00-DX1.03C6D70F-2833-4E97-91B7-DE70CD083D92.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A3XY-01Z-00-DX1.E57FC9BF-411E-4028-AC10-8BCA5D0C8472.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A3XY-01Z-00-DX1.E57FC9BF-411E-4028-AC10-8BCA5D0C8472.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A0DA-01Z-00-DX1.5F087009-16E9-4A07-BA24-62340E108B17.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A0DA-01Z-00-DX1.5F087009-16E9-4A07-BA24-62340E108B17.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A26F-01Z-00-DX1.7ADE881D-325D-48ED-BA2D-30F589CA8EF2.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A26F-01Z-00-DX1.7ADE881D-325D-48ED-BA2D-30F589CA8EF2.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A26G-01Z-00-DX1.29A27673-A16D-4044-BCCF-14BF6236D7D3.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A26G-01Z-00-DX1.29A27673-A16D-4044-BCCF-14BF6236D7D3.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A4SE-01Z-00-DX1.16BC8401-E40E-4A1A-9BD9-12735C9AE3F6.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A4SE-01Z-00-DX1.16BC8401-E40E-4A1A-9BD9-12735C9AE3F6.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A5ZV-01Z-00-DX1.21F2EA4A-4F31-43D6-A036-E20E326AF37E.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A5ZV-01Z-00-DX1.21F2EA4A-4F31-43D6-A036-E20E326AF37E.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A6VV-01Z-00-DX1.07AE0E16-A883-4C86-BC74-4E13081175F2.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A6VV-01Z-00-DX1.07AE0E16-A883-4C86-BC74-4E13081175F2.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A6VW-01Z-00-DX1.1BC4790C-DB45-4A3D-9C97-92C92C03FF60.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A6VW-01Z-00-DX1.1BC4790C-DB45-4A3D-9C97-92C92C03FF60.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A6VY-01Z-00-DX1.38D4EBD7-40B0-4EE3-960A-1F00E8F83ADB.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A6VY-01Z-00-DX1.38D4EBD7-40B0-4EE3-960A-1F00E8F83ADB.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A8-A08R-01Z-00-DX1.72FBD9A3-5EB9-4855-89EB-697883C2EA9B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A8-A08R-01Z-00-DX1.72FBD9A3-5EB9-4855-89EB-697883C2EA9B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A8-A09X-01Z-00-DX1.17B5BE28-944F-427B-8F90-44885C3EDD36.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A8-A09X-01Z-00-DX1.17B5BE28-944F-427B-8F90-44885C3EDD36.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AC-A2BK-01Z-00-DX1.A3A1F275-9CDC-48BA-BB81-BCA6F02ACA94.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AC-A2BK-01Z-00-DX1.A3A1F275-9CDC-48BA-BB81-BCA6F02ACA94.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AC-A2QH-01Z-00-DX1.00B8BFFF-F1E2-4F99-A969-8DD7EE4F8E0B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AC-A2QH-01Z-00-DX1.00B8BFFF-F1E2-4F99-A969-8DD7EE4F8E0B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AC-A6IW-01Z-00-DX1.C4514189-E64F-4603-8970-230FA2BB77FC.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AC-A6IW-01Z-00-DX1.C4514189-E64F-4603-8970-230FA2BB77FC.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AC-A7VC-01Z-00-DX1.EB247544-EADE-419C-B7A7-BB9CC978336F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AC-A7VC-01Z-00-DX1.EB247544-EADE-419C-B7A7-BB9CC978336F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AN-A0AL-01Z-00-DX1.D9E446A3-175F-4242-AFC1-78FFE3FC9AC4.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AN-A0AL-01Z-00-DX1.D9E446A3-175F-4242-AFC1-78FFE3FC9AC4.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AN-A0AR-01Z-00-DX1.0CF1267E-C61B-4928-875E-59032F838F07.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AN-A0AR-01Z-00-DX1.0CF1267E-C61B-4928-875E-59032F838F07.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AN-A0AT-01Z-00-DX1.DFD68CD2-C25E-47BE-BC06-8CE3C657B9FD.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AN-A0AT-01Z-00-DX1.DFD68CD2-C25E-47BE-BC06-8CE3C657B9FD.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AN-A0G0-01Z-00-DX1.BE0BB5DF-DEDA-48D8-B5D8-2735C767F28F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AN-A0G0-01Z-00-DX1.BE0BB5DF-DEDA-48D8-B5D8-2735C767F28F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AN-A0XU-01Z-00-DX1.6B0DD0FF-A20D-4BA2-8D48-FC357BA5313F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AN-A0XU-01Z-00-DX1.6B0DD0FF-A20D-4BA2-8D48-FC357BA5313F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A03U-01Z-00-DX1.AE2B55F3-8BA1-4546-82B7-4D2292BE1C78.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A03U-01Z-00-DX1.AE2B55F3-8BA1-4546-82B7-4D2292BE1C78.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A0J2-01Z-00-DX1.7C9FEC7B-6040-4C58-9563-D10C0D7AC72E.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A0J2-01Z-00-DX1.7C9FEC7B-6040-4C58-9563-D10C0D7AC72E.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A0J6-01Z-00-DX1.D0C003CE-E112-4375-953D-78404C9D62DA.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A0J6-01Z-00-DX1.D0C003CE-E112-4375-953D-78404C9D62DA.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A124-01Z-00-DX1.E3C7B017-6154-4630-9BDE-0CAC946D0209.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A124-01Z-00-DX1.E3C7B017-6154-4630-9BDE-0CAC946D0209.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A128-01Z-00-DX1.4E6BFFBC-87AD-4ED4-959D-FEB5545400BE.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A128-01Z-00-DX1.4E6BFFBC-87AD-4ED4-959D-FEB5545400BE.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A129-01Z-00-DX1.BF485416-BF57-4F39-866B-4B1E201876FA.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A129-01Z-00-DX1.BF485416-BF57-4F39-866B-4B1E201876FA.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A12F-01Z-00-DX1.847C8E4F-3F37-4B1D-8E6E-ACD14391AD89.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A12F-01Z-00-DX1.847C8E4F-3F37-4B1D-8E6E-ACD14391AD89.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A1KR-01Z-00-DX1.BFB2E69B-E23C-4542-9CBF-EDD040B985AC.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A1KR-01Z-00-DX1.BFB2E69B-E23C-4542-9CBF-EDD040B985AC.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AQ-A04J-01Z-00-DX1.6A4E16D4-2696-4E5F-BCA8-708556FC3A8C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AQ-A04J-01Z-00-DX1.6A4E16D4-2696-4E5F-BCA8-708556FC3A8C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A0TS-01Z-00-DX1.2DB81A2E-16C1-4EE0-8175-65FA46768277.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A0TS-01Z-00-DX1.2DB81A2E-16C1-4EE0-8175-65FA46768277.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A0TU-01Z-00-DX1.2CBBDDAB-C1DD-4205-A555-431542F9C069.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A0TU-01Z-00-DX1.2CBBDDAB-C1DD-4205-A555-431542F9C069.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A0U1-01Z-00-DX1.276433E7-E841-42D2-AF21-762F2FEA3B9B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A0U1-01Z-00-DX1.276433E7-E841-42D2-AF21-762F2FEA3B9B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A0U4-01Z-00-DX1.DE722DC5-859D-4866-ADCC-ED98EDBFB588.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A0U4-01Z-00-DX1.DE722DC5-859D-4866-ADCC-ED98EDBFB588.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A1AI-01Z-00-DX1.5EF2A589-4284-45CF-BF0C-169E3A85530C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A1AI-01Z-00-DX1.5EF2A589-4284-45CF-BF0C-169E3A85530C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A1AQ-01Z-00-DX1.09D5D7FC-0FA8-4176-94B2-995F44D8ED4C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A1AQ-01Z-00-DX1.09D5D7FC-0FA8-4176-94B2-995F44D8ED4C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A1AR-01Z-00-DX1.E7B7F6F0-9CC0-4D4F-8C9F-443A74D2BE40.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A1AR-01Z-00-DX1.E7B7F6F0-9CC0-4D4F-8C9F-443A74D2BE40.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A256-01Z-00-DX1.950D4546-4BF4-4380-9877-51D86A93D755.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A256-01Z-00-DX1.950D4546-4BF4-4380-9877-51D86A93D755.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A2LR-01Z-00-DX1.C686A7D6-0361-49EE-B6CA-672B3086243C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A2LR-01Z-00-DX1.C686A7D6-0361-49EE-B6CA-672B3086243C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A5QQ-01Z-00-DX1.4185D6D2-498E-4E71-8CB3-EDB4739C6229.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A5QQ-01Z-00-DX1.4185D6D2-498E-4E71-8CB3-EDB4739C6229.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0AV-01Z-00-DX1.5A686DA4-A29D-4BA7-9BCA-B707F8755E83.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0AV-01Z-00-DX1.5A686DA4-A29D-4BA7-9BCA-B707F8755E83.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0B3-01Z-00-DX1.90CB0ED5-FBB7-4ABF-93A0-DD88D60D3D55.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0B3-01Z-00-DX1.90CB0ED5-FBB7-4ABF-93A0-DD88D60D3D55.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0B9-01Z-00-DX1.c23adb4c-52d4-4dfd-b8e3-156e43f0e645.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0B9-01Z-00-DX1.c23adb4c-52d4-4dfd-b8e3-156e43f0e645.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0BL-01Z-00-DX1.D5A413B0-2141-4A6F-A671-6C5EA8641D25.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0BL-01Z-00-DX1.D5A413B0-2141-4A6F-A671-6C5EA8641D25.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0BW-01Z-00-DX1.39B0C363-46A2-4FFB-B1C5-C054A86F4A25.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0BW-01Z-00-DX1.39B0C363-46A2-4FFB-B1C5-C054A86F4A25.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0E0-01Z-00-DX1.01E88024-83DF-4282-ABAF-F4E35807DA06.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0E0-01Z-00-DX1.01E88024-83DF-4282-ABAF-F4E35807DA06.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0E6-01Z-00-DX1.44DFEFB4-FA05-4246-8D6B-55BA8C3275DB.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0E6-01Z-00-DX1.44DFEFB4-FA05-4246-8D6B-55BA8C3275DB.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0RX-01Z-00-DX1.B4ABAFB9-6696-4F22-9468-DA56E1AD32D3.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0RX-01Z-00-DX1.B4ABAFB9-6696-4F22-9468-DA56E1AD32D3.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0WA-01Z-00-DX1.C0EB7B73-5529-49EC-B660-3F849B041963.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0WA-01Z-00-DX1.C0EB7B73-5529-49EC-B660-3F849B041963.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A18V-01Z-00-DX1.7797760A-05CD-436E-97DA-31D6201F943B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A18V-01Z-00-DX1.7797760A-05CD-436E-97DA-31D6201F943B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A1EW-01Z-00-DX1.A6A5F9C5-FB97-4DA3-A1EA-1F84BC006681.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A1EW-01Z-00-DX1.A6A5F9C5-FB97-4DA3-A1EA-1F84BC006681.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A1F6-01Z-00-DX1.E83F0DC0-EA2C-4641-81B0-8702B9C5D579.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A1F6-01Z-00-DX1.E83F0DC0-EA2C-4641-81B0-8702B9C5D579.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A1FC-01Z-00-DX1.B816A21B-1559-42F5-902A-A1532E59C015.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A1FC-01Z-00-DX1.B816A21B-1559-42F5-902A-A1532E59C015.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A12V-01Z-00-DX1.84B29360-B87B-4648-A697-B6610336C2BB.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A12V-01Z-00-DX1.84B29360-B87B-4648-A697-B6610336C2BB.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A1HJ-01Z-00-DX1.745159F1-85E7-4CC0-B088-E1CA91916FB8.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A1HJ-01Z-00-DX1.745159F1-85E7-4CC0-B088-E1CA91916FB8.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A26X-01Z-00-DX1.FBD86F91-BAD7-4484-8D50-202340FBF242.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A26X-01Z-00-DX1.FBD86F91-BAD7-4484-8D50-202340FBF242.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A26Y-01Z-00-DX1.166EE604-4EF3-401D-99E9-3A9711316CC4.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A26Y-01Z-00-DX1.166EE604-4EF3-401D-99E9-3A9711316CC4.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A27B-01Z-00-DX1.5A8A14E8-6430-4147-9C71-805024E098CB.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A27B-01Z-00-DX1.5A8A14E8-6430-4147-9C71-805024E098CB.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A13Z-01Z-00-DX1.517140BB-D34C-42F8-952C-340EF16D382F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A13Z-01Z-00-DX1.517140BB-D34C-42F8-952C-340EF16D382F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A142-01Z-00-DX1.F6D58989-9120-40C9-918D-6B1650C1A8E8.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A142-01Z-00-DX1.F6D58989-9120-40C9-918D-6B1650C1A8E8.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A143-01Z-00-DX1.4697FB2F-91D5-4506-AF23-7DE304D44A3F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A143-01Z-00-DX1.4697FB2F-91D5-4506-AF23-7DE304D44A3F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A1JG-01Z-00-DX1.BA6D5CC7-3A9B-4D17-A86A-B159D345A216.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A1JG-01Z-00-DX1.BA6D5CC7-3A9B-4D17-A86A-B159D345A216.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A1JL-01Z-00-DX1.FE3F0C6B-F98A-4036-BF9A-25A8CC66B1FD.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A1JL-01Z-00-DX1.FE3F0C6B-F98A-4036-BF9A-25A8CC66B1FD.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A1XK-01Z-00-DX1.41EB1BBC-F230-4E3F-8C4E-CE331CAF1935.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A1XK-01Z-00-DX1.41EB1BBC-F230-4E3F-8C4E-CE331CAF1935.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A27F-01Z-00-DX1.C1A87F27-49F1-46BA-B2E2-A89293F7FD0C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A27F-01Z-00-DX1.C1A87F27-49F1-46BA-B2E2-A89293F7FD0C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A27H-01Z-00-DX1.BE9DFDD4-97C5-4327-B1DA-4B34A6F267C5.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A27H-01Z-00-DX1.BE9DFDD4-97C5-4327-B1DA-4B34A6F267C5.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A27M-01Z-00-DX1.3020D223-2400-4A2D-8BFE-08A5B78FE13B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A27M-01Z-00-DX1.3020D223-2400-4A2D-8BFE-08A5B78FE13B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A14N-01Z-00-DX1.15F5644F-CA9F-4688-B56E-BCC00CA4769B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A14N-01Z-00-DX1.15F5644F-CA9F-4688-B56E-BCC00CA4769B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A14X-01Z-00-DX1.24ADDA43-F127-4A6B-9AAD-2FAD982A853D.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A14X-01Z-00-DX1.24ADDA43-F127-4A6B-9AAD-2FAD982A853D.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A150-01Z-00-DX1.55643D23-83E6-4058-8EA5-18AAA8547839.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A150-01Z-00-DX1.55643D23-83E6-4058-8EA5-18AAA8547839.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A158-01Z-00-DX1.994C60FE-E651-4224-95E7-4669834F2338.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A158-01Z-00-DX1.994C60FE-E651-4224-95E7-4669834F2338.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A159-01Z-00-DX1.C8DC3356-CAE9-4E7A-AEFF-ABB4BE38192B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A159-01Z-00-DX1.C8DC3356-CAE9-4E7A-AEFF-ABB4BE38192B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1AZ-01Z-00-DX1.FE769F5F-385B-4DCF-819A-735C98D84FA8.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1AZ-01Z-00-DX1.FE769F5F-385B-4DCF-819A-735C98D84FA8.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1B6-01Z-00-DX1.8CD458BE-C4F9-4AF3-A927-18C042E9B4B7.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1B6-01Z-00-DX1.8CD458BE-C4F9-4AF3-A927-18C042E9B4B7.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1L7-01Z-00-DX1.BE796CD2-2E81-44E8-8CA2-85B4D2A31B64.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1L7-01Z-00-DX1.BE796CD2-2E81-44E8-8CA2-85B4D2A31B64.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1LH-01Z-00-DX1.F85384B7-1EBF-4F57-A45B-4A668B68E535.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1LH-01Z-00-DX1.F85384B7-1EBF-4F57-A45B-4A668B68E535.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1LK-01Z-00-DX1.5EBAA1F4-F1B4-4938-A51F-0246621BB0ED.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1LK-01Z-00-DX1.5EBAA1F4-F1B4-4938-A51F-0246621BB0ED.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1LL-01Z-00-DX1.D1AA1613-902C-4579-9612-48A76042B0AE.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1LL-01Z-00-DX1.D1AA1613-902C-4579-9612-48A76042B0AE.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1LS-01Z-00-DX1.9a43a58a-df40-4375-8456-ef0071bc9eb9.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1LS-01Z-00-DX1.9a43a58a-df40-4375-8456-ef0071bc9eb9.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A573-01Z-00-DX1.D6633BC2-524D-4153-952F-6B1D8D067370.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A573-01Z-00-DX1.D6633BC2-524D-4153-952F-6B1D8D067370.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A574-01Z-00-DX1.60341091-B118-4F20-9ADB-FB2886790B0E.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A574-01Z-00-DX1.60341091-B118-4F20-9ADB-FB2886790B0E.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E9-A5FL-01Z-00-DX1.FB810D6A-303E-45DF-BEF1-D9CE83B4417E.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E9-A5FL-01Z-00-DX1.FB810D6A-303E-45DF-BEF1-D9CE83B4417E.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1OV-01Z-00-DX1.93698123-5B34-4163-848B-2D75A5F7B001.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1OV-01Z-00-DX1.93698123-5B34-4163-848B-2D75A5F7B001.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1OW-01Z-00-DX1.97888686-EBB6-4B13-AB5D-452F475E865B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1OW-01Z-00-DX1.97888686-EBB6-4B13-AB5D-452F475E865B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1P1-01Z-00-DX1.4B670029-4B3B-4D76-8EA4-F4F29EEF9E37.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1P1-01Z-00-DX1.4B670029-4B3B-4D76-8EA4-F4F29EEF9E37.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1P4-01Z-00-DX1.3E9AE553-83D4-4B09-AB7F-D096BCE3BC4D.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1P4-01Z-00-DX1.3E9AE553-83D4-4B09-AB7F-D096BCE3BC4D.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1P7-01Z-00-DX1.97575C9F-C318-45A5-A4B7-1A902B93FA3F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1P7-01Z-00-DX1.97575C9F-C318-45A5-A4B7-1A902B93FA3F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1P8-01Z-00-DX1.E9852193-8CDD-49EF-B49B-DA6931198F0D.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1P8-01Z-00-DX1.E9852193-8CDD-49EF-B49B-DA6931198F0D.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1PH-01Z-00-DX1.77e0f907-fe59-4dc2-b582-6f10330a9c01.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1PH-01Z-00-DX1.77e0f907-fe59-4dc2-b582-6f10330a9c01.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A3U0-01Z-00-DX1.526F60F9-D1EB-4613-B428-18A1FC0BAAE2.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A3U0-01Z-00-DX1.526F60F9-D1EB-4613-B428-18A1FC0BAAE2.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A6SB-01Z-00-DX1.D56E1922-01A9-4AEE-AB95-D69447DD13EE.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A6SB-01Z-00-DX1.D56E1922-01A9-4AEE-AB95-D69447DD13EE.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GI-A2C9-01Z-00-DX1.90181423-51ED-41FE-9B8F-973A67793D4F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GI-A2C9-01Z-00-DX1.90181423-51ED-41FE-9B8F-973A67793D4F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GM-A2DD-01Z-00-DX1.01332FF3-7488-41B7-A515-7841715DE92B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GM-A2DD-01Z-00-DX1.01332FF3-7488-41B7-A515-7841715DE92B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GM-A2DF-01Z-00-DX1.CD0BE6D7-2DB3-4193-84CC-F9BE7BF18CC2.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GM-A2DF-01Z-00-DX1.CD0BE6D7-2DB3-4193-84CC-F9BE7BF18CC2.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GM-A2DH-01Z-00-DX1.5790F15F-2A0F-4929-8FE4-18A557007989.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GM-A2DH-01Z-00-DX1.5790F15F-2A0F-4929-8FE4-18A557007989.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GM-A2DI-01Z-00-DX1.5E9715EA-9D2B-49D0-8F1D-972CF24B1960.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GM-A2DI-01Z-00-DX1.5E9715EA-9D2B-49D0-8F1D-972CF24B1960.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-HN-A2NL-01Z-00-DX1.C2EAF378-4B37-4C1C-BB0F-18FAC62EEC13.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-HN-A2NL-01Z-00-DX1.C2EAF378-4B37-4C1C-BB0F-18FAC62EEC13.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-LL-A441-01Z-00-DX1.33B13078-BB14-4C42-88A6-7460AD2BCD00.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-LL-A441-01Z-00-DX1.33B13078-BB14-4C42-88A6-7460AD2BCD00.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-LL-A5YO-01Z-00-DX1.B5B6DFDB-1020-41FF-AA50-9C633E17DE5F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-LL-A5YO-01Z-00-DX1.B5B6DFDB-1020-41FF-AA50-9C633E17DE5F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-LL-A73Y-01Z-00-DX1.50C20931-3AA9-40B4-8A73-56B1976423A8.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-LL-A73Y-01Z-00-DX1.50C20931-3AA9-40B4-8A73-56B1976423A8.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-LL-A740-01Z-00-DX1.757D94A5-EF0F-4A0E-99A9-8809B66438DA.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-LL-A740-01Z-00-DX1.757D94A5-EF0F-4A0E-99A9-8809B66438DA.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A5D6-01Z-00-DX1.6B11331B-4A0D-4E13-B054-A5C7A6FC3AAC.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A5D6-01Z-00-DX1.6B11331B-4A0D-4E13-B054-A5C7A6FC3AAC.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A5D7-01Z-00-DX1.A4A45393-9AE1-4370-8B92-CB85CDB04934.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A5D7-01Z-00-DX1.A4A45393-9AE1-4370-8B92-CB85CDB04934.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A5RW-01Z-00-DX1.E16DE8EE-31AF-4EAF-A85F-DB3E3E2C3BFF.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A5RW-01Z-00-DX1.E16DE8EE-31AF-4EAF-A85F-DB3E3E2C3BFF.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A66I-01Z-00-DX1.8CE9DCAB-98D3-4163-94AC-1557D86C1E25.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A66I-01Z-00-DX1.8CE9DCAB-98D3-4163-94AC-1557D86C1E25.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A66P-01Z-00-DX1.5ADD0D6D-37C6-4BC9-8C2B-64DB18BE99B3.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A66P-01Z-00-DX1.5ADD0D6D-37C6-4BC9-8C2B-64DB18BE99B3.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A6VO-01Z-00-DX1.291D54D6-EBAF-4622-BD42-97AA5997F014.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A6VO-01Z-00-DX1.291D54D6-EBAF-4622-BD42-97AA5997F014.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-OL-A97C-01Z-00-DX1.BDEEDEE2-6D07-4046-A8A9-D6FF8F337393.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-OL-A97C-01Z-00-DX1.BDEEDEE2-6D07-4046-A8A9-D6FF8F337393.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-S3-AA10-01Z-00-DX1.C0468882-0DD8-4FC5-8C2F-E18BE8000F69.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-S3-AA10-01Z-00-DX1.C0468882-0DD8-4FC5-8C2F-E18BE8000F69.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-S3-AA15-01Z-00-DX1.A2456A4A-E6E8-4429-8F09-B997AA497BB0.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-S3-AA15-01Z-00-DX1.A2456A4A-E6E8-4429-8F09-B997AA497BB0.tif
+validation:
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/114S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/114S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/134B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/134B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/154B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/154B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/181S.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/181S.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/242B.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/242B.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000005_C0001_B204.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000005_C0001_B204.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000015_C0001_B104.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000015_C0001_B104.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000016_C0001_B205.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000016_C0001_B205.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000046_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000046_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000057_C0001_B105.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000057_C0001_B105.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000071_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000071_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000078_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000078_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-cells-xmls/TC_S01_P000158_C0001_B101.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TC_S01_P000158_C0001_B101.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0T2-01Z-00-DX1.29A5C4C8-6AE8-44EE-98C2-ACBCBFBE9D60.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0T2-01Z-00-DX1.29A5C4C8-6AE8-44EE-98C2-ACBCBFBE9D60.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0YE-01Z-00-DX1.8A2E3094-5755-42BC-969D-7F0A2ECA0F39.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0YE-01Z-00-DX1.8A2E3094-5755-42BC-969D-7F0A2ECA0F39.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A2-A0YM-01Z-00-DX1.A48B4C96-2CC5-464C-98B7-F0F92AE56533.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A2-A0YM-01Z-00-DX1.A48B4C96-2CC5-464C-98B7-F0F92AE56533.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A0CE-01Z-00-DX1.E67322FB-ED25-4B85-B3B0-2B8BD277BB4A.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A0CE-01Z-00-DX1.E67322FB-ED25-4B85-B3B0-2B8BD277BB4A.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A26I-01Z-00-DX1.0077D012-BC14-4E96-84F7-A1A6A3A778DF.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A26I-01Z-00-DX1.0077D012-BC14-4E96-84F7-A1A6A3A778DF.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A7-A4SD-01Z-00-DX1.677152B3-17B2-42DB-AEEC-C9509ACCE831.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A7-A4SD-01Z-00-DX1.677152B3-17B2-42DB-AEEC-C9509ACCE831.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A8-A07C-01Z-00-DX1.1F069BCA-D2B3-49CF-81FD-9EBA49A3439F.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A8-A07C-01Z-00-DX1.1F069BCA-D2B3-49CF-81FD-9EBA49A3439F.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-A8-A07O-01Z-00-DX1.3D657129-F2A7-4BC1-A910-805FBDCE2212.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-A8-A07O-01Z-00-DX1.3D657129-F2A7-4BC1-A910-805FBDCE2212.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AC-A2QJ-01Z-00-DX1.48C303BB-5A23-4037-BD28-77629A8CD9DA.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AC-A2QJ-01Z-00-DX1.48C303BB-5A23-4037-BD28-77629A8CD9DA.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AO-A0J4-01Z-00-DX1.2EFC978E-8DF5-4254-9598-C0910B17C5C8.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AO-A0J4-01Z-00-DX1.2EFC978E-8DF5-4254-9598-C0910B17C5C8.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AQ-A54N-01Z-00-DX1.E53271E9-AFD2-4071-9B1E-CD05F63B8136.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AQ-A54N-01Z-00-DX1.E53271E9-AFD2-4071-9B1E-CD05F63B8136.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A1AY-01Z-00-DX1.6AC0BE3B-FFC5-4EDA-9E40-B18CAAC52B81.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A1AY-01Z-00-DX1.6AC0BE3B-FFC5-4EDA-9E40-B18CAAC52B81.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-AR-A2LH-01Z-00-DX1.40D4FD67-FB13-46D9-A202-56A5791EA11C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-AR-A2LH-01Z-00-DX1.40D4FD67-FB13-46D9-A202-56A5791EA11C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A0BG-01Z-00-DX1.0838FB7F-8C85-4687-9F70-D136A1063383.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A0BG-01Z-00-DX1.0838FB7F-8C85-4687-9F70-D136A1063383.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A18G-01Z-00-DX1.DB2B5819-CE83-4E07-BD03-2CD9CF2E246C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A18G-01Z-00-DX1.DB2B5819-CE83-4E07-BD03-2CD9CF2E246C.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-BH-A42U-01Z-00-DX1.130D060A-3DD8-407E-B8B0-EBBF743491AE.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-BH-A42U-01Z-00-DX1.130D060A-3DD8-407E-B8B0-EBBF743491AE.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A131-01Z-00-DX1.5CB27A29-9951-40B9-B4DB-26A4D2EA89B8.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A131-01Z-00-DX1.5CB27A29-9951-40B9-B4DB-26A4D2EA89B8.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-C8-A3M7-01Z-00-DX1.846C75F1-2E7E-44F7-B21F-C246141558FA.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-C8-A3M7-01Z-00-DX1.846C75F1-2E7E-44F7-B21F-C246141558FA.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A147-01Z-00-DX1.159094F2-BB78-4910-B7AE-3D7CAAB1DAD9.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A147-01Z-00-DX1.159094F2-BB78-4910-B7AE-3D7CAAB1DAD9.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A1JF-01Z-00-DX1.224EDA43-F822-4A88-814A-BA7D4C60F8CC.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A1JF-01Z-00-DX1.224EDA43-F822-4A88-814A-BA7D4C60F8CC.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-D8-A1XQ-01Z-00-DX1.1A17A5C7-F14B-4AD2-AD5F-D3400D86A366.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-D8-A1XQ-01Z-00-DX1.1A17A5C7-F14B-4AD2-AD5F-D3400D86A366.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A14R-01Z-00-DX1.DDE62ED5-1FC0-4B3B-A874-95C08B33AB20.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A14R-01Z-00-DX1.DDE62ED5-1FC0-4B3B-A874-95C08B33AB20.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-E2-A1LI-01Z-00-DX1.503dd2fa-23ef-4b11-8aab-301e069eaa88.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-E2-A1LI-01Z-00-DX1.503dd2fa-23ef-4b11-8aab-301e069eaa88.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-EW-A1PB-01Z-00-DX1.B2E9B88F-C371-4821-9B7B-8A63BB120D95.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-EW-A1PB-01Z-00-DX1.B2E9B88F-C371-4821-9B7B-8A63BB120D95.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GM-A2DB-01Z-00-DX1.9EE36AA6-2594-44C7-B05C-91A0AEC7E511.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GM-A2DB-01Z-00-DX1.9EE36AA6-2594-44C7-B05C-91A0AEC7E511.tif
+- wsa:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/annotations-tissue-bcss-xmls/TCGA-GM-A3XL-01Z-00-DX1.CCE8AA1D-9194-4E49-9546-DBF25A35847C.xml
+  wsi:
+    path: /data/pathology/projects/tiger/new_structure/training/wsirois/wsi-level-annotations/images/TCGA-GM-A3XL-01Z-00-DX1.CCE8AA1D-9194-4E49-9546-DBF25A35847C.tif
