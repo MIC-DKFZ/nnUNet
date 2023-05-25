@@ -9,6 +9,8 @@ if os.name == 'nt':
     os.add_dll_directory(r"C:\Program Files\openslide\bin") # windows
 from wholeslidedata.iterators import create_batch_iterator
 from wholeslidedata.iterators.batchiterator import BatchIterator
+from wholeslidedata.samplers.utils import crop_data
+# from nnunetv2.training.nnUNetTrainer.variants.pathology import wsd_pathology_DA_callback
 from copy import deepcopy
 
 # for network building
@@ -35,6 +37,9 @@ from torch.cuda.amp import GradScaler
 import inspect
 from torch.cuda import device_count
 from nnunetv2.paths import nnUNet_results, nnUNet_preprocessed
+
+# for splits
+from sklearn.model_selection import KFold
 
 ### TODOS
 # DONE: rgb_to_0_1 via dataset.json
@@ -192,82 +197,153 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         self.dummy_batch = {'data': dummy_data, 'target': dummy_target} # only thing we need!
 
         
-
-
-### TODO: fix this        
-        # self.yaml_source = "C:\Users\joeyspronck\Documents\Github\nnUNet_v2\test_code\example_files.json"
-        # self.spacing
-###
-
-
+# Split function that randomly splits files.json into 5 folds
     def do_split(self):
-        if isfile(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits_final.json')):
-            print('Found splits_final.json')
+        if isfile(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json')):
+            splits_json_path = join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json')
+            self.splits_json = load_json(splits_json)            
+            print('Found splits.json')
         else:
-            pass
-
+            print("Didn't find splits.json, making random 5-fold split now")
+            files_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'files.json'))
+            num_training_files = len(files_json['training'])
+            k5 = KFold(n_splits=5, shuffle=True) 
+            
+            # get split indexes per fold
+            split_dict = {}
+            for fold, indexes in enumerate(k5.split(range(num_training_files))):
+                split_dict[fold] = indexes
+            
+            # make split dict with file paths
+            splits_json = {}
+            for fold in range(5):
+                train_idx, val_idx = split_dict[fold]
+                train_split = list(np.array(files_json['training'])[train_idx])
+                val_split = list(np.array(files_json['training'])[val_idx])
+                fold_dict = {'training': train_split,
+                             'validation': val_split
+                            }
+                splits_json[fold] = fold_dict
+            
+            # save
+            splits_json_path = join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json')
+            self.splits_json = splits_json
+            with open(splits_json_path, 'w') as file:
+                save_json(self.splits_json, file)
+            
 
 ### GET DATALOADERS - as generator objects
     def get_dataloaders(self):
         
         self.do_split()
         
-        
         # return None, None
         print('[Getting WSD dataloaders]')
-        dataloader_template = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'wsd_dataloader_template.json'))
-        files = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'files.json')) 
-        copy_path = 'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
+        self.sample_double = True # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating
+
+        iterator_template = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'wsd_iterator_template.json'))
+        split_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json'))
+        fold_split_dict = split_json[self.fold]
+        copy_path = '/home/user' #'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
         labels = self.dataset_json['labels']
         label_sample_weights = {
             'invasive tumor': 0.5,
             'tumor-associated stroma': 0.5
         }
         spacing = 0.5
-        patch_size = self.configuration_manager.patch_size
-        patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
+        
         batch_size = self.configuration_manager.batch_size
         ds_scales = self._get_deep_supervision_scales()
         ds_shapes = [list(np.round([int(i * j) for i, j in zip(patch_size, k)])) for k in ds_scales]
-        extra_ds_sizes = [ds_shape for ds_shape in ds_shapes[1:]]
-        extra_ds_shapes = tuple([tuple([batch_size]+ds_shape) for ds_shape in ds_shapes[1:]])
+        # extra_ds_sizes = [ds_shape for ds_shape in ds_shapes[1:]]
+        # extra_ds_shapes = tuple([tuple([batch_size]+ds_shape) for ds_shape in ds_shapes[1:]])
+        
+        if self.sample_double:
+            patch_size = np.multiply(self.configuration_manager.patch_size, 2)
+            patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
+            ds_sizes = [[shape*2 for shape in ds_shape] for ds_shape in ds_shapes]
+            extra_ds_sizes = ds_sizes[1:]
+            ds_shapes = tuple([tuple([batch_size]+[shape*2 for shape in ds_shape]) for ds_shape in ds_shapes])
+            extra_ds_shapes = ds_shapes[1:]
+        else:
+            patch_size = self.configuration_manager.patch_size
+            patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
+            ds_sizes = [ds_shape for ds_shape in ds_shapes]
+            extra_ds_sizes = ds_sizes[1:]
+            ds_shapes = tuple([tuple([batch_size]+ds_shape) for ds_shape in ds_shapes])
+            extra_ds_shapes = ds_shapes[1:]
+        
         device = self.device
 
-        fill_template = dataloader_template['wholeslidedata']['default']
-
-        fill_template['yaml_source'] = files
+        fill_template = iterator_template['wholeslidedata']['default']
+        fill_template['yaml_source'] = fold_split_dict
         fill_template['labels'] = labels
         fill_template['batch_shape']['batch_size'] = batch_size
         fill_template['batch_shape']['spacing'] = spacing
         fill_template['batch_shape']['shape'] = patch_shape
         fill_template['label_sampler']['labels'] = label_sample_weights
+        fill_template['batch_callbacks'][0]['patch_size_spatial'] = patch_size
         fill_template['batch_callbacks'][-1]['sizes'] = extra_ds_sizes
         fill_template['dataset']['copy_path'] = copy_path
 
-        # TODO: not here
+        self.train_config = fill_template
+        self.val_config = deepcopy(fill_template)
+        del self.val_config['wholeslidedata']['default']['batch_callbacks'][0] # remove data augmentation for validation
+
+        def half_crop(data):
+            cropx = (data.shape[1] - data.shape[1]//2) // 2
+            cropy = (data.shape[2] - data.shape[2]//2) // 2
+            if len(data.shape) == 3:
+                return data[:, cropx:-cropx, cropy:-cropy]
+            if len(data.shape) == 4:
+                return data[:, cropx:-cropx, cropy:-cropy, :]
+
         class WholeSlidePlainnnUnetBatchIterator(BatchIterator):
             def __next__(self):
                 x_batch, y_batch, *extras, _ = super().__next__()
+
                 data = torch.FloatTensor(x_batch.transpose(0,3,1,2) /255.).to(device)
                 target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
                     torch.FloatTensor(np.expand_dims(extra, 1)).to(device) 
                     for extra in extras]         
                 return {'data': data, 'target': target}
             
+        class WholeSlidePlainnnUnetHalfCropBatchIterator(BatchIterator):
+            def __next__(self):
+                x_batch, y_batch, *extras, _ = super().__next__()
+                x_batch = half_crop(x_batch)
+                y_batch = half_crop(y_batch)
+                extras = [half_crop(extra) for extra in extras]
+
+                data = torch.FloatTensor(x_batch.transpose(0,3,1,2) /255.).to(device)
+                target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
+                    torch.FloatTensor(np.expand_dims(extra, 1)).to(device) 
+                    for extra in extras]         
+                return {'data': data, 'target': target}
+
+        iterator_class = WholeSlidePlainnnUnetHalfCropBatchIterator if self.sample_double else WholeSlidePlainnnUnetBatchIterator
+
+        # TODO: multiprocessing num cpus -2    
         cpus = 4
         print('[Creating batch iterators]')
-        tiger_batch_iterator = create_batch_iterator(mode="training", 
-                                                    user_config= deepcopy(dataloader_template), 
-                                                    cpus=cpus, 
-                                                    buffer_dtype='uint8',
-                                                    context='spawn' if os.name == 'nt' else 'fork',
-                                                    extras_shapes = extra_ds_shapes,
-                                                    iterator_class=WholeSlidePlainnnUnetBatchIterator
-                                                    )
+        tiger_train_batch_iterator = create_batch_iterator(mode="training", 
+                                        user_config= deepcopy(self.train_config), 
+                                        cpus=cpus, 
+                                        buffer_dtype='uint8',
+                                        # context='spawn' if os.name == 'nt' else 'fork',
+                                        extras_shapes = extra_ds_shapes,
+                                        iterator_class=iterator_class)
+        
+        tiger_val_batch_iterator = create_batch_iterator(mode="validation", 
+                                user_config= deepcopy(self.val_config), 
+                                cpus=cpus, 
+                                buffer_dtype='uint8',
+                                # context='spawn' if os.name == 'nt' else 'fork',
+                                extras_shapes = extra_ds_shapes,
+                                iterator_class=iterator_class)
 
         print('[Returing batch iterators]')
-        return tiger_batch_iterator, tiger_batch_iterator
-
+        return tiger_train_batch_iterator, tiger_val_batch_iterator
 
 ### build_network_architecture changing to BATCH NORM ###
     @staticmethod
@@ -336,7 +412,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         return model
     
 
-### on_train_start outcomment fingerprint ###
+### on_train_start outcomment fingerprint stuff ###
     def on_train_start(self):
         if not self.was_initialized:
             self.initialize()
@@ -367,6 +443,9 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'), sort_keys=False)
         save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'), sort_keys=False)
+        save_json(self.splits_json, join(self.output_folder_base, 'splits.json'), sort_keys=False)
+        save_json(self.train_config, join(self.output_folder_base, 'train_config.json'), sort_keys=False)
+        save_json(self.val_config, join(self.output_folder_base, 'val_config.json'), sort_keys=False)
 
         # we don't really need the fingerprint but its still handy to have it with the others
         # shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
@@ -390,7 +469,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
                 self.on_train_epoch_start()
                 train_outputs = []
-                # for batch_id in range(self.num_iterations_per_epoch):
+                # for batch_id in range(self.num_iterations_per_epoch): #=250
                 for batch_id in range(4):
                     train_outputs.append(self.train_step(next(self.dataloader_train))) ### REPLACE self.dummy_batch with next(self.dataloader_train)
                     print('done batch')
