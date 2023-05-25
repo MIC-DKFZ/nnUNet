@@ -27,13 +27,19 @@ if nnUNet_raw is None:
           "are already present on your system. nnU-Net cannot be used for experiment planning and preprocessing like "
           "this. If this is not intended, please read documentation/setting_up_paths.md for information on how to set "
           "this up properly.")
+    print('INSTEAD USING HARDCODED: /data/pathology/projects/pathology-lung-TIL/nnUNet_v2/data/nnUNet_raw')
+    nnUNet_raw = '/data/pathology/projects/pathology-lung-TIL/nnUNet_v2/data/nnUNet_raw'
 
 if nnUNet_preprocessed is None:
     print("nnUNet_preprocessed is not defined and nnU-Net can not be used for preprocessing "
           "or training. If this is not intended, please read documentation/setting_up_paths.md for information on how "
           "to set this up.")
+    print('INSTEAD USING HARDCODED: /data/pathology/projects/pathology-lung-TIL/nnUNet_v2/data/nnUNet_preprocessed')
+    nnUNet_preprocessed = '/data/pathology/projects/pathology-lung-TIL/nnUNet_v2/data/nnUNet_preprocessed'
 
 if nnUNet_results is None:
     print("nnUNet_results is not defined and nnU-Net cannot be used for training or "
           "inference. If this is not intended behavior, please read documentation/setting_up_paths.md for information "
           "on how to set this up.")
+    print('INSTEAD USING HARDCODED: /data/pathology/projects/pathology-lung-TIL/nnUNet_v2/data/nnUNet_results')
+    nnUNet_results = '/data/pathology/projects/pathology-lung-TIL/nnUNet_v2/data/nnUNet_results'
