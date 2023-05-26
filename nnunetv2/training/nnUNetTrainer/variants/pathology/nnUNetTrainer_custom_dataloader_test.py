@@ -469,10 +469,10 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
                 self.on_train_epoch_start()
                 train_outputs = []
-                # for batch_id in range(self.num_iterations_per_epoch): #=250
-                for batch_id in range(4):
+                for batch_id in range(self.num_iterations_per_epoch): #=250
+                # for batch_id in range(4):
                     train_outputs.append(self.train_step(next(self.dataloader_train))) ### REPLACE self.dummy_batch with next(self.dataloader_train)
-                    print('done batch')
+                    # print('done batch')
                 self.on_train_epoch_end(train_outputs)
 
                 with torch.no_grad():
@@ -483,9 +483,9 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                     self.on_validation_epoch_end(val_outputs)
 
                 self.on_epoch_end()
-                print('done epoch')
+                # print('done epoch')
             self.on_train_end()
-            print('done training')
+            # print('done training')
         except RuntimeError as e:
             print(e)
             self.crashed_with_runtime_error = True
