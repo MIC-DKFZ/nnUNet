@@ -6,7 +6,7 @@ all the way to ensembling. After running nnU-Net, the trained model(s) can be ap
 ### Dataset Format
 nnU-Net expects datasets in a structured format. This format is inspired by the data structure of
 the [Medical Segmentation Decthlon](http://medicaldecathlon.com/). Please read
-[this](documentation/dataset_format.md) for information on how to set up datasets to be compatible with nnU-Net.
+[this](dataset_format.md) for information on how to set up datasets to be compatible with nnU-Net.
 
 **Since version 2 we support multiple image file formats (.nii.gz, .png, .tif, ...)! Read the dataset_format 
 documentation to learn more!**
