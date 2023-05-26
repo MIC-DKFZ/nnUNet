@@ -584,4 +584,4 @@ if __name__ == '__main__':
 
 
     gpu = PathologyExperimentPlanner.get_gpu_size()
-    PathologyExperimentPlanner(1, gpu).plan_experiment()  
+    PathologyExperimentPlanner(4, gpu).plan_experiment()

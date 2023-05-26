@@ -23,13 +23,14 @@
             },
             "annotation_sampler_name": "AreaAnnotationSampler",
             "annotation_sampler": {
-                "dataset": "",
+                "dataset": "${dataset}",
                 "weight": 0.5
             },
             "batch_callbacks": [
                 {
-                    "*object": "nnunetv2.training.nnUNetTrainer.variants.pathology.wsd_pathology_DA_callback",
-                        "patch_size_spatial": [],
+                    "*object": "nnunetv2.training.nnUNetTrainer.variants.pathology.wsd_pathology_DA_callback.nnUnetBatchCallback",
+                        "patch_size_spatial": []},
+                {
                     "*object": "wholeslidedata.samplers.callbacks.DeepSupervisionBatchCallback",
                         "sizes": []
                 }

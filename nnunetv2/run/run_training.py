@@ -194,6 +194,7 @@ def run_training(dataset_name_or_id: Union[str, int],
         if not only_run_validation:
             nnunet_trainer.run_training()
 
+        # TODO: not implemented yet
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
 
@@ -261,5 +262,5 @@ if __name__ == '__main__':
     ### AND
     ### UNCOMMENT BELOW
     print("RUNNING test, dataset 1, 2d model, fold 0, 1 epoch only")
-    # run_training('3', '2d', 0, 'nnUNetTrainer_custom_dataloader_test', 'nnUNetWholeSlideDataPlans') # nnUNetTrainer_1epoch
-    run_training('1', '2d', 0, 'nnUNetTrainer') # nnUNetTrainer_1epoch
+    run_training('4', '2d', 0, 'nnUNetTrainer_custom_dataloader_test', 'nnUNetWholeSlideDataPlans') # nnUNetTrainer_1epoch
+    # run_training('1', '2d', 0, 'nnUNetTrainer') # nnUNetTrainer_1epoch

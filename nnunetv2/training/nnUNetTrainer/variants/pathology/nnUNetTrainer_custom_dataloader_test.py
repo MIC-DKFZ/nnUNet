@@ -41,13 +41,8 @@ from nnunetv2.paths import nnUNet_results, nnUNet_preprocessed
 # for splits
 from sklearn.model_selection import KFold
 
-### TODOS
-# DONE: rgb_to_0_1 via dataset.json
-# DONE: BN by rewriting build_network_architecture function on bottom of this file
-# TODO: Data augmentation
-# TODO: Batch norm minimum 8 instead of 2
-# TODO: Test with simple dataloader instead of dumy data
-# TODO: Use plans file for dataloader initialization
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
 class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
@@ -171,37 +166,37 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 ### END ORIGINAL SUPER INIT
 
 ### INIT - DUMMY BATCH, TEST FOR 2 EPOCHS 
-        self.num_epochs = 2
-
-        ### DUMMY BATCH - Copied this from benchmark trainer without dataloading
-        self._set_batch_size_and_oversample()
-        num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
-                                                          self.dataset_json)
-        patch_size = self.configuration_manager.patch_size
-        
-        print('Making dummy data')
-        print('\tpatch size:', patch_size)
-        print('\tself.label_manager.all_labels:', self.label_manager.all_labels)
-        print('\tself._get_deep_supervision_scales()', self._get_deep_supervision_scales())
-        # dummy_data = torch.rand((self.batch_size, num_input_channels, *patch_size), device=self.device)
+        # self.num_epochs = 2
+        #
+        # ### DUMMY BATCH - Copied this from benchmark trainer without dataloading
+        # self._set_batch_size_and_oversample()
+        # num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
+        #                                                   self.dataset_json)
+        # patch_size = self.configuration_manager.patch_size
+        #
+        # print('Making dummy data')
+        # print('\tpatch size:', patch_size)
+        # print('\tself.label_manager.all_labels:', self.label_manager.all_labels)
+        # print('\tself._get_deep_supervision_scales()', self._get_deep_supervision_scales())
+        # # dummy_data = torch.rand((self.batch_size, num_input_channels, *patch_size), device=self.device)
+        # # dummy_target = [
+        # #     torch.round(
+        # #         torch.rand((self.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
+        # #         max(self.label_manager.all_labels)
+        # dummy_data = torch.rand((self.configuration_manager.batch_size, num_input_channels, *patch_size), device=self.device)
         # dummy_target = [
         #     torch.round(
-        #         torch.rand((self.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
+        #         torch.rand((self.configuration_manager.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
         #         max(self.label_manager.all_labels)
-        dummy_data = torch.rand((self.configuration_manager.batch_size, num_input_channels, *patch_size), device=self.device)
-        dummy_target = [
-            torch.round(
-                torch.rand((self.configuration_manager.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
-                max(self.label_manager.all_labels)
-            ) for k in self._get_deep_supervision_scales()]
-        self.dummy_batch = {'data': dummy_data, 'target': dummy_target} # only thing we need!
+        #     ) for k in self._get_deep_supervision_scales()]
+        # self.dummy_batch = {'data': dummy_data, 'target': dummy_target} # only thing we need!
 
         
 # Split function that randomly splits files.json into 5 folds
     def do_split(self):
         if isfile(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json')):
             splits_json_path = join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json')
-            self.splits_json = load_json(splits_json)            
+            self.splits_json = load_json(splits_json_path)
             print('Found splits.json')
         else:
             print("Didn't find splits.json, making random 5-fold split now")
@@ -241,9 +236,13 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         print('[Getting WSD dataloaders]')
         self.sample_double = True # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating
 
-        iterator_template = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'wsd_iterator_template.json'))
+
+        iterator_template_path = join(os.path.dirname(__file__), 'wsd_iterator_template.json')
+        print(f'Using iterator template: {iterator_template_path}')
+        iterator_template = load_json(iterator_template_path)
         split_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json'))
-        fold_split_dict = split_json[self.fold]
+        fold_split_dict = split_json[str(self.fold)]
+        # fold_split_dict = {'training': fold_split_dict['training'][-10:], 'validation': fold_split_dict['validation'][-5:]}
         copy_path = '/home/user' #'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
         labels = self.dataset_json['labels']
         label_sample_weights = {
@@ -251,22 +250,22 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
             'tumor-associated stroma': 0.5
         }
         spacing = 0.5
-        
+
+        patch_size = list(self.configuration_manager.patch_size)
         batch_size = self.configuration_manager.batch_size
         ds_scales = self._get_deep_supervision_scales()
-        ds_shapes = [list(np.round([int(i * j) for i, j in zip(patch_size, k)])) for k in ds_scales]
+        ds_shapes = [[int(np.round(i * j)) for i, j in zip(patch_size, k)] for k in ds_scales]
         # extra_ds_sizes = [ds_shape for ds_shape in ds_shapes[1:]]
         # extra_ds_shapes = tuple([tuple([batch_size]+ds_shape) for ds_shape in ds_shapes[1:]])
         
         if self.sample_double:
-            patch_size = np.multiply(self.configuration_manager.patch_size, 2)
+            patch_size = [size*2 for size in patch_size]
             patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
             ds_sizes = [[shape*2 for shape in ds_shape] for ds_shape in ds_shapes]
             extra_ds_sizes = ds_sizes[1:]
             ds_shapes = tuple([tuple([batch_size]+[shape*2 for shape in ds_shape]) for ds_shape in ds_shapes])
             extra_ds_shapes = ds_shapes[1:]
         else:
-            patch_size = self.configuration_manager.patch_size
             patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
             ds_sizes = [ds_shape for ds_shape in ds_shapes]
             extra_ds_sizes = ds_sizes[1:]
@@ -286,8 +285,8 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         fill_template['batch_callbacks'][-1]['sizes'] = extra_ds_sizes
         fill_template['dataset']['copy_path'] = copy_path
 
-        self.train_config = fill_template
-        self.val_config = deepcopy(fill_template)
+        self.train_config = iterator_template
+        self.val_config = deepcopy(iterator_template)
         del self.val_config['wholeslidedata']['default']['batch_callbacks'][0] # remove data augmentation for validation
 
         def half_crop(data):
@@ -324,13 +323,12 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         iterator_class = WholeSlidePlainnnUnetHalfCropBatchIterator if self.sample_double else WholeSlidePlainnnUnetBatchIterator
 
         # TODO: multiprocessing num cpus -2    
-        cpus = 4
+        cpus = 7
         print('[Creating batch iterators]')
         tiger_train_batch_iterator = create_batch_iterator(mode="training", 
                                         user_config= deepcopy(self.train_config), 
                                         cpus=cpus, 
                                         buffer_dtype='uint8',
-                                        # context='spawn' if os.name == 'nt' else 'fork',
                                         extras_shapes = extra_ds_shapes,
                                         iterator_class=iterator_class)
         
@@ -338,7 +336,6 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                                 user_config= deepcopy(self.val_config), 
                                 cpus=cpus, 
                                 buffer_dtype='uint8',
-                                # context='spawn' if os.name == 'nt' else 'fork',
                                 extras_shapes = extra_ds_shapes,
                                 iterator_class=iterator_class)
 
@@ -414,6 +411,9 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
 ### on_train_start outcomment fingerprint stuff ###
     def on_train_start(self):
+        print('\tnum epochs:', self.num_epochs)
+
+
         if not self.was_initialized:
             self.initialize()
 
