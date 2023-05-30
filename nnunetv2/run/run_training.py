@@ -261,6 +261,6 @@ if __name__ == '__main__':
     ### COMMENT run_training_entry() ABOVE
     ### AND
     ### UNCOMMENT BELOW
-    print("RUNNING test, dataset 1, 2d model, fold 0, 1 epoch only")
-    run_training('4', '2d', 0, 'nnUNetTrainer_custom_dataloader_test', 'nnUNetWholeSlideDataPlans') # nnUNetTrainer_1epoch
+    print("RUNNING test, dataset 4, 2d model, fold 0, pathology trainer and planner")
+    run_training('4', '2d', 0, 'nnUNetTrainer_custom_dataloader_test', 'nnUNetWholeSlideDataPlans')
     # run_training('1', '2d', 0, 'nnUNetTrainer') # nnUNetTrainer_1epoch

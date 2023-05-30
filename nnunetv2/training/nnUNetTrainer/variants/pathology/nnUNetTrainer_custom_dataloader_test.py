@@ -165,33 +165,6 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
 ### END ORIGINAL SUPER INIT
 
-### INIT - DUMMY BATCH, TEST FOR 2 EPOCHS 
-        # self.num_epochs = 2
-        #
-        # ### DUMMY BATCH - Copied this from benchmark trainer without dataloading
-        # self._set_batch_size_and_oversample()
-        # num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
-        #                                                   self.dataset_json)
-        # patch_size = self.configuration_manager.patch_size
-        #
-        # print('Making dummy data')
-        # print('\tpatch size:', patch_size)
-        # print('\tself.label_manager.all_labels:', self.label_manager.all_labels)
-        # print('\tself._get_deep_supervision_scales()', self._get_deep_supervision_scales())
-        # # dummy_data = torch.rand((self.batch_size, num_input_channels, *patch_size), device=self.device)
-        # # dummy_target = [
-        # #     torch.round(
-        # #         torch.rand((self.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
-        # #         max(self.label_manager.all_labels)
-        # dummy_data = torch.rand((self.configuration_manager.batch_size, num_input_channels, *patch_size), device=self.device)
-        # dummy_target = [
-        #     torch.round(
-        #         torch.rand((self.configuration_manager.batch_size, 1, *[int(i * j) for i, j in zip(patch_size, k)]), device=self.device) *
-        #         max(self.label_manager.all_labels)
-        #     ) for k in self._get_deep_supervision_scales()]
-        # self.dummy_batch = {'data': dummy_data, 'target': dummy_target} # only thing we need!
-
-        
 # Split function that randomly splits files.json into 5 folds
     def do_split(self):
         if isfile(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json')):
@@ -234,15 +207,16 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         
         # return None, None
         print('[Getting WSD dataloaders]')
-        self.sample_double = True # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating
-
+        self.sample_double = False # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating
+        self.time = True
 
         iterator_template_path = join(os.path.dirname(__file__), 'wsd_iterator_template.json')
         print(f'Using iterator template: {iterator_template_path}')
         iterator_template = load_json(iterator_template_path)
         split_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json'))
         fold_split_dict = split_json[str(self.fold)]
-        # fold_split_dict = {'training': fold_split_dict['training'][-10:], 'validation': fold_split_dict['validation'][-5:]}
+        if self.time:
+            fold_split_dict = {'training': fold_split_dict['training'][-30:], 'validation': fold_split_dict['validation'][-20:]}
         copy_path = '/home/user' #'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
         labels = self.dataset_json['labels']
         label_sample_weights = {
@@ -320,10 +294,70 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                     for extra in extras]         
                 return {'data': data, 'target': target}
 
-        iterator_class = WholeSlidePlainnnUnetHalfCropBatchIterator if self.sample_double else WholeSlidePlainnnUnetBatchIterator
+        import time
+
+        class WholeSlidePlainnnUnetBatchIteratorTIME(BatchIterator):
+            def __next__(self):
+                start_time = time.time()
+
+                x_batch, y_batch, *extras, _ = super().__next__()
+                line1_time = time.time() - start_time
+
+                start_time = time.time()
+                data = torch.FloatTensor(x_batch.transpose(0, 3, 1, 2) / 255.).to(device)
+                line2_time = time.time() - start_time
+
+                start_time = time.time()
+                target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
+                    torch.FloatTensor(np.expand_dims(extra, 1)).to(device)
+                    for extra in extras]
+                line3_time = time.time() - start_time
+
+                print("Time taken for NEXT:\t\t\t\t\t\t", line1_time)
+                print("Time taken TOTAL:\t\t\t\t\t\t\t\t\t\t", line1_time + line2_time + line3_time)
+
+                return {'data': data, 'target': target}
+
+        class WholeSlidePlainnnUnetHalfCropBatchIteratorTIME(BatchIterator):
+            def __next__(self):
+                start_time = time.time()
+                x_batch, y_batch, *extras, _ = super().__next__()
+                line1_time = time.time() - start_time
+
+                start_time = time.time()
+                x_batch = half_crop(x_batch)
+                line2_time = time.time() - start_time
+
+                start_time = time.time()
+                y_batch = half_crop(y_batch)
+                line3_time = time.time() - start_time
+
+                start_time = time.time()
+                extras = [half_crop(extra) for extra in extras]
+                line4_time = time.time() - start_time
+
+                start_time = time.time()
+                data = torch.FloatTensor(x_batch.transpose(0, 3, 1, 2) / 255.).to(device)
+                line5_time = time.time() - start_time
+
+                start_time = time.time()
+                target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
+                    torch.FloatTensor(np.expand_dims(extra, 1)).to(device)
+                    for extra in extras]
+                line6_time = time.time() - start_time
+
+                print("Time taken for NEXT:", line1_time)
+                print("Time taken TOTAL:", line1_time + line2_time + line3_time + line4_time + line5_time + line6_time)
+
+                return {'data': data, 'target': target}
+
+        if self.time:
+            iterator_class = WholeSlidePlainnnUnetHalfCropBatchIteratorTIME if self.sample_double else WholeSlidePlainnnUnetBatchIteratorTIME
+        else:
+            iterator_class = WholeSlidePlainnnUnetHalfCropBatchIterator if self.sample_double else WholeSlidePlainnnUnetBatchIterator
 
         # TODO: multiprocessing num cpus -2    
-        cpus = 7
+        cpus = 12
         print('[Creating batch iterators]')
         tiger_train_batch_iterator = create_batch_iterator(mode="training", 
                                         user_config= deepcopy(self.train_config), 
@@ -339,7 +373,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                                 extras_shapes = extra_ds_shapes,
                                 iterator_class=iterator_class)
 
-        print('[Returing batch iterators]')
+        print('[Returning batch iterators]')
         return tiger_train_batch_iterator, tiger_val_batch_iterator
 
 ### build_network_architecture changing to BATCH NORM ###

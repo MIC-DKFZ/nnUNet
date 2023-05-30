@@ -1,5 +1,6 @@
 import numpy as np
 from wholeslidedata.samplers.callbacks import BatchCallback
+import time
 
 from batchgenerators.transforms.abstract_transforms import AbstractTransform, Compose
 from batchgenerators.transforms.color_transforms import BrightnessMultiplicativeTransform, \
@@ -84,7 +85,10 @@ class nnUnetBatchCallback(BatchCallback):
         y_batch = np.expand_dims(np.stack(y_batch).astype('int8'), 1)
         
         # transform
+        start_time = time.time()
         batch = self._transforms(**{'data': x_batch, 'seg': y_batch})
+        line_time = time.time() - start_time
+        print("Time taken for AUG (callback, multi thread):\t\t\t\t\t\t\t", line_time)
         
         # format back to wsd
         x_batch, y_batch = batch['data'], batch['target']
