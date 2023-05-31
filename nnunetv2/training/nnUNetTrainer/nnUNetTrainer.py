@@ -1100,7 +1100,7 @@ class nnUNetTrainer(object):
                                         self.inference_allowed_mirroring_axes)
 
         with multiprocessing.get_context("spawn").Pool(default_num_processes) as segmentation_export_pool:
-            worker_list = segmentation_export_pool._pool
+            worker_list = [i for i in segmentation_export_pool._pool]
             validation_output_folder = join(self.output_folder, 'validation')
             maybe_mkdir_p(validation_output_folder)
 

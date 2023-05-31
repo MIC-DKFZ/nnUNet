@@ -330,7 +330,7 @@ class nnUNetPredictor(object):
         If 'ofile' is None, the result will be returned instead of written to a file
         """
         with multiprocessing.get_context("spawn").Pool(num_processes_segmentation_export) as export_pool:
-            worker_list = export_pool._pool
+            worker_list = [i for i in export_pool._pool]
             r = []
             for preprocessed in data_iterator:
                 data = preprocessed['data']
