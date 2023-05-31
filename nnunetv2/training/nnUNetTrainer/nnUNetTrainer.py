@@ -1122,11 +1122,11 @@ class nnUNetTrainer(object):
             results = []
             for k in dataset_val.keys():
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
-                                                 allowed_num_queued=2 * len(segmentation_export_pool._pool))
+                                                 allowed_num_queued=2)
                 while not proceed:
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
-                                                     allowed_num_queued=2 * len(segmentation_export_pool._pool))
+                                                     allowed_num_queued=2)
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)
