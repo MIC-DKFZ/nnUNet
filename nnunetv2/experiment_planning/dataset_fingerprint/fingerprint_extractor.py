@@ -135,7 +135,7 @@ class DatasetFingerprintExtractor(object):
                     r.append(p.starmap_async(DatasetFingerprintExtractor.analyze_case,
                                              ((ti, tl, reader_writer_class, num_foreground_samples_per_case),)))
                 remaining = list(range(len(training_images_per_case)))
-                # p is pretty nitfi. If we kill workers they just respawn but don't do any work.
+                # p is pretty nifti. If we kill workers they just respawn but don't do any work.
                 # So we need to store the original pool of workers.
                 workers = [j for j in p._pool]
                 with tqdm(desc=None, total=len(training_images_per_case), disable=self.verbose) as pbar:
