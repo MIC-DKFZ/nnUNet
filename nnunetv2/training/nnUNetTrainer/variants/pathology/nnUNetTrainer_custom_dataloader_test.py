@@ -41,6 +41,9 @@ from nnunetv2.paths import nnUNet_results, nnUNet_preprocessed
 # for splits
 from sklearn.model_selection import KFold
 
+# for timing
+import time
+
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -48,6 +51,9 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         """used for debugging plans etc"""
+###
+        self.wandb = True
+###
         # super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         
 ### ORIGINAL SUPER INIT (but removing the preprocessed_dataset_folder_base parts)
@@ -202,7 +208,6 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
 ### GET DATALOADERS - as generator objects
     def get_dataloaders(self):
-        
         self.do_split()
         
         # return None, None
@@ -216,6 +221,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         split_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json'))
         fold_split_dict = split_json[str(self.fold)]
         if self.time:
+            print('Still timing everything, only copying SOME training and val files')
             fold_split_dict = {'training': fold_split_dict['training'][-30:], 'validation': fold_split_dict['validation'][-20:]}
         copy_path = '/home/user' #'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
         labels = self.dataset_json['labels']
@@ -294,7 +300,6 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                     for extra in extras]         
                 return {'data': data, 'target': target}
 
-        import time
 
         class WholeSlidePlainnnUnetBatchIteratorTIME(BatchIterator):
             def __next__(self):
@@ -492,6 +497,36 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
         # print(f"batch size: {self.batch_size}")
         # print(f"oversample: {self.oversample_foreground_percent}")
+
+
+    def on_epoch_end(self):
+        self.logger.log('epoch_end_timestamps', time(), self.current_epoch)
+
+        # todo find a solution for this stupid shit
+        self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
+                                               self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        self.print_to_log_file(
+            f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+
+        # handling periodic checkpointing
+        current_epoch = self.current_epoch
+        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
+
+        # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
+        if self._best_ema is None or self.logger.my_fantastic_logging['ema_fg_dice'][-1] > self._best_ema:
+            self._best_ema = self.logger.my_fantastic_logging['ema_fg_dice'][-1]
+            self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
+
+        if self.local_rank == 0:
+            self.logger.plot_progress_png(self.output_folder)
+        if self.wandb:
+            print('here I log metrics')
+            self.logger.wandb_log()
+        self.current_epoch += 1
 
 ### RUN TRAINING        
     def run_training(self):

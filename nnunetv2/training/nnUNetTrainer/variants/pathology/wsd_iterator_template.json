@@ -15,7 +15,9 @@
                 "shape": ""
             },
             "dataset": {
-                "copy_path": "/home/user/data"
+                "copy_path": "/home/user/data",
+                "load_images": "False",
+                "spacing": 0.5
             },
             "label_sampler_name": "WeightedLabelSampler",
             "label_sampler": {
