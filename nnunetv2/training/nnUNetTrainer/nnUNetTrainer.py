@@ -1120,6 +1120,7 @@ class nnUNetTrainer(object):
                 _ = [maybe_mkdir_p(join(self.output_folder_base, 'predicted_next_stage', n)) for n in next_stages]
 
             results = []
+
             for k in dataset_val.keys():
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
                                                  allowed_num_queued=2)
