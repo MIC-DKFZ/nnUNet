@@ -14,6 +14,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
     save_json
 from torch import nn
 from torch._dynamo import OptimizedModule
+from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
 
 import nnunetv2
@@ -54,7 +55,9 @@ class nnUNetPredictor(object):
         self.use_gaussian = use_gaussian
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
-            device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
+            # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
+            # why would I ever want to do that. Stupid dobby. This kills DDP inference...
+            pass
         if device.type != 'cuda':
             print(f'perform_everything_on_gpu=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_gpu = False
@@ -125,8 +128,12 @@ class nnUNetPredictor(object):
         self.trainer_name = trainer_name
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
         self.label_manager = plans_manager.get_label_manager(dataset_json)
-        if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
-                and not isinstance(self.network, OptimizedModule):
+        allow_compile = True
+        allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
+        allow_compile = allow_compile and not isinstance(self.network, OptimizedModule)
+        if isinstance(self.network, DistributedDataParallel):
+            allow_compile = allow_compile and isinstance(self.network.module, OptimizedModule)
+        if allow_compile:
             print('compiling network')
             self.network = torch.compile(self.network)
 
