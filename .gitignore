@@ -2,7 +2,8 @@ nnunetv2/nnUNet_raw
 nnunetv2/preprocessed
 nnunetv2/nnUNet_trained_models
 
-ssl/cfg_files
+ssl/cfg_files/overfit*
+ssl/cfg_files/ssl_pretrain*
 ssl/notebooks/download_data.ipynb
 # Byte-compiled / optimized / DLL files
 __pycache__/
