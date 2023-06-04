@@ -3,6 +3,7 @@ nnunetv2/preprocessed
 nnunetv2/nnUNet_trained_models
 
 ssl/cfg_files
+ssl/notebooks/download_data.ipynb
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
