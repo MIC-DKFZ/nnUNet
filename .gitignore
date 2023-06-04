@@ -2,7 +2,7 @@ nnunetv2/nnUNet_raw
 nnunetv2/preprocessed
 nnunetv2/nnUNet_trained_models
 
-DeSD/cfg_files
+SSL/cfg_files
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
