@@ -48,7 +48,6 @@ class Dataset3D(Dataset):
         self.local_crop_size = (16, 64, 64)
         self.local_crops_number = 0
         self.split_path = None
-        self.fixed_slabs = True
         self.n_iters = None
         self.bboxes_path = None
         self.slab_thickness = None
@@ -58,7 +57,7 @@ class Dataset3D(Dataset):
         self.dataframe = pd.read_csv(self.cfg['all_datasets_csv_path'], index_col=0)
 
         fields = ['global_crop_size', 'local_crop_size', 'local_crops_number', 'split_path',
-                  'fixed_slabs', 'n_iters', 'bboxes_path', 'slab_thickness', 'transformations_cfg',
+                  'n_iters', 'bboxes_path', 'slab_thickness', 'transformations_cfg',
                   'wise_crop', 'multichannel_input']
         for field in fields:
             if (field in self.cfg.keys()) and (self.cfg[field] is not None):
@@ -87,41 +86,34 @@ class Dataset3D(Dataset):
         # based on the fingerprint, infer the background value
         self.bkgd_value = get_bkgd_value(dataset_figerprint_path)
 
-        # get the list of files to use in ssl weird but is from previous code
-        if self.fixed_slabs:
-            self.list_path = preproc_path/'ssl_dataset.txt'
-            self.img_paths = [Path(i_id.strip().split()[0]) for i_id in open(self.list_path)]
-            self.img_paths = [
-                ipath for ipath in self.img_paths if ipath.name.split('_')[0] in self.split_set]
-            self.files = [{'img': item, 'name': item} for item in self.img_paths]
-        else:
-            # Get the image files from the nnUNet preprocessed files
-            imgs_path = preproc_path / f'{self.cfg["exp_planner"]}_{self.cfg["configuration"]}'
-            self.img_paths = [imgs_path/f'{i_id}.npy' for i_id in self.split_set]
-            self.npz_paths = [imgs_path/f'{i_id}.npz' for i_id in self.split_set]
-            if not all([ip.exists() for ip in self.img_paths]):
-                if not all([ip.exists() for ip in self.npz_paths]):
-                    missing = [ip for ip in self.npz_paths if (not ip.exists())]
-                    raise Exception(f'Missing files in preprocessed data: {missing}')
-                else:
-                    with mp.Pool(mp.cpu_count()) as pool:
-                        for _ in pool.imap(_convert_to_npy, [str(i) for i in self.npz_paths]):
-                            pass
-            if not all([ip.exists() for ip in self.img_paths]):
-                missing = [ip for ip in self.img_paths if (not ip.exists())]
+        # Get the image files from the nnUNet preprocessed files
+        imgs_path = preproc_path / f'{self.cfg["exp_planner"]}_{self.cfg["configuration"]}'
+        self.img_paths = [imgs_path/f'{i_id}.npy' for i_id in self.split_set]
+        self.npz_paths = [imgs_path/f'{i_id}.npz' for i_id in self.split_set]
+        if not all([ip.exists() for ip in self.img_paths]):
+            if not all([ip.exists() for ip in self.npz_paths]):
+                missing = [ip for ip in self.npz_paths if (not ip.exists())]
                 raise Exception(f'Missing files in preprocessed data: {missing}')
+            else:
+                with mp.Pool(mp.cpu_count()) as pool:
+                    for _ in pool.imap(_convert_to_npy, [str(i) for i in self.npz_paths]):
+                        pass
+        if not all([ip.exists() for ip in self.img_paths]):
+            missing = [ip for ip in self.img_paths if (not ip.exists())]
+            raise Exception(f'Missing files in preprocessed data: {missing}')
 
-            # Random sample the volumes to get as many images in the list as iterations
-            if len(self.img_paths) < self.n_iters:
-                missing = self.n_iters - len(self.img_paths)
-                idxs = self.rng.integers(0, len(self.img_paths)-1, missing).tolist()
-                self.img_paths = self.img_paths + [self.img_paths[idx] for idx in idxs]
+        # Random sample the volumes to get as many images in the list as iterations
+        if len(self.img_paths) < self.n_iters:
+            missing = self.n_iters - len(self.img_paths)
+            idxs = self.rng.integers(0, len(self.img_paths)-1, missing).tolist()
+            self.img_paths = self.img_paths + [self.img_paths[idx] for idx in idxs]
 
-            # If the brain images are not already cropped ones, read the bboxes_info file
-            if not cfg['already_cropped']:
-                with open(self.bboxes_path, 'r') as jfile:
-                    self.bboxes = json.load(jfile)
-            self.files = [{'img': item, 'name': item.name.replace('.npy', '')} for item in self.img_paths]
+        # If the brain images are not already cropped ones, read the bboxes_info file
+        if not cfg['already_cropped']:
+            with open(self.bboxes_path, 'r') as jfile:
+                self.bboxes = json.load(jfile)
+            # TODO: if the json doesn't exists, create it
+        self.files = [{'img': item, 'name': item.name.replace('.npy', '')} for item in self.img_paths]
 
         # Define the transformations
         self.global_crop3D_d, self.global_crop3D_h, self.global_crop3D_w = self.global_crop_size
@@ -277,37 +269,33 @@ class Dataset3D(Dataset):
         else:
             self.apply_sym = False
         # read nii file
-        if self.fixed_slabs:
-            imageNII = nib.load(datafiles["img"])
-            image = imageNII.get_fdata()
+    
+        if self.apply_sym:
+            image = np.load(datafiles["img"])
+            image2 = image[1].transpose(2, 1, 0)
+            image = image[0].transpose(2, 1, 0)
+        elif self.multichannel_input:
+            image = np.load(datafiles["img"])
+            image2 = image[1].transpose(2, 1, 0)
+            image = image[0].transpose(2, 1, 0)
         else:
-            if self.apply_sym:
-                image = np.load(datafiles["img"])
-                image2 = image[1].transpose(2, 1, 0)
-                image = image[0].transpose(2, 1, 0)
-            elif self.multichannel_input:
-                image = np.load(datafiles["img"])
-                image2 = image[1].transpose(2, 1, 0)
-                image = image[0].transpose(2, 1, 0)
-            else:
-                image = np.load(datafiles["img"])[0]
-                image = image.transpose(2, 1, 0)
-            # if necessary crop brain volume:
-            if not self.cfg['already_cropped']:
-                bbox = self.bboxes[name]
-                ox, oy, oz = bbox['origin_x'], bbox['origin_y'], bbox['origin_z']
-                ex, ey, ez = bbox['end_x'], bbox['end_y'], bbox['end_z']
-                image = image[oz:ez, oy:ey, ox:ex]
-                if self.apply_sym or self.multichannel_input:
-                    image2 = image2[oz:ez, oy:ey, ox:ex]
-            # Crop a random slab from the 3d volume
+            image = np.load(datafiles["img"])[0]
+            image = image.transpose(2, 1, 0)
+        # if necessary crop brain volume:
+        if not self.cfg['already_cropped']:
+            bbox = self.bboxes[name]
+            ox, oy, oz = bbox['origin_x'], bbox['origin_y'], bbox['origin_z']
+            ex, ey, ez = bbox['end_x'], bbox['end_y'], bbox['end_z']
+            image = image[oz:ez, oy:ey, ox:ex]
             if self.apply_sym or self.multichannel_input:
-                image, image2 = self.crop_random_zslab_brain_vol(image, image2,
-                                                                 wise_crop=self.cfg['wise_crop'])
-            else:
-                image = self.crop_random_zslab_brain_vol(image, wise_crop=self.cfg['wise_crop'])
+                image2 = image2[oz:ez, oy:ey, ox:ex]
+        # Crop a random slab from the 3d volume
+        if self.apply_sym or self.multichannel_input:
+            image, image2 = self.crop_random_zslab_brain_vol(image, image2,
+                                                                wise_crop=self.cfg['wise_crop'])
+        else:
+            image = self.crop_random_zslab_brain_vol(image, wise_crop=self.cfg['wise_crop'])
 
-        # bm = if image, image2 = self.crop_random_zslab_brain_vol(image, image2)
         # You pad the image in the case is smaller to the patch size
         image = self.pad_image(image, self.bkgd_value)
         image = image[np.newaxis, :]
@@ -318,8 +306,8 @@ class Dataset3D(Dataset):
             image2 = image2.transpose((0, 3, 1, 2))
 
         img, labels, dataset_names = [], [], []
-        # Get transformations:
         
+        # Get transformations:
         # Sample the global crops from the same image or one from the original and one from the 
         # 'contralateral' that should be provided as another channel
         image_crop_ori1_bis, image_crop_ori2_bis = None, None
