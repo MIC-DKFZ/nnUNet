@@ -65,7 +65,7 @@ def train_ssl(cfg: dict):
     channels = 2 if cfg['multichannel_input'] else 1
 
     batch_shape = [cfg['batch_size'], channels] + cfg['global_crop_size']
-    if 'encoder_chkpt' in cfg.keys():
+    if ('encoder_chkpt' in cfg.keys()) and (cfg['encoder_chkpt'] is not None):
         student, teacher = nnunet_encoder(cfg, teacher=False), nnunet_encoder(cfg, teacher=True)
         student = utils.load_encoder_from_checkpoint(cfg['encoder_chkpt'], student=student)
     else:
@@ -84,9 +84,7 @@ def train_ssl(cfg: dict):
         p.requires_grad = False
 
     # if required, freeze the encoder
-    # if 'encoder_freezing_epochs' in cfg.keys():
     if 'encoder_lr' in cfg.keys():
-        # if cfg['encoder_freezing_epochs'] != 0:
         for name, p in student.named_parameters():
             if 'backbone' in name:
                 p.requires_grad = False
