@@ -1,0 +1,59 @@
+    batch_callbacks:
+      - "*object": wholeslidedata.interoperability.albumentations.callbacks.AlbumentationsAugmentationsCallback
+        augmentations:
+
+            # Blurring
+            - AdvancedBlur:
+                p: 0.1
+            - GaussianBlur:
+                p: 0.1
+            - Blur:
+                p: 0.1
+            - MedianBlur:
+                p: 0.1
+            - GlassBlur:
+                p: 0.1
+
+             # Orientation
+            - VerticalFlip:
+                p: 0.25
+            - HorizontalFlip:
+                p: 0.25
+            - RandomRotate90:
+                p: 0.25
+            - Flip:
+                p: 0.25
+            - Transpose:
+                p: 0.25
+
+            # Contrast and brightness
+            - RandomGamma:
+                p: 0.1
+
+            - HueSaturationValue:
+                p: 0.1
+
+            - RandomBrightnessContrast:
+                p: 0.1
+
+            - CLAHE:
+                p: 0.1
+
+            # Noise
+            - ImageCompression:
+                p: 0.1
+
+            - ISONoise:
+                p: 0.1
+
+            - GaussNoise:
+                p: 0.1
+
+            - MultiplicativeNoise:
+                p: 0.1
+
+            - PixelDropout:
+                p: 0.1
+
+      - "*object": wholeslidedata.samplers.callbacks.HedCallback
+        probability: 0.5
