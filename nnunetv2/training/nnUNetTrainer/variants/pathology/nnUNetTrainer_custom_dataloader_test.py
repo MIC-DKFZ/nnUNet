@@ -214,8 +214,12 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         print('[Getting WSD dataloaders]')
         self.sample_double = False # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating
         self.time = True
+        self.albumentations_aug = True
 
-        iterator_template_path = join(os.path.dirname(__file__), 'wsd_iterator_template.json')
+        if self.albumentations_aug:
+            iterator_template_path = join(os.path.dirname(__file__), 'wsd_iterator_alb_aug_template.json')
+        else:
+            iterator_template_path = join(os.path.dirname(__file__), 'wsd_iterator_template.json')
         print(f'Using iterator template: {iterator_template_path}')
         iterator_template = load_json(iterator_template_path)
         split_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json'))
@@ -261,7 +265,8 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         fill_template['batch_shape']['spacing'] = spacing
         fill_template['batch_shape']['shape'] = patch_shape
         fill_template['label_sampler']['labels'] = label_sample_weights
-        fill_template['batch_callbacks'][0]['patch_size_spatial'] = patch_size
+        if not self.albumentations_aug:
+            fill_template['batch_callbacks'][0]['patch_size_spatial'] = patch_size
         fill_template['batch_callbacks'][-1]['sizes'] = extra_ds_sizes
         fill_template['dataset']['copy_path'] = copy_path
 
@@ -364,22 +369,30 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         # TODO: multiprocessing num cpus -2    
         cpus = 12
         print('[Creating batch iterators]')
-        tiger_train_batch_iterator = create_batch_iterator(mode="training", 
-                                        user_config= deepcopy(self.train_config), 
-                                        cpus=cpus, 
+        print('\t[Creating TRAIN batch iterator]')
+        tiger_train_batch_iterator = create_batch_iterator(mode="training",
+                                        user_config= deepcopy(self.train_config),
+                                        cpus=cpus,
                                         buffer_dtype='uint8',
                                         extras_shapes = extra_ds_shapes,
                                         iterator_class=iterator_class)
-        
-        tiger_val_batch_iterator = create_batch_iterator(mode="validation", 
-                                user_config= deepcopy(self.val_config), 
-                                cpus=cpus, 
+
+        # sleep = 30
+        # print(f"\t...Sleep {sleep}s...")
+        # time.sleep(sleep)
+        print('\t[Creating VAL batch iterator]')
+        tiger_val_batch_iterator = create_batch_iterator(mode="validation",
+                                user_config= deepcopy(self.val_config),
+                                cpus=cpus,
                                 buffer_dtype='uint8',
                                 extras_shapes = extra_ds_shapes,
                                 iterator_class=iterator_class)
 
+
         print('[Returning batch iterators]')
         return tiger_train_batch_iterator, tiger_val_batch_iterator
+        # return tiger_val_batch_iterator, tiger_val_batch_iterator
+        # return tiger_train_batch_iterator, tiger_train_batch_iterator
 
 ### build_network_architecture changing to BATCH NORM ###
     @staticmethod

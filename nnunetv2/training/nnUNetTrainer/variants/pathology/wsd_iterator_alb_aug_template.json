@@ -1,0 +1,62 @@
+{
+    "wholeslidedata": {
+        "default": {
+            "yaml_source": "",
+            "image_backend": "asap",
+            "labels": "",
+            "annotation_parser": {
+                "sorters": [
+                    "${$wholeslidedata.annotation.selector.sort_by_area_with_roi}"
+                ]
+            },
+            "batch_shape": {
+                "batch_size": "",
+                "spacing": "",
+                "shape": ""
+            },
+            "dataset": {
+                "copy_path": "/home/user/data",
+                "load_images": "False",
+                "spacing": 0.5
+            },
+            "label_sampler_name": "WeightedLabelSampler",
+            "label_sampler": {
+                "labels": ""
+            },
+            "annotation_sampler_name": "AreaAnnotationSampler",
+            "annotation_sampler": {
+                "dataset": "${dataset}",
+                "weight": 0.5
+            },
+            "batch_callbacks": [
+                {
+                    "*object": "wholeslidedata.interoperability.albumentations.callbacks.AlbumentationsSegmentationBatchCallback",
+                        "augmentations" : [
+                            {"AdvancedBlur": {"p": 0.1}},
+                            {"GaussianBlur": {"p": 0.1}},
+                            {"Blur": {"p": 0.1}},
+                            {"MedianBlur": {"p": 0.1}},
+                            {"GlassBlur": {"p": 0.1}},
+                            {"VerticalFlip": {"p": 0.25}},
+                            {"HorizontalFlip": {"p": 0.25}},
+                            {"RandomRotate90": {"p": 0.25}},
+                            {"Flip": {"p": 0.25}},
+                            {"Transpose": {"p": 0.25}},
+                            {"RandomGamma": {"p": 0.1}},
+                            {"HueSaturationValue": {"p": 0.1}},
+                            {"RandomBrightnessContrast": {"p": 0.1}},
+                            {"CLAHE": {"p": 0.1}},
+                            {"ImageCompression": {"p": 0.1}},
+                            {"ISONoise": {"p": 0.1}},
+                            {"GaussNoise": {"p": 0.1}},
+                            {"MultiplicativeNoise": {"p": 0.1}},
+                            {"PixelDropout": {"p": 0.1}}]
+                },
+                {
+                    "*object": "wholeslidedata.samplers.callbacks.DeepSupervisionBatchCallback",
+                        "sizes": []
+                }
+            ]
+        }
+    }
+}
