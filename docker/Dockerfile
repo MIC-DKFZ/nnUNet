@@ -11,7 +11,7 @@ RUN git config --global advice.detachedHead false && \
 # Additional packages
 RUN python3 -m pip install shapely==1.7.1
 RUN python3 -m pip install git+https://github.com/DIAGNijmegen/pathology-whole-slide-data@main
-
+RUN python3 -m pip install albumentations==1.2.1
 
 ARG SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 RUN python3 -m pip install git+https://github.com/DIAGNijmegen/nnUNet@feature/pathology-augmentations 
