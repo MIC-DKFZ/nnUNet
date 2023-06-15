@@ -258,15 +258,16 @@ def run_training_entry():
 if __name__ == '__main__':
     # run_training_entry()
 
-    # TODO: format better
+    # WANDB_API_KEY = os.environ.get('WANDB_API_KEY')
+    # wandb.login(key=WANDB_API_KEY)
+    # print("[DONE, LOGGING IN]")
 
-    wandb.login()
-
-    run = wandb.init(project="my-nnunet-project")
+    # run = wandb.init(project="my-nnunet-project")
+    # print("[DONE, INIT PROJECT]")
 
     ### COMMENT run_training_entry() ABOVE
     ### AND
     ### UNCOMMENT BELOW
-    print("RUNNING test, dataset 4, 2d model, fold 0, pathology trainer and planner")
+    print("\n\n\n[[[RUNNING test, dataset 4, 2d model, fold 0, pathology trainer and planner]]]\n\n")
     run_training('4', '2d', 0, 'nnUNetTrainer_custom_dataloader_test', 'nnUNetWholeSlideDataPlans')
     # run_training('1', '2d', 0, 'nnUNetTrainer') # nnUNetTrainer_1epoch
