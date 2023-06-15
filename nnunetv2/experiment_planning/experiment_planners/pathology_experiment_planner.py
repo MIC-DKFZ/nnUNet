@@ -513,7 +513,7 @@ class PathologyExperimentPlanner(object):
 
         self.plans = plans
         self.save_plans(plans)
-        print('DONE')
+        print('[DONE PREPROCESSING]')
         return plans
 
     def save_plans(self, plans):
