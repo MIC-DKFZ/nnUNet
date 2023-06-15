@@ -104,9 +104,10 @@ class nnUNetLogger(object):
 
     def wandb_log(self):
     # we infer the epoch form our internal logging
-        epoch = min([len(i) for i in self.my_fantastic_logging.values()]) - 1  # lists of epoch 0 have len 1
+        # epoch = min([len(i) for i in self.my_fantastic_logging.values()]) - 1  # lists of epoch 0 have len 1
 
-        wandb.log({"val_losses": self.my_fantastic_logging['val_losses'][epoch + 1],
-                   "train_loss": self.my_fantastic_logging['train_losses'][epoch + 1],
-                   "mean_fg_dice": self.my_fantastic_logging['mean_fg_dice'][epoch + 1],
-                   "ema_fg_dice": self.my_fantastic_logging['ema_fg_dice'][epoch + 1]})
+        wandb.log({"val_losses": self.my_fantastic_logging['val_losses'][-1], #[epoch + 1],
+                   "train_loss": self.my_fantastic_logging['train_losses'][-1],#[epoch + 1],
+                   "mean_fg_dice": self.my_fantastic_logging['mean_fg_dice'][-1], #[epoch + 1],
+                   "ema_fg_dice": self.my_fantastic_logging['ema_fg_dice'][-1] #[epoch + 1]
+                   })
