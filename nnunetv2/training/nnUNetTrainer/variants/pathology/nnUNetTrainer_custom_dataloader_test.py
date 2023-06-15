@@ -9,7 +9,7 @@ if os.name == 'nt':
     os.add_dll_directory(r"C:\Program Files\openslide\bin") # windows
 from wholeslidedata.iterators import create_batch_iterator
 from wholeslidedata.iterators.batchiterator import BatchIterator
-from wholeslidedata.samplers.utils import crop_data
+# from wholeslidedata.samplers.utils import crop_data
 # from nnunetv2.training.nnUNetTrainer.variants.pathology import wsd_pathology_DA_callback
 from copy import deepcopy
 
@@ -24,12 +24,13 @@ from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager
 # for def on_train_start:
 from batchgenerators.utilities.file_and_folder_operations import join, save_json, maybe_mkdir_p, isfile
 from torch import distributed as dist
-from nnunetv2.training.dataloading.utils import unpack_dataset
-from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+# from nnunetv2.training.dataloading.utils import unpack_dataset
+# from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.helpers import empty_cache
 
 #for dummy init
-from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+# from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+
 # for super init
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from datetime import datetime
@@ -41,8 +42,13 @@ from nnunetv2.paths import nnUNet_results, nnUNet_preprocessed
 # for splits
 from sklearn.model_selection import KFold
 
+# for loss (ignore 0)
+from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
+from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+
 # for timing
-import time
+from time import time, sleep
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -52,7 +58,12 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
                  device: torch.device = torch.device('cuda')):
         """used for debugging plans etc"""
 ###
-        self.wandb = True
+        self.ignore0 = True
+        self.wandb = False
+        self.time = False
+        self.albumentations_aug = True
+        self.sample_double = False # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating, not needed if using albumentations_aug
+
 ###
         # super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         
@@ -207,14 +218,11 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
             
 
 ### GET DATALOADERS - as generator objects
-    def get_dataloaders(self):
+    def get_dataloaders(self, temp=False):
         self.do_split()
         
         # return None, None
         print('[Getting WSD dataloaders]')
-        self.sample_double = False # this means we for example sample 1024x1024, augment, and return 512x512 center crop to remove artifacts induced by zooming and rotating
-        self.time = True
-        self.albumentations_aug = True
 
         if self.albumentations_aug:
             iterator_template_path = join(os.path.dirname(__file__), 'wsd_iterator_alb_aug_template.json')
@@ -224,9 +232,9 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         iterator_template = load_json(iterator_template_path)
         split_json = load_json(join(nnUNet_preprocessed, self.plans_manager.dataset_name, 'splits.json'))
         fold_split_dict = split_json[str(self.fold)]
-        if self.time:
+        if self.time or temp:
             print('Still timing everything, only copying SOME training and val files')
-            fold_split_dict = {'training': fold_split_dict['training'][-30:], 'validation': fold_split_dict['validation'][-20:]}
+            fold_split_dict = {'training': fold_split_dict['training'][-10:], 'validation': fold_split_dict['validation'][-5:]}
         copy_path = '/home/user' #'C:\\Users\\joeyspronck\\Documents\\Github\\nnUNet_v2\\data\\nnUNet_wsd'
         labels = self.dataset_json['labels']
         label_sample_weights = {
@@ -242,7 +250,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
         # extra_ds_sizes = [ds_shape for ds_shape in ds_shapes[1:]]
         # extra_ds_shapes = tuple([tuple([batch_size]+ds_shape) for ds_shape in ds_shapes[1:]])
         
-        if self.sample_double:
+        if self.sample_double or temp:
             patch_size = [size*2 for size in patch_size]
             patch_shape = patch_size + [len(self.configuration_manager.normalization_schemes)]
             ds_sizes = [[shape*2 for shape in ds_shape] for ds_shape in ds_shapes]
@@ -308,20 +316,20 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
         class WholeSlidePlainnnUnetBatchIteratorTIME(BatchIterator):
             def __next__(self):
-                start_time = time.time()
+                start_time = time()
 
                 x_batch, y_batch, *extras, _ = super().__next__()
-                line1_time = time.time() - start_time
+                line1_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 data = torch.FloatTensor(x_batch.transpose(0, 3, 1, 2) / 255.).to(device)
-                line2_time = time.time() - start_time
+                line2_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
                     torch.FloatTensor(np.expand_dims(extra, 1)).to(device)
                     for extra in extras]
-                line3_time = time.time() - start_time
+                line3_time = time() - start_time
 
                 print("Time taken for NEXT:\t\t\t\t\t\t", line1_time)
                 print("Time taken TOTAL:\t\t\t\t\t\t\t\t\t\t", line1_time + line2_time + line3_time)
@@ -330,31 +338,31 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
         class WholeSlidePlainnnUnetHalfCropBatchIteratorTIME(BatchIterator):
             def __next__(self):
-                start_time = time.time()
+                start_time = time()
                 x_batch, y_batch, *extras, _ = super().__next__()
-                line1_time = time.time() - start_time
+                line1_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 x_batch = half_crop(x_batch)
-                line2_time = time.time() - start_time
+                line2_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 y_batch = half_crop(y_batch)
-                line3_time = time.time() - start_time
+                line3_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 extras = [half_crop(extra) for extra in extras]
-                line4_time = time.time() - start_time
+                line4_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 data = torch.FloatTensor(x_batch.transpose(0, 3, 1, 2) / 255.).to(device)
-                line5_time = time.time() - start_time
+                line5_time = time() - start_time
 
-                start_time = time.time()
+                start_time = time()
                 target = [torch.FloatTensor(np.expand_dims(y_batch, 1)).to(device)] + [
                     torch.FloatTensor(np.expand_dims(extra, 1)).to(device)
                     for extra in extras]
-                line6_time = time.time() - start_time
+                line6_time = time() - start_time
 
                 print("Time taken for NEXT:", line1_time)
                 print("Time taken TOTAL:", line1_time + line2_time + line3_time + line4_time + line5_time + line6_time)
@@ -367,7 +375,7 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
             iterator_class = WholeSlidePlainnnUnetHalfCropBatchIterator if self.sample_double else WholeSlidePlainnnUnetBatchIterator
 
         # TODO: multiprocessing num cpus -2    
-        cpus = 12
+        cpus = 14
         print('[Creating batch iterators]')
         print('\t[Creating TRAIN batch iterator]')
         tiger_train_batch_iterator = create_batch_iterator(mode="training",
@@ -460,11 +468,36 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
             model.apply(init_last_bn_before_add_to_0)
         return model
     
+    ### Hardcoded ignore 0 (not doable via )
+    def _build_loss(self):
+        if self.ignore0:
+            print()
+        if self.label_manager.has_regions:
+            loss = DC_and_BCE_loss({},
+                                   {'batch_dice': self.configuration_manager.batch_dice,
+                                    'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
+                                   use_ignore_label= 0 if self.ignore0 else self.label_manager.ignore_label is not None,
+                                   dice_class=MemoryEfficientSoftDiceLoss)
+        else:
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                  ignore_label= 0 if self.ignore0 else self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+        # this gives higher resolution outputs more weight in the loss
+        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+
+        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+        weights = weights / weights.sum()
+        # now wrap the loss
+        loss = DeepSupervisionWrapper(loss, weights)
+        return loss
 
 ### on_train_start outcomment fingerprint stuff ###
     def on_train_start(self):
         print('\tnum epochs:', self.num_epochs)
-
 
         if not self.was_initialized:
             self.initialize()
@@ -551,23 +584,24 @@ class nnUNetTrainer_custom_dataloader_test(nnUNetTrainer):
 
                 self.on_train_epoch_start()
                 train_outputs = []
-                for batch_id in range(self.num_iterations_per_epoch): #=250
-                # for batch_id in range(4):
+                for batch_id in range(15 if self.time else self.num_iterations_per_epoch): #=250
+                # for batch_id in range(15):
                     train_outputs.append(self.train_step(next(self.dataloader_train))) ### REPLACE self.dummy_batch with next(self.dataloader_train)
-                    # print('done batch')
+                    # print('----------- done TRAIN batch')
                 self.on_train_epoch_end(train_outputs)
 
                 with torch.no_grad():
                     self.on_validation_epoch_start()
                     val_outputs = []
-                    for batch_id in range(self.num_val_iterations_per_epoch):
+                    for batch_id in range(15 if self.time else self.num_val_iterations_per_epoch):
                         val_outputs.append(self.validation_step(next(self.dataloader_val))) ### REPLACE self.dummy_batch with next(self.dataloader_val)
+                        # print('----------- done VAL batch')
                     self.on_validation_epoch_end(val_outputs)
 
                 self.on_epoch_end()
-                # print('done epoch')
+                # print('----------- done epoch')
             self.on_train_end()
-            # print('done training')
+            # print('----------- done training')
         except RuntimeError as e:
             print(e)
             self.crashed_with_runtime_error = True
