@@ -74,7 +74,7 @@ def generate_inference_command(dataset_name_or_id: Union[int, str], configuratio
     if folder_with_segs_from_prev_stage is not None:
         predict_command += f' -prev_stage_predictions {folder_with_segs_from_prev_stage}'
     if save_npz:
-        predict_command += ' --npz'
+        predict_command += ' --save_probabilities'
     return predict_command
 
 

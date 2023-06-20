@@ -240,7 +240,7 @@ class DefaultPreprocessor(object):
                                          ((outfile, infiles, segfiles, plans_manager, configuration_manager,
                                            dataset_json),)))
             remaining = list(range(len(output_filenames_truncated)))
-            # p is pretty nitfi. If we kill workers they just respawn but don't do any work.
+            # p is pretty nifti. If we kill workers they just respawn but don't do any work.
             # So we need to store the original pool of workers.
             workers = [j for j in p._pool]
             with tqdm(desc=None, total=len(output_filenames_truncated), disable=self.verbose) as pbar:

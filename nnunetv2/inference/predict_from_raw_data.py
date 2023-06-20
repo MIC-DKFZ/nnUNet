@@ -14,6 +14,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
     save_json
 from torch import nn
 from torch._dynamo import OptimizedModule
+from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
 
 import nnunetv2
@@ -54,7 +55,9 @@ class nnUNetPredictor(object):
         self.use_gaussian = use_gaussian
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
-            device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
+            # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
+            # why would I ever want to do that. Stupid dobby. This kills DDP inference...
+            pass
         if device.type != 'cuda':
             print(f'perform_everything_on_gpu=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_gpu = False
@@ -125,8 +128,12 @@ class nnUNetPredictor(object):
         self.trainer_name = trainer_name
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
         self.label_manager = plans_manager.get_label_manager(dataset_json)
-        if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
-                and not isinstance(self.network, OptimizedModule):
+        allow_compile = True
+        allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
+        allow_compile = allow_compile and not isinstance(self.network, OptimizedModule)
+        if isinstance(self.network, DistributedDataParallel):
+            allow_compile = allow_compile and isinstance(self.network.module, OptimizedModule)
+        if allow_compile:
             print('compiling network')
             self.network = torch.compile(self.network)
 
@@ -330,7 +337,7 @@ class nnUNetPredictor(object):
         If 'ofile' is None, the result will be returned instead of written to a file
         """
         with multiprocessing.get_context("spawn").Pool(num_processes_segmentation_export) as export_pool:
-            worker_list = export_pool._pool
+            worker_list = [i for i in export_pool._pool]
             r = []
             for preprocessed in data_iterator:
                 data = preprocessed['data']
@@ -351,11 +358,11 @@ class nnUNetPredictor(object):
 
                 # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
                 # npy files
-                proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2 * len(export_pool._pool))
+                proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
                 while not proceed:
-                    print('sleeping')
+                    # print('sleeping')
                     sleep(0.1)
-                    proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2 * len(export_pool._pool))
+                    proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
 
                 prediction = self.predict_logits_from_preprocessed_data(data).cpu()
 
