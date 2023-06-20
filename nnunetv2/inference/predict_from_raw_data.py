@@ -360,7 +360,7 @@ class nnUNetPredictor(object):
                 # npy files
                 proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
                 while not proceed:
-                    print('sleeping')
+                    # print('sleeping')
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
 

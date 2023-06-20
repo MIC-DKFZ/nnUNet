@@ -50,7 +50,7 @@ class SimpleITKIO(BaseReaderWriter):
                 spacings_for_nnunet.append(list(spacings[-1])[::-1])
             elif len(npy_image.shape) == 4:
                 # 4d, multiple modalities in one file
-                spacings_for_nnunet.append(list(spacings[-1])[1::-1])
+                spacings_for_nnunet.append(list(spacings[-1])[::-1][1:])
                 pass
             else:
                 raise RuntimeError("Unexpected number of dimensions: %d in file %s" % (len(npy_image.shape), f))
