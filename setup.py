@@ -1,7 +1,7 @@
 from setuptools import setup, find_namespace_packages
 
 setup(name='nnunetv2',
-      packages=find_namespace_packages(include=["nnunetv2", "nnunetv2.*"]),
+      packages=find_namespace_packages(include=["nnunetv2", "nnunetv2.*", "ssl", "ssl.*"]),
       version='2.1.1',
       description='nnU-Net. Framework for out-of-the box biomedical image segmentation.',
       url='https://github.com/MIC-DKFZ/nnUNet',

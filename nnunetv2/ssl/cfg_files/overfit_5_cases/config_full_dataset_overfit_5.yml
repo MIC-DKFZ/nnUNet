@@ -1,0 +1,132 @@
+cropping:
+  tile_size: 64
+  stride_d: 32
+
+training:
+    # Data  -------------------------------------------------------------
+
+    # Default: (96, 160, 160) (nnUnet) (16,96, 96) (DeSD)
+    global_crop_size: [64, 80, 80]
+    # Default: (16, 48, 48)
+    local_crop_size: [16, 48, 48]
+        
+    # Model Parameters -------------------------------------------------------------
+
+    # Dimensionality of the DeSD head output. Default: 65536
+    out_dim: 65536  
+    
+    # Whether or not to weight normalize the last layer of the DeSD head.
+    # Not normalizing leads to better performance but can make the training unstable.
+    # Default: True
+    norm_last_layer: True
+    
+    #'Base EMA parameter for teacher update. The value is increased to 1 during training
+    # with cosine schedule. We recommend setting a higher value with small batches.
+    # Default: 0.996
+    momentum_teacher: 0.996
+  
+    # Whether to use batch normalizations in projection head (Default: False)
+    use_bn_in_head: True
+
+    # Temperature teacher parameters -------------------------------
+    
+    # Initial value for the teacher temperature: 0.04 works well in most cases.
+    # Try decreasing it if the training loss does not decrease.  Default: 0.04
+    warmup_teacher_temp: 0.04
+
+    # Final value (after linear warmup) of the teacher temperature. For most experiments,
+    # anything above 0.07 is unstable. We recommend starting with the default value of 0.04
+    # and increase this slightly if needed.  Default: 0.04
+    teacher_temp: 0.04
+
+    # Number of warmup epochs for the teacher temperature.  Default: 0
+    warmup_teacher_temp_epochs: 10
+
+    # Training/Optimization parameters -----------------------------------
+
+    # Whether or not to use half precision for training. Improves training time and memory
+    # requirements, but can provoke instability and slight decay of performance. We
+    # recommend disabling mixed precision if the loss is unstable, if reducing the patch
+    # size or if training with bigger models.  Default: True
+    use_fp16: False
+    
+    # Initial value of the weight decay. With ViT, a smaller value at the beginning
+    # of training works well.  Default: 0.04
+    weight_decay: 0.04
+
+    # Final value of the weight decay. We use a cosine schedule for WD and using a larger decay by
+    # the end of training improves performance for ViTs. Default: 0.4
+    weight_decay_end: 0.000001
+
+    # Maximal parameter gradient norm if using gradient clipping. Clipping with norm .3 ~ 1.0 can
+    # help optimization for larger ViT architectures. 0 for disabling. Default 3.0
+    clip_grad: 0
+    
+    # Batch-size. Default: 32
+    batch_size: 32
+    
+    # Epochs. Default: 100
+    epochs: 100
+    
+    # Number of epochs during which we keep the output layer fixed. Typically doing so during
+    # the first epoch helps training. Try increasing this value if the loss does not decrease.
+    # Default: 1
+    freeze_last_layer: 1
+    
+    # Learning rate at the end of linear warmup (highest LR used during training). The learning
+    # rate is linearly scaled with the batch size. Default: 0.0005
+    lr: 0.3
+    
+    # Number of epochs for the linear learning-rate warm up. Default: 10
+    warmup_epochs: 0
+    
+    # Target LR at the end of optimization. We use a cosine LR schedule with linear warmup.
+    # Default: 1e-6 / DeSD = 0.048
+    min_lr: 0.048
+
+    optimizer: 'sgd'
+    # Options: 'adamw', 'sgd', 'lars'. Type of optimizer.
+    # We recommend using adamw with ViTs. Default: 'adamw'
+
+    # Multi-crop parameters ------------------------------------------------------------
+    
+    # Scale range of the cropped image before resizing, relatively to the origin image.
+    # Used for large global view cropping. When disabling multi-crop (local_crops_number: 0), we
+    # recommand using a wider range of scale ("global_crops_scale 0.14 1." for example)
+    # Default: (0.5, 0.7)
+    global_crops_scale: [0.5, 0.7]
+    
+    # Number of small local views to generate. Set this parameter to 0 to disable multi-crop
+    # training. Default: 0
+    local_crops_number: 0
+    
+    # Scale range of the cropped image before resizing, relatively to the origin image.
+    # Used for small local view cropping of multi-crop. Default: (0.8, 1.0)
+    local_crops_scale: [0.8, 1.0]
+
+    # Misc -------------------------------------------------------
+    # Path to save logs and checkpoints.
+    output_dir: '/home/jseia/Desktop/thesis/code/stroke-seg/experiments/DeSD/full_dataset_overfit_5/'
+    # Save checkpoint every x epochs.
+    saveckp_freq: 50
+    # Random seed.
+    seed: 0
+    # Number of data loading workers
+    num_workers: 6
+    # Whether to log the dimensionality reduced projection scatter plot
+    log_projections: False
+    # Frequency to log the dimensionality reduced projection scatter plot
+    projection_freq: 10
+
+
+    #nnUnet ----------------------------------------------------------
+    dataset: 'Dataset026_AIS'
+    configuration: '3d_fullres'
+    fold: 0
+    trainer: 'nnUNetTrainerCfg'
+    exp_planner: 'nnUNetPlansSSL'
+    device: 'cuda'
+    num_epochs: 30
+    unfreeze_lr: null
+    unfreeze_epoch: null
+    ssl_pretrained: True
