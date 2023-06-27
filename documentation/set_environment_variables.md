@@ -55,7 +55,7 @@ Just execute the following before you run nnU-Net:
 ```PowerShell
 $Env:nnUNet_raw = "C:/Users/fabian/nnUNet_raw"
 $Env:nnUNet_preprocessed = "C:/Users/fabian/nnUNet_preprocessed"
-$Env:nnUNet_results = "C:/Users/fabian/fabian/nnUNet_results"
+$Env:nnUNet_results = "C:/Users/fabian/nnUNet_results"
 ```
 
 (Command Prompt)
