@@ -53,16 +53,16 @@ Just execute the following before you run nnU-Net:
 
 (powershell)
 ```powershell
-$Env:nnUNet_raw = "/media/fabian/nnUNet_raw"
-$Env:nnUNet_preprocessed = "/media/fabian/nnUNet_preprocessed"
-$Env:nnUNet_results = "/media/fabian/nnUNet_results"
+$Env:nnUNet_raw = "C:/Users/fabian/nnUNet_raw"
+$Env:nnUNet_preprocessed = "C:/Users/fabian/nnUNet_preprocessed"
+$Env:nnUNet_results = "C:/Users/fabian/fabian/nnUNet_results"
 ```
 
 (command prompt)
 ```commandline
-set nnUNet_raw="/media/fabian/nnUNet_raw"
-set nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
-set nnUNet_results="/media/fabian/nnUNet_results"
+set nnUNet_raw=C:/Users/fabian/nnUNet_raw
+set nnUNet_preprocessed=C:/Users/fabian/nnUNet_preprocessed
+set nnUNet_results=C:/Users/fabian/fabian/nnUNet_results
 ```
 
 (of course you need to adapt the paths to the actual folders you intend to use).
