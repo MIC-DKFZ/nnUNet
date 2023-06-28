@@ -31,7 +31,7 @@ Exception are natural images (RGB; .png) where the three color channels can all 
 **Segmentations** must share the same geometry with their corresponding images (same shape etc.). Segmentations are 
 integer maps with each value representing a semantic class. The background must be 0. If there is no background, then 
 do not use the label 0 for something else! Integer values of your semantic classes must be consecutive (0, 1, 2, 3, 
-...). Of course, not all labels have to be present in each training case. Segmentations are saved as {CASE_IDENTIFER}.{FILE_ENDING} .
+...). Of course, not all labels have to be present in each training case. Segmentations are saved as {CASE_IDENTIFIER}.{FILE_ENDING} .
 
 Within a training case, all image geometries (input channels, corresponding segmentation) must match. Between training 
 cases, they can of course differ. nnU-Net takes care of that.
