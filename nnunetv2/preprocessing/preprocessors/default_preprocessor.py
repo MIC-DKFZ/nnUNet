@@ -26,7 +26,7 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
-    create_lists_from_splitted_dataset_folder
+    create_lists_from_splitted_dataset_folder, get_filenames_of_train_images_and_targets
 from tqdm import tqdm
 
 
@@ -214,8 +214,6 @@ class DefaultPreprocessor(object):
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
 
-        identifiers = get_identifiers_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
-                                                               dataset_json['file_ending'])
         output_directory = join(nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier)
 
         if isdir(output_directory):
@@ -223,27 +221,24 @@ class DefaultPreprocessor(object):
 
         maybe_mkdir_p(output_directory)
 
-        output_filenames_truncated = [join(output_directory, i) for i in identifiers]
+        dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
 
-        file_ending = dataset_json['file_ending']
-        # list of lists with image filenames
-        image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), file_ending,
-                                                                 identifiers)
-        # list of segmentation filenames
-        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + file_ending) for i in identifiers]
+        # identifiers = [os.path.basename(i[:-len(dataset_json['file_ending'])]) for i in seg_fnames]
+        # output_filenames_truncated = [join(output_directory, i) for i in identifiers]
 
         # multiprocessing magic.
         r = []
         with multiprocessing.get_context("spawn").Pool(num_processes) as p:
-            for outfile, infiles, segfiles in zip(output_filenames_truncated, image_fnames, seg_fnames):
+            for k in dataset.keys():
                 r.append(p.starmap_async(self.run_case_save,
-                                         ((outfile, infiles, segfiles, plans_manager, configuration_manager,
+                                         ((join(output_directory, k), dataset[k]['images'], dataset[k]['label'],
+                                           plans_manager, configuration_manager,
                                            dataset_json),)))
-            remaining = list(range(len(output_filenames_truncated)))
+            remaining = list(range(len(dataset)))
             # p is pretty nifti. If we kill workers they just respawn but don't do any work.
             # So we need to store the original pool of workers.
             workers = [j for j in p._pool]
-            with tqdm(desc=None, total=len(output_filenames_truncated), disable=self.verbose) as pbar:
+            with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
                     if not all_alive:
