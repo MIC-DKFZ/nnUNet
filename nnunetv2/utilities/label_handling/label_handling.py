@@ -176,7 +176,10 @@ class LabelManager(object):
 
     def convert_logits_to_segmentation(self, predicted_logits: Union[np.ndarray, torch.Tensor]) -> \
             Union[np.ndarray, torch.Tensor]:
+        input_is_numpy = isinstance(predicted_logits, np.ndarray)
         probabilities = self.apply_inference_nonlin(predicted_logits)
+        if input_is_numpy and isinstance(probabilities, torch.Tensor):
+            probabilities = probabilities.cpu().numpy()
         return self.convert_probabilities_to_segmentation(probabilities)
 
     def revert_cropping_on_probabilities(self, predicted_probabilities: Union[torch.Tensor, np.ndarray],
