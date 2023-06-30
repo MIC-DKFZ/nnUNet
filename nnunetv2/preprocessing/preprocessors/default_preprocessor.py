@@ -247,7 +247,13 @@ class DefaultPreprocessor(object):
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
                     if not all_alive:
-                        raise RuntimeError('Some background worker is 6 feet under. Yuck.')
+                        raise RuntimeError('Some background worker is 6 feet under. Yuck. \n'
+                                           'OK jokes aside.\n'
+                                           'One of your background processes is missing. This could be because of '
+                                           'an error (look for an error message) or because it was killed '
+                                           'by your OS due to running out of RAM. If you don\'t see '
+                                           'an error message, out of RAM is likely the problem. In that case '
+                                           'reducing the number of workers might help')
                     done = [i for i in remaining if r[i].ready()]
                     for _ in done:
                         pbar.update()
