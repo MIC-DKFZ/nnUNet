@@ -123,7 +123,7 @@ def find_best_configuration(dataset_name_or_id,
                 label_manager = plans_manager.get_label_manager(dataset_json)
                 rw = plans_manager.image_reader_writer_class()
 
-                compute_metrics_on_folder(join(nnUNet_raw, dataset_name, 'labelsTr'),
+                compute_metrics_on_folder(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'),
                                           output_folder_ensemble,
                                           join(output_folder_ensemble, 'summary.json'),
                                           rw,
@@ -153,7 +153,7 @@ def find_best_configuration(dataset_name_or_id,
     print()
 
     print('***Determining postprocessing for best model/ensemble***')
-    determine_postprocessing(all_results[best_key]['source'], join(nnUNet_raw, dataset_name, 'labelsTr'),
+    determine_postprocessing(all_results[best_key]['source'], join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'),
                              plans_file_or_dict=join(all_results[best_key]['source'], 'plans.json'),
                              dataset_json_file_or_dict=join(all_results[best_key]['source'], 'dataset.json'),
                              num_processes=num_processes, keep_postprocessed_files=True)

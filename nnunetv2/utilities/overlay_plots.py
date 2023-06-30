@@ -23,7 +23,8 @@ from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
+    get_filenames_of_train_images_and_targets
 
 color_cycle = (
     "000000",
@@ -191,16 +192,16 @@ def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folde
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     folder = join(nnUNet_raw, dataset_name)
     dataset_json = load_json(join(folder, 'dataset.json'))
-    identifiers = get_identifiers_from_splitted_dataset_folder(join(folder, 'imagesTr'), dataset_json['file_ending'])
+    dataset = get_filenames_of_train_images_and_targets(folder, dataset_json)
 
-    image_files = [join(folder, 'imagesTr', i + "_%04.0d.nii.gz" % channel_idx) for i in identifiers]
-    seg_files = [join(folder, 'labelsTr', i + ".nii.gz") for i in identifiers]
+    image_files = [v['images'][channel_idx] for v in dataset.values()]
+    seg_files = [v['label'] for v in dataset.values()]
 
     assert all([isfile(i) for i in image_files])
     assert all([isfile(i) for i in seg_files])
 
     maybe_mkdir_p(output_folder)
-    output_files = [join(output_folder, i + '.png') for i in identifiers]
+    output_files = [join(output_folder, i + '.png') for i in dataset.keys()]
 
     image_reader_writer = determine_reader_writer_from_dataset_json(dataset_json, image_files[0])()
     multiprocessing_plot_overlay(image_files, seg_files, image_reader_writer, output_files, overlay_intensity, num_processes)

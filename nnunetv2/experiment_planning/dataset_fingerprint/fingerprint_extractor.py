@@ -5,15 +5,14 @@ from typing import List, Type, Union
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
+from tqdm import tqdm
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
-    create_lists_from_splitted_dataset_folder, get_filenames_of_train_images_and_targets
-from tqdm import tqdm
+from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
 class DatasetFingerprintExtractor(object):
@@ -32,6 +31,7 @@ class DatasetFingerprintExtractor(object):
         self.input_folder = join(nnUNet_raw, dataset_name)
         self.num_processes = num_processes
         self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
+        self.dataset = get_filenames_of_train_images_and_targets(self.input_folder, self.dataset_json)
 
         # We don't want to use all foreground voxels because that can accumulate a lot of data (out of memory). It is
         # also not critically important to get all pixels as long as there are enough. Let's use 10e7 voxels in total
@@ -112,26 +112,25 @@ class DatasetFingerprintExtractor(object):
         properties_file = join(preprocessed_output_folder, 'dataset_fingerprint.json')
 
         if not isfile(properties_file) or overwrite_existing:
-            dataset = get_filenames_of_train_images_and_targets(self.input_folder, self.dataset_json)
             reader_writer_class = determine_reader_writer_from_dataset_json(self.dataset_json,
                                                                             # yikes. Rip the following line
-                                                                            dataset[dataset.keys().__iter__().__next__()]['images'][0])
+                                                                            self.dataset[self.dataset.keys().__iter__().__next__()]['images'][0])
 
             # determine how many foreground voxels we need to sample per training case
             num_foreground_samples_per_case = int(self.num_foreground_voxels_for_intensitystats //
-                                                  len(dataset))
+                                                  len(self.dataset))
 
             r = []
             with multiprocessing.get_context("spawn").Pool(self.num_processes) as p:
-                for k in dataset.keys():
+                for k in self.dataset.keys():
                     r.append(p.starmap_async(DatasetFingerprintExtractor.analyze_case,
-                                             ((dataset[k]['images'], dataset[k]['label'], reader_writer_class,
+                                             ((self.dataset[k]['images'], self.dataset[k]['label'], reader_writer_class,
                                                num_foreground_samples_per_case),)))
-                remaining = list(range(len(dataset)))
+                remaining = list(range(len(self.dataset)))
                 # p is pretty nifti. If we kill workers they just respawn but don't do any work.
                 # So we need to store the original pool of workers.
                 workers = [j for j in p._pool]
-                with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
+                with tqdm(desc=None, total=len(self.dataset), disable=self.verbose) as pbar:
                     while len(remaining) > 0:
                         all_alive = all([j.is_alive() for j in workers])
                         if not all_alive:
