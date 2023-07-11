@@ -11,12 +11,13 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import multiprocessing
 import shutil
+from time import sleep
 from typing import Union, Tuple
 
 import nnunetv2
 import numpy as np
-from acvl_utils.miscellaneous.ptqdm import ptqdm
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
@@ -25,7 +26,8 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
-    create_lists_from_splitted_dataset_folder
+    create_lists_from_splitted_dataset_folder, get_filenames_of_train_images_and_targets
+from tqdm import tqdm
 
 
 class DefaultPreprocessor(object):
@@ -38,6 +40,11 @@ class DefaultPreprocessor(object):
     def run_case_npy(self, data: np.ndarray, seg: Union[np.ndarray, None], properties: dict,
                      plans_manager: PlansManager, configuration_manager: ConfigurationManager,
                      dataset_json: Union[dict, str]):
+        # let's not mess up the inputs!
+        data = np.copy(data)
+        if seg is not None:
+            seg = np.copy(seg)
+
         has_seg = seg is not None
 
         # apply transpose_forward, this also needs to be applied to the spacing!
@@ -207,8 +214,6 @@ class DefaultPreprocessor(object):
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
 
-        identifiers = get_identifiers_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'),
-                                                               dataset_json['file_ending'])
         output_directory = join(nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier)
 
         if isdir(output_directory):
@@ -216,19 +221,39 @@ class DefaultPreprocessor(object):
 
         maybe_mkdir_p(output_directory)
 
-        output_filenames_truncated = [join(output_directory, i) for i in identifiers]
+        dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
 
-        file_ending = dataset_json['file_ending']
-        # list of lists with image filenames
-        image_fnames = create_lists_from_splitted_dataset_folder(join(nnUNet_raw, dataset_name, 'imagesTr'), file_ending,
-                                                                 identifiers)
-        # list of segmentation filenames
-        seg_fnames = [join(nnUNet_raw, dataset_name, 'labelsTr', i + file_ending) for i in identifiers]
+        # identifiers = [os.path.basename(i[:-len(dataset_json['file_ending'])]) for i in seg_fnames]
+        # output_filenames_truncated = [join(output_directory, i) for i in identifiers]
 
-        _ = ptqdm(self.run_case_save, (output_filenames_truncated, image_fnames, seg_fnames),
-                  processes=num_processes, zipped=True, plans_manager=plans_manager,
-                  configuration_manager=configuration_manager,
-                  dataset_json=dataset_json, disable=self.verbose)
+        # multiprocessing magic.
+        r = []
+        with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+            for k in dataset.keys():
+                r.append(p.starmap_async(self.run_case_save,
+                                         ((join(output_directory, k), dataset[k]['images'], dataset[k]['label'],
+                                           plans_manager, configuration_manager,
+                                           dataset_json),)))
+            remaining = list(range(len(dataset)))
+            # p is pretty nifti. If we kill workers they just respawn but don't do any work.
+            # So we need to store the original pool of workers.
+            workers = [j for j in p._pool]
+            with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
+                while len(remaining) > 0:
+                    all_alive = all([j.is_alive() for j in workers])
+                    if not all_alive:
+                        raise RuntimeError('Some background worker is 6 feet under. Yuck. \n'
+                                           'OK jokes aside.\n'
+                                           'One of your background processes is missing. This could be because of '
+                                           'an error (look for an error message) or because it was killed '
+                                           'by your OS due to running out of RAM. If you don\'t see '
+                                           'an error message, out of RAM is likely the problem. In that case '
+                                           'reducing the number of workers might help')
+                    done = [i for i in remaining if r[i].ready()]
+                    for _ in done:
+                        pbar.update()
+                    remaining = [i for i in remaining if i not in done]
+                    sleep(0.1)
 
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
                       configuration_manager: ConfigurationManager) -> np.ndarray:

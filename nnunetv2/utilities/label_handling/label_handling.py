@@ -130,17 +130,14 @@ class LabelManager(object):
         """
         logits has to have shape (c, x, y(, z)) where c is the number of classes/regions
         """
-        is_numpy = isinstance(logits, np.ndarray)
+        if isinstance(logits, np.ndarray):
+            logits = torch.from_numpy(logits)
 
-        if is_numpy:
-            logits_torch = torch.from_numpy(logits)
-        else:
-            logits_torch = logits
+        with torch.no_grad():
+            # softmax etc is not implemented for half
+            logits = logits.float()
+            probabilities = self.inference_nonlin(logits)
 
-        probabilities = self.inference_nonlin(logits_torch)
-
-        if is_numpy:
-            probabilities = probabilities.numpy()
         return probabilities
 
     def convert_probabilities_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \
@@ -165,9 +162,10 @@ class LabelManager(object):
 
         if self.has_regions:
             if isinstance(predicted_probabilities, np.ndarray):
-                segmentation = np.zeros(predicted_probabilities.shape[1:], dtype=np.uint8)
+                segmentation = np.zeros(predicted_probabilities.shape[1:], dtype=np.uint16)
             else:
-                segmentation = torch.zeros(predicted_probabilities.shape[1:], dtype=torch.uint8,
+                # no uint16 in torch
+                segmentation = torch.zeros(predicted_probabilities.shape[1:], dtype=torch.int16,
                                            device=predicted_probabilities.device)
             for i, c in enumerate(self.regions_class_order):
                 segmentation[predicted_probabilities[i] > 0.5] = c
@@ -178,10 +176,13 @@ class LabelManager(object):
 
     def convert_logits_to_segmentation(self, predicted_logits: Union[np.ndarray, torch.Tensor]) -> \
             Union[np.ndarray, torch.Tensor]:
+        input_is_numpy = isinstance(predicted_logits, np.ndarray)
         probabilities = self.apply_inference_nonlin(predicted_logits)
+        if input_is_numpy and isinstance(probabilities, torch.Tensor):
+            probabilities = probabilities.cpu().numpy()
         return self.convert_probabilities_to_segmentation(probabilities)
 
-    def revert_cropping_on_probabilities(self, predicted_probabilities: np.ndarray,
+    def revert_cropping_on_probabilities(self, predicted_probabilities: Union[torch.Tensor, np.ndarray],
                                          bbox: List[List[int]],
                                          original_shape: Union[List[int], Tuple[int, ...]]):
         """
@@ -196,7 +197,13 @@ class LabelManager(object):
         """
         # revert cropping
         probs_reverted_cropping = np.zeros((predicted_probabilities.shape[0], *original_shape),
-                                           dtype=predicted_probabilities.dtype)
+                                           dtype=predicted_probabilities.dtype) \
+            if isinstance(predicted_probabilities, np.ndarray) else \
+            torch.zeros((predicted_probabilities.shape[0], *original_shape), dtype=predicted_probabilities.dtype)
+
+        if not self.has_regions:
+            probs_reverted_cropping[0] = 1
+
         slicer = bounding_box_to_slice(bbox)
         probs_reverted_cropping[tuple([slice(None)] + list(slicer))] = predicted_probabilities
         return probs_reverted_cropping

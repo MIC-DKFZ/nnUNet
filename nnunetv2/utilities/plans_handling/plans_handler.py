@@ -6,6 +6,8 @@ from functools import lru_cache, partial
 from typing import Union, Tuple, List, Type, Callable
 
 import numpy as np
+import torch
+
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
 from torch import nn
 
@@ -122,12 +124,12 @@ class ConfigurationManager(object):
     @property
     @lru_cache(maxsize=1)
     def resampling_fn_data(self) -> Callable[
-        [np.ndarray,
+        [Union[torch.Tensor, np.ndarray],
          Union[Tuple[int, ...], List[int], np.ndarray],
          Union[Tuple[float, ...], List[float], np.ndarray],
          Union[Tuple[float, ...], List[float], np.ndarray]
          ],
-        np.ndarray]:
+        Union[torch.Tensor, np.ndarray]]:
         fn = recursive_find_resampling_fn_by_name(self.configuration['resampling_fn_data'])
         fn = partial(fn, **self.configuration['resampling_fn_data_kwargs'])
         return fn
@@ -135,12 +137,12 @@ class ConfigurationManager(object):
     @property
     @lru_cache(maxsize=1)
     def resampling_fn_probabilities(self) -> Callable[
-        [np.ndarray,
+        [Union[torch.Tensor, np.ndarray],
          Union[Tuple[int, ...], List[int], np.ndarray],
          Union[Tuple[float, ...], List[float], np.ndarray],
          Union[Tuple[float, ...], List[float], np.ndarray]
          ],
-        np.ndarray]:
+        Union[torch.Tensor, np.ndarray]]:
         fn = recursive_find_resampling_fn_by_name(self.configuration['resampling_fn_probabilities'])
         fn = partial(fn, **self.configuration['resampling_fn_probabilities_kwargs'])
         return fn
@@ -148,12 +150,12 @@ class ConfigurationManager(object):
     @property
     @lru_cache(maxsize=1)
     def resampling_fn_seg(self) -> Callable[
-        [np.ndarray,
+        [Union[torch.Tensor, np.ndarray],
          Union[Tuple[int, ...], List[int], np.ndarray],
          Union[Tuple[float, ...], List[float], np.ndarray],
          Union[Tuple[float, ...], List[float], np.ndarray]
          ],
-        np.ndarray]:
+        Union[torch.Tensor, np.ndarray]]:
         fn = recursive_find_resampling_fn_by_name(self.configuration['resampling_fn_seg'])
         fn = partial(fn, **self.configuration['resampling_fn_seg_kwargs'])
         return fn

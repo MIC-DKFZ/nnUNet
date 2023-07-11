@@ -2,7 +2,7 @@ import shutil
 from typing import List, Type, Optional, Tuple, Union
 
 import nnunetv2
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles
+from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles, load_json
 
 from nnunetv2.experiment_planning.dataset_fingerprint.fingerprint_extractor import DatasetFingerprintExtractor
 from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
@@ -12,6 +12,7 @@ from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.configuration import default_num_processes
+from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
 def extract_fingerprint_dataset(dataset_id: int,
@@ -113,9 +114,19 @@ def preprocess_dataset(dataset_id: int,
         configuration_manager = plans_manager.get_configuration(c)
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         preprocessor.run(dataset_id, c, plans_identifier, num_processes=n)
+
+    # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
+    # longer there (useful for compute cluster where only the preprocessed data is available)
+    from distutils.file_util import copy_file
     maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
-    [shutil.copy(i, join(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))) for i in
-     subfiles(join(nnUNet_raw, dataset_name, 'labelsTr'))]
+    dataset_json = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
+    dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
+    # only copy files that are newer than the ones already present
+    for k in dataset:
+        copy_file(dataset[k]['label'],
+                  join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']),
+                  update=True)
+
 
 
 def preprocess(dataset_ids: List[int],
