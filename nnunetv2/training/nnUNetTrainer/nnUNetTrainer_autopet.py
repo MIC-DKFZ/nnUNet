@@ -888,16 +888,12 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
-        try:
-            print(target.shape)
-        except:
-            print(target)
-            print(type(target))
-            print(np.shape(target))
-        target_class = torch.tensor([torch.max(target[idx]).long() for idx in range(target.shape[0])]).view(-1, 1, 1, 1, 1)
-        mip_axial = torch.cat([torch.max(data[idx], 4, keepdim=True) for idx in range(target.shape[0])])
-        mip_coro = torch.cat([torch.max(data[idx], 3, keepdim=True) for idx in range(target.shape[0])])
-        mip_sagi = torch.cat([torch.max(data[idx], 2, keepdim=True) for idx in range(target.shape[0])])
+        print(len(target))
+        print(np.shape(target[0]))
+        target_class = torch.tensor([torch.max(target[idx]).long() for idx in range(len(target))]).view(-1, 1, 1, 1, 1)
+        mip_axial = torch.cat([torch.max(data[idx], 4, keepdim=True) for idx in range(len(target))], dim=0)
+        mip_coro = torch.cat([torch.max(data[idx], 3, keepdim=True) for idx in range(len(target))], dim=0)
+        mip_sagi = torch.cat([torch.max(data[idx], 2, keepdim=True) for idx in range(len(target))], dim=0)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
