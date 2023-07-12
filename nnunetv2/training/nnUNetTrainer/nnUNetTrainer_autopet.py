@@ -211,13 +211,13 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             sagi_ps = (1, self.configuration_manager.patch_size[1], self.configuration_manager.patch_size[2])
             self.model_classiff_axial = ViT(in_channels=self.num_input_channels, 
                                             img_size=axial_ps,
-                                            patch_size=(16, 16, 1), classification=True).to(self.device)
+                                            patch_size=(16, 16, 1), classification=False).to(self.device)
             self.model_classiff_coro = ViT(in_channels=self.num_input_channels,
                                            img_size=coro_ps,
-                                           patch_size=(16, 1, 16), classification=True).to(self.device)
+                                           patch_size=(16, 1, 16), classification=False).to(self.device)
             self.model_classiff_sagi = ViT(in_channels=self.num_input_channels, 
                                            img_size=sagi_ps,
-                                           patch_size=(1, 16, 16), classification=True).to(self.device)
+                                           patch_size=(1, 16, 16), classification=False).to(self.device)
             self.classifier = nn.Linear(768 * 3 + self.configuration_manager.unet_max_num_features, 2).to(self.device)
             # compile network for free speedup
             if ('nnUNet_compile' in os.environ.keys()) and (
