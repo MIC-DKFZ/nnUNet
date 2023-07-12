@@ -212,10 +212,10 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             self.model_classiff_axial = ViT(in_channels=self.num_input_channels, 
                                             img_size=axial_ps,
                                             patch_size=(16, 16, 1), classification=True).to(self.device)
-            self.model_classiff_sagi = ViT(in_channels=self.num_input_channels, 
+            self.model_classiff_coro = ViT(in_channels=self.num_input_channels,
                                            img_size=coro_ps,
                                            patch_size=(16, 1, 16), classification=True).to(self.device)
-            self.model_classiff_coro = ViT(in_channels=self.num_input_channels,
+            self.model_classiff_sagi = ViT(in_channels=self.num_input_channels, 
                                            img_size=sagi_ps,
                                            patch_size=(1, 16, 16), classification=True).to(self.device)
             self.classifier = nn.Linear(768 * 3 + self.configuration_manager.unet_max_num_features, 2).to(self.device)
@@ -896,7 +896,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         mip_axial = torch.cat([torch.max(data[idx].unsqueeze(0), 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_coro = torch.cat([torch.max(data[idx].unsqueeze(0), 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_sagi = torch.cat([torch.max(data[idx].unsqueeze(0), 1, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
-        print(mip_axial.shape)
+        print(mip_axial.shape)  
         print(mip_coro.shape)
         print(mip_sagi.shape)
 
