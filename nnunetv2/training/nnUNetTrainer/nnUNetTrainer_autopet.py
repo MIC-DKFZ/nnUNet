@@ -917,7 +917,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             feature_a = self.model_classiff_axial(mip_axial)
             feature_c = self.model_classiff_coro(mip_coro)
             feature_s = self.model_classiff_sagi(mip_sagi)
-            all_features = torch.cat(features, feature_a, feature_c, feature_s)
+            all_features = torch.cat([features, feature_a, feature_c, feature_s])
             print(all_features.shape)
             classif = self.classifier(all_features)
             # del data
