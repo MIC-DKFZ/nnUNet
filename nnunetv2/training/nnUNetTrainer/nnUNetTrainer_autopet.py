@@ -892,6 +892,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         mip_axial = torch.cat([torch.max(data[idx], 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_coro = torch.cat([torch.max(data[idx], 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_sagi = torch.cat([torch.max(data[idx], 1, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        print(mip_axial.shape)
+        print(mip_coro.shape)
+        print(mip_sagi.shape)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
