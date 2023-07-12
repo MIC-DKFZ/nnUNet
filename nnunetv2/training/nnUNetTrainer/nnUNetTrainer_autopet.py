@@ -891,6 +891,8 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         try:
             print(target.shape)
         except:
+            print(target)
+            print(type(target))
             print(np.shape(target))
         target_class = torch.tensor([torch.max(target[idx]).long() for idx in range(target.shape[0])]).view(-1, 1, 1, 1, 1)
         mip_axial = torch.cat([torch.max(data[idx], 4, keepdim=True) for idx in range(target.shape[0])])
