@@ -206,15 +206,18 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
                                                            self.configuration_manager,
                                                            self.num_input_channels,
                                                            enable_deep_supervision=True).to(self.device)
+            axial_ps = (self.configuration_manager.patch_size[0], self.configuration_manager.patch_size[1], 1)
+            coro_ps = (self.configuration_manager.patch_size[0], 1, self.configuration_manager.patch_size[2])
+            sagi_ps = (1, self.configuration_manager.patch_size[1], self.configuration_manager.patch_size[2])
             self.model_classiff_axial = ViT(in_channels=self.num_input_channels, 
-                                            img_size=self.configuration_manager.patch_size,
-                                            patch_size=(16, 16, 16), classification=True).to(self.device)
+                                            img_size=axial_ps,
+                                            patch_size=(16, 16, 1), classification=True).to(self.device)
             self.model_classiff_sagi = ViT(in_channels=self.num_input_channels, 
-                                           img_size=self.configuration_manager.patch_size,
-                                           patch_size=(16, 16, 16), classification=True).to(self.device)
+                                           img_size=coro_ps,
+                                           patch_size=(16, 1, 16), classification=True).to(self.device)
             self.model_classiff_coro = ViT(in_channels=self.num_input_channels,
-                                           img_size=self.configuration_manager.patch_size,
-                                           patch_size=(16, 16, 16), classification=True).to(self.device)
+                                           img_size=sagi_ps,
+                                           patch_size=(1, 16, 16), classification=True).to(self.device)
             self.classifier = nn.Linear(768 * 3 + self.configuration_manager.unet_max_num_features, 2).to(self.device)
             # compile network for free speedup
             if ('nnUNet_compile' in os.environ.keys()) and (
@@ -890,9 +893,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             target = target.to(self.device, non_blocking=True)
         print(data.shape)
         target_class = torch.tensor([torch.max(target[idx]).long() for idx in range(np.shape(target[0])[0])]).view(-1, 1, 1, 1, 1)
-        mip_axial = torch.cat([torch.max(data[idx], 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0).unsqueeze(1)
-        mip_coro = torch.cat([torch.max(data[idx], 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0).unsqueeze(1)
-        mip_sagi = torch.cat([torch.max(data[idx], 1, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0).unsqueeze(1)
+        mip_axial = torch.cat([torch.max(data[idx].unsqueeze(0), 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        mip_coro = torch.cat([torch.max(data[idx].unsqueeze(0), 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        mip_sagi = torch.cat([torch.max(data[idx].unsqueeze(0), 1, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         print(mip_axial.shape)
         print(mip_coro.shape)
         print(mip_sagi.shape)
@@ -948,8 +951,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             torch.nn.utils.clip_grad_norm_(self.model_classiff_coro.parameters(), 12)
             torch.nn.utils.clip_grad_norm_(self.model_classiff_sagi.parameters(), 12)
             self.optimizer_classif.step()
-
-
         return {'loss': l.detach().cpu().numpy()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
