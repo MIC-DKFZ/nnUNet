@@ -889,9 +889,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
         target_class = torch.tensor([torch.max(target[idx]).long() for idx in range(np.shape(target[0])[0])]).view(-1, 1, 1, 1, 1)
-        mip_axial = torch.cat([torch.max(data[idx], 3, keepdim=True) for idx in range(np.shape(data)[0])], dim=0)
-        mip_coro = torch.cat([torch.max(data[idx], 2, keepdim=True) for idx in range(np.shape(data)[0])], dim=0)
-        mip_sagi = torch.cat([torch.max(data[idx], 1, keepdim=True) for idx in range(np.shape(data)[0])], dim=0)
+        mip_axial = torch.cat([torch.max(data[idx], 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        mip_coro = torch.cat([torch.max(data[idx], 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        mip_sagi = torch.cat([torch.max(data[idx], 1, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
