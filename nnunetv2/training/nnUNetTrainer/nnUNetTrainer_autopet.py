@@ -918,6 +918,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             feature_c = self.model_classiff_coro(mip_coro)
             feature_s = self.model_classiff_sagi(mip_sagi)
             print(features[-1].shape)
+            print(type(features[-1]))
             all_features = torch.cat([features[-1], feature_a, feature_c, feature_s])
             print(all_features.shape)
             classif = self.classifier(all_features)
