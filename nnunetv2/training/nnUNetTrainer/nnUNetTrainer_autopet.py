@@ -871,9 +871,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
     def on_train_epoch_start(self):
         self.network.train()
         self.lr_scheduler.step(self.current_epoch)
-        self.lr_scheduler_axial.step(self.current_epoch)
-        self.lr_scheduler_coro.step(self.current_epoch)
-        self.lr_scheduler_sagi.step(self.current_epoch)
+        self.lr_scheduler_classif.step(self.current_epoch)
         self.print_to_log_file('')
         self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
