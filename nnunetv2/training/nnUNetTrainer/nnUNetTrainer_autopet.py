@@ -63,10 +63,11 @@ from torch import distributed as dist
 from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from monai.networks.nets import ViT
 
 
-class nnUNetTrainer_autopet(object):
+class nnUNetTrainer_autopet(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
