@@ -480,12 +480,12 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
-        self.optimzer_classif = torch.optim.SGD(list(self.model_classiff_axial.parameters())
+        self.optimizer_classif = torch.optim.SGD(list(self.model_classiff_axial.parameters())
                                                 + list(self.model_classiff_coro.parameters())
                                                 + list(self.model_classiff_sagi.parameters()), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
-        self.lr_scheduler_classif = PolyLRScheduler(self.optimizer_axial, self.initial_lr, self.num_epochs)
+        self.lr_scheduler_classif = PolyLRScheduler(self.optimizer_classif, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
