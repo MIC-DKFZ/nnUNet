@@ -25,7 +25,8 @@ from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
-from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder
+from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
+    get_filenames_of_train_images_and_targets
 
 
 def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected_labels: List[int]) -> bool:
@@ -43,26 +44,21 @@ def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected
     return True
 
 
-def check_cases(base_folder: str, case_identifier: str, expected_num_channels: int,
-                readerclass: Type[BaseReaderWriter], file_ending: str) -> bool:
+def check_cases(image_files: List[str], label_file: str, expected_num_channels: int,
+                readerclass: Type[BaseReaderWriter]) -> bool:
     rw = readerclass()
     ret = True
-    file_seg = join(base_folder, 'labelsTr', case_identifier + file_ending)
-    pattern = re.compile(re.escape(case_identifier) + r"_\d\d\d\d" + re.escape(file_ending))
-    files_image = [join(base_folder, 'imagesTr', i) for i in subfiles(join(base_folder, 'imagesTr'),
-                                                                      prefix=case_identifier,
-                                                                      suffix=file_ending,
-                                                                      join=False) if pattern.fullmatch(i)]
-    images, properties_image = rw.read_images(files_image)
-    segmentation, properties_seg = rw.read_seg(file_seg)
+
+    images, properties_image = rw.read_images(image_files)
+    segmentation, properties_seg = rw.read_seg(label_file)
 
     # check for nans
     if np.any(np.isnan(images)):
-        print(f'Images of case identifier {case_identifier} contain NaN pixel values. You need to fix that by '
-              f'replacing NaN values with something that makes sense for your images!')
+        print(f'Images contain NaN pixel values. You need to fix that by '
+              f'replacing NaN values with something that makes sense for your images!\nImages:\n{image_files}')
         ret = False
     if np.any(np.isnan(segmentation)):
-        print(f'Segmentation of case identifier {case_identifier} contains NaN pixel values. You need to fix that.')
+        print(f'Segmentation contains NaN pixel values. You need to fix that.\nSegmentation:\n{label_file}')
         ret = False
 
     # check shapes
@@ -71,7 +67,7 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
     if not all([i == j for i, j in zip(shape_image, shape_seg)]):
         print('Error: Shape mismatch between segmentation and corresponding images. \nShape images: %s. '
               '\nShape seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-              (shape_image, shape_seg, files_image, file_seg))
+              (shape_image, shape_seg, image_files, label_file))
         ret = False
 
     # check spacings
@@ -80,13 +76,13 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
     if not np.allclose(spacing_seg, spacing_images):
         print('Error: Spacing mismatch between segmentation and corresponding images. \nSpacing images: %s. '
               '\nSpacing seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-              (shape_image, shape_seg, files_image, file_seg))
+              (shape_image, shape_seg, image_files, label_file))
         ret = False
 
     # check modalities
     if not len(images) == expected_num_channels:
         print('Error: Unexpected number of modalities. \nExpected: %d. \nGot: %d. \nImages: %s\n'
-              % (expected_num_channels, len(images), files_image))
+              % (expected_num_channels, len(images), image_files))
         ret = False
 
     # nibabel checks
@@ -98,7 +94,7 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
             print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
                   'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
                   'nnUNet_plot_dataset_pngs to verify if everything is OK!\n'
-                  % (affine_image, affine_seg, files_image, file_seg))
+                  % (affine_image, affine_seg, image_files, label_file))
 
     # sitk checks
     if 'sitk_stuff' in properties_image.keys():
@@ -109,13 +105,13 @@ def check_cases(base_folder: str, case_identifier: str, expected_num_channels: i
         if not np.allclose(origin_image, origin_seg):
             print('Warning: Origin mismatch between segmentation and corresponding images. \nOrigin images: %s. '
                   '\nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-                  (origin_image, origin_seg, files_image, file_seg))
+                  (origin_image, origin_seg, image_files, label_file))
         direction_image = properties_image['sitk_stuff']['direction']
         direction_seg = properties_seg['sitk_stuff']['direction']
         if not np.allclose(direction_image, direction_seg):
             print('Warning: Direction mismatch between segmentation and corresponding images. \nDirection images: %s. '
                   '\nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-                  (direction_image, direction_seg, files_image, file_seg))
+                  (direction_image, direction_seg, image_files, label_file))
 
     return ret
 
@@ -130,9 +126,11 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     :return:
     """
     assert isfile(join(folder, "dataset.json")), "There needs to be a dataset.json file in folder, folder=%s" % folder
-    assert isdir(join(folder, "imagesTr")), "There needs to be a imagesTr subfolder in folder, folder=%s" % folder
-    assert isdir(join(folder, "labelsTr")), "There needs to be a labelsTr subfolder in folder, folder=%s" % folder
     dataset_json = load_json(join(folder, "dataset.json"))
+
+    if not 'dataset' in dataset_json.keys():
+        assert isdir(join(folder, "imagesTr")), "There needs to be a imagesTr subfolder in folder, folder=%s" % folder
+        assert isdir(join(folder, "labelsTr")), "There needs to be a labelsTr subfolder in folder, folder=%s" % folder
 
     # make sure all required keys are there
     dataset_keys = list(dataset_json.keys())
@@ -151,20 +149,42 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                          else dataset_json['modality'].keys())
     file_ending = dataset_json['file_ending']
 
-    training_identifiers = get_identifiers_from_splitted_dataset_folder(join(folder, 'imagesTr'), file_ending=file_ending)
+    dataset = get_filenames_of_train_images_and_targets(folder, dataset_json)
 
     # check if the right number of training cases is present
-    assert len(training_identifiers) == expected_num_training, 'Did not find the expected number of training cases ' \
+    assert len(dataset) == expected_num_training, 'Did not find the expected number of training cases ' \
                                                                '(%d). Found %d instead.\nExamples: %s' % \
-                                                               (expected_num_training, len(training_identifiers),
-                                                                training_identifiers[:5])
+                                                               (expected_num_training, len(dataset),
+                                                                list(dataset.keys())[:5])
 
     # check if corresponding labels are present
-    labelfiles = subfiles(join(folder, 'labelsTr'), suffix=file_ending, join=False)
-    label_identifiers = [i[:-len(file_ending)] for i in labelfiles]
-    labels_present = [i in label_identifiers for i in training_identifiers]
-    missing = [i for j, i in enumerate(training_identifiers) if not labels_present[j]]
-    assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
+    if 'dataset' in dataset_json.keys():
+        # just check if everything is there
+        ok = True
+        missing_images = []
+        missing_labels = []
+        for k in dataset:
+            for i in dataset[k]['images']:
+                if not isfile(i):
+                    missing_images.append(i)
+                    ok = False
+            if not isfile(dataset[k]['label']):
+                missing_labels.append(dataset[k]['label'])
+                ok = False
+        if not ok:
+            raise FileNotFoundError(f"Some expeted files were missing. Make sure you are properly referencing them "
+                                    f"in the dataset.json. Or use imagesTr & labelsTr folders!\nMissing images:"
+                                    f"\n{missing_images}\n\nMissing labels:\n{missing_labels}")
+    else:
+        # old code that uses imagestr and labelstr folders
+        labelfiles = subfiles(join(folder, 'labelsTr'), suffix=file_ending, join=False)
+        label_identifiers = [i[:-len(file_ending)] for i in labelfiles]
+        labels_present = [i in label_identifiers for i in dataset.keys()]
+        missing = [i for j, i in enumerate(dataset.keys()) if not labels_present[j]]
+        assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
+
+    labelfiles = [v['label'] for v in dataset.values()]
+    image_files = [v['images'] for v in dataset.values()]
 
     # no plans exist yet, so we can't use PlansManager and gotta roll with the default. It's unlikely to cause
     # problems anyway
@@ -177,9 +197,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
         labels_valid_consecutive), f'Labels must be in consecutive order (0, 1, 2, ...). The labels {np.array(expected_labels)[1:][~labels_valid_consecutive]} do not satisfy this restriction'
 
     # determine reader/writer class
-    reader_writer_class = determine_reader_writer_from_dataset_json(dataset_json, join(folder, 'imagesTr',
-                                                                                       training_identifiers[
-                                                                                           0] + '_0000' + file_ending))
+    reader_writer_class = determine_reader_writer_from_dataset_json(dataset_json, dataset[dataset.keys().__iter__().__next__()]['images'][0])
 
     # check whether only the desired labels are present
     with multiprocessing.get_context("spawn").Pool(num_processes) as p:
@@ -195,8 +213,8 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
         # check whether shapes and spacings match between images and labels
         result = p.starmap(
             check_cases,
-            zip([folder] * expected_num_training, training_identifiers, [num_modalities] * expected_num_training,
-                [reader_writer_class] * expected_num_training, [file_ending] * expected_num_training)
+            zip(image_files, labelfiles, [num_modalities] * expected_num_training,
+                [reader_writer_class] * expected_num_training)
         )
         if not all(result):
             raise RuntimeError(

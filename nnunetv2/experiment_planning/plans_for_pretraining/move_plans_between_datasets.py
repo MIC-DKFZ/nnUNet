@@ -6,6 +6,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, isdir, is
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name
+from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
 def move_plans_between_datasets(
@@ -43,10 +44,12 @@ def move_plans_between_datasets(
     # we need to change the reader writer class!
     target_raw_data_dir = join(nnUNet_raw, target_dataset_name)
     target_dataset_json = load_json(join(target_raw_data_dir, 'dataset.json'))
-    file_ending = target_dataset_json['file_ending']
-    # pick any file from the imagesTr folder
-    some_file = subfiles(join(target_raw_data_dir, 'imagesTr'), suffix=file_ending)[0]
-    rw = determine_reader_writer_from_dataset_json(target_dataset_json, some_file, allow_nonmatching_filename=True,
+
+    # we may need to change the reader/writer
+    # pick any file from the source dataset
+    dataset = get_filenames_of_train_images_and_targets(target_raw_data_dir, target_dataset_json)
+    example_image = dataset[dataset.keys().__iter__().__next__()]['images'][0]
+    rw = determine_reader_writer_from_dataset_json(target_dataset_json, example_image, allow_nonmatching_filename=True,
                                                    verbose=False)
 
     source_plans["image_reader_writer"] = rw.__name__

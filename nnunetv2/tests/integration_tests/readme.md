@@ -18,7 +18,7 @@ ignore labels). It runs the entire nnU-Net pipeline from start to finish:
 - apply postprocessing to the test set
 
 To speed things up, we do the following:
-- pick Dataset004_Hipocampus because it is quadratisch praktisch gut. MNIST of medical image segmentation
+- pick Dataset004_Hippocampus because it is quadratisch praktisch gut. MNIST of medical image segmentation
 - by default this dataset does not have 3d_lowres or cascade. We just manually add them (cool new feature, eh?). See `add_lowres_and_cascade.py` to learn more! 
 - we use nnUNetTrainer_5epochs for a short training
 
