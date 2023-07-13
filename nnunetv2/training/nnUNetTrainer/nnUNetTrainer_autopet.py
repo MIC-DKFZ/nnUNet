@@ -231,7 +231,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             self.model_classiff_sagi = ViT(in_channels=self.num_input_channels, 
                                            img_size=sagi_ps,
                                            patch_size=(1, 16, 16), classification=False).to(self.device)
-            self.classifier = nn.Linear(768 * 3 + self.configuration_manager.unet_max_num_features, 2).to(self.device)
+            self.classifier = nn.Linear(5248, 2).to(self.device)
             # compile network for free speedup
             if ('nnUNet_compile' in os.environ.keys()) and (
                     os.environ['nnUNet_compile'].lower() in ('true', '1', 't')):
