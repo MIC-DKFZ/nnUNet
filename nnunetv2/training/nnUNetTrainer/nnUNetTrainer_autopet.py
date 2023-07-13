@@ -189,7 +189,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         self.hidden_size = 768
         spatial_dims = 3
         self.proj_axes = (0, spatial_dims + 1) + tuple(d + 1 for d in range(spatial_dims))
-        self.proj_view_shape = list(self.feat_size) + [self.hidden_size]
 
         self.was_initialized = False
 
@@ -201,18 +200,17 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
                                "#######################################################################\n",
                                also_print_to_console=True, add_timestamp=False)
 
-
-    def proj_feat(self, x):
+    def proj_feat(self, x, feat_size):
+        self.proj_view_shape = list(feat_size) + [self.hidden_size]
         new_view = [x.size(0)] + self.proj_view_shape
         x = x.view(new_view)
         x = x.permute(self.proj_axes).contiguous()
         return x
-    
+
     def initialize(self):
         if not self.was_initialized:
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
-
 
             self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
                                                            self.configuration_manager,
@@ -221,6 +219,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             axial_ps = (self.configuration_manager.patch_size[0], self.configuration_manager.patch_size[1], 1)
             coro_ps = (self.configuration_manager.patch_size[0], 1, self.configuration_manager.patch_size[2])
             sagi_ps = (1, self.configuration_manager.patch_size[1], self.configuration_manager.patch_size[2])
+            self.feat_size_axial = tuple(img_d // p_d for img_d, p_d in zip(axial_ps, (16, 16, 1)))
+            self.feat_size_coro = tuple(img_d // p_d for img_d, p_d in zip(coro_ps, (16, 1, 16)))
+            self.feat_size_sagi = tuple(img_d // p_d for img_d, p_d in zip(sagi_ps, (1, 16, 16)))
             self.model_classiff_axial = ViT(in_channels=self.num_input_channels, 
                                             img_size=axial_ps,
                                             patch_size=(16, 16, 1), classification=False).to(self.device)
@@ -931,10 +932,12 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             feature_s, hs_s = self.model_classiff_sagi(mip_sagi)
             print(features[-1].shape)
             print(type(features[-1]))
-            print(self.proj_feat(feature_a).shape)
-            print(self.proj_feat(feature_c).shape)
-            print(self.proj_feat(feature_s).shape)
-            all_features = torch.cat([features[-1], self.proj_feat(feature_a), self.proj_feat(feature_c), self.proj_feat(feature_s)])
+            print(self.proj_feat(feature_a, self.feat_size_axial).shape)
+            print(self.proj_feat(feature_c, self.feat_size_coro).shape)
+            print(self.proj_feat(feature_s, self.feat_size_sagi).shape)
+            all_features = torch.cat([features[-1], self.proj_feat(feature_a, self.feat_size_axial),
+                                      self.proj_feat(feature_c, self.feat_size_coro),
+                                      self.proj_feat(feature_s, self.feat_size_sagi)])
             print(all_features.shape)
             classif = self.classifier(all_features)
             # del data
