@@ -944,8 +944,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             print(all_features.shape)
             classif = self.classifier(all_features)
             # del data
-            l = self.loss(output, target)
-            l_classif = self.classif_loss(classif, target_class.float())
+            l = self.loss(output, target) + self.classif_loss(classif, target_class.float())
 
         # Seg backward loop
         if self.grad_scaler is not None:
@@ -959,21 +958,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
 
-        # Class axial backward loop
-        if self.grad_scaler is not None:
-            self.grad_scaler.scale(l_classif).backward()
-            self.grad_scaler.unscale_(self.optimizer_classif)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_axial.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_coro.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_sagi.parameters(), 12)
-            self.grad_scaler.step(self.optimizer_classif)
-            self.grad_scaler.update()
-        else:
-            l_classif.backward()
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_axial.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_coro.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_sagi.parameters(), 12)
-            self.optimizer_classif.step()
         return {'loss': l.detach().cpu().numpy()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
