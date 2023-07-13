@@ -905,11 +905,11 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
         print(data.shape)
-        target_class = torch.tensor([torch.max(target[idx]).long() for idx in range(np.shape(target[0])[0])]).view(-1, 1)
+        target_class = torch.tensor([torch.max(target[idx]).long().unsqueeze(0) for idx in range(np.shape(target[0])[0])])
         mip_axial = torch.cat([torch.max(data[idx].unsqueeze(0), 4, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_coro = torch.cat([torch.max(data[idx].unsqueeze(0), 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_sagi = torch.cat([torch.max(data[idx].unsqueeze(0), 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
-        print(mip_axial.shape)  
+        print(mip_axial.shape)
         print(mip_coro.shape)
         print(mip_sagi.shape)
 
