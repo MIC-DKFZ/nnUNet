@@ -945,7 +945,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             classif = self.classifier(all_features)
             # del data
             l = self.loss(output, target)
-            l_classif = self.classif_loss(classif, target_class)
+            l_classif = self.classif_loss(classif, target_class.float())
 
         # Seg backward loop
         if self.grad_scaler is not None:
