@@ -939,7 +939,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             print(feature_a.shape)
             print(feature_c.shape)
             print(feature_s.shape)
-            all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+            all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).squeeze(-1).squeeze(-1).squeeze(-1)
             print(all_features.shape)
             classif = self.classifier(all_features)
             # del data
