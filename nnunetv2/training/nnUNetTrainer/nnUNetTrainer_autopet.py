@@ -186,6 +186,10 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         ## DDP batch size and oversampling can differ between workers and needs adaptation
         # we need to change the batch size in DDP because we don't use any of those distributed samplers
         self._set_batch_size_and_oversample()
+        self.hidden_size = 768
+        spatial_dims = 3
+        self.proj_axes = (0, spatial_dims + 1) + tuple(d + 1 for d in range(spatial_dims))
+        self.proj_view_shape = list(self.feat_size) + [self.hidden_size]
 
         self.was_initialized = False
 
