@@ -930,14 +930,16 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             feature_a, hs_a = self.model_classiff_axial(mip_axial)
             feature_c, hs_c = self.model_classiff_coro(mip_coro)
             feature_s, hs_s = self.model_classiff_sagi(mip_sagi)
+            features = torch.nn.AvgPool3d((4, 4, 4))(features[-1])
+            feature_a = torch.nn.AvgPool3d((8, 8, 1))(self.proj_feat(feature_a, self.feat_size_axial))
+            feature_c = torch.nn.AvgPool3d((8, 1, 8))(self.proj_feat(feature_c, self.feat_size_coro))
+            feature_s = torch.nn.AvgPool3d((1, 8, 8))(self.proj_feat(feature_s, self.feat_size_sagi))
             print(features[-1].shape)
             print(type(features[-1]))
-            print(self.proj_feat(feature_a, self.feat_size_axial).shape)
-            print(self.proj_feat(feature_c, self.feat_size_coro).shape)
-            print(self.proj_feat(feature_s, self.feat_size_sagi).shape)
-            all_features = torch.cat([features[-1], self.proj_feat(feature_a, self.feat_size_axial),
-                                      self.proj_feat(feature_c, self.feat_size_coro),
-                                      self.proj_feat(feature_s, self.feat_size_sagi)])
+            print(feature_a)
+            print(feature_c)
+            print(feature_s)
+            all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1)
             print(all_features.shape)
             classif = self.classifier(all_features)
             # del data
