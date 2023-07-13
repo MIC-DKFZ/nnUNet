@@ -197,10 +197,18 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
                                "#######################################################################\n",
                                also_print_to_console=True, add_timestamp=False)
 
+
+    def proj_feat(self, x):
+        new_view = [x.size(0)] + self.proj_view_shape
+        x = x.view(new_view)
+        x = x.permute(self.proj_axes).contiguous()
+        return x
+    
     def initialize(self):
         if not self.was_initialized:
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
+
 
             self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
                                                            self.configuration_manager,
@@ -914,9 +922,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
                 output = self.network.module.decoder(features)
             else:
                 output = self.network.decoder(features)
-            feature_a, hs_a = self.model_classiff_axial(mip_axial)
-            feature_c, hs_c = self.model_classiff_coro(mip_coro)
-            feature_s, hs_s = self.model_classiff_sagi(mip_sagi)
+            feature_a, hs_a = self.proj_feat(self.model_classiff_axial(mip_axial))
+            feature_c, hs_c = self.proj_feat(self.model_classiff_coro(mip_coro))
+            feature_s, hs_s = self.proj_feat(self.model_classiff_sagi(mip_sagi))
             print(features[-1].shape)
             print(type(features[-1]))
             print(feature_a.shape)
