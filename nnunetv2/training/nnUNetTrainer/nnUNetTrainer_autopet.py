@@ -909,10 +909,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         mip_axial = torch.cat([torch.max(data[idx].unsqueeze(0), 4, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_coro = torch.cat([torch.max(data[idx].unsqueeze(0), 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         mip_sagi = torch.cat([torch.max(data[idx].unsqueeze(0), 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
-        print(mip_axial.shape)
-        print(mip_coro.shape)
-        print(mip_sagi.shape)
-        print(target_class.shape)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
@@ -935,13 +931,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             feature_a = torch.nn.AvgPool3d((8, 8, 1))(self.proj_feat(feature_a, self.feat_size_axial))
             feature_c = torch.nn.AvgPool3d((8, 1, 8))(self.proj_feat(feature_c, self.feat_size_coro))
             feature_s = torch.nn.AvgPool3d((1, 8, 8))(self.proj_feat(feature_s, self.feat_size_sagi))
-            print(features[-1].shape)
-            print(type(features[-1]))
-            print(feature_a.shape)
-            print(feature_c.shape)
-            print(feature_s.shape)
             all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).squeeze(-1).squeeze(-1).squeeze(-1)
-            print(all_features.shape)
             classif = self.classifier(all_features)
             # del data
             l = self.loss(output, target) + self.classif_loss(classif, target_class.float())
