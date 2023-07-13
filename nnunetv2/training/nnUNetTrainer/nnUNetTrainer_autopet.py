@@ -912,6 +912,8 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         print(mip_axial.shape)
         print(mip_coro.shape)
         print(mip_sagi.shape)
+        print(mip_sagi.shape)
+        print(target_class.shape)
 
         self.optimizer.zero_grad()
         # Autocast is a little bitch.
