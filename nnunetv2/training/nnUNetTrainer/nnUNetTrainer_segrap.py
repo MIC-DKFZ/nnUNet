@@ -64,7 +64,7 @@ from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-class nnUNetTrainer(object):
+class nnUNetTrainer_segrap(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
@@ -142,7 +142,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 250
+        self.num_epochs = 1000
         self.current_epoch = 0
 
         ### Dealing with labels/regions
@@ -203,6 +203,7 @@ class nnUNetTrainer(object):
                                                            self.configuration_manager,
                                                            self.num_input_channels,
                                                            enable_deep_supervision=True).to(self.device)
+            self.reconstruction_decoder = copy.deepcopy(self.network.decoder)
             # compile network for free speedup
             if ('nnUNet_compile' in os.environ.keys()) and (
                     os.environ['nnUNet_compile'].lower() in ('true', '1', 't')):
