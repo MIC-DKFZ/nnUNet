@@ -494,11 +494,10 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                    momentum=0.99, nesterov=True)
-        self.optimizer_classif = torch.optim.SGD(list(self.model_classiff_axial.parameters())
-                                                + list(self.model_classiff_coro.parameters())
-                                                + list(self.model_classiff_sagi.parameters()), self.initial_lr, weight_decay=self.weight_decay,
+        optimizer = torch.optim.SGD(list(self.network.parameters())
+                                    + list(self.model_classiff_axial.parameters())
+                                    + list(self.model_classiff_coro.parameters())
+                                    + list(self.model_classiff_sagi.parameters()), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         self.lr_scheduler_classif = PolyLRScheduler(self.optimizer_classif, self.initial_lr, self.num_epochs)
@@ -941,6 +940,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             self.grad_scaler.scale(l).backward()
             self.grad_scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+            torch.nn.utils.clip_grad_norm_(self.model_classiff_axial.parameters(), 12)
+            torch.nn.utils.clip_grad_norm_(self.model_classiff_coro.parameters(), 12)
+            torch.nn.utils.clip_grad_norm_(self.model_classiff_sagi.parameters(), 12)
             self.grad_scaler.step(self.optimizer)
             self.grad_scaler.update()
         else:
