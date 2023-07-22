@@ -500,7 +500,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
                                     + list(self.model_classiff_sagi.parameters()), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
-        self.lr_scheduler_classif = PolyLRScheduler(self.optimizer_classif, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
@@ -885,8 +884,10 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
 
     def on_train_epoch_start(self):
         self.network.train()
+        self.model_classiff_axial.train()
+        self.model_classiff_coro.train()
+        self.model_classiff_sagi.train()
         self.lr_scheduler.step(self.current_epoch)
-        self.lr_scheduler_classif.step(self.current_epoch)
         self.print_to_log_file('')
         self.print_to_log_file(f'Epoch {self.current_epoch}')
         self.print_to_log_file(
@@ -1160,6 +1161,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
     def perform_actual_validation(self, save_probabilities: bool = False):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
+        self.model_classiff_axial.eval()
+        self.model_classiff_coro.eval()
+        self.model_classiff_sagi.eval()
 
         predictor = nnUNetPredictor(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
                                     perform_everything_on_gpu=True, device=self.device, verbose=False,
