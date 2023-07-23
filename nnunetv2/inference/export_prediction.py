@@ -18,7 +18,8 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
                                                                 label_manager: LabelManager,
                                                                 properties_dict: dict,
                                                                 return_probabilities: bool = False,
-                                                                num_threads_torch: int = default_num_processes):
+                                                                num_threads_torch: int = default_num_processes,
+                                                                rescale_z: bool = False):
     old_threads = torch.get_num_threads()
     torch.set_num_threads(num_threads_torch)
 
@@ -30,7 +31,8 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
     predicted_logits = configuration_manager.resampling_fn_probabilities(predicted_logits,
                                             properties_dict['shape_after_cropping_and_before_resampling'],
                                             current_spacing,
-                                            properties_dict['spacing'])
+                                            properties_dict['spacing'],
+                                            rescale_z=rescale_z)
     # return value of resampling_fn_probabilities can be ndarray or Tensor but that doesnt matter because
     # apply_inference_nonlin will covnert to torch
     predicted_probabilities = label_manager.apply_inference_nonlin(predicted_logits)
@@ -42,9 +44,11 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
         segmentation = segmentation.cpu().numpy()
 
     # put segmentation in bbox (revert cropping)
-    segmentation_reverted_cropping = np.zeros(properties_dict['shape_before_cropping'],
+    segmentation_reverted_cropping = np.zeros(segmentation.shape,
                                               dtype=np.uint8 if len(label_manager.foreground_labels) < 255 else np.uint16)
-    slicer = bounding_box_to_slice(properties_dict['bbox_used_for_cropping'])
+    downsampled_bbox = properties_dict['bbox_used_for_cropping']
+    downsampled_bbox[0][1] = segmentation.shape[0]
+    slicer = bounding_box_to_slice(downsampled_bbox)
     segmentation_reverted_cropping[slicer] = segmentation
     del segmentation
 
@@ -52,11 +56,12 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
     segmentation_reverted_cropping = segmentation_reverted_cropping.transpose(plans_manager.transpose_backward)
     if return_probabilities:
         # revert cropping
-        predicted_probabilities = label_manager.revert_cropping_on_probabilities(predicted_probabilities,
-                                                                                 properties_dict[
-                                                                                     'bbox_used_for_cropping'],
-                                                                                 properties_dict[
-                                                                                     'shape_before_cropping'])
+        if rescale_z:
+            predicted_probabilities = label_manager.revert_cropping_on_probabilities(predicted_probabilities,
+                                                                                     properties_dict[
+                                                                                         'bbox_used_for_cropping'],
+                                                                                     properties_dict[
+                                                                                         'shape_before_cropping'])
         predicted_probabilities = predicted_probabilities.cpu().numpy()
         # revert transpose
         predicted_probabilities = predicted_probabilities.transpose([0] + [i + 1 for i in
