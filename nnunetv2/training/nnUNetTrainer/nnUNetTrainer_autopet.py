@@ -110,6 +110,7 @@ class AutoPETNet(nn.Module):
         if self.training:
             return output, classif
         else:
+            print(classif)
             return output
     def compute_conv_feature_map_size(self, input_size):
         # Ok this is not good. Later ?
@@ -1004,7 +1005,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-            output, classif = self.network(data)
+            output = self.network(data)
             del data
             l = self.loss(output, target)
 
