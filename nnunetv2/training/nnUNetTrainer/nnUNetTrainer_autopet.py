@@ -65,6 +65,42 @@ from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from monai.networks.nets import ViT
+from dynamic_network_architectures.building_blocks.helper import convert_conv_op_to_dim
+
+
+class AutoPETNet(nn.Module):
+    def __init__(self, encoder, decoder, cl_a, cl_c, cl_s, classifier, fs_a, fs_c, fs_s):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.cl_a = cl_a
+        self.cl_c = cl_c
+        self.cl_s = cl_s
+        self.classifier = classifier
+        self.fs_a = fs_a
+        self.fs_c = fs_c
+        self.fs_s = fs_s
+
+    def forward(self, x, mip_axial, mip_coro, mip_sagi):
+        skips = self.encoder(x)
+        output = self.network.decoder(skips)
+        feature_a, hs_a = self.model_classiff_axial(mip_axial)
+        feature_c, hs_c = self.model_classiff_coro(mip_coro)
+        feature_s, hs_s = self.model_classiff_sagi(mip_sagi)
+        features = torch.nn.AvgPool3d((4, 4, 4))(skips[-1])
+        feature_a = torch.nn.AvgPool3d((8, 8, 1))(self.proj_feat(feature_a, self.fs_a))
+        feature_c = torch.nn.AvgPool3d((8, 1, 8))(self.proj_feat(feature_c, self.fs_c))
+        feature_s = torch.nn.AvgPool3d((1, 8, 8))(self.proj_feat(feature_s, self.fs_s))
+        all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).squeeze(-1).squeeze(-1).squeeze(-1)
+        classif = self.classifier(all_features)
+        return output, classif
+
+    def compute_conv_feature_map_size(self, input_size):
+        # Ok this is not good. Later ?
+        assert len(input_size) == convert_conv_op_to_dim(self.encoder.conv_op), "just give the image size without color/feature channels or " \
+                                                                                "batch channel. Do not give input_size=(b, c, x, y(, z)). " \
+                                                                                "Give input_size=(x, y(, z))!"
+        return self.encoder.compute_conv_feature_map_size(input_size) + self.decoder.compute_conv_feature_map_size(input_size)
 
 
 class nnUNetTrainer_autopet(nnUNetTrainer):
@@ -216,42 +252,17 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
                                                            self.configuration_manager,
                                                            self.num_input_channels,
                                                            enable_deep_supervision=True).to(self.device)
-            axial_ps = (self.configuration_manager.patch_size[0], self.configuration_manager.patch_size[1], 1)
-            coro_ps = (self.configuration_manager.patch_size[0], 1, self.configuration_manager.patch_size[2])
-            sagi_ps = (1, self.configuration_manager.patch_size[1], self.configuration_manager.patch_size[2])
-            self.feat_size_axial = tuple(img_d // p_d for img_d, p_d in zip(axial_ps, (16, 16, 1)))
-            self.feat_size_coro = tuple(img_d // p_d for img_d, p_d in zip(coro_ps, (16, 1, 16)))
-            self.feat_size_sagi = tuple(img_d // p_d for img_d, p_d in zip(sagi_ps, (1, 16, 16)))
-            self.model_classiff_axial = ViT(in_channels=self.num_input_channels, 
-                                            img_size=axial_ps,
-                                            patch_size=(16, 16, 1), classification=False).to(self.device)
-            self.model_classiff_coro = ViT(in_channels=self.num_input_channels,
-                                           img_size=coro_ps,
-                                           patch_size=(16, 1, 16), classification=False).to(self.device)
-            self.model_classiff_sagi = ViT(in_channels=self.num_input_channels, 
-                                           img_size=sagi_ps,
-                                           patch_size=(1, 16, 16), classification=False).to(self.device)
-            self.classifier = nn.Linear(3 * 768 + self.configuration_manager.unet_max_num_features, 2).to(self.device)
             # compile network for free speedup
             if ('nnUNet_compile' in os.environ.keys()) and (
                     os.environ['nnUNet_compile'].lower() in ('true', '1', 't')):
                 self.print_to_log_file('Compiling network...')
                 self.network = torch.compile(self.network)
-                self.model_classiff_axial = torch.compile(self.model_classiff_axial)
-                self.model_classiff_coro = torch.compile(self.model_classiff_coro)
-                self.model_classiff_sagi = torch.compile(self.model_classiff_sagi)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
             if self.is_ddp:
                 self.network = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.network)
-                self.model_classiff_axial = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.model_classiff_axial)
-                self.model_classiff_coro = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.model_classiff_coro)
-                self.model_classiff_sagi = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.model_classiff_sagi)
                 self.network = DDP(self.network, device_ids=[self.local_rank])
-                self.model_classiff_axial = DDP(self.model_classiff_axial, device_ids=[self.local_rank])
-                self.model_classiff_coro = DDP(self.model_classiff_coro, device_ids=[self.local_rank])
-                self.model_classiff_sagi = DDP(self.model_classiff_sagi, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
             self.was_initialized = True
@@ -319,8 +330,28 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         should be generated. label_manager takes care of all that for you.)
 
         """
-        return get_network_from_plans(plans_manager, dataset_json, configuration_manager,
-                                      num_input_channels, deep_supervision=enable_deep_supervision)
+
+        axial_ps = (configuration_manager.patch_size[0], configuration_manager.patch_size[1], 1)
+        coro_ps = (configuration_manager.patch_size[0], 1, configuration_manager.patch_size[2])
+        sagi_ps = (1, configuration_manager.patch_size[1], configuration_manager.patch_size[2])
+        feat_size_axial = tuple(img_d // p_d for img_d, p_d in zip(axial_ps, (16, 16, 1)))
+        feat_size_coro = tuple(img_d // p_d for img_d, p_d in zip(coro_ps, (16, 1, 16)))
+        feat_size_sagi = tuple(img_d // p_d for img_d, p_d in zip(sagi_ps, (1, 16, 16)))
+        model_classiff_axial = ViT(in_channels=num_input_channels, 
+                                        img_size=axial_ps,
+                                        patch_size=(16, 16, 1), classification=False)
+        model_classiff_coro = ViT(in_channels=num_input_channels,
+                                        img_size=coro_ps,
+                                        patch_size=(16, 1, 16), classification=False)
+        model_classiff_sagi = ViT(in_channels=num_input_channels, 
+                                        img_size=sagi_ps,
+                                        patch_size=(1, 16, 16), classification=False)
+        classifier = nn.Linear(3 * 768 + configuration_manager.unet_max_num_features, 2)
+        network = get_network_from_plans(plans_manager, dataset_json, configuration_manager,
+                                         num_input_channels, deep_supervision=enable_deep_supervision)
+        net = AutoPETNet(network.encoder, network.decoder, model_classiff_axial, model_classiff_coro, model_classiff_sagi,
+                             classifier, feat_size_axial, feat_size_coro, feat_size_sagi)
+        return net
 
     def _get_deep_supervision_scales(self):
         deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
@@ -494,10 +525,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(list(self.network.parameters())
-                                    + list(self.model_classiff_axial.parameters())
-                                    + list(self.model_classiff_coro.parameters())
-                                    + list(self.model_classiff_sagi.parameters()), self.initial_lr, weight_decay=self.weight_decay,
+        optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
@@ -916,34 +944,15 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-            if self.is_ddp:
-                features = self.network.module.encoder(data)
-            else:
-                features = self.network.encoder(data)
-            if self.is_ddp:
-                output = self.network.module.decoder(features)
-            else:
-                output = self.network.decoder(features)
-            feature_a, hs_a = self.model_classiff_axial(mip_axial)
-            feature_c, hs_c = self.model_classiff_coro(mip_coro)
-            feature_s, hs_s = self.model_classiff_sagi(mip_sagi)
-            features = torch.nn.AvgPool3d((4, 4, 4))(features[-1])
-            feature_a = torch.nn.AvgPool3d((8, 8, 1))(self.proj_feat(feature_a, self.feat_size_axial))
-            feature_c = torch.nn.AvgPool3d((8, 1, 8))(self.proj_feat(feature_c, self.feat_size_coro))
-            feature_s = torch.nn.AvgPool3d((1, 8, 8))(self.proj_feat(feature_s, self.feat_size_sagi))
-            all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).squeeze(-1).squeeze(-1).squeeze(-1)
-            classif = self.classifier(all_features)
+            outputs, classif = self.network(data, mip_axial,mip_coro, mip_sagi)
             # del data
-            l = self.loss(output, target) + self.classif_loss(classif, target_class.float())
+            l = self.loss(outputs, target) + self.classif_loss(classif, target_class.float())
 
         # Seg backward loop
         if self.grad_scaler is not None:
             self.grad_scaler.scale(l).backward()
             self.grad_scaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_axial.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_coro.parameters(), 12)
-            torch.nn.utils.clip_grad_norm_(self.model_classiff_sagi.parameters(), 12)
             self.grad_scaler.step(self.optimizer)
             self.grad_scaler.update()
         else:
