@@ -110,14 +110,27 @@ class AutoPETNet(nn.Module):
         if self.training:
             return output, classif
         else:
-            print(output[0].shape)
-            for i in range(output[0].shape[0]):
-                print(np.unique((output[0][i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
-                print(torch.argmax(classif, dim=1)[i])
-                print(classif.shape)
-                print(type(output))
-                output[0][i] = output[0][i] * torch.argmax(classif, dim=1)[i]
-            return output
+            if isinstance(output, list):
+                print(output[0].shape)
+            else:
+                print(output.shape)
+            if isinstance(output, list):
+
+                for i in range(output[0].shape[0]):
+                    print(np.unique((output[0][i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
+                    print(torch.argmax(classif, dim=1)[i])
+                    print(classif.shape)
+                    print(type(output))
+                    output[0][i] = output[0][i] * torch.argmax(classif, dim=1)[i]
+                return output
+            else:
+                for i in range(output.shape[0]):
+                    print(np.unique((output[i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
+                    print(torch.argmax(classif, dim=1)[i])
+                    print(classif.shape)
+                    print(type(output))
+                    output[i] = output[i] * torch.argmax(classif, dim=1)[i]
+                return output
 
     def compute_conv_feature_map_size(self, input_size):
         # Ok this is not good. Later ?
