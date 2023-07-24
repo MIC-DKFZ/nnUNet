@@ -189,9 +189,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         self.initial_lr = 1e-4
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
-        self.num_iterations_per_epoch = 1250
-        self.num_val_iterations_per_epoch = 250
-        self.num_epochs = 250
+        self.num_iterations_per_epoch = 24
+        self.num_val_iterations_per_epoch = 12
+        self.num_epochs = 2
         self.current_epoch = 0
 
         ### Dealing with labels/regions
