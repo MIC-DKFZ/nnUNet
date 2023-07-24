@@ -110,8 +110,8 @@ class AutoPETNet(nn.Module):
         if self.training:
             return output, classif
         else:
-            print(torch.argmax(classif))
-            print(output[-1].size)
+            print(torch.argmax(classif, keepdim=True))
+            print(output[-1].shape)
             print((output[-1] * torch.argmax(classif)).shape)
             output[-1] = output[-1] * torch.argmax(classif)
             return output
