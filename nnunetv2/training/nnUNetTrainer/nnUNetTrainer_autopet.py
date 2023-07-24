@@ -107,8 +107,10 @@ class AutoPETNet(nn.Module):
         feature_s = torch.nn.AvgPool3d((1, 8, 8))(self.proj_feat(feature_s, self.fs_s))
         all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).squeeze(-1).squeeze(-1).squeeze(-1)
         classif = self.classifier(all_features)
-        return output, classif
-
+        if self.training:
+            return output, classif
+        else:
+            return output
     def compute_conv_feature_map_size(self, input_size):
         # Ok this is not good. Later ?
         assert len(input_size) == convert_conv_op_to_dim(self.encoder.conv_op), "just give the image size without color/feature channels or " \
