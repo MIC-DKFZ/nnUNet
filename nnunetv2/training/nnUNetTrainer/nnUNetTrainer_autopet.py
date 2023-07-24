@@ -84,9 +84,9 @@ class AutoPETNet(nn.Module):
     def forward(self, x, mip_axial, mip_coro, mip_sagi):
         skips = self.encoder(x)
         output = self.network.decoder(skips)
-        feature_a, hs_a = self.model_classiff_axial(mip_axial)
-        feature_c, hs_c = self.model_classiff_coro(mip_coro)
-        feature_s, hs_s = self.model_classiff_sagi(mip_sagi)
+        feature_a, hs_a = self.cl_a(mip_axial)
+        feature_c, hs_c = self.cl_c(mip_coro)
+        feature_s, hs_s = self.cl_s(mip_sagi)
         features = torch.nn.AvgPool3d((4, 4, 4))(skips[-1])
         feature_a = torch.nn.AvgPool3d((8, 8, 1))(self.proj_feat(feature_a, self.fs_a))
         feature_c = torch.nn.AvgPool3d((8, 1, 8))(self.proj_feat(feature_c, self.fs_c))
@@ -912,9 +912,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
 
     def on_train_epoch_start(self):
         self.network.train()
-        self.model_classiff_axial.train()
-        self.model_classiff_coro.train()
-        self.model_classiff_sagi.train()
         self.lr_scheduler.step(self.current_epoch)
         self.print_to_log_file('')
         self.print_to_log_file(f'Epoch {self.current_epoch}')
@@ -1170,9 +1167,6 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
     def perform_actual_validation(self, save_probabilities: bool = False):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
-        self.model_classiff_axial.eval()
-        self.model_classiff_coro.eval()
-        self.model_classiff_sagi.eval()
 
         predictor = nnUNetPredictor(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
                                     perform_everything_on_gpu=True, device=self.device, verbose=False,
