@@ -110,8 +110,8 @@ class AutoPETNet(nn.Module):
         if self.training:
             return output, classif
         else:
-            print(classif)
             return output
+
     def compute_conv_feature_map_size(self, input_size):
         # Ok this is not good. Later ?
         assert len(input_size) == convert_conv_op_to_dim(self.encoder.conv_op), "just give the image size without color/feature channels or " \
