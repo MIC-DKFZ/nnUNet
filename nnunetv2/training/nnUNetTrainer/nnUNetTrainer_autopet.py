@@ -115,8 +115,8 @@ class AutoPETNet(nn.Module):
             print(torch.argmax(classif, dim=1).shape)
             print(output[0].shape)
             for i in range(output[0].shape[0]):
-                print((output[0][i] * torch.argmax(classif[i], dim=1)).shape)
-                output[0][i] = output[0][i] * torch.argmax(classif[i], dim=1)
+                print((output[0][i] * torch.argmax(classif, dim=1)[i]).shape)
+                output[0][i] = output[0][i] * torch.argmax(classif, dim=1)[i]
             return output
 
     def compute_conv_feature_map_size(self, input_size):
