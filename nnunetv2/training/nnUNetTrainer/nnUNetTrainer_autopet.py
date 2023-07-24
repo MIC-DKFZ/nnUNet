@@ -114,12 +114,14 @@ class AutoPETNet(nn.Module):
                 for i in range(output[0].shape[0]):
                     print(np.unique((output[0][i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
                     print(torch.argmax(classif, dim=1)[i])
+                    print(classif)
                     output[0][i] = output[0][i] * torch.argmax(classif, dim=1)[i]
                 return output
             else:
                 for i in range(output.shape[0]):
                     print(np.unique((output[i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
                     print(torch.argmax(classif, dim=1)[i])
+                    print(classif)
                     output[i] = output[i] * torch.argmax(classif, dim=1)[i]
                 return output
 
