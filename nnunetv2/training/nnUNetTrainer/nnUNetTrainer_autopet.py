@@ -80,6 +80,9 @@ class AutoPETNet(nn.Module):
         self.fs_a = fs_a
         self.fs_c = fs_c
         self.fs_s = fs_s
+        self.hidden_size = 768
+        spatial_dims = 3
+        self.proj_axes = (0, spatial_dims + 1) + tuple(d + 1 for d in range(spatial_dims))
 
     def proj_feat(self, x, feat_size):
         self.proj_view_shape = list(feat_size) + [self.hidden_size]
