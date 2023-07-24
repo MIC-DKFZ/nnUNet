@@ -112,16 +112,10 @@ class AutoPETNet(nn.Module):
         else:
             if isinstance(output, list):
                 for i in range(output[0].shape[0]):
-                    print(np.unique((output[0][i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
-                    print(torch.argmax(classif, dim=1)[i])
-                    print(classif)
                     output[0][i] = output[0][i] * torch.argmax(classif, dim=1)[i]
                 return output
             else:
                 for i in range(output.shape[0]):
-                    print(np.unique((output[i] * torch.argmax(classif, dim=1)[i]).cpu().detach().numpy(), return_counts=True))
-                    print(torch.argmax(classif, dim=1)[i])
-                    print(classif)
                     output[i] = output[i] * torch.argmax(classif, dim=1)[i]
                 return output
 
@@ -209,9 +203,9 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         self.initial_lr = 1e-4
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
-        self.num_iterations_per_epoch = 24
-        self.num_val_iterations_per_epoch = 12
-        self.num_epochs = 2
+        self.num_iterations_per_epoch = 825
+        self.num_val_iterations_per_epoch = 200
+        self.num_epochs = 10
         self.current_epoch = 0
 
         ### Dealing with labels/regions
