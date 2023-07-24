@@ -106,11 +106,14 @@ class AutoPETNet(nn.Module):
         feature_c = torch.nn.AvgPool3d((8, 1, 8))(self.proj_feat(feature_c, self.fs_c))
         feature_s = torch.nn.AvgPool3d((1, 8, 8))(self.proj_feat(feature_s, self.fs_s))
         all_features = torch.cat([features, feature_a, feature_c, feature_s], dim=1).squeeze(-1).squeeze(-1).squeeze(-1)
-        classif = self.classifier(all_features)
+        classif = torch.softmax(self.classifier(all_features), dim=1)
         if self.training:
             return output, classif
         else:
-            return output
+            print(torch.argmax(classif))
+            print(output.size)
+            print(torch.argmax(classif))
+            return output*torch.argmax(classif)
 
     def compute_conv_feature_map_size(self, input_size):
         # Ok this is not good. Later ?
