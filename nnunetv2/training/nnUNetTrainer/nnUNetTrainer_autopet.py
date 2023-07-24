@@ -81,6 +81,13 @@ class AutoPETNet(nn.Module):
         self.fs_c = fs_c
         self.fs_s = fs_s
 
+    def proj_feat(self, x, feat_size):
+        self.proj_view_shape = list(feat_size) + [self.hidden_size]
+        new_view = [x.size(0)] + self.proj_view_shape
+        x = x.view(new_view)
+        x = x.permute(self.proj_axes).contiguous()
+        return x
+
     def forward(self, x, mip_axial, mip_coro, mip_sagi):
         skips = self.encoder(x)
         output = self.decoder(skips)
