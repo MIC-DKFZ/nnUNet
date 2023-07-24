@@ -83,7 +83,7 @@ class AutoPETNet(nn.Module):
 
     def forward(self, x, mip_axial, mip_coro, mip_sagi):
         skips = self.encoder(x)
-        output = self.network.decoder(skips)
+        output = self.decoder(skips)
         feature_a, hs_a = self.cl_a(mip_axial)
         feature_c, hs_c = self.cl_c(mip_coro)
         feature_s, hs_s = self.cl_s(mip_sagi)
