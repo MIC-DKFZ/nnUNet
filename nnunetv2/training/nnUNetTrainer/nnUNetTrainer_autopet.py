@@ -994,12 +994,17 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
 
+        target_class = torch.nn.functional.one_hot(
+            torch.cat([torch.max(target[0][idx]).long().unsqueeze(0) for idx in range(np.shape(target[0])[0])], dim=0), num_classes=2)
+        mip_axial = torch.cat([torch.max(data[idx].unsqueeze(0), 4, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        mip_coro = torch.cat([torch.max(data[idx].unsqueeze(0), 3, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
+        mip_sagi = torch.cat([torch.max(data[idx].unsqueeze(0), 2, keepdim=True)[0] for idx in range(np.shape(data)[0])], dim=0)
         # Autocast is a little bitch.
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-            output = self.network(data)
+            output, classif = self.network(data, mip_axial, mip_coro, mip_sagi)
             del data
             l = self.loss(output, target)
 
