@@ -205,7 +205,7 @@ class nnUNetTrainer_autopet(nnUNetTrainer):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 825
         self.num_val_iterations_per_epoch = 200
-        self.num_epochs = 10
+        self.num_epochs = 250
         self.current_epoch = 0
 
         ### Dealing with labels/regions
