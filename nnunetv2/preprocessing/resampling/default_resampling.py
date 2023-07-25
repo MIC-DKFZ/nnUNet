@@ -81,7 +81,8 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
                                   is_seg: bool = False,
                                   order: int = 3, order_z: int = 0,
                                   force_separate_z: Union[bool, None] = False,
-                                  separate_z_anisotropy_threshold: float = ANISO_THRESHOLD):
+                                  separate_z_anisotropy_threshold: float = ANISO_THRESHOLD,
+                                  rescale_z: float = True):
     """
     needed for segmentation export. Stupid, I know. Maybe we can fix that with Leos new resampling functions
     """
@@ -118,13 +119,14 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     if data is not None:
         assert len(data.shape) == 4, "data must be c x y z"
 
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
+    data_reshaped = resample_data_or_seg(
+        data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z, rescale_z=rescale_z)
     return data_reshaped
 
 
 def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], List[float], np.ndarray],
                          is_seg: bool = False, axis: Union[None, int] = None, order: int = 3,
-                         do_separate_z: bool = False, order_z: int = 0):
+                         do_separate_z: bool = False, order_z: int = 0, rescale_z: bool = True):
     """
     separate_z=True will resample with order 0 along z
     :param data:
@@ -172,7 +174,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                     else:
                         reshaped_data.append(resize_fn(data[c, :, :, slice_id], new_shape_2d, order, **kwargs))
                 reshaped_data = np.stack(reshaped_data, axis)
-                if shape[axis] != new_shape[axis]:
+                if rescale_z and shape[axis] != new_shape[axis]:
 
                     # The following few lines are blatantly copied and modified from sklearn's resize()
                     rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
