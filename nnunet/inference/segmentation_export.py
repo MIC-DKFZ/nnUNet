@@ -118,7 +118,7 @@ def save_segmentation_nifti_from_softmax(segmentation_softmax: Union[str, np.nda
         bbox = deepcopy(properties_dict.get('crop_bbox'))
         if bbox is not None:
             softmax_orig_shape = np.zeros((seg_old_spacing.shape[0], *shape_original_before_cropping),
-                                          dtype=shape_original_before_cropping.dtype)
+                                          dtype=seg_old_spacing.dtype)
             for c in range(3):
                 bbox[c][1] = np.min((bbox[c][0] + seg_old_spacing.shape[c+1], shape_original_before_cropping[c]))
             softmax_orig_shape[:, bbox[0][0]:bbox[0][1],
