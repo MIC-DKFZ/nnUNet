@@ -64,7 +64,7 @@ from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 
-class nnUNetTrainer(object):
+class nnUNetTrainer_aghiles(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
@@ -142,7 +142,7 @@ class nnUNetTrainer(object):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 50
         self.num_val_iterations_per_epoch = 30
-        self.num_epochs = 250
+        self.num_epochs = 40
         self.current_epoch = 0
 
         ### Dealing with labels/regions
