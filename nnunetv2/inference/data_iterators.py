@@ -98,7 +98,7 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
         processes.append(pr)
 
     worker_ctr = 0
-    print(type(target_queues[worker_ctr]))
+    print(f"Type: {type(target_queues[worker_ctr])}")
     while (not done_events[worker_ctr].is_set()) or (not target_queues[worker_ctr].empty()):
         print(type(target_queues[worker_ctr]))
         if not target_queues[worker_ctr].empty():
