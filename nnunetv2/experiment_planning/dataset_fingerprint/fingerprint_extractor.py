@@ -91,17 +91,6 @@ class DatasetFingerprintExtractor(object):
         # Downside is that we need to do this twice (once here and once during preprocessing). Upside is that we don't
         # need to save the cropped data anymore. Given that cropping is not too expensive it makes sense to do it this
         # way. This is only possible because we are now using our new input/output interface.
-        print(image_files)
-        print(segmentation_file)
-        print(np.array(nib.load(image_files[0]).dataobj).shape)
-        print(np.array(nib.load(segmentation_file).dataobj).shape)
-        print(images.shape)
-        print(segmentation.shape)
-        data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
-        print(f"BBox: {bbox}")
-        print(f"data : {data_cropped.shape}")
-        print(f"shape: {seg_cropped.shape}")
-        exit()
         foreground_intensities_per_channel, foreground_intensity_stats_per_channel = \
             DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
                                                                        num_samples=num_samples)
