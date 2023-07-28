@@ -203,7 +203,7 @@ class nnUNetTrainer_aghiles(nnUNetTrainer):
             self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
                                                            self.configuration_manager,
                                                            self.num_input_channels,
-                                                           enable_deep_supervision=True).to(self.device)
+                                                           enable_deep_supervision=False).to(self.device)
             # compile network for free speedup
             if ('nnUNet_compile' in os.environ.keys()) and (
                     os.environ['nnUNet_compile'].lower() in ('true', '1', 't')):
@@ -262,7 +262,7 @@ class nnUNetTrainer_aghiles(nnUNetTrainer):
                                    dataset_json,
                                    configuration_manager: ConfigurationManager,
                                    num_input_channels,
-                                   enable_deep_supervision: bool = True) -> nn.Module:
+                                   enable_deep_supervision: bool = False) -> nn.Module:
         """
         his is where you build the architecture according to the plans. There is no obligation to use
         get_network_from_plans, this is just a utility we use for the nnU-Net default architectures. You can do what
