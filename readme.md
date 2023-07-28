@@ -110,10 +110,12 @@ the highest CUDA version compatible with your drivers for maximum performance.
 
        ```pip install nnunet```
 
+       This will install the latest release. Alternatively you can also run `pip install git+https://github.com/MIC-DKFZ/nnUNet.git@nnunetv1` to install the most recent version of the code.
     2) For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you can modify it as needed):
           ```bash
           git clone https://github.com/MIC-DKFZ/nnUNet.git
           cd nnUNet
+          git checkout nnunetv1
           pip install -e .
           ```
 4) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to

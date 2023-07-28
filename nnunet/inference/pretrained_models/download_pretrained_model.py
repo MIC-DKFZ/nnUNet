@@ -223,6 +223,15 @@ def get_available_models():
                "https://zenodo.org/record/5126443/files/Task135_KiTS2021.zip?download=1",
            )
        },
+        "Task169_BrainTumorPET": {
+            'description': "Brain tumor segmentation in FET PET images. Data originates from the Research Center Jülich, Germany.\n"
+                           "Predicted labels are 0: background, 1: tumor\n"
+                           "Input modalities are 0: FET PET\n"
+                           "See also (NOT YET AVAILABLE)",
+            'url': (
+                "https://zenodo.org/record/8189234/files/nnUNet_FZJ_v2.zip?download=1",
+            )
+        },
     }
     return available_models
 
