@@ -75,16 +75,12 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
         # now we need to find kernel sizes
         # kernel sizes are initialized to 1. They are successively set to 3 when their associated axis becomes within
         # factor 2 of min_spacing. Once they are 3 they remain 3
-        try:
-            for d in range(dim):
-                if kernel_size[d] == 3:
-                    continue
-                else:
-                    if current_spacing[d] / min(current_spacing) < 2:
-                        kernel_size[d] = 3
-        except:
-            import IPython;IPython.embed()
-
+        for d in range(dim):
+            if kernel_size[d] == 3:
+                continue
+            else:
+                if spacings_of_axes[d] / min(current_spacing) < 2:
+                    kernel_size[d] = 3
 
         other_axes = [i for i in range(dim) if i not in valid_axes_for_pool]
 
