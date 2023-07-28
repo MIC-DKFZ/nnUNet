@@ -57,7 +57,7 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from sklearn.model_selection import KFold
-from nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer import nnUNetTrainer
 from torch import autocast, nn
 from torch import distributed as dist
 from torch.cuda import device_count
