@@ -94,7 +94,7 @@ class DatasetFingerprintExtractor(object):
         print(image_files)
         print(segmentation_file)
         print(np.array(nib.load(image_files[0]).dataobj).shape)
-        print(np.array(nib.load(segmentation_file[0]).dataobj).shape)
+        print(np.array(nib.load(segmentation_file).dataobj).shape)
         print(images.shape)
         print(segmentation.shape)
         data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
