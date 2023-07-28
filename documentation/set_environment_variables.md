@@ -16,7 +16,7 @@ export nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
 export nnUNet_results="/media/fabian/nnUNet_results"
 ```
 
-(of course you need to adapt the paths to the actual folders you intend to use).
+(Of course you need to adapt the paths to the actual folders you intend to use).
 If you are using a different shell, such as zsh, you will need to find the correct script for it. For zsh this is `.zshrc`.
 
 ## Temporary
@@ -26,7 +26,7 @@ export nnUNet_raw="/media/fabian/nnUNet_raw"
 export nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
 export nnUNet_results="/media/fabian/nnUNet_results"
 ```
-(of course you need to adapt the paths to the actual folders you intend to use).
+(Of course you need to adapt the paths to the actual folders you intend to use).
 
 Important: These variables will be deleted if you close your terminal! They will also only apply to the current 
 terminal window and DO NOT transfer to other terminals!
@@ -51,21 +51,21 @@ Or read about setx (command prompt).
 ## Temporary
 Just execute the following before you run nnU-Net:
 
-(powershell)
-```powershell
-$Env:nnUNet_raw = "/media/fabian/nnUNet_raw"
-$Env:nnUNet_preprocessed = "/media/fabian/nnUNet_preprocessed"
-$Env:nnUNet_results = "/media/fabian/nnUNet_results"
+(PowerShell)
+```PowerShell
+$Env:nnUNet_raw = "C:/Users/fabian/nnUNet_raw"
+$Env:nnUNet_preprocessed = "C:/Users/fabian/nnUNet_preprocessed"
+$Env:nnUNet_results = "C:/Users/fabian/nnUNet_results"
 ```
 
-(command prompt)
-```commandline
-set nnUNet_raw="/media/fabian/nnUNet_raw"
-set nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed"
-set nnUNet_results="/media/fabian/nnUNet_results"
+(Command Prompt)
+```Command Prompt
+set nnUNet_raw=C:/Users/fabian/nnUNet_raw
+set nnUNet_preprocessed=C:/Users/fabian/nnUNet_preprocessed
+set nnUNet_results=C:/Users/fabian/fabian/nnUNet_results
 ```
 
-(of course you need to adapt the paths to the actual folders you intend to use).
+(Of course you need to adapt the paths to the actual folders you intend to use).
 
 Important: These variables will be deleted if you close your session! They will also only apply to the current 
 window and DO NOT transfer to other sessions!
@@ -73,6 +73,6 @@ window and DO NOT transfer to other sessions!
 ## Verify that environment parameters are set
 Printing in Windows works differently depending on the environment you are in:
 
-powershell: `echo $Env:[variable_name]`
+PowerShell: `echo $Env:[variable_name]`
 
-command prompt: `echo %[variable_name]%`
+Command Prompt: `echo %[variable_name]%`
