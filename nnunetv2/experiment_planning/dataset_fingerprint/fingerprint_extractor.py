@@ -3,6 +3,7 @@ import os
 from time import sleep
 from typing import List, Type, Union
 
+import nibabel as nib
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 from tqdm import tqdm
@@ -90,6 +91,8 @@ class DatasetFingerprintExtractor(object):
         # Downside is that we need to do this twice (once here and once during preprocessing). Upside is that we don't
         # need to save the cropped data anymore. Given that cropping is not too expensive it makes sense to do it this
         # way. This is only possible because we are now using our new input/output interface.
+        print(np.array(nib.load(image_files).dataobj).shape)
+        print(np.array(nib.load(segmentation_file).dataobj).shape)
         print(images.shape)
         print(segmentation.shape)
         data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
