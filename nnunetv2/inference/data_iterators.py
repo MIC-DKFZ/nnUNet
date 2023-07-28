@@ -99,6 +99,7 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
 
     worker_ctr = 0
     while (not done_events[worker_ctr].is_set()) or (not target_queues[worker_ctr].empty()):
+        print(type(target_queues[worker_ctr]))
         if not target_queues[worker_ctr].empty():
             item = target_queues[worker_ctr].get()
             worker_ctr = (worker_ctr + 1) % num_processes
