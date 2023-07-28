@@ -166,6 +166,7 @@ class DatasetFingerprintExtractor(object):
                                  else self.dataset_json['modality'].keys())
             intensity_statistics_per_channel = {}
             for i in range(num_channels):
+                print(foreground_intensities_per_channel[i])
                 intensity_statistics_per_channel[i] = {
                     'mean': float(np.mean(foreground_intensities_per_channel[i])),
                     'median': float(np.median(foreground_intensities_per_channel[i])),
