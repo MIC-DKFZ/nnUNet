@@ -90,6 +90,8 @@ class DatasetFingerprintExtractor(object):
         # Downside is that we need to do this twice (once here and once during preprocessing). Upside is that we don't
         # need to save the cropped data anymore. Given that cropping is not too expensive it makes sense to do it this
         # way. This is only possible because we are now using our new input/output interface.
+        print(images.shape)
+        print(segmentation.shape)
         data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
         print(f"BBox: {bbox}")
         print(f"data : {data_cropped.shape}")
