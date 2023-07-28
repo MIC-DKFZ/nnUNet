@@ -92,6 +92,8 @@ class DatasetFingerprintExtractor(object):
         # way. This is only possible because we are now using our new input/output interface.
         data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
         print(f"BBox: {bbox}")
+        print(f"data : {data_cropped.shape}")
+        print(f"shape: {seg_cropped.shape}")
         foreground_intensities_per_channel, foreground_intensity_stats_per_channel = \
             DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
                                                                        num_samples=num_samples)
