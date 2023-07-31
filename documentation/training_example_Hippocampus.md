@@ -24,7 +24,7 @@ destination of your choice.
     nnUNet_plan_and_preprocess -t 4
     ```
    Where 4 refers to the task ID of the Hippocampus dataset.
-5) Now you can already start network training. This is how you train a 3d full resoltion U-Net on the Hippocampus dataset:
+5) Now you can already start network training. This is how you train a 3d full resolution U-Net on the Hippocampus dataset:
     ```bash
     nnUNet_train 3d_fullres nnUNetTrainerV2 4 0
     ```

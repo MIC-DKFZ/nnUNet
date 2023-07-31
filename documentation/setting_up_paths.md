@@ -65,7 +65,7 @@ export RESULTS_FOLDER="/media/fabian/nnUNet_trained_models"
 
 (of course adapt the paths to your system and remember that nnUNet_preprocessed should be located on an SSD!)
 
-Then save and exit. To be save, make sure to reload the .bashrc by running `source /home/fabian/.bashrc`. Reloading 
+Then save and exit. To be safe, make sure to reload the .bashrc by running `source /home/fabian/.bashrc`. Reloading 
 needs only be done on terminal sessions that were already open before you saved the changes. Any new terminal you open 
 after will have these paths set. You can verify that the paths are set up properly by typing `echo $RESULTS_FOLDER` 
 etc and it should print out the correct folder.

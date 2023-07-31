@@ -16,7 +16,7 @@
 ## RuntimeError: Expected scalar type half but found float
 
 This can happen when running inference (or training) with mixed precision enabled on older GPU hardware. It points 
-to some operation not being implemented in half precision for the type of GPU you are using. There are flags to enforce
+to some operations not being implemented in half precision for the type of GPU you are using. There are flags to enforce
  the use of fp32 for both nnUNet_predict and nnUNet_train. If you run into this error, using these flags will probably 
  solve it. See `nnUNet_predict -h` and `nnUNet_train -h` for what the flags are.
 
@@ -57,7 +57,7 @@ To ensure that you can run all trainings, we recommend to use a GPU with at leas
 If you are running other programs on the GPU you intend to train on (for example the GUI of your operating system), 
 the amount of VRAM available to nnU-Net is less than whatever is on your GPU. Please close all unnecessary programs or 
 invest in a second GPU. We for example like to use a low cost GPU (GTX 1050 or slower) for the display outputs while 
-having the 2080ti (or equivelant) handle the training.
+having the 2080ti (or equivalant) handle the training.
 
 At the start of each training, cuDNN will run some benchmarks in order to figure out the fastest convolution algorithm 
 for the current network architecture (we use `torch.backends.cudnn.benchmark=True`). VRAM consumption will jump all over
@@ -104,7 +104,7 @@ TensorInfo<long, IndexType>, Real, int, IndexType) [with IndexType = unsigned in
 block: [4770,0,0], thread: [374,0,0] Assertion indexValue >= 0 && indexValue < tensor.sizes[dim] failed.`.
 
 This means that your dataset contains unexpected values in the segmentations. nnU-Net expects all labels to be 
-consecutive integers. So if your dataset has 4 classes (background and three foregound labels), then the labels 
+consecutive integers. So if your dataset has 4 classes (background and three foreground labels), then the labels 
 must be 0, 1, 2, 3 (where 0 must be background!). There cannot be any other values in the ground truth segmentations.
 
 If you run `nnUNet_plan_and_preprocess` with the `--verify_dataset_integrity` option, this should never happen because 
