@@ -113,5 +113,8 @@ it will check for wrong values in the label images.
 ## nnU-Net training: Error: mmap length is greater than file size and EOFError
 Please delete all .npy files in the nnUNet_preprocessed folder of the test you were trying to train. Then try again.
 
+## nnU-Net training: Error: MultiThreadedAugmenter.abort_event was set, something went wrong. Maybe one of your workers crashed. This is not the actual error message! Look further up your stdout to see what caused the error. Please also check whether your RAM was full
+Please delete all .npy files in the nnUNet_preprocessed folder of the test you were trying to train. Then try again.
+
 ## running nnU-Net on Azure instances
 see https://github.com/MIC-DKFZ/nnUNet/issues/437, thank you @Alaska47
