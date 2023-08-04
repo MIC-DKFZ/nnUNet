@@ -473,16 +473,37 @@ We have collected solutions to common [questions](documentation/common_questions
 
 # Useful Resources
 
-* The [nnU-Net Workshop](https://github.com/IML-DKFZ/nnunet-workshop) is a step-by-step introduction to nnU-Net and visualizing
+* The **[nnU-Net Workshop](https://github.com/IML-DKFZ/nnunet-workshop)** is a step-by-step introduction to nnU-Net and visualizing
 results using MITK. Regarding nnU-Net, it includes training and inference examples and an example to train on a new dataset.
 The workshop itself is a jupyter notebook, which can be executed in GoogleColab.
 
-* This RSNA 2021 Deep Learning Lab [notebook](https://github.com/RSNA/AI-Deep-Learning-Lab-2021/blob/main/sessions/tcia-idc/RSNA_2021_IDC_and_TCIA.ipynb) demonstrates how nnU-Net can be used to analyze public DICOM datasets available in US National Cancer Institute [Imaging Data Commons (IDC)](https://imaging.datacommons.cancer.gov). This notebook demonstrates how datasets suitable for the analysis with nnU-Net can be identified within IDC, how they can be preprocessed from the DICOM format to be usable with nnU-Net, and how the results of the analysis can be visualized in the notebook without having to download anything. NCI Imaging Data Commons is a cloud-based repository of publicly available cancer imaging data co-located with the analysis and exploration tools and resources. IDC is a node within the broader NCI [Cancer Research Data Commons (CRDC)](https://datacommons.cancer.gov/) infrastructure that provides secure access to a large, comprehensive, and expanding collection of cancer research data.
+* This **RSNA 2021 Deep Learning Lab** [notebook](https://github.com/RSNA/AI-Deep-Learning-Lab-2021/blob/main/sessions/tcia-idc/RSNA_2021_IDC_and_TCIA.ipynb) demonstrates how nnU-Net can be used to analyze public DICOM datasets available in US National Cancer Institute [Imaging Data Commons (IDC)](https://imaging.datacommons.cancer.gov). This notebook demonstrates how datasets suitable for the analysis with nnU-Net can be identified within IDC, how they can be preprocessed from the DICOM format to be usable with nnU-Net, and how the results of the analysis can be visualized in the notebook without having to download anything. NCI Imaging Data Commons is a cloud-based repository of publicly available cancer imaging data co-located with the analysis and exploration tools and resources. IDC is a node within the broader NCI [Cancer Research Data Commons (CRDC)](https://datacommons.cancer.gov/) infrastructure that provides secure access to a large, comprehensive, and expanding collection of cancer research data.
 
-* A [Google Colab notebook](documentation/celltrackingchallenge/MIC-DKFZ.ipynb) example has been added to the repository allowing to train and apply a model to some of the 
+* A **[Google Colab notebook](documentation/celltrackingchallenge/MIC-DKFZ.ipynb)** example has been added to the repository allowing to train and apply a model to some of the 
 [cell tracking challenge](http://celltrackingchallenge.net/) datasets. 
 You will need to download the data and some extra folders in your Google Drive and connect to it from the notebook 
 for the process to work.
+* **Amino Acid PET Brain Tumor Segmentation (JuST_BrainPET)**
+  
+  The Juelich Segmentation Tool for Brain Tumor PET (JuST_BrainPET) is a model trained for the segmentation of amino acid PET scans of brain tumor patients using the tracer O-(2-[18F]fluoroethyl)-L-tyrosine (FET). For more information about JuST_BrainPET, please refer to the following paper:
+  
+  ```R. Gutsche, C. Lowis, K. Ziemons, M. Kocher, G. Ceccon, C. Régio Brambilla, N. J. Shah, K.-J. Langen, N. Galldiks, F. Isensee, P. Lohmann (2023). Automated Brain Tumor Detection and Segmentation for Treatment Response Assessment Using Amino Acid PET. J Nucl Med (DOI: 10.2967/jnumed.123.265725)```
+  
+  Please also cite this paper if you are using JuST_BrainPET for your research!
+
+  To run JuST_BrainPET, install nnU-Net (V1) using the following command:
+
+  `pip install git+https://github.com/MIC-DKFZ/nnUNet.git@nnunetv1` 
+
+   To download the pretrained JuST_BrainPET model, run:
+
+  `nnUNet_download_pretrained_model Task169_BrainTumorPET`
+
+  To start inference using JuST_BrainPET, run:
+
+  `nnUNet_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -t Task169_BrainTumorPET -m 3d_fullres`
+
+   As input, static FET PET scans are expected without any further preprocessing.
 
 # Acknowledgements
 
