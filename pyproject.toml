@@ -1,8 +1,8 @@
 [project]
-name = "nnunet"
-version = "2.1.1"
+name = "nnunetv2"
+version = "2.1.2"
 requires-python = ">=3.9"
-description = "NnU-Net is a framework for out-of-the box biomedical image segmentation."
+description = "NnU-Net is a framework for out-of-the box image segmentation."
 readme = "readme.md"
 license = { file = "LICENSE" }
 authors = [
@@ -34,7 +34,6 @@ dependencies = [
     "dynamic-network-architectures>=0.2",
     "tqdm",
     "dicom2nifti",
-    "scikit-image>=0.14",
     "scipy",
     "batchgenerators>=0.25",
     "numpy",
