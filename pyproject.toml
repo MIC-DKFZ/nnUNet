@@ -2,7 +2,7 @@
 name = "nnunetv2"
 version = "2.1.2"
 requires-python = ">=3.9"
-description = "NnU-Net is a framework for out-of-the box image segmentation."
+description = "nnU-Net is a framework for out-of-the box image segmentation."
 readme = "readme.md"
 license = { file = "LICENSE" }
 authors = [
@@ -23,6 +23,7 @@ classifiers = [
 keywords = [
     'deep learning',
     'image segmentation',
+    'semantic segmentation',
     'medical image analysis',
     'medical image segmentation',
     'nnU-Net',
