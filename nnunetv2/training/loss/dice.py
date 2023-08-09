@@ -83,7 +83,8 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
 
         with torch.no_grad():
             if len(shp_x) != len(shp_y):
-                y = y.view((shp_y[0], 1, *shp_y[1:]))
+                shp_y = (shp_y[0], 1, *shp_y[1:])
+                y = y.view(shp_y)
 
             if all([i == j for i, j in zip(shp_x, shp_y)]):
                 # if this is the case then gt is probably already a one hot encoding
