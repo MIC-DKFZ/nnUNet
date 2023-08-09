@@ -43,6 +43,7 @@ class DefaultPreprocessor(object):
         # let's not mess up the inputs!
         data = np.copy(data)
         if seg is not None:
+            assert data.shape[1:] == seg.shape[1:], "Shape mismatch between image and segmentation. Please fix your dataset and make use of the --verify_dataset_integrity flag to ensure everything is correct"
             seg = np.copy(seg)
 
         has_seg = seg is not None
