@@ -62,7 +62,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
 
         # Autocast is a little bitch.
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
