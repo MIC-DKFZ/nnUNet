@@ -67,7 +67,7 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
     if data is not None:
         assert len(data.shape) == 4, "data must be c x y z"
 
-    shape = np.array(data[0].shape)
+    shape = np.array(data.shape)
     new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
 
     data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
