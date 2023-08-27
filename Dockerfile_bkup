@@ -1,0 +1,68 @@
+#FROM python:3.9-slim
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+
+WORKDIR app
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+RUN apt-get install -y tzdata
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository ppa:deadsnakes/ppa
+# Install py39 from deadsnakes repository
+#RUN apt-get install -y python3.9
+#RUN apt-get install -y python3.9-dev
+# Install pip from standard ubuntu packages
+RUN apt-get install -y python3-pip
+#RUN apt-get -y update && apt-get install -y gcc
+#RUN apt-get install -y git
+#RUN apt-get install -y build-essential libz-dev libblosc-dev liblzma-dev liblz4-dev libzstd-dev libpng-dev libwebp-dev libbz2-dev libopenjp2-7-dev libjpeg-turbo8-dev libjxr-dev liblcms2-dev libcharls-dev libaec-dev libbrotli-dev libsnappy-dev libzopfli-dev libgif-dev libtiff-dev 
+#RUN apt install -y libjxr0 libjbig0 libaec0 libsnappy1v5 libblosc1 libgif7 libwebp6 libtiff5 libzopfli1 libopenjp2-7 liblcms2-2 libbrotli1
+#RUN apt-get install -y build-essential cython3 python3.9-setuptools python3.9-pip python3.9-wheel python3.9-numpy python3.9-pytest python3.9-blosc python3.9-brotli python3.9-snappy python3.9-lz4 libz-dev libblosc-dev liblzma-dev liblz4-dev libzstd-dev libpng-dev libwebp-dev libbz2-dev libopenjp2-7-dev libjpeg-turbo8-dev libjxr-dev liblcms2-dev libcharls-dev libaec-dev libbrotli-dev libsnappy-dev libzopfli-dev libgif-dev libtiff-dev
+#RUN apt-get install -y build-essential cython3 libz-dev libblosc-dev liblzma-dev liblz4-dev libzstd-dev libpng-dev libwebp-dev libbz2-dev libopenjp2-7-dev libjpeg-turbo8-dev libjxr-dev liblcms2-dev libcharls-dev libaec-dev libbrotli-dev libsnappy-dev libzopfli-dev libgif-dev libtiff-dev
+#RUN python3.9 -m pip install imagecodecs==2021.4.28
+#RUN apt-get install -y cmake
+#RUN git clone --depth=1 https://github.com/google/brunsli.git
+#WORKDIR brunsli
+#RUN git submodule update --init --recursive
+#RUN cmake -DCMAKE_BUILD_TYPE=Release -B out
+#RUN cmake --build out --config Release
+
+#WORKDIR /app
+
+#RUN echo "alias python3=/usr/bin/python3.9" >> ~/.bashrc
+RUN echo "export nnUNet_raw=/app/nnUNet_raw/" >> ~/.bashrc
+RUN echo "export nnUNet_preprocessed=/app/nnUNet_preprocessed/" >> ~/.bashrc
+RUN echo "export nnUNet_results=/app/nnUNet_results/" >> ~/.bashrc
+
+COPY nnUNet_preprocessed ./nnUNet_preprocessed/
+COPY nnUNet_raw ./nnUNet_raw/
+COPY nnUNet_results ./nnUNet_results/
+COPY models ./models/
+COPY util ./util/
+COPY dicom2tiff.py .
+COPY exploratory_data_analysis.py .
+COPY main_change_loss.py .
+COPY main.py .
+COPY requirement.txt .
+COPY dummy.py .
+
+
+#RUN pip3 install -r requirement.txt
+
+WORKDIR /app/models/nnUNet/
+
+RUN python3 -m pip install  .
+
+WORKDIR /app
+
+#CMD ["export", "nnUNet_raw=/app/nnUNet_raw/"]
+#CMD ["export", "nnUNet_preprocessed=/app/nnUNet_preprocessed/"]
+#CMD ["export", "nnUNet_results=/app/nnUNet_results/"]
+
+CMD ["python3" ,"dummy.py"]
+#CMD ["python3" ,"dicom2tiff.py"]
+
+
+
+
+

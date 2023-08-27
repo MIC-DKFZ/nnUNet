@@ -1,0 +1,7 @@
+services:
+  mast90106:
+    build: .
+    volumes:
+      - capstone:/Users/niketsingla/Downloads/docker_dock
+volumes:
+  capstone:
