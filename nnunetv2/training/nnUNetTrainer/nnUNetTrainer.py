@@ -829,7 +829,12 @@ class nnUNetTrainer(object):
         # print(f"oversample: {self.oversample_foreground_percent}")
 
     def on_train_end(self):
+        # dirty hack because on_epoch_end increments the epoch counter and this is executed afterwards.
+        # This will lead to the wrong current epoch to be stored
+        self.current_epoch -= 1
         self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
+        self.current_epoch += 1
+
         # now we can delete latest
         if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))

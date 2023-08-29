@@ -17,6 +17,7 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             force_fg = self.get_do_oversample(j)
 
             data, seg, properties = self._data.load_case(i)
+            case_properties.append(properties)
 
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
             # self._data.load_case(i) (see nnUNetDataset.load_case)
