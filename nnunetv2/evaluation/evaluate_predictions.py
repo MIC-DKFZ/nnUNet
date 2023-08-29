@@ -28,7 +28,7 @@ def key_to_label_or_region(key: str):
         key = key.replace('(', '')
         key = key.replace(')', '')
         splitted = key.split(',')
-        return tuple([int(i) for i in splitted])
+        return tuple([int(i) for i in splitted if len(i) > 0])
 
 
 def save_summary_json(results: dict, output_file: str):
