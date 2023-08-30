@@ -426,7 +426,7 @@ class nnUNetTrainer(object):
             dt_object = datetime.fromtimestamp(timestamp)
 
             if add_timestamp:
-                args = ("%s:" % dt_object, *args)
+                args = (f"{dt_object}:", *args)
 
             successful = False
             max_attempts = 5
@@ -440,7 +440,7 @@ class nnUNetTrainer(object):
                         f.write("\n")
                     successful = True
                 except IOError:
-                    print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
+                    print(f"{datetime.fromtimestamp(timestamp)}: failed to log: ", sys.exc_info())
                     sleep(0.5)
                     ctr += 1
             if also_print_to_console:
@@ -539,7 +539,7 @@ class nnUNetTrainer(object):
             else:
                 self.print_to_log_file("Using splits from existing split file:", splits_file)
                 splits = load_json(splits_file)
-                self.print_to_log_file("The split file contains %d splits." % len(splits))
+                self.print_to_log_file(f"The split file contains {len(splits)} splits.")
 
             self.print_to_log_file("Desired fold for training: %d" % self.fold)
             if self.fold < len(splits):

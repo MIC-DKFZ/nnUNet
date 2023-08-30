@@ -516,7 +516,7 @@ class ExperimentPlanner(object):
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
         save_json(plans, plans_file, sort_keys=False)
-        print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json'))
+        print(f"Plans were saved to {join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json')}")
 
     def generate_data_identifier(self, configuration_name: str) -> str:
         """

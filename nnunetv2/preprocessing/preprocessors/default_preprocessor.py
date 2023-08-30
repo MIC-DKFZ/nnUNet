@@ -185,7 +185,7 @@ class DefaultPreprocessor(object):
                                                            scheme,
                                                            'nnunetv2.preprocessing.normalization')
             if normalizer_class is None:
-                raise RuntimeError('Unable to locate class \'%s\' for normalization' % scheme)
+                raise RuntimeError(f'Unable to locate class \'{scheme}\' for normalization')
             normalizer = normalizer_class(use_mask_for_norm=configuration_manager.use_mask_for_norm[c],
                                           intensityproperties=foreground_intensity_properties_per_channel[str(c)])
             data[c] = normalizer.run(data[c], seg[0])
