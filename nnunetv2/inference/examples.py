@@ -80,7 +80,7 @@ if __name__ == '__main__':
     img4, props4 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_144_0000.nii.gz')])
 
 
-    # each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properites' keys!
+    # each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
     # If 'ofile' is None, the result will be returned instead of written to a file
     # the iterator is responsible for performing the correct preprocessing!
     # note how the iterator here does not use multiprocessing -> preprocessing will be done in the main thread!
@@ -95,7 +95,7 @@ if __name__ == '__main__':
                                                   predictor.plans_manager,
                                                   predictor.configuration_manager,
                                                   predictor.dataset_json)
-            yield {'data': torch.from_numpy(data).contiguous().pin_memory(), 'data_properites': p, 'ofile': None}
+            yield {'data': torch.from_numpy(data).contiguous().pin_memory(), 'data_properties': p, 'ofile': None}
 
 
     ret = predictor.predict_from_data_iterator(my_iterator([img, img2, img3, img4], [props, props2, props3, props4]),
