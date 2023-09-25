@@ -115,7 +115,7 @@ Our final model is an ensemble of two configurations:
 
 To run inference with these models, do the following:
 
-1. Download the pretrained model weights from [Zenodo](https://zenodo.org/deposit/8362371)
+1. Download the pretrained model weights from [Zenodo](https://zenodo.org/record/8362371)
 2. Install both .zip files using `nnUNetv2_install_pretrained_model_from_zip`
 3. Make sure 
 4. Now you can run inference on new cases with `nnUNetv2_predict`:
