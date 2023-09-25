@@ -333,7 +333,7 @@ class nnUNetPredictor(object):
                                    save_probabilities: bool = False,
                                    num_processes_segmentation_export: int = default_num_processes):
         """
-        each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properites' keys!
+        each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
         If 'ofile' is None, the result will be returned instead of written to a file
         """
         with multiprocessing.get_context("spawn").Pool(num_processes_segmentation_export) as export_pool:
@@ -354,7 +354,7 @@ class nnUNetPredictor(object):
 
                 print(f'perform_everything_on_gpu: {self.perform_everything_on_gpu}')
 
-                properties = preprocessed['data_properites']
+                properties = preprocessed['data_properties']
 
                 # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
                 # npy files
@@ -430,14 +430,14 @@ class nnUNetPredictor(object):
         if self.verbose:
             print('resampling to original shape')
         if output_file_truncated is not None:
-            export_prediction_from_logits(predicted_logits, dct['data_properites'], self.configuration_manager,
+            export_prediction_from_logits(predicted_logits, dct['data_properties'], self.configuration_manager,
                                           self.plans_manager, self.dataset_json, output_file_truncated,
                                           save_or_return_probabilities)
         else:
             ret = convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits, self.plans_manager,
                                                                               self.configuration_manager,
                                                                               self.label_manager,
-                                                                              dct['data_properites'],
+                                                                              dct['data_properties'],
                                                                               return_probabilities=
                                                                               save_or_return_probabilities)
             if save_or_return_probabilities:
