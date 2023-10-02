@@ -55,6 +55,8 @@ def move_plans_between_datasets(
                                                    verbose=False)
 
     source_plans["image_reader_writer"] = rw.__name__
+    if target_plans_identifier is not None:
+        source_plans["plans_name"] = target_plans_identifier
 
     save_json(source_plans, join(nnUNet_preprocessed, target_dataset_name, target_plans_identifier + '.json'),
               sort_keys=False)
