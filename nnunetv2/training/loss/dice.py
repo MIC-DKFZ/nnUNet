@@ -70,8 +70,6 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
-        shp_x, shp_y = x.shape, y.shape
-
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
@@ -79,18 +77,18 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             x = x[:, 1:]
 
         # make everything shape (b, c)
-        axes = list(range(2, len(shp_x)))
+        axes = list(range(2, len(x.shape)))
 
         with torch.no_grad():
-            if len(shp_x) != len(shp_y):
-                y = y.view((shp_y[0], 1, *shp_y[1:]))
+            if len(x.shape) != len(y.shape):
+                y = y.view((y.shape[0], 1, *y.shape[1:]))
 
-            if all([i == j for i, j in zip(shp_x, shp_y)]):
+            if all([i == j for i, j in zip(x.shape, y.shape)]):
                 # if this is the case then gt is probably already a one hot encoding
                 y_onehot = y
             else:
                 gt = y.long()
-                y_onehot = torch.zeros(shp_x, device=x.device, dtype=torch.bool)
+                y_onehot = torch.zeros(x.shape, device=x.device, dtype=torch.bool)
                 y_onehot.scatter_(1, gt, 1)
 
             if not self.do_bg:
@@ -191,3 +189,18 @@ if __name__ == '__main__':
     res_old = dl_old(pred, ref)
     res_new = dl_new(pred, ref)
     print(res_old, res_new)
+
+    # hard target
+    pred = torch.rand((2, 3, 32, 32, 32))
+    ref = torch.randint(0, 3, (2, 32, 32, 32))
+    res_new = dl_new(pred, ref)
+
+    # hard target with same shape length
+    pred = torch.rand((2, 3, 32, 32, 32))
+    ref = torch.randint(0, 3, (2, 1, 32, 32, 32))
+    res_new = dl_new(pred, ref)
+
+    # soft target, same shape
+    pred = torch.rand((2, 3, 32, 32, 32))
+    ref = torch.rand((2, 3, 32, 32, 32))
+    res_new = dl_new(pred, ref)
