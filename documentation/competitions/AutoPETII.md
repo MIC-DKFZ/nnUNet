@@ -3,7 +3,7 @@
 Please cite our paper :-*
 
 ```text
-ghfghfghj
+COMING SOON
 ```
 
 ## Intro
@@ -109,8 +109,13 @@ Done!
 (We also provide pretrained weights in case you don't want to invest the GPU resources, see below)
 
 ## How to make predictions with pretrained weights
+Our final model is an ensemble of two configurations:
+- ResEnc UNet with batch size 80
+- ResEnc UNet with patch size 192x192x192 and batch size 24
 
-1. Download the pretrained model weights from Zenodo LINK
+To run inference with these models, do the following:
+
+1. Download the pretrained model weights from [Zenodo](https://zenodo.org/record/8362371)
 2. Install both .zip files using `nnUNetv2_install_pretrained_model_from_zip`
 3. Make sure 
 4. Now you can run inference on new cases with `nnUNetv2_predict`:
