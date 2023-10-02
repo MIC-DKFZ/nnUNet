@@ -73,12 +73,8 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
-        if not self.do_bg:
-            x = x[:, 1:]
-
         # make everything shape (b, c)
         axes = list(range(2, len(x.shape)))
-
         with torch.no_grad():
             if len(x.shape) != len(y.shape):
                 y = y.view((y.shape[0], 1, *y.shape[1:]))
@@ -93,7 +89,12 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
 
             if not self.do_bg:
                 y_onehot = y_onehot[:, 1:]
+
             sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
+
+        # this one MUST be outside the with torch.no_grad(): context. Otherwise no gradients for you
+        if not self.do_bg:
+            x = x[:, 1:]
 
         intersect = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
         sum_pred = x.sum(axes) if loss_mask is None else (x * loss_mask).sum(axes)
@@ -189,18 +190,3 @@ if __name__ == '__main__':
     res_old = dl_old(pred, ref)
     res_new = dl_new(pred, ref)
     print(res_old, res_new)
-
-    # hard target
-    pred = torch.rand((2, 3, 32, 32, 32))
-    ref = torch.randint(0, 3, (2, 32, 32, 32))
-    res_new = dl_new(pred, ref)
-
-    # hard target with same shape length
-    pred = torch.rand((2, 3, 32, 32, 32))
-    ref = torch.randint(0, 3, (2, 1, 32, 32, 32))
-    res_new = dl_new(pred, ref)
-
-    # soft target, same shape
-    pred = torch.rand((2, 3, 32, 32, 32))
-    ref = torch.rand((2, 3, 32, 32, 32))
-    res_new = dl_new(pred, ref)
