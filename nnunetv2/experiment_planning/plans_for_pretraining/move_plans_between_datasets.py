@@ -6,6 +6,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, isdir, is
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
@@ -34,12 +35,13 @@ def move_plans_between_datasets(
     # we need to change data_identifier to use target_plans_identifier
     if target_plans_identifier != source_plans_identifier:
         for c in source_plans['configurations'].keys():
-            old_identifier = source_plans['configurations'][c]["data_identifier"]
-            if old_identifier.startswith(source_plans_identifier):
-                new_identifier = target_plans_identifier + old_identifier[len(source_plans_identifier):]
-            else:
-                new_identifier = target_plans_identifier + '_' + old_identifier
-            source_plans['configurations'][c]["data_identifier"] = new_identifier
+            if 'data_identifier' in source_plans['configurations'][c].keys():
+                old_identifier = source_plans['configurations'][c]["data_identifier"]
+                if old_identifier.startswith(source_plans_identifier):
+                    new_identifier = target_plans_identifier + old_identifier[len(source_plans_identifier):]
+                else:
+                    new_identifier = target_plans_identifier + '_' + old_identifier
+                source_plans['configurations'][c]["data_identifier"] = new_identifier
 
     # we need to change the reader writer class!
     target_raw_data_dir = join(nnUNet_raw, target_dataset_name)
