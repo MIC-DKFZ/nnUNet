@@ -79,7 +79,7 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             if len(x.shape) != len(y.shape):
                 y = y.view((y.shape[0], 1, *y.shape[1:]))
 
-            if all([i == j for i, j in zip(x.shape, y.shape)]):
+            if x.shape == y.shape:
                 # if this is the case then gt is probably already a one hot encoding
                 y_onehot = y
             else:
@@ -137,7 +137,7 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
         if len(shp_x) != len(shp_y):
             gt = gt.view((shp_y[0], 1, *shp_y[1:]))
 
-        if all([i == j for i, j in zip(net_output.shape, gt.shape)]):
+        if net_output.shape == gt.shape:
             # if this is the case then gt is probably already a one hot encoding
             y_onehot = gt
         else:

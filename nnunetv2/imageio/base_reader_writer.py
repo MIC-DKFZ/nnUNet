@@ -23,10 +23,7 @@ class BaseReaderWriter(ABC):
     def _check_all_same(input_list):
         # compare all entries to the first
         for i in input_list[1:]:
-            if not len(i) == len(input_list[0]):
-                return False
-            all_same = all(i[j] == input_list[0][j] for j in range(len(i)))
-            if not all_same:
+            if i != input_list[0]:
                 return False
         return True
 
@@ -34,10 +31,7 @@ class BaseReaderWriter(ABC):
     def _check_all_same_array(input_list):
         # compare all entries to the first
         for i in input_list[1:]:
-            if not all([a == b for a, b in zip(i.shape, input_list[0].shape)]):
-                return False
-            all_same = np.allclose(i, input_list[0])
-            if not all_same:
+            if i.shape != input_list[0].shape or not np.allclose(i, input_list[0]):
                 return False
         return True
 

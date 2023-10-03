@@ -136,7 +136,7 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
     seg, props_seg = image_reader_writer.read_seg(segmentation_file)
     seg = seg[0]
 
-    assert all([i == j for i, j in zip(image.shape, seg.shape)]), "image and seg do not have the same shape: %s, %s" % (
+    assert image.shape == seg.shape, "image and seg do not have the same shape: %s, %s" % (
         image_file, segmentation_file)
 
     assert len(image.shape) == 3, 'only 3D images/segs are supported'
