@@ -65,9 +65,9 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
     # create a copy of image
     image = np.copy(input_image)
 
-    if len(image.shape) == 2:
+    if image.ndim == 2:
         image = np.tile(image[:, :, None], (1, 1, 3))
-    elif len(image.shape) == 3:
+    elif image.ndim == 3:
         if image.shape[2] == 1:
             image = np.tile(image, (1, 1, 3))
         else:
@@ -139,7 +139,7 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
     assert all([i == j for i, j in zip(image.shape, seg.shape)]), "image and seg do not have the same shape: %s, %s" % (
         image_file, segmentation_file)
 
-    assert len(image.shape) == 3, 'only 3D images/segs are supported'
+    assert image.ndim == 3, 'only 3D images/segs are supported'
 
     selected_slice = select_slice_to_plot2(image, seg)
     # print(image.shape, selected_slice)

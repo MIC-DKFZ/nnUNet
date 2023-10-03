@@ -45,7 +45,7 @@ class Tiff3DIO(BaseReaderWriter):
         images = []
         for f in image_fnames:
             image = tifffile.imread(f)
-            if len(image.shape) != 3:
+            if image.ndim != 3:
                 raise RuntimeError("Only 3D images are supported! File: %s" % f)
             images.append(image[None])
 
@@ -83,7 +83,7 @@ class Tiff3DIO(BaseReaderWriter):
         ending_length = len(ending)
 
         seg = tifffile.imread(seg_fname)
-        if len(seg.shape) != 3:
+        if seg.ndim != 3:
             raise RuntimeError(f"Only 3D images are supported! File: {seg_fname}")
         seg = seg[None]
 
