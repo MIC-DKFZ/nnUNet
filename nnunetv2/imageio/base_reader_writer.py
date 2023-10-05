@@ -67,7 +67,7 @@ class BaseReaderWriter(ABC):
         :return:
             1) a np.ndarray of shape (c, x, y, z) where c is the number of image channels (can be 1) and x, y, z are
             the spatial dimensions (set x=1 for 2D! Example: (3, 1, 224, 224) for RGB image).
-            2) a dictionary with metadata. This can be anything. BUT it HAS to inclue a {'spacing': (a, b, c)} where a
+            2) a dictionary with metadata. This can be anything. BUT it HAS to include a {'spacing': (a, b, c)} where a
             is the spacing of x, b of y and c of z! If an image doesn't have spacing, just set this to 1. For 2D, set
             a=999 (largest spacing value! Make it larger than b and c)
 
@@ -85,7 +85,7 @@ class BaseReaderWriter(ABC):
         :return:
             1) a np.ndarray of shape (1, x, y, z) where x, y, z are
             the spatial dimensions (set x=1 for 2D! Example: (1, 1, 224, 224) for 2D segmentation).
-            2) a dictionary with metadata. This can be anything. BUT it HAS to inclue a {'spacing': (a, b, c)} where a
+            2) a dictionary with metadata. This can be anything. BUT it HAS to include a {'spacing': (a, b, c)} where a
             is the spacing of x, b of y and c of z! If an image doesn't have spacing, just set this to 1. For 2D, set
             a=999 (largest spacing value! Make it larger than b and c)
         """

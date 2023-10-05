@@ -21,7 +21,7 @@ def extract_fingerprint_entry():
                         help='[OPTIONAL] Set this flag to overwrite existing fingerprints. If this flag is not set and a '
                              'fingerprint already exists, the fingerprint extractor will not run.')
     parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
+                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
     extract_fingerprints(args.d, args.fpe, args.np, args.verify_dataset_integrity, args.clean, args.verbose)
@@ -91,7 +91,7 @@ def preprocess_entry():
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 processes for 2d, 4 "
                              "for 3d_fullres, 8 for 3d_lowres and 4 for everything else")
     parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
+                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
     if args.np is None:
@@ -173,7 +173,7 @@ def plan_and_preprocess_entry():
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 processes for 2d, 4 "
                              "for 3d_fullres, 8 for 3d_lowres and 4 for everything else")
     parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progrewss bar! '
+                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
                              'Recommended for cluster environments')
     args = parser.parse_args()
 

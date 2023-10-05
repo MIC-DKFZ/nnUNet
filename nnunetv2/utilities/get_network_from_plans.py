@@ -49,7 +49,7 @@ def get_network_from_plans(plans_manager: PlansManager,
                                                               'is non-standard (maybe your own?). Yo\'ll have to dive ' \
                                                               'into either this ' \
                                                               'function (get_network_from_plans) or ' \
-                                                              'the init of your nnUNetModule to accomodate that.'
+                                                              'the init of your nnUNetModule to accommodate that.'
     network_class = mapping[segmentation_network_class_name]
 
     conv_or_blocks_per_stage = {

@@ -172,7 +172,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                 missing_labels.append(dataset[k]['label'])
                 ok = False
         if not ok:
-            raise FileNotFoundError(f"Some expeted files were missing. Make sure you are properly referencing them "
+            raise FileNotFoundError(f"Some expected files were missing. Make sure you are properly referencing them "
                                     f"in the dataset.json. Or use imagesTr & labelsTr folders!\nMissing images:"
                                     f"\n{missing_images}\n\nMissing labels:\n{missing_labels}")
     else:

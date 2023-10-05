@@ -520,8 +520,8 @@ class ExperimentPlanner(object):
 
     def generate_data_identifier(self, configuration_name: str) -> str:
         """
-        configurations are unique within each plans file but differnet plans file can have configurations with the
-        same name. In order to distinguish the assiciated data we need a data identifier that reflects not just the
+        configurations are unique within each plans file but different plans file can have configurations with the
+        same name. In order to distinguish the associated data we need a data identifier that reflects not just the
         config but also the plans it originates from
         """
         return self.plans_identifier + '_' + configuration_name

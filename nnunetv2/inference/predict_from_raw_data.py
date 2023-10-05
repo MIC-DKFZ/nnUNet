@@ -805,7 +805,7 @@ def predict_entry_point():
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
 
-    # slightly passive agressive haha
+    # slightly passive aggressive haha
     assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
 
     assert args.device in ['cpu', 'cuda',

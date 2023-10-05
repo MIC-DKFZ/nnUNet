@@ -82,7 +82,7 @@ need for the _0000 suffix anymore! This can be useful in situations where you ha
 Remember that the files must be given as 'list of lists' where each entry in the outer list is a case to be predicted 
 and the inner list contains all the files belonging to that case. There is just one file for datasets with just one 
 input modality (such as CT) but may be more files for others (such as MRI where there is sometimes T1, T2, Flair etc). 
-IMPORTANT: the order in wich the files for each case are given must match the order of the channels as defined in the 
+IMPORTANT: the order in which the files for each case are given must match the order of the channels as defined in the 
 dataset.json!
 
 If you give files as input, you need to give individual output files as output!
