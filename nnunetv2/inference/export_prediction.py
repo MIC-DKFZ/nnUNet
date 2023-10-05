@@ -31,7 +31,7 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
                                             properties_dict['shape_after_cropping_and_before_resampling'],
                                             current_spacing,
                                             properties_dict['spacing'])
-    # return value of resampling_fn_probabilities can be ndarray or Tensor but that doesnt matter because
+    # return value of resampling_fn_probabilities can be ndarray or Tensor but that does not matter because
     # apply_inference_nonlin will convert to torch
     predicted_probabilities = label_manager.apply_inference_nonlin(predicted_logits)
     del predicted_logits
