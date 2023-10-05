@@ -85,3 +85,8 @@ dev = [
     "ruff",
     "pre-commit"
 ]
+
+[tool.codespell]
+skip = '.git,*.pdf,*.svg'
+#
+# ignore-words-list = ''
