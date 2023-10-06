@@ -53,7 +53,7 @@ class SimpleITKIO(BaseReaderWriter):
                 spacings_for_nnunet.append(list(spacings[-1])[::-1][1:])
                 pass
             else:
-                raise RuntimeError("Unexpected number of dimensions: %d in file %s" % (len(npy_image.shape), f))
+                raise RuntimeError(f"Unexpected number of dimensions: {len(npy_image.shape)} in file {f}")
 
             images.append(npy_image)
             spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))

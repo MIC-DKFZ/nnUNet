@@ -23,7 +23,7 @@ def collect_results(trainers: dict, datasets: List, output_file: str,
                             expected_output_folder = get_output_folder(d, module, plans, c)
                             if isdir(expected_output_folder):
                                 results_folds = []
-                                f.write("%s,%s,%s,%s,%s" % (d, c, module, plans, r))
+                                f.write(f"{d},{c},{module},{plans},{r}")
                                 for fl in folds:
                                     expected_output_folder_fold = get_output_folder(d, module, plans, c, fl)
                                     expected_summary_file = join(expected_output_folder_fold, "validation",
@@ -36,8 +36,8 @@ def collect_results(trainers: dict, datasets: List, output_file: str,
                                         foreground_mean = load_summary_json(expected_summary_file)['foreground_mean'][
                                             'Dice']
                                         results_folds.append(foreground_mean)
-                                        f.write(",%02.4f" % foreground_mean)
-                                f.write(",%02.4f\n" % np.nanmean(results_folds))
+                                        f.write(f",{foreground_mean:02.4f}")
+                                f.write(f",{np.nanmean(results_folds):02.4f}\n")
 
 
 def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[str, ...], datasets, trainers):
@@ -61,7 +61,7 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
         for t in trainers.keys():
             trainer_locs = valid_entries & (txt[:, 2] == t)
             for pl in trainers[t]:
-                f.write("%s__%s" % (t, pl))
+                f.write(f"{t}__{pl}")
                 trainer_plan_locs = trainer_locs & (txt[:, 3] == pl)
                 r = []
                 for d in valid_configs.keys():
@@ -83,13 +83,13 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
                                 r.append(np.nan)
                             else:
                                 mean_dice = np.mean([float(i) for i in fold_results])
-                                f.write(",%02.4f" % mean_dice)
+                                f.write(f",{mean_dice:02.4f}")
                                 r.append(mean_dice)
                         else:
                             print('missing:', t, pl, d, v)
                             f.write(",nan")
                             r.append(np.nan)
-                f.write(",%02.4f\n" % np.mean(r))
+                f.write(f",{np.mean(r):02.4f}\n")
 
 
 if __name__ == '__main__':
