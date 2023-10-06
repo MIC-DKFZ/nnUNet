@@ -126,4 +126,4 @@ class SimpleITKIO(BaseReaderWriter):
         itk_image.SetOrigin(properties['sitk_stuff']['origin'])
         itk_image.SetDirection(properties['sitk_stuff']['direction'])
 
-        sitk.WriteImage(itk_image, output_fname)
+        sitk.WriteImage(itk_image, output_fname, True)
