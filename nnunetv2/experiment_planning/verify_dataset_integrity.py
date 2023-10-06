@@ -64,7 +64,7 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
     # check shapes
     shape_image = images.shape[1:]
     shape_seg = segmentation.shape[1:]
-    if not all([i == j for i, j in zip(shape_image, shape_seg)]):
+    if shape_image != shape_seg:
         print('Error: Shape mismatch between segmentation and corresponding images. \nShape images: %s. '
               '\nShape seg: %s. \nImage files: %s. \nSeg file: %s\n' %
               (shape_image, shape_seg, image_files, label_file))
