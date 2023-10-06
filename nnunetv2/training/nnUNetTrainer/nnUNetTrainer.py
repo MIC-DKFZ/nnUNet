@@ -80,7 +80,9 @@ class nnUNetTrainer(object):
         # one day code base understandable and grug can get work done, everything good!
         # next day impossible: complexity demon spirit has entered code and very dangerous situation!
 
-        # OK OK I am guilty. But I tried. http://tiny.cc/gzgwuz
+        # OK OK I am guilty. But I tried.
+        # https://www.osnews.com/images/comics/wtfm.jpg
+        # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
 
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
