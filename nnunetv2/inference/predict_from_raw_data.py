@@ -546,7 +546,7 @@ class nnUNetPredictor(object):
         if mirror_axes is not None:
             # check for invalid numbers in mirror_axes
             # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
-            assert max(mirror_axes) <= len(x.shape) - 3, 'mirror_axes does not match the dimension of the input!'
+            assert max(mirror_axes) <= x.ndim - 3, 'mirror_axes does not match the dimension of the input!'
 
             num_predictons = 2 ** len(mirror_axes)
             if 0 in mirror_axes:
@@ -582,7 +582,7 @@ class nnUNetPredictor(object):
         # So autocast will only be active if we have a cuda device.
         with torch.no_grad():
             with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-                assert len(input_image.shape) == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
+                assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
                 if self.verbose: print(f'Input shape: {input_image.shape}')
                 if self.verbose: print("step_size:", self.tile_step_size)

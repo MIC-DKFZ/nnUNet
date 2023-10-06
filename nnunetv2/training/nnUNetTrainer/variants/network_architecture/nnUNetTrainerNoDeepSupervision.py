@@ -74,7 +74,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
             l = self.loss(output, target)
 
         # the following is needed for online evaluation. Fake dice (green line)
-        axes = [0] + list(range(2, len(output.shape)))
+        axes = [0] + list(range(2, output.ndim))
 
         if self.label_manager.has_regions:
             predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()

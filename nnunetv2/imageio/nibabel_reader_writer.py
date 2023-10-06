@@ -41,7 +41,7 @@ class NibabelIO(BaseReaderWriter):
         spacings_for_nnunet = []
         for f in image_fnames:
             nib_image = nibabel.load(f)
-            assert len(nib_image.shape) == 3, 'only 3d images are supported by NibabelIO'
+            assert nib_image.ndim == 3, 'only 3d images are supported by NibabelIO'
             original_affine = nib_image.affine
 
             original_affines.append(original_affine)
@@ -120,7 +120,7 @@ class NibabelIOWithReorient(BaseReaderWriter):
         spacings_for_nnunet = []
         for f in image_fnames:
             nib_image = nibabel.load(f)
-            assert len(nib_image.shape) == 3, 'only 3d images are supported by NibabelIO'
+            assert nib_image.ndim == 3, 'only 3d images are supported by NibabelIO'
             original_affine = nib_image.affine
             reoriented_image = nib_image.as_reoriented(io_orientation(original_affine))
             reoriented_affine = reoriented_image.affine

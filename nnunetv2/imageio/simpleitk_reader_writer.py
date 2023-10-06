@@ -39,21 +39,21 @@ class SimpleITKIO(BaseReaderWriter):
             origins.append(itk_image.GetOrigin())
             directions.append(itk_image.GetDirection())
             npy_image = sitk.GetArrayFromImage(itk_image)
-            if len(npy_image.shape) == 2:
+            if npy_image.ndim == 2:
                 # 2d
                 npy_image = npy_image[None, None]
                 max_spacing = max(spacings[-1])
                 spacings_for_nnunet.append((max_spacing * 999, *list(spacings[-1])[::-1]))
-            elif len(npy_image.shape) == 3:
+            elif npy_image.ndim == 3:
                 # 3d, as in original nnunet
                 npy_image = npy_image[None]
                 spacings_for_nnunet.append(list(spacings[-1])[::-1])
-            elif len(npy_image.shape) == 4:
+            elif npy_image.ndim == 4:
                 # 4d, multiple modalities in one file
                 spacings_for_nnunet.append(list(spacings[-1])[::-1][1:])
                 pass
             else:
-                raise RuntimeError(f"Unexpected number of dimensions: {len(npy_image.shape)} in file {f}")
+                raise RuntimeError(f"Unexpected number of dimensions: {npy_image.ndim} in file {f}")
 
             images.append(npy_image)
             spacings_for_nnunet[-1] = list(np.abs(spacings_for_nnunet[-1]))
@@ -115,7 +115,7 @@ class SimpleITKIO(BaseReaderWriter):
         return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
-        assert len(seg.shape) == 3, 'segmentation must be 3d. If you are exporting a 2d segmentation, please provide it as shape 1,x,y'
+        assert seg.ndim == 3, 'segmentation must be 3d. If you are exporting a 2d segmentation, please provide it as shape 1,x,y'
         output_dimension = len(properties['sitk_stuff']['spacing'])
         assert 1 < output_dimension < 4
         if output_dimension == 2:
