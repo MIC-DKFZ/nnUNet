@@ -3,7 +3,7 @@
 nnU-Net requires some environment variables so that it always knows where the raw data, preprocessed data and trained 
 models are. Depending on the operating system, these environment variables need to be set in different ways.
 
-Variables can either be set permanently (recommended!) or you can decide to set them everytime you call nnU-Net. 
+Variables can either be set permanently (recommended!) or you can decide to set them every time you call nnU-Net. 
 
 # Linux & MacOS
 

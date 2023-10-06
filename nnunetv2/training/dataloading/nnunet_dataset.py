@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     # this should have the properties
     ds = nnUNetDataset(folder, num_images_properties_loading_threshold=1000)
-    # now rename the properties file so that it doesnt exist anymore
+    # now rename the properties file so that it does not exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now we should still be able to access the properties because they have already been loaded
     ks = ds['liver_0'].keys()
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # this should not have the properties
     ds = nnUNetDataset(folder, num_images_properties_loading_threshold=0)
-    # now rename the properties file so that it doesnt exist anymore
+    # now rename the properties file so that it does not exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now this should crash
     try:

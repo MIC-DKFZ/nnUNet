@@ -189,7 +189,7 @@ wait
 **Important: The first time a training is run nnU-Net will extract the preprocessed data into uncompressed numpy 
 arrays for speed reasons! This operation must be completed before starting more than one training of the same 
 configuration! Wait with starting subsequent folds until the first training is using the GPU! Depending on the 
-dataset size and your System this should oly take a couple of minutes at most.**
+dataset size and your System this should only take a couple of minutes at most.**
 
 If you insist on running DDP multi-GPU training, we got you covered:
 
