@@ -10,7 +10,7 @@ class RobustCrossEntropyLoss(nn.CrossEntropyLoss):
     input must be logits, not probabilities!
     """
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        if len(target.shape) == len(input.shape):
+        if target.ndim == input.ndim:
             assert target.shape[1] == 1
             target = target[:, 0]
         return super().forward(input, target.long())
@@ -30,4 +30,3 @@ class TopKLoss(RobustCrossEntropyLoss):
         num_voxels = np.prod(res.shape, dtype=np.int64)
         res, _ = torch.topk(res.view((-1, )), int(num_voxels * self.k / 100), sorted=False)
         return res.mean()
-
