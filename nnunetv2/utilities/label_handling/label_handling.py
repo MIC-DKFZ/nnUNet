@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from functools import cached_property
 from time import time
 from typing import Union, List, Tuple, Type
 
@@ -218,15 +220,15 @@ class LabelManager(object):
                 (isinstance(i, (tuple, list)) and not (
                         len(np.unique(i)) == 1 and np.unique(i)[0] == 0))]
 
-    @property
+    @cached_property
     def foreground_regions(self):
         return self.filter_background(self.all_regions)
 
-    @property
+    @cached_property
     def foreground_labels(self):
         return self.filter_background(self.all_labels)
 
-    @property
+    @cached_property
     def num_segmentation_heads(self):
         if self.has_regions:
             return len(self.foreground_regions)

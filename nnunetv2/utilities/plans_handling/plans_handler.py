@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dynamic_network_architectures
 from copy import deepcopy
-from functools import lru_cache, partial
+from functools import lru_cache, partial, cached_property
 from typing import Union, Tuple, List, Type, Callable
 
 import numpy as np
@@ -44,8 +44,7 @@ class ConfigurationManager(object):
     def preprocessor_name(self) -> str:
         return self.configuration['preprocessor_name']
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def preprocessor_class(self) -> Type[DefaultPreprocessor]:
         preprocessor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing"),
                                                          self.preprocessor_name,
@@ -80,8 +79,7 @@ class ConfigurationManager(object):
     def UNet_class_name(self) -> str:
         return self.configuration['UNet_class_name']
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def UNet_class(self) -> Type[nn.Module]:
         unet_class = recursive_find_python_class(join(dynamic_network_architectures.__path__[0], "architectures"),
                                                  self.UNet_class_name,
@@ -121,8 +119,7 @@ class ConfigurationManager(object):
     def unet_max_num_features(self) -> int:
         return self.configuration['unet_max_num_features']
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def resampling_fn_data(self) -> Callable[
         [Union[torch.Tensor, np.ndarray],
          Union[Tuple[int, ...], List[int], np.ndarray],
@@ -134,8 +131,7 @@ class ConfigurationManager(object):
         fn = partial(fn, **self.configuration['resampling_fn_data_kwargs'])
         return fn
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def resampling_fn_probabilities(self) -> Callable[
         [Union[torch.Tensor, np.ndarray],
          Union[Tuple[int, ...], List[int], np.ndarray],
@@ -147,8 +143,7 @@ class ConfigurationManager(object):
         fn = partial(fn, **self.configuration['resampling_fn_probabilities_kwargs'])
         return fn
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def resampling_fn_seg(self) -> Callable[
         [Union[torch.Tensor, np.ndarray],
          Union[Tuple[int, ...], List[int], np.ndarray],
@@ -164,7 +159,7 @@ class ConfigurationManager(object):
     def batch_dice(self) -> bool:
         return self.configuration['batch_dice']
 
-    @property
+    @cached_property
     def next_stage_names(self) -> Union[List[str], None]:
         ret = self.configuration.get('next_stage')
         if ret is not None:
@@ -218,7 +213,7 @@ class PlansManager(object):
             configuration = base_config
         return configuration
 
-    @lru_cache(maxsize=10)
+    @lru_cache(maxsize=None)
     def get_configuration(self, configuration_name: str):
         if configuration_name not in self.plans['configurations'].keys():
             raise RuntimeError(f"Requested configuration {configuration_name} not found in plans. "
@@ -243,8 +238,7 @@ class PlansManager(object):
     def original_median_shape_after_transp(self) -> List[float]:
         return self.plans['original_median_shape_after_transp']
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def image_reader_writer_class(self) -> Type[BaseReaderWriter]:
         return recursive_find_reader_writer_by_name(self.plans['image_reader_writer'])
 
@@ -256,12 +250,11 @@ class PlansManager(object):
     def transpose_backward(self) -> List[int]:
         return self.plans['transpose_backward']
 
-    @property
+    @cached_property
     def available_configurations(self) -> List[str]:
         return list(self.plans['configurations'].keys())
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def experiment_planner_class(self) -> Type[ExperimentPlanner]:
         planner_name = self.experiment_planner_name
         experiment_planner = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
@@ -273,8 +266,7 @@ class PlansManager(object):
     def experiment_planner_name(self) -> str:
         return self.plans['experiment_planner_used']
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def label_manager_class(self) -> Type[LabelManager]:
         return get_labelmanager_class_from_plans(self.plans)
 
@@ -283,7 +275,7 @@ class PlansManager(object):
                                         regions_class_order=dataset_json.get('regions_class_order'),
                                         **kwargs)
 
-    @property
+    @cached_property
     def foreground_intensity_properties_per_channel(self) -> dict:
         if 'foreground_intensity_properties_per_channel' not in self.plans.keys():
             if 'foreground_intensity_properties_by_modality' in self.plans.keys():
