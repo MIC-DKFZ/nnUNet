@@ -1034,7 +1034,10 @@ class nnUNetTrainer(object):
         # todo find a solution for this stupid shit
         self.print_to_log_file(
             f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
-
+        self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
+                                               self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
         # handling periodic checkpointing
         current_epoch = self.current_epoch
         if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
