@@ -291,8 +291,11 @@ class nnUNetTrainer(object):
                                       num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
-        deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
-            self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
+        if self.enable_deep_supervision:
+            deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
+                self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
+        else:
+            deep_supervision_scales = None  # for train and val_transforms
         return deep_supervision_scales
 
     def _set_batch_size_and_oversample(self):
@@ -592,10 +595,8 @@ class nnUNetTrainer(object):
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-        if self.enable_deep_supervision:
-            deep_supervision_scales = self._get_deep_supervision_scales()
-        else:
-            deep_supervision_scales = None
+
+        deep_supervision_scales = self._get_deep_supervision_scales()
 
         (
             rotation_for_DA,
