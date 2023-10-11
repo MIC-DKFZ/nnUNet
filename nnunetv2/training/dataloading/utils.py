@@ -22,7 +22,7 @@ def find_broken_image_and_labels(
     :returns: Tuple of a set containing the case ids of the broken npy images and a set of the case ids of broken npy segmentations. 
     """
     content = os.listdir(path_to_data_dir)
-    unique_ids = [c.split("_")[0] for c in content if c.endswith("_seg.npy")]
+    unique_ids = [c[:-4] for c in content if c.endswith(".npz")]
     failed_data_ids = set()
     failed_seg_ids = set()
     for unique_id in unique_ids:
