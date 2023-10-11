@@ -144,7 +144,7 @@ def ensemble_crossvalidations(list_of_trained_model_folders: List[str],
         for f in folds:
             if not isdir(join(tr, f'fold_{f}', 'validation')):
                 raise RuntimeError(f'Expected model output directory does not exist. You must train all requested '
-                                   f'folds of the speficied model.\nModel: {tr}\nFold: {f}')
+                                   f'folds of the specified model.\nModel: {tr}\nFold: {f}')
             files_here = subfiles(join(tr, f'fold_{f}', 'validation'), suffix='.npz', join=False)
             if len(files_here) == 0:
                 raise RuntimeError(f"No .npz files found in folder {join(tr, f'fold_{f}', 'validation')}. Rerun your "

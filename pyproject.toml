@@ -1,6 +1,6 @@
 [project]
 name = "nnunetv2"
-version = "2.1.2"
+version = "2.2"
 requires-python = ">=3.9"
 description = "nnU-Net is a framework for out-of-the box image segmentation."
 readme = "readme.md"
@@ -72,8 +72,8 @@ nnUNetv2_ensemble = "nnunetv2.ensembling.ensemble:entry_point_ensemble_folders"
 nnUNetv2_accumulate_crossval_results = "nnunetv2.evaluation.find_best_configuration:accumulate_crossval_results_entry_point"
 nnUNetv2_plot_overlay_pngs = "nnunetv2.utilities.overlay_plots:entry_point_generate_overlay"
 nnUNetv2_download_pretrained_model_by_url = "nnunetv2.model_sharing.entry_points:download_by_url"
-nnUNetv2_install_pretrained_model_from_zip = "nnunetv2.model_sharing.entry_points:install_from_zip_entry_poin"
-nnUNetv2_export_model_to_zip = "nnunetv2.model_sharing.entry_points:export_pretrained_model_entr"
+nnUNetv2_install_pretrained_model_from_zip = "nnunetv2.model_sharing.entry_points:install_from_zip_entry_point"
+nnUNetv2_export_model_to_zip = "nnunetv2.model_sharing.entry_points:export_pretrained_model_entry"
 nnUNetv2_move_plans_between_datasets = "nnunetv2.experiment_planning.plans_for_pretraining.move_plans_between_datasets:entry_point_move_plans_between_datasets"
 nnUNetv2_evaluate_folder = "nnunetv2.evaluation.evaluate_predictions:evaluate_folder_entry_point"
 nnUNetv2_evaluate_simple = "nnunetv2.evaluation.evaluate_predictions:evaluate_simple_entry_point"
@@ -85,3 +85,8 @@ dev = [
     "ruff",
     "pre-commit"
 ]
+
+[tool.codespell]
+skip = '.git,*.pdf,*.svg'
+#
+# ignore-words-list = ''
