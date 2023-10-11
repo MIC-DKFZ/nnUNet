@@ -144,6 +144,7 @@ class nnUNetTrainer(object):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
+        self.enable_deep_supervision = True
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -199,10 +200,13 @@ class nnUNetTrainer(object):
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
 
-            self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
-                                                           self.configuration_manager,
-                                                           self.num_input_channels,
-                                                           enable_deep_supervision=True).to(self.device)
+            self.network = self.build_network_architecture(
+                self.plans_manager,
+                self.dataset_json,
+                self.configuration_manager,
+                self.num_input_channels,
+                self.enable_deep_supervision,
+            ).to(self.device)
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Compiling network...')
@@ -350,17 +354,18 @@ class nnUNetTrainer(object):
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
 
-        deep_supervision_scales = self._get_deep_supervision_scales()
-
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
         # this gives higher resolution outputs more weight in the loss
-        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
-        weights[-1] = 0
 
-        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-        weights = weights / weights.sum()
-        # now wrap the loss
-        loss = DeepSupervisionWrapper(loss, weights)
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+            weights = np.array([1 / (2**i) for i in range(len(deep_supervision_scales))])
+            weights[-1] = 0
+
+            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+            weights = weights / weights.sum()
+            # now wrap the loss
+            loss = DeepSupervisionWrapper(loss, weights)
         return loss
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -587,10 +592,17 @@ class nnUNetTrainer(object):
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-        deep_supervision_scales = self._get_deep_supervision_scales()
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+        else:
+            deep_supervision_scales = None
 
-        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
-            self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
+        (
+            rotation_for_DA,
+            do_dummy_2d_data_aug,
+            initial_patch_size,
+            mirror_axes,
+        ) = self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
 
         # training pipeline
         tr_transforms = self.get_training_transforms(
@@ -657,19 +669,21 @@ class nnUNetTrainer(object):
         return dl_tr, dl_val
 
     @staticmethod
-    def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
-                                rotation_for_DA: dict,
-                                deep_supervision_scales: Union[List, Tuple],
-                                mirror_axes: Tuple[int, ...],
-                                do_dummy_2d_data_aug: bool,
-                                order_resampling_data: int = 3,
-                                order_resampling_seg: int = 1,
-                                border_val_seg: int = -1,
-                                use_mask_for_norm: List[bool] = None,
-                                is_cascaded: bool = False,
-                                foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-                                regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-                                ignore_label: int = None) -> AbstractTransform:
+    def get_training_transforms(
+        patch_size: Union[np.ndarray, Tuple[int]],
+        rotation_for_DA: dict,
+        deep_supervision_scales: Union[List, Tuple, None],
+        mirror_axes: Tuple[int, ...],
+        do_dummy_2d_data_aug: bool,
+        order_resampling_data: int = 3,
+        order_resampling_seg: int = 1,
+        border_val_seg: int = -1,
+        use_mask_for_norm: List[bool] = None,
+        is_cascaded: bool = False,
+        foreground_labels: Union[Tuple[int, ...], List[int]] = None,
+        regions: List[Union[List[int], Tuple[int, ...], int]] = None,
+        ignore_label: int = None,
+    ) -> AbstractTransform:
         tr_transforms = []
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
@@ -749,11 +763,13 @@ class nnUNetTrainer(object):
         return tr_transforms
 
     @staticmethod
-    def get_validation_transforms(deep_supervision_scales: Union[List, Tuple],
-                                  is_cascaded: bool = False,
-                                  foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-                                  regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-                                  ignore_label: int = None) -> AbstractTransform:
+    def get_validation_transforms(
+        deep_supervision_scales: Union[List, Tuple, None],
+        is_cascaded: bool = False,
+        foreground_labels: Union[Tuple[int, ...], List[int]] = None,
+        regions: List[Union[List[int], Tuple[int, ...], int]] = None,
+        ignore_label: int = None,
+    ) -> AbstractTransform:
         val_transforms = []
         val_transforms.append(RemoveLabelTransform(-1, 0))
 
@@ -793,7 +809,7 @@ class nnUNetTrainer(object):
         maybe_mkdir_p(self.output_folder)
 
         # make sure deep supervision is on in the network
-        self.set_deep_supervision_enabled(True)
+        self.set_deep_supervision_enabled(self.enable_deep_supervision)
 
         self.print_plans()
         empty_cache(self.device)
@@ -923,9 +939,10 @@ class nnUNetTrainer(object):
             del data
             l = self.loss(output, target)
 
-        # we only need the output with the highest output resolution
-        output = output[0]
-        target = target[0]
+        # we only need the output with the highest output resolution (if DS enabled)
+        if self.enable_deep_supervision:
+            output = output[0]
+            target = target[0]
 
         # the following is needed for online evaluation. Fake dice (green line)
         axes = [0] + list(range(2, len(output.shape)))
@@ -994,8 +1011,7 @@ class nnUNetTrainer(object):
         else:
             loss_here = np.mean(outputs_collated['loss'])
 
-        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
-                                           zip(tp, fp, fn)]]
+        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
         mean_fg_dice = np.nanmean(global_dc_per_class)
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
@@ -1008,10 +1024,6 @@ class nnUNetTrainer(object):
         self.logger.log('epoch_end_timestamps', time(), self.current_epoch)
 
         # todo find a solution for this stupid shit
-        self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
-        self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
-        self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
-                                               self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
         self.print_to_log_file(
             f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 
