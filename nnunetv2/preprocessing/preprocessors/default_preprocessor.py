@@ -128,7 +128,7 @@ class DefaultPreprocessor(object):
         rw = plans_manager.image_reader_writer_class()
 
         # load image(s)
-        data, data_properites = rw.read_images(image_files)
+        data, data_properties = rw.read_images(image_files)
 
         # if possible, load seg
         if seg_file is not None:
@@ -136,9 +136,9 @@ class DefaultPreprocessor(object):
         else:
             seg = None
 
-        data, seg = self.run_case_npy(data, seg, data_properites, plans_manager, configuration_manager,
+        data, seg = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
                                       dataset_json)
-        return data, seg, data_properites
+        return data, seg, data_properties
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager,
@@ -185,7 +185,7 @@ class DefaultPreprocessor(object):
                                                            scheme,
                                                            'nnunetv2.preprocessing.normalization')
             if normalizer_class is None:
-                raise RuntimeError('Unable to locate class \'%s\' for normalization' % scheme)
+                raise RuntimeError(f'Unable to locate class \'{scheme}\' for normalization')
             normalizer = normalizer_class(use_mask_for_norm=configuration_manager.use_mask_for_norm[c],
                                           intensityproperties=foreground_intensity_properties_per_channel[str(c)])
             data[c] = normalizer.run(data[c], seg[0])

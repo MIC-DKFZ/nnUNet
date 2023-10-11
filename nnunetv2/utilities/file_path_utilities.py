@@ -39,10 +39,10 @@ def parse_dataset_trainer_plans_configuration_from_path(path: str):
         assert len(folders[:idx]) >= 2, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                         'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
         if folders[idx - 2].startswith('Dataset'):
-            splitted = folders[idx - 1].split('__')
-            assert len(splitted) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
+            split = folders[idx - 1].split('__')
+            assert len(split) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                         'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
-            return folders[idx - 2], *splitted
+            return folders[idx - 2], *split
     else:
         # we can only check for dataset followed by a string that is separable into three strings by splitting with '__'
         # look for DatasetXXX
@@ -51,10 +51,10 @@ def parse_dataset_trainer_plans_configuration_from_path(path: str):
             idx = dataset_folder.index(True)
             assert len(folders) >= (idx + 1), 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                         'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
-            splitted = folders[idx + 1].split('__')
-            assert len(splitted) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
+            split = folders[idx + 1].split('__')
+            assert len(split) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                        'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
-            return folders[idx], *splitted
+            return folders[idx], *split
 
 
 def get_ensemble_name(model1_folder, model2_folder, folds: Tuple[int, ...]):

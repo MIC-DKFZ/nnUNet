@@ -80,7 +80,9 @@ class nnUNetTrainer(object):
         # one day code base understandable and grug can get work done, everything good!
         # next day impossible: complexity demon spirit has entered code and very dangerous situation!
 
-        # OK OK I am guilty. But I tried. http://tiny.cc/gzgwuz
+        # OK OK I am guilty. But I tried.
+        # https://www.osnews.com/images/comics/wtfm.jpg
+        # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
 
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
@@ -426,7 +428,7 @@ class nnUNetTrainer(object):
             dt_object = datetime.fromtimestamp(timestamp)
 
             if add_timestamp:
-                args = ("%s:" % dt_object, *args)
+                args = (f"{dt_object}:", *args)
 
             successful = False
             max_attempts = 5
@@ -440,7 +442,7 @@ class nnUNetTrainer(object):
                         f.write("\n")
                     successful = True
                 except IOError:
-                    print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
+                    print(f"{datetime.fromtimestamp(timestamp)}: failed to log: ", sys.exc_info())
                     sleep(0.5)
                     ctr += 1
             if also_print_to_console:
@@ -539,7 +541,7 @@ class nnUNetTrainer(object):
             else:
                 self.print_to_log_file("Using splits from existing split file:", splits_file)
                 splits = load_json(splits_file)
-                self.print_to_log_file("The split file contains %d splits." % len(splits))
+                self.print_to_log_file(f"The split file contains {len(splits)} splits.")
 
             self.print_to_log_file("Desired fold for training: %d" % self.fold)
             if self.fold < len(splits):
@@ -829,7 +831,12 @@ class nnUNetTrainer(object):
         # print(f"oversample: {self.oversample_foreground_percent}")
 
     def on_train_end(self):
+        # dirty hack because on_epoch_end increments the epoch counter and this is executed afterwards.
+        # This will lead to the wrong current epoch to be stored
+        self.current_epoch -= 1
         self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
+        self.current_epoch += 1
+
         # now we can delete latest
         if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
@@ -867,7 +874,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
         # Autocast is a little bitch.
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
@@ -928,7 +935,7 @@ class nnUNetTrainer(object):
         target = target[0]
 
         # the following is needed for online evaluation. Fake dice (green line)
-        axes = [0] + list(range(2, len(output.shape)))
+        axes = [0] + list(range(2, output.ndim))
 
         if self.label_manager.has_regions:
             predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
