@@ -553,7 +553,8 @@ class nnUNetPredictor(object):
             axes_combinations = [
                 c for i in range(len(mirror_axes)) for c in itertools.combinations([m + 2 for m in mirror_axes], i + 1)
             ]
-            prediction = sum([torch.flip(self.network(torch.flip(x, (*axes,))), (*axes,)) for axes in axes_combinations])
+            for axes in axes_combinations:
+                prediction += torch.flip(self.network(torch.flip(x, (*axes,))), (*axes,))
             prediction /= num_predictons
         return prediction
 
