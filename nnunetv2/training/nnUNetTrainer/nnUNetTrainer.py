@@ -267,7 +267,7 @@ class nnUNetTrainer(object):
                                    num_input_channels,
                                    enable_deep_supervision: bool = True) -> nn.Module:
         """
-        his is where you build the architecture according to the plans. There is no obligation to use
+        This is where you build the architecture according to the plans. There is no obligation to use
         get_network_from_plans, this is just a utility we use for the nnU-Net default architectures. You can do what
         you want. Even ignore the plans and just return something static (as long as it can process the requested
         patch size)
