@@ -1,4 +1,5 @@
 import inspect
+import itertools
 import multiprocessing
 import os
 import traceback
@@ -549,20 +550,10 @@ class nnUNetPredictor(object):
             assert max(mirror_axes) <= x.ndim - 3, 'mirror_axes does not match the dimension of the input!'
 
             num_predictons = 2 ** len(mirror_axes)
-            if 0 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (2,))), (2,))
-            if 1 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (3,))), (3,))
-            if 2 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (4,))), (4,))
-            if 0 in mirror_axes and 1 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (2, 3))), (2, 3))
-            if 0 in mirror_axes and 2 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (2, 4))), (2, 4))
-            if 1 in mirror_axes and 2 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (3, 4))), (3, 4))
-            if 0 in mirror_axes and 1 in mirror_axes and 2 in mirror_axes:
-                prediction += torch.flip(self.network(torch.flip(x, (2, 3, 4))), (2, 3, 4))
+            axes_combinations = [
+                c for i in range(len(mirror_axes)) for c in itertools.combinations([m + 2 for m in mirror_axes], i + 1)
+            ]
+            prediction = sum(torch.flip(self.network(torch.flip(x, (*axes,))), (*axes,)) for axes in axes_combinations]
             prediction /= num_predictons
         return prediction
 
