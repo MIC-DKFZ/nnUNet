@@ -607,7 +607,7 @@ class nnUNetPredictor(object):
                                                 device=results_device)
                     if self.use_gaussian:
                         gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
-                                                    value_scaling_factor=1000,
+                                                    value_scaling_factor=10,
                                                     device=results_device)
                 except RuntimeError:
                     # sometimes the stuff is too large for GPUs. In that case fall back to CPU
@@ -620,7 +620,7 @@ class nnUNetPredictor(object):
                                                 device=results_device)
                     if self.use_gaussian:
                         gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
-                                                    value_scaling_factor=1000,
+                                                    value_scaling_factor=10,
                                                     device=results_device)
                 finally:
                     empty_cache(self.device)
