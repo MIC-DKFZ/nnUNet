@@ -82,6 +82,6 @@ easy identification.
 
 Note that these commands simply execute python scripts. If you installed nnU-Net in a virtual environment, this
 environment must be activated when executing the commands. You can see what scripts/functions are executed by 
-checking the entry_points in the setup.py file.
+checking the entry_points in the [pyproject.toml](../pyproject.toml) file.
 
 All nnU-Net commands have a `-h` option which gives information on how to use them.
