@@ -1,6 +1,9 @@
+from pathlib import Path
+
 from nnunetv2.model_sharing.model_download import download_and_install_from_url
 from nnunetv2.model_sharing.model_export import export_pretrained_model
 from nnunetv2.model_sharing.model_import import install_model_from_zip_file
+from nnunetv2.model_sharing.onnx_export import export_onnx_model
 
 
 def print_license_warning():
@@ -51,7 +54,7 @@ def export_pretrained_model_entry():
     parser.add_argument('-p', required=False, type=str, default='nnUNetPlans', help='plans identifier')
     parser.add_argument('-f', required=False, nargs='+', type=str, default=(0, 1, 2, 3, 4), help='list of fold ids')
     parser.add_argument('-chk', required=False, nargs='+', type=str, default=('checkpoint_final.pth', ),
-                        help='Lis tof checkpoint names to export. Default: checkpoint_final.pth')
+                        help='List of checkpoint names to export. Default: checkpoint_final.pth')
     parser.add_argument('--not_strict', action='store_false', default=False, required=False, help='Set this to allow missing folds and/or configurations')
     parser.add_argument('--exp_cv_preds', action='store_true', required=False, help='Set this to export the cross-validation predictions as well')
     args = parser.parse_args()
@@ -59,3 +62,26 @@ def export_pretrained_model_entry():
     export_pretrained_model(dataset_name_or_id=args.d, output_file=args.o, configurations=args.c, trainer=args.tr,
                             plans_identifier=args.p, folds=args.f, strict=not args.not_strict, save_checkpoints=args.chk,
                             export_crossval_predictions=args.exp_cv_preds)
+
+def export_pretrained_model_onnx_entry():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Use this to export a trained model to ONNX format."
+                    "You are responsible for creating the ONNX pipeline yourself.")
+    parser.add_argument('-d', type=str, required=True, help='Dataset name or id')
+    parser.add_argument('-o', type=Path, required=True, help='Output directory')
+    parser.add_argument('-c', nargs='+', type=str, required=False,
+                        default=('3d_lowres', '3d_fullres', '2d', '3d_cascade_fullres'),
+                        help="List of configuration names")
+    parser.add_argument('-tr', required=False, type=str, default='nnUNetTrainer', help='Trainer class')
+    parser.add_argument('-p', required=False, type=str, default='nnUNetPlans', help='plans identifier')
+    parser.add_argument('-f', required=False, nargs='+', type=str, default=None, help='list of fold ids')
+    parser.add_argument('-chk', required=False, nargs='+', type=str, default=('checkpoint_final.pth', ),
+                        help='List of checkpoint names to export. Default: checkpoint_final.pth')
+    parser.add_argument('--not_strict', action='store_false', default=False, required=False, help='Set this to allow missing folds and/or configurations')
+    parser.add_argument('--exp_cv_preds', action='store_true', required=False, help='Set this to export the cross-validation predictions as well')
+    args = parser.parse_args()
+
+    export_onnx_model(dataset_name_or_id=args.d, output_dir=args.o, configurations=args.c, trainer=args.tr,
+                      plans_identifier=args.p, folds=args.f, strict=not args.not_strict, save_checkpoints=args.chk,
+                      export_crossval_predictions=args.exp_cv_preds)
