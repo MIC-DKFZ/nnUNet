@@ -63,6 +63,7 @@ def export_pretrained_model_entry():
                             plans_identifier=args.p, folds=args.f, strict=not args.not_strict, save_checkpoints=args.chk,
                             export_crossval_predictions=args.exp_cv_preds)
 
+
 def export_pretrained_model_onnx_entry():
     import argparse
     parser = argparse.ArgumentParser(
@@ -81,6 +82,20 @@ def export_pretrained_model_onnx_entry():
     parser.add_argument('--not_strict', action='store_false', default=False, required=False, help='Set this to allow missing folds and/or configurations')
     parser.add_argument('--exp_cv_preds', action='store_true', required=False, help='Set this to export the cross-validation predictions as well')
     args = parser.parse_args()
+
+    print('######################################################')
+    print('!!!!!!!!!!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!!!!!!!!!')
+    print('######################################################')
+    print("You are responsible for creating the ONNX pipeline \n"
+          "yourself.\n\n"
+          "This script will only export the model \n"
+          "weights to an onnx file, and some basic information \n"
+          "about the model. You will have to create the ONNX \n"
+          "pipeline yourself. \n")
+    print("See https://pytorch.org/tutorials/beginner/onnx/export_simple_model_to_onnx_tutorial.html#execute-the-onnx-model-with-onnx-runtime\n"
+          "for some documentation on how to do this.")
+    print('######################################################')
+    print('')
 
     export_onnx_model(dataset_name_or_id=args.d, output_dir=args.o, configurations=args.c, trainer=args.tr,
                       plans_identifier=args.p, folds=args.f, strict=not args.not_strict, save_checkpoints=args.chk,

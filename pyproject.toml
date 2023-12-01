@@ -86,6 +86,11 @@ dev = [
     "ruff",
     "pre-commit"
 ]
+onnx-export = [
+    "onnx",
+    "onnxscript",
+    "onnxruntime",
+]
 
 [tool.codespell]
 skip = '.git,*.pdf,*.svg'

@@ -7,7 +7,8 @@ import torch
 from torch._dynamo import OptimizedModule
 
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
-from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+from nnunetv2.utilities.dataset_name_id_conversion import \
+    maybe_convert_to_dataset_name
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 
 
@@ -25,15 +26,23 @@ def export_onnx_model(
     folds: Tuple[Union[int, str], ...] = (0, 1, 2, 3, 4),
     strict: bool = True,
     save_checkpoints: Tuple[str, ...] = ("checkpoint_final.pth",),
+    output_names: tuple[str, ...] = None,
 ) -> None:
+    if not output_names:
+        output_names = (f"{checkpoint[:-4]}.onnx" for checkpoint in save_checkpoints)
+
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     for c in configurations:
         print(f"Configuration {c}")
-        trainer_output_dir = get_output_folder(dataset_name, trainer, plans_identifier, c)
+        trainer_output_dir = get_output_folder(
+            dataset_name, trainer, plans_identifier, c
+        )
 
         if not isdir(trainer_output_dir):
             if strict:
-                raise RuntimeError(f"{dataset_name} is missing the trained model of configuration {c}")
+                raise RuntimeError(
+                    f"{dataset_name} is missing the trained model of configuration {c}"
+                )
             else:
                 print(f"Skipping configuration {c}, does not exist")
                 continue
@@ -43,7 +52,7 @@ def export_onnx_model(
             device=torch.device("cpu"),
         )
 
-        for checkpoint_name in save_checkpoints:
+        for checkpoint_name, output_name in zip(save_checkpoints, output_names):
             predictor.initialize_from_trained_model_folder(
                 model_training_output_dir=trainer_output_dir,
                 use_folds=folds,
@@ -60,6 +69,8 @@ def export_onnx_model(
                 else:
                     network._orig_mod.load_state_dict(params)
 
+                network.eval()
+
                 export_options = torch.onnx.ExportOptions(dynamic_shapes=True)
                 rand_input = torch.rand((1, 1, *config.patch_size))
                 traced_model = torch.onnx.dynamo_export(
@@ -73,6 +84,37 @@ def export_onnx_model(
                     curr_output_dir.mkdir(parents=True)
                 else:
                     if len(list(curr_output_dir.iterdir())) > 0:
-                        raise RuntimeError(f"Output directory {curr_output_dir} is not empty")
+                        raise RuntimeError(
+                            f"Output directory {curr_output_dir} is not empty"
+                        )
 
-                traced_model.save(str(curr_output_dir / "model.onnx"))
+                traced_model.save(str(curr_output_dir / output_name))
+                with open(curr_output_dir / "config.json", "w") as f:
+                    json.dump(
+                        {
+                            "dataset_name": dataset_name,
+                            "configuration": c,
+                            "trainer": trainer,
+                            "plans_identifier": plans_identifier,
+                            "fold": fold,
+                            "checkpoint_name": checkpoint_name,
+                            "configuration_manager": {
+                                k: config.configuration[k]
+                                for k in [
+                                    "patch_size",
+                                    "spacing",
+                                    "normalization_schemes",
+                                    # These are mostly interesting for certification
+                                    # uses, but they are also useful for debugging.
+                                    "UNet_class_name",
+                                    "UNet_base_num_features",
+                                    "unet_max_num_features",
+                                    "conv_kernel_sizes",
+                                    "pool_op_kernel_sizes",
+                                    "num_pool_per_axis",
+                                ]
+                            },
+                        },
+                        f,
+                        indent=4,
+                    )
