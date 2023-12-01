@@ -3,6 +3,9 @@ from os.path import isdir
 from pathlib import Path
 from typing import Tuple, Union
 
+import numpy as np
+import onnx
+import onnxruntime
 import torch
 from torch._dynamo import OptimizedModule
 
@@ -27,6 +30,7 @@ def export_onnx_model(
     strict: bool = True,
     save_checkpoints: Tuple[str, ...] = ("checkpoint_final.pth",),
     output_names: tuple[str, ...] = None,
+    verbose: bool = False,
 ) -> None:
     if not output_names:
         output_names = (f"{checkpoint[:-4]}.onnx" for checkpoint in save_checkpoints)
@@ -71,14 +75,6 @@ def export_onnx_model(
 
                 network.eval()
 
-                export_options = torch.onnx.ExportOptions(dynamic_shapes=True)
-                rand_input = torch.rand((1, 1, *config.patch_size))
-                traced_model = torch.onnx.dynamo_export(
-                    network,
-                    rand_input,
-                    export_options=export_options,
-                )
-
                 curr_output_dir = output_dir / c / f"fold_{fold}"
                 if not curr_output_dir.exists():
                     curr_output_dir.mkdir(parents=True)
@@ -88,7 +84,43 @@ def export_onnx_model(
                             f"Output directory {curr_output_dir} is not empty"
                         )
 
-                traced_model.save(str(curr_output_dir / output_name))
+                rand_input = torch.rand((1, 1, *config.patch_size))
+                torch_output = network(rand_input)
+
+                torch.onnx.export(
+                    network,
+                    rand_input,
+                    curr_output_dir / output_name,
+                    export_params=True,
+                    verbose=verbose,
+                    input_names=["input"],
+                    output_names=["output"],
+                    dynamic_axes={
+                        "input": {0: "batch_size"},
+                        "output": {0: "batch_size"},
+                    },
+                )
+
+                onnx_model = onnx.load(curr_output_dir / output_name)
+                onnx.checker.check_model(onnx_model)
+
+                ort_session = onnxruntime.InferenceSession(
+                    curr_output_dir / output_name, providers=["CPUExecutionProvider"]
+                )
+                ort_inputs = {ort_session.get_inputs()[0].name: rand_input.numpy()}
+                ort_outs = ort_session.run(None, ort_inputs)
+
+                np.testing.assert_allclose(
+                    torch_output.detach().cpu().numpy(),
+                    ort_outs[0],
+                    rtol=1e-03,
+                    atol=1e-05,
+                )
+
+                print(
+                    f"Successfully exported and verified {curr_output_dir / output_name}"
+                )
+
                 with open(curr_output_dir / "config.json", "w") as f:
                     json.dump(
                         {

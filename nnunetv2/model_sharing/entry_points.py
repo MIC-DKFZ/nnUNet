@@ -160,6 +160,13 @@ def export_pretrained_model_onnx_entry():
         required=False,
         help="Set this to export the cross-validation predictions as well",
     )
+    parser.add_argument(
+        "-v",
+        action="store_false",
+        default=False,
+        required=False,
+        help="Set this to get verbose output",
+    )
     args = parser.parse_args()
 
     print("######################################################")
@@ -191,4 +198,5 @@ def export_pretrained_model_onnx_entry():
         folds=args.f,
         strict=not args.not_strict,
         save_checkpoints=args.chk,
+        verbose=args.v,
     )
