@@ -173,12 +173,12 @@ def export_pretrained_model_onnx_entry():
     print("!!!!!!!!!!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!!!!!!!!!")
     print("######################################################")
     print(
-        "You are responsible for creating the ONNX pipeline \n"
+        "You are responsible for creating the ONNX pipeline\n"
         "yourself.\n\n"
-        "This script will only export the model \n"
-        "weights to an onnx file, and some basic information \n"
-        "about the model. You will have to create the ONNX \n"
-        "pipeline yourself. \n"
+        "This script will only export the model weights to\n"
+        "an onnx file, and some basic information about\n"
+        "the model. You will have to create the ONNX pipeline\n"
+        "yourself.\n"
     )
     print(
         "See\n"
