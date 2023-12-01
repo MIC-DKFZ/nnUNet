@@ -65,6 +65,7 @@ def export_onnx_model(
                 model_training_output_dir=trainer_output_dir,
                 use_folds=folds,
                 checkpoint_name=checkpoint_name,
+                disable_compilation=True,
             )
 
             list_of_parameters = predictor.list_of_parameters
