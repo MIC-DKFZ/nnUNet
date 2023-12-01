@@ -1,4 +1,5 @@
 import json
+import sys
 from os.path import isdir
 from pathlib import Path
 from typing import Tuple, Union
@@ -34,6 +35,9 @@ def export_onnx_model(
 ) -> None:
     if not output_names:
         output_names = (f"{checkpoint[:-4]}.onnx" for checkpoint in save_checkpoints)
+
+    original_recursion_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(10_000)
 
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     for c in configurations:
@@ -150,3 +154,5 @@ def export_onnx_model(
                         f,
                         indent=4,
                     )
+
+    sys.setrecursionlimit(original_recursion_limit)
