@@ -140,6 +140,13 @@ def export_pretrained_model_onnx_entry():
         "-f", required=False, nargs="+", type=str, default=None, help="list of fold ids"
     )
     parser.add_argument(
+        "-b",
+        required=False,
+        type=int,
+        default=0,
+        help="Batch size. Set to 0 for dynamic axes. Default: 0",
+    )
+    parser.add_argument(
         "-chk",
         required=False,
         nargs="+",
@@ -153,12 +160,6 @@ def export_pretrained_model_onnx_entry():
         default=False,
         required=False,
         help="Set this to allow missing folds and/or configurations",
-    )
-    parser.add_argument(
-        "--exp_cv_preds",
-        action="store_true",
-        required=False,
-        help="Set this to export the cross-validation predictions as well",
     )
     parser.add_argument(
         "-v",
@@ -193,6 +194,7 @@ def export_pretrained_model_onnx_entry():
         dataset_name_or_id=args.d,
         output_dir=args.o,
         configurations=args.c,
+        batch_size=args.b,
         trainer=args.tr,
         plans_identifier=args.p,
         folds=args.f,

@@ -1,5 +1,4 @@
 import json
-import sys
 from os.path import isdir, join
 from pathlib import Path
 from typing import Tuple, Union
@@ -9,7 +8,6 @@ import onnx
 import onnxruntime
 import torch
 from batchgenerators.utilities.file_and_folder_operations import load_json
-from torch._dynamo import OptimizedModule
 
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.utilities.dataset_name_id_conversion import \
@@ -26,6 +24,7 @@ def export_onnx_model(
         "3d_fullres",
         "3d_cascade_fullres",
     ),
+    batch_size: int = 0,
     trainer: str = "nnUNetTrainer",
     plans_identifier: str = "nnUNetPlans",
     folds: Tuple[Union[int, str], ...] = (0, 1, 2, 3, 4),
@@ -37,8 +36,10 @@ def export_onnx_model(
     if not output_names:
         output_names = (f"{checkpoint[:-4]}.onnx" for checkpoint in save_checkpoints)
 
-    original_recursion_limit = sys.getrecursionlimit()
-    sys.setrecursionlimit(10_000)
+    if batch_size < 0:
+        raise ValueError("batch_size must be non-negative")
+
+    use_dynamic_axes = batch_size == 0
 
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     for c in configurations:
@@ -46,7 +47,7 @@ def export_onnx_model(
         trainer_output_dir = get_output_folder(
             dataset_name, trainer, plans_identifier, c
         )
-        dataset_json = load_json(join(trainer_output_dir, 'dataset.json'))
+        dataset_json = load_json(join(trainer_output_dir, "dataset.json"))
 
         if not isdir(trainer_output_dir):
             if strict:
@@ -88,22 +89,36 @@ def export_onnx_model(
                             f"Output directory {curr_output_dir} is not empty"
                         )
 
-                rand_input = torch.rand((1, 1, *config.patch_size))
-                torch_output = network(rand_input)
+                if use_dynamic_axes:
+                    rand_input = torch.rand((1, 1, *config.patch_size))
+                    torch_output = network(rand_input)
 
-                torch.onnx.export(
-                    network,
-                    rand_input,
-                    curr_output_dir / output_name,
-                    export_params=True,
-                    verbose=verbose,
-                    input_names=["input"],
-                    output_names=["output"],
-                    dynamic_axes={
-                        "input": {0: "batch_size"},
-                        "output": {0: "batch_size"},
-                    },
-                )
+                    torch.onnx.export(
+                        network,
+                        rand_input,
+                        curr_output_dir / output_name,
+                        export_params=True,
+                        verbose=verbose,
+                        input_names=["input"],
+                        output_names=["output"],
+                        dynamic_axes={
+                            "input": {0: "batch_size"},
+                            "output": {0: "batch_size"},
+                        },
+                    )
+                else:
+                    rand_input = torch.rand((batch_size, 1, *config.patch_size))
+                    torch_output = network(rand_input)
+
+                    torch.onnx.export(
+                        network,
+                        rand_input,
+                        curr_output_dir / output_name,
+                        export_params=True,
+                        verbose=verbose,
+                        input_names=["input"],
+                        output_names=["output"],
+                    )
 
                 onnx_model = onnx.load(curr_output_dir / output_name)
                 onnx.checker.check_model(onnx_model)
@@ -123,19 +138,22 @@ def export_onnx_model(
                         verbose=True,
                     )
                 except AssertionError as e:
-                    print(f"WARN: Differences found between torch and onnx:\n")
+                    print("WARN: Differences found between torch and onnx:\n")
                     print(e)
-                    print("\nExport will continue, but please verify that your pipeline matches the original.")
+                    print(
+                        "\nExport will continue, but please verify that your pipeline matches the original."
+                    )
 
-                print(
-                    f"Exported {curr_output_dir / output_name}"
-                )
+                print(f"Exported {curr_output_dir / output_name}")
 
                 with open(curr_output_dir / "config.json", "w") as f:
                     config_dict = {
                         "configuration": c,
                         "fold": fold,
                         "model_parameters": {
+                            "batch_size": batch_size
+                            if not use_dynamic_axes
+                            else "dynamic",
                             "patch_size": config.patch_size,
                             "spacing": config.spacing,
                             "normalization_schemes": config.normalization_schemes,
@@ -151,10 +169,15 @@ def export_onnx_model(
                         "dataset_parameters": {
                             "dataset_name": dataset_name,
                             "num_channels": len(dataset_json["channel_names"].keys()),
-                            "channels": {int(k): v for k, v in dataset_json["channel_names"].items()},
+                            "channels": {
+                                int(k): v
+                                for k, v in dataset_json["channel_names"].items()
+                            },
                             "num_classes": len(dataset_json["labels"].keys()),
-                            "class_names": {v: k for k, v in dataset_json["labels"].items()},
-                        }
+                            "class_names": {
+                                v: k for k, v in dataset_json["labels"].items()
+                            },
+                        },
                     }
 
                     json.dump(
@@ -162,5 +185,3 @@ def export_onnx_model(
                         f,
                         indent=4,
                     )
-
-    sys.setrecursionlimit(original_recursion_limit)
