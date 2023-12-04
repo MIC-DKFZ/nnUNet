@@ -158,28 +158,7 @@ def export_onnx_model(
                     }
 
                     json.dump(
-                        {
-                            "dataset_name": dataset_name,
-                            "configuration": c,
-                            "fold": fold,
-                            "checkpoint_name": checkpoint_name,
-                            "configuration_manager": {
-                                k: config.configuration[k]
-                                for k in [
-                                    "patch_size",
-                                    "spacing",
-                                    "normalization_schemes",
-                                    # These are mostly interesting for certification
-                                    # uses, but they are also useful for debugging.
-                                    "UNet_class_name",
-                                    "UNet_base_num_features",
-                                    "unet_max_num_features",
-                                    "conv_kernel_sizes",
-                                    "pool_op_kernel_sizes",
-                                    "num_pool_per_axis",
-                                ]
-                            },
-                        },
+                        config_dict,
                         f,
                         indent=4,
                     )
