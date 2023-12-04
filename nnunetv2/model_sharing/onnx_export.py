@@ -1,6 +1,6 @@
 import json
 import sys
-from os.path import isdir
+from os.path import isdir, join
 from pathlib import Path
 from typing import Tuple, Union
 
@@ -8,6 +8,7 @@ import numpy as np
 import onnx
 import onnxruntime
 import torch
+from batchgenerators.utilities.file_and_folder_operations import load_json
 from torch._dynamo import OptimizedModule
 
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
@@ -45,6 +46,7 @@ def export_onnx_model(
         trainer_output_dir = get_output_folder(
             dataset_name, trainer, plans_identifier, c
         )
+        dataset_json = load_json(join(trainer_output_dir, 'dataset.json'))
 
         if not isdir(trainer_output_dir):
             if strict:
@@ -130,12 +132,35 @@ def export_onnx_model(
                 )
 
                 with open(curr_output_dir / "config.json", "w") as f:
+                    config_dict = {
+                        "configuration": c,
+                        "fold": fold,
+                        "model_parameters": {
+                            "patch_size": config.patch_size,
+                            "spacing": config.spacing,
+                            "normalization_schemes": config.normalization_schemes,
+                            # These are mostly interesting for certification
+                            # uses, but they are also useful for debugging.
+                            "UNet_class_name": config.UNet_class_name,
+                            "UNet_base_num_features": config.UNet_base_num_features,
+                            "unet_max_num_features": config.unet_max_num_features,
+                            "conv_kernel_sizes": config.conv_kernel_sizes,
+                            "pool_op_kernel_sizes": config.pool_op_kernel_sizes,
+                            "num_pool_per_axis": config.num_pool_per_axis,
+                        },
+                        "dataset_parameters": {
+                            "dataset_name": dataset_name,
+                            "num_channels": len(dataset_json["channel_names"].keys()),
+                            "channels": {int(k): v for k, v in dataset_json["channel_names"].items()},
+                            "num_classes": len(dataset_json["labels"].keys()),
+                            "class_names": {v: k for k, v in dataset_json["labels"].items()},
+                        }
+                    }
+
                     json.dump(
                         {
                             "dataset_name": dataset_name,
                             "configuration": c,
-                            "trainer": trainer,
-                            "plans_identifier": plans_identifier,
                             "fold": fold,
                             "checkpoint_name": checkpoint_name,
                             "configuration_manager": {
