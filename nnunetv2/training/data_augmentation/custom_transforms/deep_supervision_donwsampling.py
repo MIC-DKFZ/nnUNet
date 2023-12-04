@@ -26,7 +26,7 @@ class DownsampleSegForDSTransform2(AbstractTransform):
 
     def __call__(self, **data_dict):
         if self.axes is None:
-            axes = list(range(2, len(data_dict[self.input_key].shape)))
+            axes = list(range(2, data_dict[self.input_key].ndim))
         else:
             axes = self.axes
 

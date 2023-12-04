@@ -64,7 +64,7 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
     # check shapes
     shape_image = images.shape[1:]
     shape_seg = segmentation.shape[1:]
-    if not all([i == j for i, j in zip(shape_image, shape_seg)]):
+    if shape_image != shape_seg:
         print('Error: Shape mismatch between segmentation and corresponding images. \nShape images: %s. '
               '\nShape seg: %s. \nImage files: %s. \nSeg file: %s\n' %
               (shape_image, shape_seg, image_files, label_file))
@@ -125,12 +125,12 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     :param folder:
     :return:
     """
-    assert isfile(join(folder, "dataset.json")), "There needs to be a dataset.json file in folder, folder=%s" % folder
+    assert isfile(join(folder, "dataset.json")), f"There needs to be a dataset.json file in folder, folder={folder}"
     dataset_json = load_json(join(folder, "dataset.json"))
 
     if not 'dataset' in dataset_json.keys():
-        assert isdir(join(folder, "imagesTr")), "There needs to be a imagesTr subfolder in folder, folder=%s" % folder
-        assert isdir(join(folder, "labelsTr")), "There needs to be a labelsTr subfolder in folder, folder=%s" % folder
+        assert isdir(join(folder, "imagesTr")), f"There needs to be a imagesTr subfolder in folder, folder={folder}"
+        assert isdir(join(folder, "labelsTr")), f"There needs to be a labelsTr subfolder in folder, folder={folder}"
 
     # make sure all required keys are there
     dataset_keys = list(dataset_json.keys())
@@ -172,7 +172,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                 missing_labels.append(dataset[k]['label'])
                 ok = False
         if not ok:
-            raise FileNotFoundError(f"Some expeted files were missing. Make sure you are properly referencing them "
+            raise FileNotFoundError(f"Some expected files were missing. Make sure you are properly referencing them "
                                     f"in the dataset.json. Or use imagesTr & labelsTr folders!\nMissing images:"
                                     f"\n{missing_images}\n\nMissing labels:\n{missing_labels}")
     else:
@@ -181,7 +181,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
         label_identifiers = [i[:-len(file_ending)] for i in labelfiles]
         labels_present = [i in label_identifiers for i in dataset.keys()]
         missing = [i for j, i in enumerate(dataset.keys()) if not labels_present[j]]
-        assert all(labels_present), 'not all training cases have a label file in labelsTr. Fix that. Missing: %s' % missing
+        assert all(labels_present), f'not all training cases have a label file in labelsTr. Fix that. Missing: {missing}'
 
     labelfiles = [v['label'] for v in dataset.values()]
     image_files = [v['images'] for v in dataset.values()]

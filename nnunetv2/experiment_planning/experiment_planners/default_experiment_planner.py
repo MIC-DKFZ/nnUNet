@@ -516,12 +516,12 @@ class ExperimentPlanner(object):
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
         save_json(plans, plans_file, sort_keys=False)
-        print('Plans were saved to %s' % join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json'))
+        print(f"Plans were saved to {join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json')}")
 
     def generate_data_identifier(self, configuration_name: str) -> str:
         """
-        configurations are unique within each plans file but differnet plans file can have configurations with the
-        same name. In order to distinguish the assiciated data we need a data identifier that reflects not just the
+        configurations are unique within each plans file but different plans file can have configurations with the
+        same name. In order to distinguish the associated data we need a data identifier that reflects not just the
         config but also the plans it originates from
         """
         return self.plans_identifier + '_' + configuration_name

@@ -50,7 +50,7 @@ class LabelManager(object):
 
     def _sanity_check(self, label_dict: dict):
         if not 'background' in label_dict.keys():
-            raise RuntimeError('Background label not declared (remeber that this should be label 0!)')
+            raise RuntimeError('Background label not declared (remember that this should be label 0!)')
         bg_label = label_dict['background']
         if isinstance(bg_label, (tuple, list)):
             raise RuntimeError(f"Background label must be 0. Not a list. Not a tuple. Your background label: {bg_label}")
@@ -157,7 +157,7 @@ class LabelManager(object):
             # check correct number of outputs
         assert predicted_probabilities.shape[0] == self.num_segmentation_heads, \
             f'unexpected number of channels in predicted_probabilities. Expected {self.num_segmentation_heads}, ' \
-            f'got {predicted_probabilities.shape[0]}. Remeber that predicted_probabilities should have shape ' \
+            f'got {predicted_probabilities.shape[0]}. Remember that predicted_probabilities should have shape ' \
             f'(c, x, y(, z)).'
 
         if self.has_regions:

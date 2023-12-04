@@ -59,9 +59,13 @@ For region-based training, the labels need to be changed to the following:
 ```
 This corresponds to the bottom row in the figure above. Note how an additional entry in the dataset.json is 
 required: `regions_class_order`. This tells nnU-Net how to convert the region representations back to an integer map. 
-It essentially just tells nnU-Net what labels to place for which region in what order. Concretely, for the example 
-given here, nnU-Net will place the label 1 for the 'whole_tumor' region, then place the label 2 where the "tumor_core" 
-is and finally place the label 3 in the 'enhancing_tumor' area. With each step, part of the previously set pixels 
+It essentially just tells nnU-Net what labels to place for which region in what order. The length of the 
+list here needs to be the same as the number of regions (excl background). Each element in the list corresponds 
+to the label that is placed instead of the region into the final segmentation. Later entries will overwrite earlier ones! 
+Concretely, for the example given here, nnU-Net 
+will firstly place the label 1 (edema) where the 'whole_tumor' region was predicted, then place the label 2 
+(non-enhancing tumor and necrosis) where the "tumor_core" was predicted and finally place the label 3 in the 
+predicted 'enhancing_tumor' area. With each step, part of the previously set pixels 
 will be overwritten with the new label! So when setting your `regions_class_order`, place encompassing regions 
 (like whole tumor etc) first, followed by substructures.
 

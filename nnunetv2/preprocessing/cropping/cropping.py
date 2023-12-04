@@ -12,7 +12,7 @@ def create_nonzero_mask(data):
     :return: the mask is True where the data is nonzero
     """
     from scipy.ndimage import binary_fill_holes
-    assert len(data.shape) == 4 or len(data.shape) == 3, "data must have shape (C, X, Y, Z) or shape (C, X, Y)"
+    assert data.ndim in (3, 4), "data must have shape (C, X, Y, Z) or shape (C, X, Y)"
     nonzero_mask = np.zeros(data.shape[1:], dtype=bool)
     for c in range(data.shape[0]):
         this_mask = data[c] != 0

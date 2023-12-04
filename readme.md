@@ -96,9 +96,12 @@ Additional information:
 - [Extending nnU-Net](documentation/extending_nnunet.md)
 - [What is different in V2?](documentation/changelog.md)
 
+Competitions:
+- [AutoPET II](documentation/competitions/AutoPETII.md)
+
 [//]: # (- [Ignore label]&#40;documentation/ignore_label.md&#41;)
 
-## Where does nnU-net perform well and where does it not perform?
+## Where does nnU-Net perform well and where does it not perform?
 nnU-Net excels in segmentation problems that need to be solved by training from scratch, 
 for example: research applications that feature non-standard image modalities and input channels,
 challenge datasets from the biomedical domain, majority of 3D segmentation problems, etc . We have yet to find a 
