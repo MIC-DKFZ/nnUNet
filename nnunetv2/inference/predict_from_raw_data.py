@@ -549,13 +549,12 @@ class nnUNetPredictor(object):
             # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
             assert max(mirror_axes) <= x.ndim - 3, 'mirror_axes does not match the dimension of the input!'
 
-            num_predictons = 2 ** len(mirror_axes)
             axes_combinations = [
                 c for i in range(len(mirror_axes)) for c in itertools.combinations([m + 2 for m in mirror_axes], i + 1)
             ]
             for axes in axes_combinations:
                 prediction += torch.flip(self.network(torch.flip(x, (*axes,))), (*axes,))
-            prediction /= num_predictons
+            prediction /= (len(axes_combinations) + 1)
         return prediction
 
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) \
