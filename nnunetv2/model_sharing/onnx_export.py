@@ -49,6 +49,11 @@ def export_onnx_model(
         )
         dataset_json = load_json(join(trainer_output_dir, "dataset.json"))
 
+        # While we load in this file indirectly, we need the plans file to
+        # determine the foreground intensity properties.
+        plans = load_json(join(trainer_output_dir, 'plans.json'))
+        foreground_intensity_properties = plans['foreground_intensity_properties_per_channel']
+
         if not isdir(trainer_output_dir):
             if strict:
                 raise RuntimeError(
@@ -170,7 +175,11 @@ def export_onnx_model(
                             "dataset_name": dataset_name,
                             "num_channels": len(dataset_json["channel_names"].keys()),
                             "channels": {
-                                int(k): v
+                                k: {
+                                    "name": v,
+                                    # For when normalization is not Z-Score
+                                    "foreground_properties": foreground_intensity_properties[k],
+                                }
                                 for k, v in dataset_json["channel_names"].items()
                             },
                             "num_classes": len(dataset_json["labels"].keys()),
