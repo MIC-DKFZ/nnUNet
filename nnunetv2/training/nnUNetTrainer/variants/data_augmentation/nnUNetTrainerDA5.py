@@ -93,7 +93,7 @@ class nnUNetTrainerDA5(nnUNetTrainer):
     @staticmethod
     def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
                                 rotation_for_DA: dict,
-                                deep_supervision_scales: Union[List, Tuple],
+                                deep_supervision_scales: Union[List, Tuple, None],
                                 mirror_axes: Tuple[int, ...],
                                 do_dummy_2d_data_aug: bool,
                                 order_resampling_data: int = 3,

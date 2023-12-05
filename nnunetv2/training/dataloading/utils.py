@@ -1,7 +1,6 @@
 from __future__ import annotations
 import multiprocessing
 import os
-from multiprocessing import Pool
 from typing import List
 from pathlib import Path
 from warnings import warn
@@ -65,6 +64,7 @@ def try_fix_broken_npy(path_do_data_dir: Path, case_ids: set[str], fix_image: bo
                     )
                 continue
 
+
 def verify_or_stratify_npys(path_to_data_dir: str | Path) -> None:
     """
     This re-reads the npy files after unpacking. Should there be a loading issue with any, it will try to unpack this file again and overwrites the existing.
@@ -86,6 +86,7 @@ def verify_or_stratify_npys(path_to_data_dir: str | Path) -> None:
         # Try to fix the broken npys by reextracting the npz. If that fails, raise error
         try_fix_broken_npy(path_to_data_dir, failed_data_ids, fix_image=True)
         try_fix_broken_npy(path_to_data_dir, failed_seg_ids, fix_image=False)
+
 
 def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_existing: bool = False) -> None:
     try:
@@ -113,7 +114,6 @@ def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_exis
                                        [unpack_segmentation] * len(npz_files),
                                        [overwrite_existing] * len(npz_files))
                   )
-    verify_or_stratify_npys(folder)
 
 
 def get_case_identifiers(folder: str) -> List[str]:
