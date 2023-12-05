@@ -233,9 +233,9 @@ class nnUNetTrainerDA5(nnUNetTrainer):
 
         tr_transforms.append(
             BrightnessGradientAdditiveTransform(
-                lambda x, y: np.exp(np.random.uniform(np.log(x[y] // 6), np.log(x[y]))),
+                _transform_scale,
                 (-0.5, 1.5),
-                max_strength=lambda x, y: np.random.uniform(-5, -1) if np.random.uniform() < 0.5 else np.random.uniform(1, 5),
+                max_strength=_brightness_gradient_additive_max_strength,
                 mean_centered=False,
                 same_for_all_channels=False,
                 p_per_sample=0.3,
@@ -245,9 +245,9 @@ class nnUNetTrainerDA5(nnUNetTrainer):
 
         tr_transforms.append(
             LocalGammaTransform(
-                lambda x, y: np.exp(np.random.uniform(np.log(x[y] // 6), np.log(x[y]))),
+                _transform_scale,
                 (-0.5, 1.5),
-                lambda: np.random.uniform(0.01, 0.8) if np.random.uniform() < 0.5 else np.random.uniform(1.5, 4),
+                _local_gamma_gamma,
                 same_for_all_channels=False,
                 p_per_sample=0.3,
                 p_per_channel=0.5
@@ -353,6 +353,14 @@ class nnUNetTrainerDA5ord0(nnUNetTrainerDA5):
 
         return mt_gen_train, mt_gen_val
 
+def _transform_scale(x, y):
+    return np.exp(np.random.uniform(np.log(x[y] // 6), np.log(x[y])))
+
+def _brightness_gradient_additive_max_strength(_x, _y):
+    return np.random.uniform(-5, -1) if np.random.uniform() < 0.5 else np.random.uniform(1, 5)
+
+def _local_gamma_gamma():
+    return np.random.uniform(0.01, 0.8) if np.random.uniform() < 0.5 else np.random.uniform(1.5, 4)
 
 class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
     def get_dataloaders(self):
