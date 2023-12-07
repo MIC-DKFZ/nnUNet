@@ -65,9 +65,13 @@ class nnUNetPredictor(object):
         self.device = device
         self.perform_everything_on_gpu = perform_everything_on_gpu
 
-    def initialize_from_trained_model_folder(self, model_training_output_dir: str,
-                                             use_folds: Union[Tuple[Union[int, str]], None],
-                                             checkpoint_name: str = 'checkpoint_final.pth'):
+    def initialize_from_trained_model_folder(
+            self,
+            model_training_output_dir: str,
+            use_folds: Union[Tuple[Union[int, str]], None],
+            checkpoint_name: str = 'checkpoint_final.pth',
+            disable_compilation: bool = False,
+    ):
         """
         This is used when making predictions with a trained model
         """
@@ -110,7 +114,7 @@ class nnUNetPredictor(object):
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
         self.label_manager = plans_manager.get_label_manager(dataset_json)
         if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
-                and not isinstance(self.network, OptimizedModule):
+                and not isinstance(self.network, OptimizedModule) and not disable_compilation:
             print('compiling network')
             self.network = torch.compile(self.network)
 
