@@ -627,6 +627,11 @@ class nnUNetPredictor(object):
                     n_predictions[sl[1:]] += (gaussian if self.use_gaussian else 1)
 
                 predicted_logits /= n_predictions
+                # check for infs
+                if torch.any(torch.isinf(predicted_logits)):
+                    raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
+                                       'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
+                                       'predicted_logits to fp32')
         empty_cache(self.device)
         return predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
 
