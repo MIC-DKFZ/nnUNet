@@ -57,7 +57,7 @@ Example:
         tile_step_size=0.5,
         use_gaussian=True,
         use_mirroring=True,
-        perform_everything_on_gpu=True,
+        perform_everything_on_device=True,
         device=torch.device('cuda', 0),
         verbose=False,
         verbose_preprocessing=False,
