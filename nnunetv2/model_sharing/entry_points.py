@@ -174,21 +174,21 @@ def export_pretrained_model_onnx_entry():
     print("!!!!!!!!!!!!!!!!!!!!!!!!WARNING!!!!!!!!!!!!!!!!!!!!!!!")
     print("######################################################")
     print(
-        "You are responsible for creating the ONNX pipeline\n"
-        "yourself.\n\n"
-        "This script will only export the model weights to\n"
-        "an onnx file, and some basic information about\n"
-        "the model. You will have to create the ONNX pipeline\n"
-        "yourself.\n"
+        "Exported models are provided as-is, without any\n"
+        "guarantees, warranties and/or support from MIC-DKFZ,\n"
+        "any associated persons and/or other entities.\n"
     )
     print(
-        "See\n"
-        "https://pytorch.org/tutorials/beginner/onnx/export_simple_model_to_onnx_tutorial.html"
-        "#execute-the-onnx-model-with-onnx-runtime\n"
-        "for some documentation on how to do this."
+        "You will bear sole responsibility for the proper\n"
+        "use of the exported models.\n"
     )
-    print("######################################################")
-    print("")
+    print(
+        "You are responsible for creating and validating\n"
+        "the ONNX pipeline yourself. To this end we provide\n"
+        "the .onnx file, and a config.json containing any\n"
+        "details you might need."
+    )
+    print("######################################################\n")
 
     export_onnx_model(
         dataset_name_or_id=args.d,
