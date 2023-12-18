@@ -540,13 +540,16 @@ class nnUNetPredictor(object):
                                                        do_on_device: bool = True,
                                                        ):
         results_device = self.device if do_on_device else torch.device('cpu')
+        empty_cache(self.device)
 
         # move data to device
-        if self.verbose: print(f'move image to device {results_device}')
-        data = data.to(self.device)
+        if self.verbose:
+            print(f'move image to device {results_device}')
+        data = data.to(results_device)
 
         # preallocate arrays
-        if self.verbose: print(f'preallocating results arrays on device {results_device}')
+        if self.verbose:
+            print(f'preallocating results arrays on device {results_device}')
         predicted_logits = torch.zeros((self.label_manager.num_segmentation_heads, *data.shape[1:]),
                                        dtype=torch.half,
                                        device=results_device)
@@ -555,7 +558,6 @@ class nnUNetPredictor(object):
             gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
                                         value_scaling_factor=10,
                                         device=results_device)
-        empty_cache(self.device)
 
         if self.verbose: print('running prediction')
         if not self.allow_tqdm and self.verbose: print(f'{len(slicers)} steps')
