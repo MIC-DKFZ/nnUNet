@@ -114,6 +114,54 @@ class nnUNetPredictor(object):
             print('Using torch.compile')
             self.network = torch.compile(self.network)
 
+    def load_from_checkpoint(self, checkpoint_path: str):
+            """Load model from single checkpoint"""
+
+            # load the full checkpoint
+            model_checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+
+            # load the dataset and plans
+            dataset_json = model_checkpoint['dataset']
+            plans_json = model_checkpoint['plans']
+            plans_manager = PlansManager(plans_json)
+
+            # load the model parameters
+            parameters = []
+            checkpoint_name = "final" # always use final checkpoint for now
+            for i, k in enumerate(sorted(model_checkpoint['folds'])):
+
+                checkpoint = model_checkpoint['folds'][k][checkpoint_name]
+                
+                if i == 0: # use first fold to get trainer and configuration name
+                    trainer_name = checkpoint['trainer_name']
+                    configuration_name = checkpoint['init_args']['configuration']
+                    inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
+                            'inference_allowed_mirroring_axes' in checkpoint.keys() else None
+
+                parameters.append(checkpoint['network_weights'])
+
+            configuration_manager = plans_manager.get_configuration(configuration_name)
+            
+            # restore network
+            num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_json)
+            trainer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
+                                                            trainer_name, 'nnunetv2.training.nnUNetTrainer')
+            network = trainer_class.build_network_architecture(plans_manager, dataset_json, configuration_manager,
+                                                                    num_input_channels, enable_deep_supervision=False)
+            self.plans_manager = plans_manager
+            self.configuration_manager = configuration_manager
+            self.list_of_parameters = parameters
+            self.network = network
+            self.dataset_json = dataset_json
+            self.trainer_name = trainer_name
+            self.allowed_mirroring_axes = inference_allowed_mirroring_axes
+            self.label_manager = plans_manager.get_label_manager(dataset_json)
+            if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
+                    and not isinstance(self.network, OptimizedModule):
+                    print('Using torch.compile')
+                    self.network = torch.compile(self.network)
+
+
     def manual_initialization(self, network: nn.Module, plans_manager: PlansManager,
                               configuration_manager: ConfigurationManager, parameters: Optional[List[dict]],
                               dataset_json: dict, trainer_name: str,

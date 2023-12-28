@@ -1,5 +1,7 @@
+import glob
 import zipfile
 
+import torch
 from nnunetv2.utilities.file_path_utilities import *
 
 
@@ -118,6 +120,87 @@ def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: st
         if isfile(inference_information_txt_file):
             zipf.write(inference_information_txt_file, os.path.relpath(inference_information_txt_file, nnUNet_results))
     print('Done')
+
+def export_model_checkpoint(
+    path: str,
+    checkpoint_path: str = None,
+    checkpoint_name: str = "model_checkpoint.pth",
+) -> None:
+    """Save NNUNet model checkpoint as a single .pth file
+    args:
+        path: path to the nnunet model directory
+
+    """
+    # nnunet model directory structure for ensemble:
+    # model
+    #  dataset.json
+    #  plans.json
+    #  fold_n:
+    #   checkpoint_best.pth
+    #   checkpoint_final.pth
+
+    # we want to convert it to a single .pth file with the following structure:
+    # model_checkpoint.pth
+    # dataset: dataset.json
+    # plans: plans.json
+    # fold_n:
+    #  best:  checkpoint_best.pth
+    #  final: checkpoint_final.pth
+
+    # this makes it more portable and easier to load
+
+    def load_json(path: str):
+        with open(path, "r") as f:
+            return json.load(f)
+
+    # confirm that the path is a nnunet model directory
+    if not os.path.isdir(path):
+        raise ValueError(f"{path} is not a directory")
+    if not os.path.exists(os.path.join(path, "dataset.json")):
+        raise ValueError(f"{path} does not contain a dataset.json file")
+    if not os.path.exists(os.path.join(path, "plans.json")):
+        raise ValueError(f"{path} does not contain a plans.json file")
+
+    print(f"Exporting model checkpoint from {path}...")
+
+    model_checkpoint = {}
+
+    # paths
+    dataset_json_path = os.path.join(path, "dataset.json")
+    plan_json_path = os.path.join(path, "plans.json")
+
+    # load the dataset and plans
+    print("Loading dataset and plans configurations...")
+    model_checkpoint["dataset"] = load_json(dataset_json_path)
+    model_checkpoint["plans"] = load_json(plan_json_path)
+
+    # load the folds
+    model_checkpoint["folds"] = {}
+
+    # get all the fold directories,
+    fold_dirs = sorted(glob.glob(os.path.join(path, "fold_*")))
+    print(f"Found {len(fold_dirs)} folds...")
+    for fold_dir in fold_dirs:
+        fold_name = os.path.basename(fold_dir)
+        print(f"Processing fold {fold_name}...")
+
+        # load the best/ final checkpoint
+        best_checkpoint_path = os.path.join(fold_dir, "checkpoint_best.pth")
+        final_checkpoint_path = os.path.join(fold_dir, "checkpoint_final.pth")
+
+        model_checkpoint["folds"][fold_name] = {
+            "best": torch.load(best_checkpoint_path, map_location=torch.device("cpu")),
+            "final": torch.load(
+                final_checkpoint_path, map_location=torch.device("cpu")
+            ),
+        }
+
+    # save as single torch checkpoint
+    if checkpoint_path is None:
+        checkpoint_path = os.path.join(path, checkpoint_name)
+    torch.save(model_checkpoint, checkpoint_path)
+    print(f"Exported model checkpoint to {checkpoint_path}")
+
 
 
 if __name__ == '__main__':
