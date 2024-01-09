@@ -1,4 +1,3 @@
-import os.path
 import shutil
 from copy import deepcopy
 from functools import lru_cache
@@ -78,6 +77,10 @@ class ExperimentPlanner(object):
             'if overwrite_target_spacing is used then three floats must be given (as list or tuple)'
 
         self.plans = None
+
+        if isfile(join(self.raw_dataset_folder, 'splits_final.json')):
+            _maybe_copy_splits_file(join(self.raw_dataset_folder, 'splits_final.json'),
+                                    join(preprocessed_folder, 'splits_final.json'))
 
     def determine_reader_writer(self):
         example_image = self.dataset[self.dataset.keys().__iter__().__next__()]['images'][0]
@@ -528,6 +531,24 @@ class ExperimentPlanner(object):
 
     def load_plans(self, fname: str):
         self.plans = load_json(fname)
+
+
+def _maybe_copy_splits_file(splits_file: str, target_fname: str):
+    if not isfile(target_fname):
+        shutil.copy(splits_file, target_fname)
+    else:
+        # split already exists, do not copy, but check that the splits match.
+        # This code allows target_fname to contain more splits than splits_file. This is OK.
+        splits_source = load_json(splits_file)
+        splits_target = load_json(target_fname)
+        # all folds in the source file must match the target file
+        for i in range(len(splits_source)):
+            train_source = set(splits_source[i]['train'])
+            train_target = set(splits_target[i]['train'])
+            assert train_target == train_source
+            val_source = set(splits_source[i]['val'])
+            val_target = set(splits_target[i]['val'])
+            assert val_source == val_target
 
 
 if __name__ == '__main__':
