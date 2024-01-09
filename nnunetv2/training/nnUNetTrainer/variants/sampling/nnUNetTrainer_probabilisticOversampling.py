@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Tuple
 
 import torch
@@ -58,6 +59,13 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
         return dl_tr, dl_val
+
+    def _set_batch_size_and_oversample(self):
+        old_oversample = deepcopy(self.oversample_foreground_percent)
+        super()._set_batch_size_and_oversample()
+        self.oversample_foreground_percent = old_oversample
+        self.print_to_log_file(f"Ignore previous message about oversample_foreground_percent. "
+                               f"oversample_foreground_percent overwritten to {self.oversample_foreground_percent}")
 
 
 class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
