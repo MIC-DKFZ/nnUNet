@@ -130,7 +130,8 @@ class nnUNetPredictor(object):
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
         self.label_manager = plans_manager.get_label_manager(dataset_json)
         allow_compile = True
-        allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
+        allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (
+                    os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
         allow_compile = allow_compile and not isinstance(self.network, OptimizedModule)
         if isinstance(self.network, DistributedDataParallel):
             allow_compile = allow_compile and isinstance(self.network.module, OptimizedModule)
@@ -361,7 +362,7 @@ class nnUNetPredictor(object):
                 # npy files
                 proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
                 while not proceed:
-                    # print('sleeping')
+                    print('sleeping')
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
 
@@ -539,43 +540,51 @@ class nnUNetPredictor(object):
                                                        slicers,
                                                        do_on_device: bool = True,
                                                        ):
+        predicted_logits = n_predictions = prediction = gaussian = workon = None
         results_device = self.device if do_on_device else torch.device('cpu')
-        empty_cache(self.device)
 
-        # move data to device
-        if self.verbose:
-            print(f'move image to device {results_device}')
-        data = data.to(results_device)
+        try:
+            empty_cache(self.device)
 
-        # preallocate arrays
-        if self.verbose:
-            print(f'preallocating results arrays on device {results_device}')
-        predicted_logits = torch.zeros((self.label_manager.num_segmentation_heads, *data.shape[1:]),
-                                       dtype=torch.half,
-                                       device=results_device)
-        n_predictions = torch.zeros(data.shape[1:], dtype=torch.half, device=results_device)
-        if self.use_gaussian:
-            gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
-                                        value_scaling_factor=10,
-                                        device=results_device)
+            # move data to device
+            if self.verbose:
+                print(f'move image to device {results_device}')
+            data = data.to(results_device)
 
-        if self.verbose: print('running prediction')
-        if not self.allow_tqdm and self.verbose: print(f'{len(slicers)} steps')
-        for sl in tqdm(slicers, disable=not self.allow_tqdm):
-            workon = data[sl][None]
-            workon = workon.to(self.device, non_blocking=False)
+            # preallocate arrays
+            if self.verbose:
+                print(f'preallocating results arrays on device {results_device}')
+            predicted_logits = torch.zeros((self.label_manager.num_segmentation_heads, *data.shape[1:]),
+                                           dtype=torch.half,
+                                           device=results_device)
+            n_predictions = torch.zeros(data.shape[1:], dtype=torch.half, device=results_device)
+            if self.use_gaussian:
+                gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
+                                            value_scaling_factor=10,
+                                            device=results_device)
 
-            prediction = self._internal_maybe_mirror_and_predict(workon)[0].to(results_device)
+            if self.verbose: print('running prediction')
+            if not self.allow_tqdm and self.verbose: print(f'{len(slicers)} steps')
+            for sl in tqdm(slicers, disable=not self.allow_tqdm):
+                workon = data[sl][None]
+                workon = workon.to(self.device, non_blocking=False)
 
-            predicted_logits[sl] += (prediction * gaussian if self.use_gaussian else prediction)
-            n_predictions[sl[1:]] += (gaussian if self.use_gaussian else 1)
+                prediction = self._internal_maybe_mirror_and_predict(workon)[0].to(results_device)
 
-        predicted_logits /= n_predictions
-        # check for infs
-        if torch.any(torch.isinf(predicted_logits)):
-            raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
-                               'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
-                               'predicted_logits to fp32')
+                predicted_logits[sl] += (prediction * gaussian if self.use_gaussian else prediction)
+                n_predictions[sl[1:]] += (gaussian if self.use_gaussian else 1)
+
+            predicted_logits /= n_predictions
+            # check for infs
+            if torch.any(torch.isinf(predicted_logits)):
+                raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
+                                   'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
+                                   'predicted_logits to fp32')
+        except Exception as e:
+            del predicted_logits, n_predictions, prediction, gaussian, workon
+            empty_cache(self.device)
+            empty_cache(results_device)
+            raise e
         return predicted_logits
 
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) \
@@ -610,13 +619,16 @@ class nnUNetPredictor(object):
                 if self.perform_everything_on_device and self.device != 'cpu':
                     # we need to try except here because we can run OOM in which case we need to fall back to CPU as a results device
                     try:
-                        predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, self.perform_everything_on_device)
+                        predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
+                                                                                               self.perform_everything_on_device)
                     except RuntimeError:
-                        print('Prediction on device was unsuccessful, probably due to a lack of memory. Moving results arrays to CPU')
+                        print(
+                            'Prediction on device was unsuccessful, probably due to a lack of memory. Moving results arrays to CPU')
                         empty_cache(self.device)
                         predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, False)
                 else:
-                    predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, self.perform_everything_on_device)
+                    predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
+                                                                                           self.perform_everything_on_device)
 
                 empty_cache(self.device)
                 # revert padding
@@ -673,7 +685,6 @@ def predict_entry_point_modelfolder():
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
                              'jobs)')
 
-
     print(
         "\n#######################################################################\nPlease cite the following paper "
         "when using nnU-Net:\n"
@@ -708,7 +719,8 @@ def predict_entry_point_modelfolder():
                                 perform_everything_on_device=True,
                                 device=device,
                                 verbose=args.verbose,
-                                allow_tqdm=not args.disable_progress_bar)
+                                allow_tqdm=not args.disable_progress_bar,
+                                verbose_preprocessing=args.verbose)
     predictor.initialize_from_trained_model_folder(args.m, args.f, args.chk)
     predictor.predict_from_files(args.i, args.o, save_probabilities=args.save_probabilities,
                                  overwrite=not args.continue_prediction,
@@ -821,7 +833,7 @@ def predict_entry_point():
                                 perform_everything_on_device=True,
                                 device=device,
                                 verbose=args.verbose,
-                                verbose_preprocessing=False,
+                                verbose_preprocessing=args.verbose,
                                 allow_tqdm=not args.disable_progress_bar)
     predictor.initialize_from_trained_model_folder(
         model_folder,
@@ -858,6 +870,7 @@ def predict_entry_point():
 if __name__ == '__main__':
     # predict a bunch of files
     from nnunetv2.paths import nnUNet_results, nnUNet_raw
+
     predictor = nnUNetPredictor(
         tile_step_size=0.5,
         use_gaussian=True,
@@ -867,10 +880,10 @@ if __name__ == '__main__':
         verbose=False,
         verbose_preprocessing=False,
         allow_tqdm=True
-        )
+    )
     predictor.initialize_from_trained_model_folder(
         join(nnUNet_results, 'Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_lowres'),
-        use_folds=(0, ),
+        use_folds=(0,),
         checkpoint_name='checkpoint_final.pth',
     )
     predictor.predict_from_files(join(nnUNet_raw, 'Dataset003_Liver/imagesTs'),
@@ -881,12 +894,12 @@ if __name__ == '__main__':
 
     # predict a numpy array
     from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
+
     img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')])
     ret = predictor.predict_single_npy_array(img, props, None, None, False)
 
     iterator = predictor.get_data_iterator_from_raw_npy_data([img], None, [props], None, 1)
     ret = predictor.predict_from_data_iterator(iterator, False, 1)
-
 
     # predictor = nnUNetPredictor(
     #     tile_step_size=0.5,
@@ -908,4 +921,3 @@ if __name__ == '__main__':
     #                              num_processes_preprocessing=2, num_processes_segmentation_export=2,
     #                              folder_with_segs_from_prev_stage='/media/isensee/data/nnUNet_raw/Dataset003_Liver/imagesTs_predlowres',
     #                              num_parts=1, part_id=0)
-
