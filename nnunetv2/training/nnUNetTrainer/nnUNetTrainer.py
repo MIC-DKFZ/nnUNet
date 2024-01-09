@@ -1151,7 +1151,6 @@ class nnUNetTrainer(object):
             _, val_keys = self.do_split()
             if self.is_ddp:
                 last_barrier_at_idx = len(val_keys) // dist.get_world_size() - 1
-                print(f'last barrier at idx {last_barrier_at_idx}')
 
                 val_keys = val_keys[self.local_rank:: dist.get_world_size()]
                 # we cannot just have barriers all over the place because the number of keys each GPU receives can be
@@ -1240,7 +1239,6 @@ class nnUNetTrainer(object):
                         ))
                 # if we don't barrier from time to time we will get nccl timeouts for large datsets. Yuck.
                 if self.is_ddp and i < last_barrier_at_idx and (i + 1) % 20 == 0:
-                    print(f'index {i}. Barrier rank {self.local_rank}')
                     dist.barrier()
 
             _ = [r.get() for r in results]
