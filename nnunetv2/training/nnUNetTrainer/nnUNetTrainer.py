@@ -50,13 +50,13 @@ from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
+from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
-from sklearn.model_selection import KFold
 from torch import autocast, nn
 from torch import distributed as dist
 from torch.cuda import device_count
@@ -80,7 +80,9 @@ class nnUNetTrainer(object):
         # one day code base understandable and grug can get work done, everything good!
         # next day impossible: complexity demon spirit has entered code and very dangerous situation!
 
-        # OK OK I am guilty. But I tried. http://tiny.cc/gzgwuz
+        # OK OK I am guilty. But I tried.
+        # https://www.osnews.com/images/comics/wtfm.jpg
+        # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
 
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
@@ -144,6 +146,7 @@ class nnUNetTrainer(object):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 250
         self.current_epoch = 0
+        self.enable_deep_supervision = True
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -151,7 +154,7 @@ class nnUNetTrainer(object):
         # needed for predictions. We do sigmoid in case of (overlapping) regions
 
         self.num_input_channels = None  # -> self.initialize()
-        self.network = None  # -> self._get_network()
+        self.network = None  # -> self.build_network_architecture()
         self.optimizer = self.lr_scheduler = None  # -> self.initialize
         self.grad_scaler = GradScaler() if self.device.type == 'cuda' else None
         self.loss = None  # -> self.initialize
@@ -199,14 +202,16 @@ class nnUNetTrainer(object):
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
 
-            self.network = self.build_network_architecture(self.plans_manager, self.dataset_json,
-                                                           self.configuration_manager,
-                                                           self.num_input_channels,
-                                                           enable_deep_supervision=True).to(self.device)
+            self.network = self.build_network_architecture(
+                self.plans_manager,
+                self.dataset_json,
+                self.configuration_manager,
+                self.num_input_channels,
+                self.enable_deep_supervision,
+            ).to(self.device)
             # compile network for free speedup
-            if ('nnUNet_compile' in os.environ.keys()) and (
-                    os.environ['nnUNet_compile'].lower() in ('true', '1', 't')):
-                self.print_to_log_file('Compiling network...')
+            if self._do_i_compile():
+                self.print_to_log_file('Using torch.compile...')
                 self.network = torch.compile(self.network)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
@@ -220,6 +225,9 @@ class nnUNetTrainer(object):
         else:
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
                                "That should not happen.")
+
+    def _do_i_compile(self):
+        return ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
 
     def _save_debug_information(self):
         # saving some debug information
@@ -263,7 +271,7 @@ class nnUNetTrainer(object):
                                    num_input_channels,
                                    enable_deep_supervision: bool = True) -> nn.Module:
         """
-        his is where you build the architecture according to the plans. There is no obligation to use
+        This is where you build the architecture according to the plans. There is no obligation to use
         get_network_from_plans, this is just a utility we use for the nnU-Net default architectures. You can do what
         you want. Even ignore the plans and just return something static (as long as it can process the requested
         patch size)
@@ -285,8 +293,11 @@ class nnUNetTrainer(object):
                                       num_input_channels, deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
-        deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
-            self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
+        if self.enable_deep_supervision:
+            deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
+                self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
+        else:
+            deep_supervision_scales = None  # for train and val_transforms
         return deep_supervision_scales
 
     def _set_batch_size_and_oversample(self):
@@ -295,8 +306,6 @@ class nnUNetTrainer(object):
             self.batch_size = self.configuration_manager.batch_size
         else:
             # batch size is distributed over DDP workers and we need to change oversample_percent for each worker
-            batch_sizes = []
-            oversample_percents = []
 
             world_size = dist.get_world_size()
             my_rank = dist.get_rank()
@@ -305,36 +314,38 @@ class nnUNetTrainer(object):
             assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
                                                     'GPUs... Duh.'
 
-            batch_size_per_GPU = np.ceil(global_batch_size / world_size).astype(int)
+            batch_size_per_GPU = [global_batch_size // world_size] * world_size
+            batch_size_per_GPU = [batch_size_per_GPU[i] + 1
+                                  if (batch_size_per_GPU[i] * world_size + i) < global_batch_size
+                                  else batch_size_per_GPU[i]
+                                  for i in range(len(batch_size_per_GPU))]
+            assert sum(batch_size_per_GPU) == global_batch_size
 
-            for rank in range(world_size):
-                if (rank + 1) * batch_size_per_GPU > global_batch_size:
-                    batch_size = batch_size_per_GPU - ((rank + 1) * batch_size_per_GPU - global_batch_size)
-                else:
-                    batch_size = batch_size_per_GPU
+            sample_id_low = 0 if my_rank == 0 else np.sum(batch_size_per_GPU[:my_rank])
+            sample_id_high = np.sum(batch_size_per_GPU[:my_rank + 1])
 
-                batch_sizes.append(batch_size)
+            # This is how oversampling is determined in DataLoader
+            # round(self.batch_size * (1 - self.oversample_foreground_percent))
+            # We need to use the same scheme here because an oversample of 0.33 with a batch size of 2 will be rounded
+            # to an oversample of 0.5 (1 sample random, one oversampled). This may get lost if we just numerically
+            # compute oversample
+            oversample = [True if not i < round(global_batch_size * (1 - self.oversample_foreground_percent)) else False
+                          for i in range(global_batch_size)]
 
-                sample_id_low = 0 if len(batch_sizes) == 0 else np.sum(batch_sizes[:-1])
-                sample_id_high = np.sum(batch_sizes)
+            if sample_id_high / global_batch_size < (1 - self.oversample_foreground_percent):
+                oversample_percent = 0.0
+            elif sample_id_low / global_batch_size > (1 - self.oversample_foreground_percent):
+                oversample_percent = 1.0
+            else:
+                oversample_percent = sum(oversample[sample_id_low:sample_id_high]) / batch_size_per_GPU[my_rank]
 
-                if sample_id_high / global_batch_size < (1 - self.oversample_foreground_percent):
-                    oversample_percents.append(0.0)
-                elif sample_id_low / global_batch_size > (1 - self.oversample_foreground_percent):
-                    oversample_percents.append(1.0)
-                else:
-                    percent_covered_by_this_rank = sample_id_high / global_batch_size - sample_id_low / global_batch_size
-                    oversample_percent_here = 1 - (((1 - self.oversample_foreground_percent) -
-                                                    sample_id_low / global_batch_size) / percent_covered_by_this_rank)
-                    oversample_percents.append(oversample_percent_here)
-
-            print("worker", my_rank, "oversample", oversample_percents[my_rank])
-            print("worker", my_rank, "batch_size", batch_sizes[my_rank])
+            print("worker", my_rank, "oversample", oversample_percent)
+            print("worker", my_rank, "batch_size", batch_size_per_GPU[my_rank])
             # self.print_to_log_file("worker", my_rank, "oversample", oversample_percents[my_rank])
             # self.print_to_log_file("worker", my_rank, "batch_size", batch_sizes[my_rank])
 
-            self.batch_size = batch_sizes[my_rank]
-            self.oversample_foreground_percent = oversample_percents[my_rank]
+            self.batch_size = batch_size_per_GPU[my_rank]
+            self.oversample_foreground_percent = oversample_percent
 
     def _build_loss(self):
         if self.label_manager.has_regions:
@@ -348,17 +359,24 @@ class nnUNetTrainer(object):
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
 
-        deep_supervision_scales = self._get_deep_supervision_scales()
-
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
         # this gives higher resolution outputs more weight in the loss
-        weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
-        weights[-1] = 0
 
-        # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-        weights = weights / weights.sum()
-        # now wrap the loss
-        loss = DeepSupervisionWrapper(loss, weights)
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+            weights = np.array([1 / (2**i) for i in range(len(deep_supervision_scales))])
+            if self.is_ddp and not self._do_i_compile():
+                # very strange and stupid interaction. DDP crashes and complains about unused parameters due to
+                # weights[-1] = 0. Interestingly this crash doesn't happen with torch.compile enabled. Strange stuff.
+                # Anywho, the simple fix is to set a very low weight to this.
+                weights[-1] = 1e-6
+            else:
+                weights[-1] = 0
+
+            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+            weights = weights / weights.sum()
+            # now wrap the loss
+            loss = DeepSupervisionWrapper(loss, weights)
         return loss
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -424,7 +442,7 @@ class nnUNetTrainer(object):
             dt_object = datetime.fromtimestamp(timestamp)
 
             if add_timestamp:
-                args = ("%s:" % dt_object, *args)
+                args = (f"{dt_object}:", *args)
 
             successful = False
             max_attempts = 5
@@ -438,7 +456,7 @@ class nnUNetTrainer(object):
                         f.write("\n")
                     successful = True
                 except IOError:
-                    print("%s: failed to log: " % datetime.fromtimestamp(timestamp), sys.exc_info())
+                    print(f"{datetime.fromtimestamp(timestamp)}: failed to log: ", sys.exc_info())
                     sleep(0.5)
                     ctr += 1
             if also_print_to_console:
@@ -462,6 +480,10 @@ class nnUNetTrainer(object):
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
+        if self._do_i_compile():
+            self.print_to_log_file("Unable to plot network architecture: nnUNet_compile is enabled!")
+            return
+
         if self.local_rank == 0:
             try:
                 # raise NotImplementedError('hiddenlayer no longer works and we do not have a viable alternative :-(')
@@ -498,9 +520,9 @@ class nnUNetTrainer(object):
     def do_split(self):
         """
         The default split is a 5 fold CV on all available training cases. nnU-Net will create a split (it is seeded,
-        so always the same) and save it as splits_final.pkl file in the preprocessed data directory.
+        so always the same) and save it as splits_final.json file in the preprocessed data directory.
         Sometimes you may want to create your own split for various reasons. For this you will need to create your own
-        splits_final.pkl file. If this file is present, nnU-Net is going to use it and whatever splits are defined in
+        splits_final.json file. If this file is present, nnU-Net is going to use it and whatever splits are defined in
         it. You can create as many splits in this file as you want. Note that if you define only 4 splits (fold 0-3)
         and then set fold=4 when training (that would be the fifth split), nnU-Net will print a warning and proceed to
         use a random 80:20 data split.
@@ -519,21 +541,14 @@ class nnUNetTrainer(object):
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
-                splits = []
-                all_keys_sorted = np.sort(list(dataset.keys()))
-                kfold = KFold(n_splits=5, shuffle=True, random_state=12345)
-                for i, (train_idx, test_idx) in enumerate(kfold.split(all_keys_sorted)):
-                    train_keys = np.array(all_keys_sorted)[train_idx]
-                    test_keys = np.array(all_keys_sorted)[test_idx]
-                    splits.append({})
-                    splits[-1]['train'] = list(train_keys)
-                    splits[-1]['val'] = list(test_keys)
+                all_keys_sorted = list(np.sort(list(dataset.keys())))
+                splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
                 save_json(splits, splits_file)
 
             else:
                 self.print_to_log_file("Using splits from existing split file:", splits_file)
                 splits = load_json(splits_file)
-                self.print_to_log_file("The split file contains %d splits." % len(splits))
+                self.print_to_log_file(f"The split file contains {len(splits)} splits.")
 
             self.print_to_log_file("Desired fold for training: %d" % self.fold)
             if self.fold < len(splits):
@@ -581,10 +596,15 @@ class nnUNetTrainer(object):
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
+
         deep_supervision_scales = self._get_deep_supervision_scales()
 
-        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
-            self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
+        (
+            rotation_for_DA,
+            do_dummy_2d_data_aug,
+            initial_patch_size,
+            mirror_axes,
+        ) = self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
 
         # training pipeline
         tr_transforms = self.get_training_transforms(
@@ -651,19 +671,21 @@ class nnUNetTrainer(object):
         return dl_tr, dl_val
 
     @staticmethod
-    def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
-                                rotation_for_DA: dict,
-                                deep_supervision_scales: Union[List, Tuple],
-                                mirror_axes: Tuple[int, ...],
-                                do_dummy_2d_data_aug: bool,
-                                order_resampling_data: int = 3,
-                                order_resampling_seg: int = 1,
-                                border_val_seg: int = -1,
-                                use_mask_for_norm: List[bool] = None,
-                                is_cascaded: bool = False,
-                                foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-                                regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-                                ignore_label: int = None) -> AbstractTransform:
+    def get_training_transforms(
+        patch_size: Union[np.ndarray, Tuple[int]],
+        rotation_for_DA: dict,
+        deep_supervision_scales: Union[List, Tuple, None],
+        mirror_axes: Tuple[int, ...],
+        do_dummy_2d_data_aug: bool,
+        order_resampling_data: int = 3,
+        order_resampling_seg: int = 1,
+        border_val_seg: int = -1,
+        use_mask_for_norm: List[bool] = None,
+        is_cascaded: bool = False,
+        foreground_labels: Union[Tuple[int, ...], List[int]] = None,
+        regions: List[Union[List[int], Tuple[int, ...], int]] = None,
+        ignore_label: int = None,
+    ) -> AbstractTransform:
         tr_transforms = []
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
@@ -743,11 +765,13 @@ class nnUNetTrainer(object):
         return tr_transforms
 
     @staticmethod
-    def get_validation_transforms(deep_supervision_scales: Union[List, Tuple],
-                                  is_cascaded: bool = False,
-                                  foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-                                  regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-                                  ignore_label: int = None) -> AbstractTransform:
+    def get_validation_transforms(
+        deep_supervision_scales: Union[List, Tuple, None],
+        is_cascaded: bool = False,
+        foreground_labels: Union[Tuple[int, ...], List[int]] = None,
+        regions: List[Union[List[int], Tuple[int, ...], int]] = None,
+        ignore_label: int = None,
+    ) -> AbstractTransform:
         val_transforms = []
         val_transforms.append(RemoveLabelTransform(-1, 0))
 
@@ -776,9 +800,13 @@ class nnUNetTrainer(object):
         chances you need to change this as well!
         """
         if self.is_ddp:
-            self.network.module.decoder.deep_supervision = enabled
+            mod = self.network.module
         else:
-            self.network.decoder.deep_supervision = enabled
+            mod = self.network
+        if isinstance(mod, OptimizedModule):
+            mod = mod._orig_mod
+
+        mod.decoder.deep_supervision = enabled
 
     def on_train_start(self):
         if not self.was_initialized:
@@ -787,7 +815,7 @@ class nnUNetTrainer(object):
         maybe_mkdir_p(self.output_folder)
 
         # make sure deep supervision is on in the network
-        self.set_deep_supervision_enabled(True)
+        self.set_deep_supervision_enabled(self.enable_deep_supervision)
 
         self.print_plans()
         empty_cache(self.device)
@@ -823,7 +851,12 @@ class nnUNetTrainer(object):
         # print(f"oversample: {self.oversample_foreground_percent}")
 
     def on_train_end(self):
+        # dirty hack because on_epoch_end increments the epoch counter and this is executed afterwards.
+        # This will lead to the wrong current epoch to be stored
+        self.current_epoch -= 1
         self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
+        self.current_epoch += 1
+
         # now we can delete latest
         if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
@@ -861,7 +894,7 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
         # Autocast is a little bitch.
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
@@ -917,12 +950,13 @@ class nnUNetTrainer(object):
             del data
             l = self.loss(output, target)
 
-        # we only need the output with the highest output resolution
-        output = output[0]
-        target = target[0]
+        # we only need the output with the highest output resolution (if DS enabled)
+        if self.enable_deep_supervision:
+            output = output[0]
+            target = target[0]
 
         # the following is needed for online evaluation. Fake dice (green line)
-        axes = [0] + list(range(2, len(output.shape)))
+        axes = [0] + list(range(2, output.ndim))
 
         if self.label_manager.has_regions:
             predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
@@ -988,8 +1022,7 @@ class nnUNetTrainer(object):
         else:
             loss_here = np.mean(outputs_collated['loss'])
 
-        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in
-                                           zip(tp, fp, fn)]]
+        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
         mean_fg_dice = np.nanmean(global_dc_per_class)
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
@@ -1001,7 +1034,6 @@ class nnUNetTrainer(object):
     def on_epoch_end(self):
         self.logger.log('epoch_end_timestamps', time(), self.current_epoch)
 
-        # todo find a solution for this stupid shit
         self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
         self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
@@ -1092,8 +1124,18 @@ class nnUNetTrainer(object):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
 
+        if self.is_ddp and self.batch_size == 1 and self.enable_deep_supervision and self._do_i_compile():
+            self.print_to_log_file("WARNING! batch size is 1 during training and torch.compile is enabled. If you "
+                                   "encounter crashes in validation then this is because torch.compile forgets "
+                                   "to trigger a recompilation of the model with deep supervision disabled. "
+                                   "This causes torch.flip to complain about getting a tuple as input. Just rerun the "
+                                   "validation with --val (exactly the same as before) and then it will work. "
+                                   "Why? Because --val triggers nnU-Net to ONLY run validation meaning that the first "
+                                   "forward pass (where compile is triggered) already has deep supervision disabled. "
+                                   "This is exactly what we need in perform_actual_validation")
+
         predictor = nnUNetPredictor(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
-                                    perform_everything_on_gpu=True, device=self.device, verbose=False,
+                                    perform_everything_on_device=True, device=self.device, verbose=False,
                                     verbose_preprocessing=False, allow_tqdm=False)
         predictor.manual_initialization(self.network, self.plans_manager, self.configuration_manager, None,
                                         self.dataset_json, self.__class__.__name__,
@@ -1108,7 +1150,11 @@ class nnUNetTrainer(object):
             # the validation keys across the workers.
             _, val_keys = self.do_split()
             if self.is_ddp:
+                last_barrier_at_idx = len(val_keys) // dist.get_world_size() - 1
+
                 val_keys = val_keys[self.local_rank:: dist.get_world_size()]
+                # we cannot just have barriers all over the place because the number of keys each GPU receives can be
+                # different
 
             dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
                                         folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
@@ -1121,7 +1167,7 @@ class nnUNetTrainer(object):
 
             results = []
 
-            for k in dataset_val.keys():
+            for i, k in enumerate(dataset_val.keys()):
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
                                                  allowed_num_queued=2)
                 while not proceed:
@@ -1140,15 +1186,10 @@ class nnUNetTrainer(object):
                     warnings.simplefilter("ignore")
                     data = torch.from_numpy(data)
 
+                self.print_to_log_file(f'{k}, shape {data.shape}, rank {self.local_rank}')
                 output_filename_truncated = join(validation_output_folder, k)
 
-                try:
-                    prediction = predictor.predict_sliding_window_return_logits(data)
-                except RuntimeError:
-                    predictor.perform_everything_on_gpu = False
-                    prediction = predictor.predict_sliding_window_return_logits(data)
-                    predictor.perform_everything_on_gpu = True
-
+                prediction = predictor.predict_sliding_window_return_logits(data)
                 prediction = prediction.cpu()
 
                 # this needs to go into background processes
@@ -1196,6 +1237,9 @@ class nnUNetTrainer(object):
                                  self.dataset_json),
                             )
                         ))
+                # if we don't barrier from time to time we will get nccl timeouts for large datsets. Yuck.
+                if self.is_ddp and i < last_barrier_at_idx and (i + 1) % 20 == 0:
+                    dist.barrier()
 
             _ = [r.get() for r in results]
 
@@ -1210,7 +1254,9 @@ class nnUNetTrainer(object):
                                                 self.dataset_json["file_ending"],
                                                 self.label_manager.foreground_regions if self.label_manager.has_regions else
                                                 self.label_manager.foreground_labels,
-                                                self.label_manager.ignore_label, chill=True)
+                                                self.label_manager.ignore_label, chill=True,
+                                                num_processes=default_num_processes * dist.get_world_size() if
+                                                self.is_ddp else default_num_processes)
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]), also_print_to_console=True)
 

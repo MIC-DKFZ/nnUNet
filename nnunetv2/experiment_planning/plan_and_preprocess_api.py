@@ -1,17 +1,16 @@
-import shutil
 from typing import List, Type, Optional, Tuple, Union
 
-import nnunetv2
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, subfiles, load_json
+from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, load_json
 
+import nnunetv2
+from nnunetv2.configuration import default_num_processes
 from nnunetv2.experiment_planning.dataset_fingerprint.fingerprint_extractor import DatasetFingerprintExtractor
 from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
-from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name, maybe_convert_to_dataset_name
+from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
-from nnunetv2.configuration import default_num_processes
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 

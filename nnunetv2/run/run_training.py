@@ -107,7 +107,8 @@ def cleanup_ddp():
     dist.destroy_process_group()
 
 
-def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, use_compressed, disable_checkpointing, c, val, pretrained_weights, npz, world_size):
+def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, use_compressed, disable_checkpointing, c, val,
+            pretrained_weights, npz, val_with_best, world_size):
     setup_ddp(rank, world_size)
     torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
 
@@ -128,6 +129,8 @@ def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, use_compressed
     if not val:
         nnunet_trainer.run_training()
 
+    if val_with_best:
+        nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
     nnunet_trainer.perform_actual_validation(npz)
     cleanup_ddp()
 
@@ -143,6 +146,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                  continue_training: bool = False,
                  only_run_validation: bool = False,
                  disable_checkpointing: bool = False,
+                 val_with_best: bool = False,
                  device: torch.device = torch.device('cuda')):
     if isinstance(fold, str):
         if fold != 'all':
@@ -151,6 +155,9 @@ def run_training(dataset_name_or_id: Union[str, int],
             except ValueError as e:
                 print(f'Unable to convert given value for fold to int: {fold}. fold must bei either "all" or an integer!')
                 raise e
+
+    if val_with_best:
+        assert not disable_checkpointing, '--val_best is not compatible with --disable_checkpointing'
 
     if num_gpus > 1:
         assert device.type == 'cuda', f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
@@ -174,6 +181,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                      only_run_validation,
                      pretrained_weights,
                      export_validation_probabilities,
+                     val_with_best,
                      num_gpus),
                  nprocs=num_gpus,
                  join=True)
@@ -195,6 +203,8 @@ def run_training(dataset_name_or_id: Union[str, int],
         if not only_run_validation:
             nnunet_trainer.run_training()
 
+        if val_with_best:
+            nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
 
@@ -227,6 +237,11 @@ def run_training_entry():
                         help='[OPTIONAL] Continue training from latest checkpoint')
     parser.add_argument('--val', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished.')
+    parser.add_argument('--val_best', action='store_true', required=False,
+                        help='[OPTIONAL] If set, the validation will be performed with the checkpoint_best instead '
+                             'of checkpoint_final. NOT COMPATIBLE with --disable_checkpointing! '
+                             'WARNING: This will use the same \'validation\' folder as the regular validation '
+                             'with no way of distinguishing the two!')
     parser.add_argument('--disable_checkpointing', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
@@ -251,7 +266,7 @@ def run_training_entry():
         device = torch.device('mps')
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
-                 args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing,
+                 args.num_gpus, args.use_compressed, args.npz, args.c, args.val, args.disable_checkpointing, args.val_best,
                  device=device)
 
 

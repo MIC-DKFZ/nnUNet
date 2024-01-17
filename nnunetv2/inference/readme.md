@@ -57,7 +57,7 @@ Example:
         tile_step_size=0.5,
         use_gaussian=True,
         use_mirroring=True,
-        perform_everything_on_gpu=True,
+        perform_everything_on_device=True,
         device=torch.device('cuda', 0),
         verbose=False,
         verbose_preprocessing=False,
@@ -82,7 +82,7 @@ need for the _0000 suffix anymore! This can be useful in situations where you ha
 Remember that the files must be given as 'list of lists' where each entry in the outer list is a case to be predicted 
 and the inner list contains all the files belonging to that case. There is just one file for datasets with just one 
 input modality (such as CT) but may be more files for others (such as MRI where there is sometimes T1, T2, Flair etc). 
-IMPORTANT: the order in wich the files for each case are given must match the order of the channels as defined in the 
+IMPORTANT: the order in which the files for each case are given must match the order of the channels as defined in the 
 dataset.json!
 
 If you give files as input, you need to give individual output files as output!
@@ -184,7 +184,7 @@ cons:
     img2, props2 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_146_0000.nii.gz')])
     img3, props3 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_145_0000.nii.gz')])
     img4, props4 = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTs/liver_144_0000.nii.gz')])
-    # each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properites' keys!
+    # each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
     # If 'ofile' is None, the result will be returned instead of written to a file
     # the iterator is responsible for performing the correct preprocessing!
     # note how the iterator here does not use multiprocessing -> preprocessing will be done in the main thread!
@@ -199,7 +199,7 @@ cons:
                                                   predictor.plans_manager,
                                                   predictor.configuration_manager,
                                                   predictor.dataset_json)
-            yield {'data': torch.from_numpy(data).contiguous().pin_memory(), 'data_properites': p, 'ofile': None}
+            yield {'data': torch.from_numpy(data).contiguous().pin_memory(), 'data_properties': p, 'ofile': None}
     ret = predictor.predict_from_data_iterator(my_iterator([img, img2, img3, img4], [props, props2, props3, props4]),
                                                save_probabilities=False, num_processes_segmentation_export=3)
 ```

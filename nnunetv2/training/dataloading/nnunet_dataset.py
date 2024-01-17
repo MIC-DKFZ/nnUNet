@@ -43,10 +43,10 @@ class nnUNetDataset(object):
         self.dataset = {}
         for c in case_identifiers:
             self.dataset[c] = {}
-            self.dataset[c]['data_file'] = join(folder, "%s.npz" % c)
-            self.dataset[c]['properties_file'] = join(folder, "%s.pkl" % c)
+            self.dataset[c]['data_file'] = join(folder, f"{c}.npz")
+            self.dataset[c]['properties_file'] = join(folder, f"{c}.pkl")
             if folder_with_segs_from_previous_stage is not None:
-                self.dataset[c]['seg_from_prev_stage_file'] = join(folder_with_segs_from_previous_stage, "%s.npz" % c)
+                self.dataset[c]['seg_from_prev_stage_file'] = join(folder_with_segs_from_previous_stage, f"{c}.npz")
 
         if len(case_identifiers) <= num_images_properties_loading_threshold:
             for i in self.dataset.keys():
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     # this should have the properties
     ds = nnUNetDataset(folder, num_images_properties_loading_threshold=1000)
-    # now rename the properties file so that it doesnt exist anymore
+    # now rename the properties file so that it does not exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now we should still be able to access the properties because they have already been loaded
     ks = ds['liver_0'].keys()
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # this should not have the properties
     ds = nnUNetDataset(folder, num_images_properties_loading_threshold=0)
-    # now rename the properties file so that it doesnt exist anymore
+    # now rename the properties file so that it does not exist anymore
     shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
     # now this should crash
     try:

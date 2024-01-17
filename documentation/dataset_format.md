@@ -21,12 +21,13 @@ images). So these images could for example be a T1 and a T2 MRI (or whatever els
 channels MUST have the same geometry (same shape, spacing (if applicable) etc.) and
 must be co-registered (if applicable). Input channels are identified by nnU-Net by their FILE_ENDING: a four-digit integer at the end 
 of the filename. Image files must therefore follow the following naming convention: {CASE_IDENTIFIER}_{XXXX}.{FILE_ENDING}. 
-Hereby, XXXX is the 4-digit modality/channel identifier (should be unique for each modality/chanel, e.g., “0000” for T1, “0001” for 
+Hereby, XXXX is the 4-digit modality/channel identifier (should be unique for each modality/channel, e.g., “0000” for T1, “0001” for 
 T2 MRI, …) and FILE_ENDING is the file extension used by your image format (.png, .nii.gz, ...). See below for concrete examples.
 The dataset.json file connects channel names with the channel identifiers in the 'channel_names' key (see below for details).
 
 Side note: Typically, each channel/modality needs to be stored in a separate file and is accessed with the XXXX channel identifier. 
-Exception are natural images (RGB; .png) where the three color channels can all be stored in one file (see the [road segmentation](../nnunetv2/dataset_conversion/Dataset120_RoadSegmentation.py) dataset as an example). 
+Exception are natural images (RGB; .png) where the three color channels can all be stored in one file (see the 
+[road segmentation](../nnunetv2/dataset_conversion/Dataset120_RoadSegmentation.py) dataset as an example). 
 
 **Segmentations** must share the same geometry with their corresponding images (same shape etc.). Segmentations are 
 integer maps with each value representing a semantic class. The background must be 0. If there is no background, then 
@@ -57,14 +58,14 @@ of what the raw data was provided in! This is for performance reasons.
 
 
 By default, the following file formats are supported:
+
 - NaturalImage2DIO: .png, .bmp, .tif
 - NibabelIO: .nii.gz, .nrrd, .mha
 - NibabelIOWithReorient: .nii.gz, .nrrd, .mha. This reader will reorient images to RAS!
 - SimpleITKIO: .nii.gz, .nrrd, .mha
 - Tiff3DIO: .tif, .tiff. 3D tif images! Since TIF does not have a standardized way of storing spacing information, 
-nnU-Net expects each TIF file to be accompanied by an identically named .json file that contains three numbers 
-(no units, no comma. Just separated by whitespace), one for each dimension.
-
+nnU-Net expects each TIF file to be accompanied by an identically named .json file that contains this information (see
+[here](#datasetjson)).
 
 The file extension lists are not exhaustive and depend on what the backend supports. For example, nibabel and SimpleITK 
 support more than the three given here. The file endings given here are just the ones we tested!
@@ -199,6 +200,27 @@ be used with this dataset. If not provided, nnU-Net will automatically determine
 There is a utility with which you can generate the dataset.json automatically. You can find it 
 [here](../nnunetv2/dataset_conversion/generate_dataset_json.py). 
 See our examples in [dataset_conversion](../nnunetv2/dataset_conversion) for how to use it. And read its documentation!
+
+As described above, a json file that contains spacing information is required for TIFF files.
+An example for a 3D TIFF stack with units corresponding to 7.6 in x and y, 80 in z is:
+
+```
+{
+    "spacing": [7.6, 7.6, 80.0]
+}
+```
+
+Within the dataset folder, this file (named `cell6.json` in this example) would be placed in the following folders:
+
+    nnUNet_raw/Dataset123_Foo/
+    ├── dataset.json
+    ├── imagesTr
+    │   ├── cell6.json
+    │   └── cell6_0000.tif
+    └── labelsTr
+        ├── cell6.json
+        └── cell6.tif
+
 
 ## How to use nnU-Net v1 Tasks
 If you are migrating from the old nnU-Net, convert your existing datasets with `nnUNetv2_convert_old_nnUNet_dataset`!

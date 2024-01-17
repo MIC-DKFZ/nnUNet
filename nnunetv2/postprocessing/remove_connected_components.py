@@ -71,7 +71,7 @@ def determine_postprocessing(folder_predictions: str,
     if plans_file_or_dict is None:
         expected_plans_file = join(folder_predictions, 'plans.json')
         if not isfile(expected_plans_file):
-            raise RuntimeError(f"Expected plans file missing: {expected_plans_file}. The plans fils should have been "
+            raise RuntimeError(f"Expected plans file missing: {expected_plans_file}. The plans files should have been "
                                f"created while running nnUNetv2_predict. Sadge.")
         plans_file_or_dict = load_json(expected_plans_file)
     plans_manager = PlansManager(plans_file_or_dict)
@@ -80,7 +80,7 @@ def determine_postprocessing(folder_predictions: str,
         expected_dataset_json_file = join(folder_predictions, 'dataset.json')
         if not isfile(expected_dataset_json_file):
             raise RuntimeError(
-                f"Expected plans file missing: {expected_dataset_json_file}. The plans fils should have been "
+                f"Expected plans file missing: {expected_dataset_json_file}. The plans files should have been "
                 f"created while running nnUNetv2_predict. Sadge.")
         dataset_json_file_or_dict = load_json(expected_dataset_json_file)
 
