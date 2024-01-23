@@ -100,7 +100,7 @@ class ExperimentPlanner(object):
         """
         a = torch.get_num_threads()
         torch.set_num_threads(get_allowed_n_proc_DA())
-        print(f'instantiating network, patch size {patch_size}, pool op: {arch_kwargs["strides"]}')
+        # print(f'instantiating network, patch size {patch_size}, pool op: {arch_kwargs["strides"]}')
         net = get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels,
                                      output_channels,
                                      allow_init=False)
