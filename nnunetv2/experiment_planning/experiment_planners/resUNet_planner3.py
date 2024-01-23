@@ -25,7 +25,7 @@ class ResUNetPlanner3(ResUNetPlanner):
                                     median_shape: Union[np.ndarray, Tuple[int, ...]],
                                     data_identifier: str,
                                     approximate_n_voxels_dataset: float,
-                                    _bad_patch_sizes: dict) -> dict:
+                                    _cache: dict) -> dict:
         def _features_per_stage(num_stages, max_num_features) -> Tuple[int, ...]:
             return tuple([min(max_num_features, self.UNet_reference_com_nfeatures * 2 ** i) for
                           i in range(num_stages)])
@@ -107,7 +107,7 @@ class ResUNetPlanner3(ResUNetPlanner):
                     (self.UNet_vram_target_GB / self.UNet_reference_val_corresp_GB)
 
         while estimate > reference:
-            _bad_patch_sizes[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
+            _cache[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
             # print(patch_size)
             # patch size seems to be too large, so we need to reduce it. Reduce the axis that currently violates the
             # aspect ratio the most (that is the largest relative to median shape)
@@ -143,8 +143,8 @@ class ResUNetPlanner3(ResUNetPlanner):
                 'n_blocks_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
                 'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_encoder[:num_stages - 1][::-1],
             })
-            if _keygen(patch_size, pool_op_kernel_sizes) in _bad_patch_sizes.keys():
-                _bad_patch_sizes[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
+            if _keygen(patch_size, pool_op_kernel_sizes) in _cache.keys():
+                estimate = _cache[_keygen(patch_size, pool_op_kernel_sizes)]
             else:
                 estimate = self.static_estimate_VRAM_usage(
                     patch_size,
@@ -154,6 +154,7 @@ class ResUNetPlanner3(ResUNetPlanner):
                     architecture_kwargs['arch_kwargs'],
                     architecture_kwargs['_kw_requires_import'],
                 )
+        _cache[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
 
         # alright now let's determine the batch size. This will give self.UNet_min_batch_size if the while loop was
         # executed. If not, additional vram headroom is used to increase batch size

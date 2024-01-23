@@ -99,7 +99,7 @@ if __name__ == '__main__':
         'nnUNetTrainer_DASegOrd0': ('nnUNetPlans',),
      }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
-    datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82]
+    datasets = [2, 3, 4, 17, 24, 27, 38, 55, 137, 217, 221] # amos post challenge, kits2023
     collect_results(use_these_trainers, datasets, all_results_file)
 
     folds = (0, 1, 2, 3, 4)
