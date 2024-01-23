@@ -206,7 +206,7 @@ class ResEncUNetBottleneckDeeperPlanner(ResEncUNetBottleneckPlanner):
                  suppress_transpose: bool = False):
         super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name, plans_name,
                          overwrite_target_spacing, suppress_transpose)
-        self.UNet_blocks_per_stage_encoder = (1, 3, 6, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9)
+        self.UNet_blocks_per_stage_encoder = (2, 3, 6, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9)
         self.UNet_blocks_per_stage_decoder = (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
 
 
