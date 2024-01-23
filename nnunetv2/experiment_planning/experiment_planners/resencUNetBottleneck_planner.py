@@ -198,6 +198,17 @@ class ResEncUNetBottleneckPlanner(ResEncUNetPlanner):
         }
         return plan
 
+class ResEncUNetBottleneckDeeperPlanner(ResEncUNetBottleneckPlanner):
+    def __init__(self, dataset_name_or_id: Union[str, int],
+                 gpu_memory_target_in_gb: float = 8,
+                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetDeeperResBottleneckEncUNetPlans',
+                 overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
+                 suppress_transpose: bool = False):
+        super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name, plans_name,
+                         overwrite_target_spacing, suppress_transpose)
+        self.UNet_blocks_per_stage_encoder = (1, 3, 6, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9)
+        self.UNet_blocks_per_stage_decoder = (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+
 
 if __name__ == '__main__':
     # we know both of these networks run with batch size 2 and 12 on ~8-10GB, respectively
