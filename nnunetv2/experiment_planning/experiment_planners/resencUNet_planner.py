@@ -91,34 +91,38 @@ class ResEncUNetPlanner(ExperimentPlanner):
 
         norm = get_matching_instancenorm(unet_conv_op)
         architecture_kwargs = {
-                                  'network_class_name': self.UNet_class.__module__ + '.' + self.UNet_class.__name__,
-                                  'arch_kwargs': {
-                                      'n_stages': num_stages,
-                                      'features_per_stage': _features_per_stage(num_stages, max_num_features),
-                                      'conv_op': unet_conv_op.__module__ + '.' + unet_conv_op.__name__,
-                                      'kernel_sizes': conv_kernel_sizes,
-                                      'strides': pool_op_kernel_sizes,
-                                      'n_blocks_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
-                                      'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
-                                      'conv_bias': True,
-                                      'norm_op': norm.__module__ + '.' + norm.__name__,
-                                      'norm_op_kwargs': {'eps': 1e-5, 'affine': True},
-                                      'dropout_op': None,
-                                      'dropout_op_kwargs': None,
-                                      'nonlin': 'torch.nn.LeakyReLU',
-                                      'nonlin_kwargs': {'inplace': True},
-                                  },
-                                  '_kw_requires_import': ('conv_op', 'norm_op', 'dropout_op', 'nonlin'),
-                              }
+            'network_class_name': self.UNet_class.__module__ + '.' + self.UNet_class.__name__,
+            'arch_kwargs': {
+                'n_stages': num_stages,
+                'features_per_stage': _features_per_stage(num_stages, max_num_features),
+                'conv_op': unet_conv_op.__module__ + '.' + unet_conv_op.__name__,
+                'kernel_sizes': conv_kernel_sizes,
+                'strides': pool_op_kernel_sizes,
+                'n_blocks_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
+                'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
+                'conv_bias': True,
+                'norm_op': norm.__module__ + '.' + norm.__name__,
+                'norm_op_kwargs': {'eps': 1e-5, 'affine': True},
+                'dropout_op': None,
+                'dropout_op_kwargs': None,
+                'nonlin': 'torch.nn.LeakyReLU',
+                'nonlin_kwargs': {'inplace': True},
+            },
+            '_kw_requires_import': ('conv_op', 'norm_op', 'dropout_op', 'nonlin'),
+        }
 
         # now estimate vram consumption
-        estimate = self.static_estimate_VRAM_usage(patch_size,
-                                                   num_input_channels,
-                                                   len(self.dataset_json['labels'].keys()),
-                                                   architecture_kwargs['network_class_name'],
-                                                   architecture_kwargs['arch_kwargs'],
-                                                   architecture_kwargs['_kw_requires_import'],
-                                                   )
+        if _keygen(patch_size, pool_op_kernel_sizes) in _cache.keys():
+            estimate = _cache[_keygen(patch_size, pool_op_kernel_sizes)]
+        else:
+            estimate = self.static_estimate_VRAM_usage(patch_size,
+                                                       num_input_channels,
+                                                       len(self.dataset_json['labels'].keys()),
+                                                       architecture_kwargs['network_class_name'],
+                                                       architecture_kwargs['arch_kwargs'],
+                                                       architecture_kwargs['_kw_requires_import'],
+                                                       )
+            _cache[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
 
         # how large is the reference for us here (batch size etc)?
         # adapt for our vram target
@@ -126,7 +130,6 @@ class ResEncUNetPlanner(ExperimentPlanner):
                     (self.UNet_vram_target_GB / self.UNet_reference_val_corresp_GB)
 
         while estimate > reference:
-            _cache[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
             # print(patch_size)
             # patch size seems to be too large, so we need to reduce it. Reduce the axis that currently violates the
             # aspect ratio the most (that is the largest relative to median shape)
@@ -173,7 +176,7 @@ class ResEncUNetPlanner(ExperimentPlanner):
                     architecture_kwargs['arch_kwargs'],
                     architecture_kwargs['_kw_requires_import'],
                 )
-        _cache[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
+                _cache[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
 
         # alright now let's determine the batch size. This will give self.UNet_min_batch_size if the while loop was
         # executed. If not, additional vram headroom is used to increase batch size
@@ -226,7 +229,6 @@ class ResEncUNetPlanner2(ResEncUNetPlanner):
         self.UNet_reference_val_2d = 115000000
 
 
-
 if __name__ == '__main__':
     # we know both of these networks run with batch size 2 and 12 on ~8-10GB, respectively
     net = ResidualEncoderUNet(input_channels=1, n_stages=6, features_per_stage=(32, 64, 128, 256, 320, 320),
@@ -245,4 +247,3 @@ if __name__ == '__main__':
                               conv_bias=True, norm_op=nn.InstanceNorm2d, norm_op_kwargs={}, dropout_op=None,
                               nonlin=nn.LeakyReLU, nonlin_kwargs={'inplace': True}, deep_supervision=True)
     print(net.compute_conv_feature_map_size((512, 512)))  # -> 129793792
-
