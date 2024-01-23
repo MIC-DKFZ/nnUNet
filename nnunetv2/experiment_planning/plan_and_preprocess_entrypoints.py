@@ -149,7 +149,7 @@ def plan_and_preprocess_entry():
                              'know what you are doing and NEVER use this without running the default nnU-Net first '
                              '(as a baseline). Changing the target spacing for the other configurations is currently '
                              'not implemented. New target spacing must be a list of three numbers!')
-    parser.add_argument('-overwrite_plans_name', default='nnUNetPlans', required=False,
+    parser.add_argument('-overwrite_plans_name', default=None, required=False,
                         help='[OPTIONAL] uSE A CUSTOM PLANS IDENTIFIER. If you used -gpu_memory_target, '
                              '-preprocessor_name or '
                              '-overwrite_target_spacing it is best practice to use -overwrite_plans_name to generate a '
@@ -183,7 +183,7 @@ def plan_and_preprocess_entry():
 
     # experiment planning
     print('Experiment planning...')
-    plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing, args.overwrite_plans_name)
+    plans_identifier = plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing, args.overwrite_plans_name)
 
     # manage default np
     if args.np is None:
@@ -194,7 +194,7 @@ def plan_and_preprocess_entry():
     # preprocessing
     if not args.no_pp:
         print('Preprocessing...')
-        preprocess(args.d, args.overwrite_plans_name, args.c, np, args.verbose)
+        preprocess(args.d, plans_identifier, args.c, np, args.verbose)
 
 
 if __name__ == '__main__':

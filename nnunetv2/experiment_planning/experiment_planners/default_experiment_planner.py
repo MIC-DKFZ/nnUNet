@@ -16,7 +16,7 @@ from nnunetv2.preprocessing.normalization.map_channel_name_to_normalization impo
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
-from nnunetv2.utilities.get_network_from_plans import new_get_network
+from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
@@ -57,13 +57,14 @@ class ExperimentPlanner(object):
         self.UNet_reference_val_corresp_GB = 8
         self.UNet_reference_val_corresp_bs_2d = 12
         self.UNet_reference_val_corresp_bs_3d = 2
-        self.UNet_vram_target_GB = gpu_memory_target_in_gb
         self.UNet_featuremap_min_edge_length = 4
         self.UNet_blocks_per_stage_encoder = (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         self.UNet_blocks_per_stage_decoder = (2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
         self.UNet_min_batch_size = 2
         self.UNet_max_features_2d = 512
         self.UNet_max_features_3d = 320
+
+        self.UNet_vram_target_GB = gpu_memory_target_in_gb
 
         self.lowres_creation_threshold = 0.25  # if the patch size of fullres is less than 25% of the voxels in the
         # median shape then we need a lowres config as well
@@ -99,8 +100,8 @@ class ExperimentPlanner(object):
         """
         a = torch.get_num_threads()
         torch.set_num_threads(get_allowed_n_proc_DA())
-        net = new_get_network(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels, output_channels,
-                              allow_init=False)
+        net = get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels, output_channels,
+                                     allow_init=False)
         ret = net.compute_conv_feature_map_size(patch_size)
         torch.set_num_threads(a)
         return ret
@@ -457,6 +458,11 @@ class ExperimentPlanner(object):
                       f'\nCurrent spacing: {lowres_spacing}. '
                       f'\nCurrent patch size: {plan_3d_lowres["patch_size"]}. '
                       f'\nCurrent median shape: {plan_3d_fullres["spacing"] / lowres_spacing * new_median_shape_transposed}')
+            if np.prod(new_median_shape_transposed, dtype=np.float64) / median_num_voxels < 2:
+                print(f'Dropping 3d_lowres config because the image size difference to 3d_fullres is too small. '
+                      f'3d_fullres: {new_median_shape_transposed}, '
+                      f'3d_lowres: {[round(i) for i in plan_3d_fullres["spacing"] / lowres_spacing * new_median_shape_transposed]}')
+                plan_3d_lowres = None
             if plan_3d_lowres is not None:
                 plan_3d_lowres['batch_dice'] = False
                 plan_3d_fullres['batch_dice'] = True

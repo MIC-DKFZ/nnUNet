@@ -55,7 +55,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
-from nnunetv2.utilities.get_network_from_plans import new_get_network
+from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
@@ -293,7 +293,7 @@ class nnUNetTrainer(object):
         should be generated. label_manager takes care of all that for you.)
 
         """
-        return new_get_network(
+        return get_network_from_plans(
             architecture_class_name,
             arch_init_kwargs,
             arch_init_kwargs_req_import,
