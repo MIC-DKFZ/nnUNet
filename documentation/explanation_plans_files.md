@@ -74,7 +74,7 @@ nnunetv2.preprocessing.resampling
 resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in 
 nnunetv2.preprocessing.resampling
 - `resampling_fn_seg_kwargs`: kwargs for resampling_fn_seg
-- `UNet_class_name`: UNet class name, can be used to integrate custom dynamic architectures
+- `network_arch_class_name`: UNet class name, can be used to integrate custom dynamic architectures
 - `UNet_base_num_features`: The number of starting features for the UNet architecture. Default is 32. Default: Features
 are doubled with each downsampling 
 - `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). The purpose is to 

@@ -9,8 +9,6 @@ import numpy as np
 import torch
 
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
-from torch import nn
-
 import nnunetv2
 from batchgenerators.utilities.file_and_folder_operations import load_json, join
 
@@ -77,49 +75,20 @@ class ConfigurationManager(object):
         return self.configuration['use_mask_for_norm']
 
     @property
-    def UNet_class_name(self) -> str:
-        return self.configuration['UNet_class_name']
+    def network_arch_class_name(self) -> str:
+        return self.configuration['architecture']['network_class_name']
 
     @property
-    @lru_cache(maxsize=1)
-    def UNet_class(self) -> Type[nn.Module]:
-        unet_class = recursive_find_python_class(join(dynamic_network_architectures.__path__[0], "architectures"),
-                                                 self.UNet_class_name,
-                                                 current_module="dynamic_network_architectures.architectures")
-        if unet_class is None:
-            raise RuntimeError('The network architecture specified by the plans file '
-                               'is non-standard (maybe your own?). Fix this by not using '
-                               'ConfigurationManager.UNet_class to instantiate '
-                               'it (probably just overwrite build_network_architecture of your trainer.')
-        return unet_class
+    def network_arch_init_kwargs(self) -> dict:
+        return self.configuration['architecture']['arch_kwargs']
 
     @property
-    def UNet_base_num_features(self) -> int:
-        return self.configuration['UNet_base_num_features']
+    def network_arch_init_kwargs_req_import(self) -> Union[Tuple[str, ...], List[str]]:
+        return self.configuration['architecture']['_kw_requires_import']
 
     @property
-    def n_conv_per_stage_encoder(self) -> List[int]:
-        return self.configuration['n_conv_per_stage_encoder']
-
-    @property
-    def n_conv_per_stage_decoder(self) -> List[int]:
-        return self.configuration['n_conv_per_stage_decoder']
-
-    @property
-    def num_pool_per_axis(self) -> List[int]:
-        return self.configuration['num_pool_per_axis']
-
-    @property
-    def pool_op_kernel_sizes(self) -> List[List[int]]:
-        return self.configuration['pool_op_kernel_sizes']
-
-    @property
-    def conv_kernel_sizes(self) -> List[List[int]]:
-        return self.configuration['conv_kernel_sizes']
-
-    @property
-    def unet_max_num_features(self) -> int:
-        return self.configuration['unet_max_num_features']
+    def pool_op_kernel_sizes(self) -> Tuple[Tuple[int, ...], ...]:
+        return self.configuration['architecture']['arch_kwargs']['strides']
 
     @property
     @lru_cache(maxsize=1)

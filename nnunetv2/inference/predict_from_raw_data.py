@@ -2,7 +2,6 @@ import inspect
 import itertools
 import multiprocessing
 import os
-import traceback
 from copy import deepcopy
 from time import sleep
 from typing import Tuple, Union, List, Optional
@@ -99,8 +98,16 @@ class nnUNetPredictor(object):
         num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_json)
         trainer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                     trainer_name, 'nnunetv2.training.nnUNetTrainer')
-        network = trainer_class.build_network_architecture(plans_manager, dataset_json, configuration_manager,
-                                                           num_input_channels, enable_deep_supervision=False)
+
+        network = trainer_class.build_network_architecture(
+            configuration_manager.network_arch_class_name,
+            configuration_manager.network_arch_init_kwargs,
+            configuration_manager.network_arch_init_kwargs_req_import,
+            num_input_channels,
+            plans_manager.get_label_manager(dataset_json).num_segmentation_heads,
+            enable_deep_supervision=False
+        )
+
         self.plans_manager = plans_manager
         self.configuration_manager = configuration_manager
         self.list_of_parameters = parameters

@@ -55,7 +55,7 @@ from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
-from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.utilities.get_network_from_plans import new_get_network
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
@@ -205,11 +205,12 @@ class nnUNetTrainer(object):
                                                                    self.dataset_json)
 
             self.network = self.build_network_architecture(
-                self.plans_manager,
-                self.dataset_json,
-                self.configuration_manager,
+                self.configuration_manager.network_arch_class_name,
+                self.configuration_manager.network_arch_init_kwargs,
+                self.configuration_manager.network_arch_init_kwargs_req_import,
                 self.num_input_channels,
-                self.enable_deep_supervision,
+                self.label_manager.num_segmentation_heads,
+                self.enable_deep_supervision
             ).to(self.device)
             # compile network for free speedup
             if self._do_i_compile():
@@ -267,10 +268,11 @@ class nnUNetTrainer(object):
             save_json(dct, join(self.output_folder, "debug.json"))
 
     @staticmethod
-    def build_network_architecture(plans_manager: PlansManager,
-                                   dataset_json,
-                                   configuration_manager: ConfigurationManager,
-                                   num_input_channels,
+    def build_network_architecture(architecture_class_name: str,
+                                   arch_init_kwargs: dict,
+                                   arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+                                   num_input_channels: int,
+                                   num_output_channels: int,
                                    enable_deep_supervision: bool = True) -> nn.Module:
         """
         This is where you build the architecture according to the plans. There is no obligation to use
@@ -291,8 +293,14 @@ class nnUNetTrainer(object):
         should be generated. label_manager takes care of all that for you.)
 
         """
-        return get_network_from_plans(plans_manager, dataset_json, configuration_manager,
-                                      num_input_channels, deep_supervision=enable_deep_supervision)
+        return new_get_network(
+            architecture_class_name,
+            arch_init_kwargs,
+            arch_init_kwargs_req_import,
+            num_input_channels,
+            num_output_channels,
+            allow_init=True,
+            deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
         if self.enable_deep_supervision:
@@ -366,7 +374,7 @@ class nnUNetTrainer(object):
 
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
-            weights = np.array([1 / (2**i) for i in range(len(deep_supervision_scales))])
+            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
             if self.is_ddp and not self._do_i_compile():
                 # very strange and stupid interaction. DDP crashes and complains about unused parameters due to
                 # weights[-1] = 0. Interestingly this crash doesn't happen with torch.compile enabled. Strange stuff.
@@ -674,19 +682,19 @@ class nnUNetTrainer(object):
 
     @staticmethod
     def get_training_transforms(
-        patch_size: Union[np.ndarray, Tuple[int]],
-        rotation_for_DA: dict,
-        deep_supervision_scales: Union[List, Tuple, None],
-        mirror_axes: Tuple[int, ...],
-        do_dummy_2d_data_aug: bool,
-        order_resampling_data: int = 3,
-        order_resampling_seg: int = 1,
-        border_val_seg: int = -1,
-        use_mask_for_norm: List[bool] = None,
-        is_cascaded: bool = False,
-        foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-        regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-        ignore_label: int = None,
+            patch_size: Union[np.ndarray, Tuple[int]],
+            rotation_for_DA: dict,
+            deep_supervision_scales: Union[List, Tuple, None],
+            mirror_axes: Tuple[int, ...],
+            do_dummy_2d_data_aug: bool,
+            order_resampling_data: int = 3,
+            order_resampling_seg: int = 1,
+            border_val_seg: int = -1,
+            use_mask_for_norm: List[bool] = None,
+            is_cascaded: bool = False,
+            foreground_labels: Union[Tuple[int, ...], List[int]] = None,
+            regions: List[Union[List[int], Tuple[int, ...], int]] = None,
+            ignore_label: int = None,
     ) -> AbstractTransform:
         tr_transforms = []
         if do_dummy_2d_data_aug:
@@ -768,11 +776,11 @@ class nnUNetTrainer(object):
 
     @staticmethod
     def get_validation_transforms(
-        deep_supervision_scales: Union[List, Tuple, None],
-        is_cascaded: bool = False,
-        foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-        regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-        ignore_label: int = None,
+            deep_supervision_scales: Union[List, Tuple, None],
+            is_cascaded: bool = False,
+            foreground_labels: Union[Tuple[int, ...], List[int]] = None,
+            regions: List[Union[List[int], Tuple[int, ...], int]] = None,
+            ignore_label: int = None,
     ) -> AbstractTransform:
         val_transforms = []
         val_transforms.append(RemoveLabelTransform(-1, 0))
@@ -1173,11 +1181,11 @@ class nnUNetTrainer(object):
 
             for i, k in enumerate(dataset_val.keys()):
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
-                                                 allowed_num_queued=2)
+                                                           allowed_num_queued=2)
                 while not proceed:
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
-                                                     allowed_num_queued=2)
+                                                               allowed_num_queued=2)
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)
@@ -1262,7 +1270,8 @@ class nnUNetTrainer(object):
                                                 num_processes=default_num_processes * dist.get_world_size() if
                                                 self.is_ddp else default_num_processes)
             self.print_to_log_file("Validation complete", also_print_to_console=True)
-            self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]), also_print_to_console=True)
+            self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
+                                   also_print_to_console=True)
 
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()

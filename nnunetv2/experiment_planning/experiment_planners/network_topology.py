@@ -100,6 +100,9 @@ def get_pool_and_conv_props(spacing, patch_size, min_feature_map_size, max_numpo
     must_be_divisible_by = get_shape_must_be_divisible_by(num_pool_per_axis)
     patch_size = pad_shape(patch_size, must_be_divisible_by)
 
+    def _to_tuple(lst):
+        return tuple(_to_tuple(i) if isinstance(i, list) else i for i in lst)
+
     # we need to add one more conv_kernel_size for the bottleneck. We always use 3x3(x3) conv here
     conv_kernel_sizes.append([3]*dim)
-    return num_pool_per_axis, pool_op_kernel_sizes, conv_kernel_sizes, patch_size, must_be_divisible_by
+    return num_pool_per_axis, _to_tuple(pool_op_kernel_sizes), _to_tuple(conv_kernel_sizes), tuple(patch_size), must_be_divisible_by

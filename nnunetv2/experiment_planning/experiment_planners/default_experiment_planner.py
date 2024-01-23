@@ -1,11 +1,11 @@
 import shutil
 from copy import deepcopy
-from functools import lru_cache
-from typing import List, Union, Tuple, Type
+from typing import List, Union, Tuple
 
 import numpy as np
+import torch
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
-from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
+from dynamic_network_architectures.architectures.unet import PlainConvUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
 
 from nnunetv2.configuration import ANISO_THRESHOLD
@@ -15,9 +15,10 @@ from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.normalization.map_channel_name_to_normalization import get_normalization_scheme
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.utilities.get_network_from_plans import new_get_network
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
-    get_filenames_of_train_images_and_targets
+from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
 class ExperimentPlanner(object):
@@ -87,32 +88,22 @@ class ExperimentPlanner(object):
         return determine_reader_writer_from_dataset_json(self.dataset_json, example_image)
 
     @staticmethod
-    @lru_cache(maxsize=None)
     def static_estimate_VRAM_usage(patch_size: Tuple[int],
-                                   n_stages: int,
-                                   strides: Union[int, List[int], Tuple[int, ...]],
-                                   UNet_class: Union[Type[PlainConvUNet], Type[ResidualEncoderUNet]],
-                                   num_input_channels: int,
-                                   features_per_stage: Tuple[int],
-                                   blocks_per_stage_encoder: Union[int, Tuple[int]],
-                                   blocks_per_stage_decoder: Union[int, Tuple[int]],
-                                   num_labels: int):
+                                   input_channels: int,
+                                   output_channels: int,
+                                   arch_class_name: str,
+                                   arch_kwargs: dict,
+                                   arch_kwargs_req_import: Tuple[str, ...]):
         """
         Works for PlainConvUNet, ResidualEncoderUNet
         """
-        dim = len(patch_size)
-        conv_op = convert_dim_to_conv_op(dim)
-        norm_op = get_matching_instancenorm(conv_op)
-        net = UNet_class(num_input_channels, n_stages,
-                         features_per_stage,
-                         conv_op,
-                         3,
-                         strides,
-                         blocks_per_stage_encoder,
-                         num_labels,
-                         blocks_per_stage_decoder,
-                         norm_op=norm_op)
-        return net.compute_conv_feature_map_size(patch_size)
+        a = torch.get_num_threads()
+        torch.set_num_threads(get_allowed_n_proc_DA())
+        net = new_get_network(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels, output_channels,
+                              allow_init=False)
+        ret = net.compute_conv_feature_map_size(patch_size)
+        torch.set_num_threads(a)
+        return ret
 
     def determine_resampling(self, *args, **kwargs):
         """
@@ -231,10 +222,24 @@ class ExperimentPlanner(object):
 
     def get_plans_for_configuration(self,
                                     spacing: Union[np.ndarray, Tuple[float, ...], List[float]],
-                                    median_shape: Union[np.ndarray, Tuple[int, ...], List[int]],
+                                    median_shape: Union[np.ndarray, Tuple[int, ...]],
                                     data_identifier: str,
-                                    approximate_n_voxels_dataset: float) -> dict:
+                                    approximate_n_voxels_dataset: float,
+                                    _bad_patch_sizes: dict) -> dict:
+        def _features_per_stage(num_stages, max_num_features) -> Tuple[int, ...]:
+            return tuple([min(max_num_features, self.UNet_reference_com_nfeatures * 2 ** i) for
+                          i in range(num_stages)])
+
+        def _keygen(patch_size, strides):
+            return str(patch_size) + '_' + str(strides)
+
         assert all([i > 0 for i in spacing]), f"Spacing must be > 0! Spacing: {spacing}"
+        num_input_channels = len(self.dataset_json['channel_names'].keys()
+                                 if 'channel_names' in self.dataset_json.keys()
+                                 else self.dataset_json['modality'].keys())
+        max_num_features = self.UNet_max_features_2d if len(spacing) == 2 else self.UNet_max_features_3d
+        unet_conv_op = convert_dim_to_conv_op(len(spacing))
+
         # print(spacing, median_shape, approximate_n_voxels_dataset)
         # find an initial patch size
         # we first use the spacing to get an aspect ratio
@@ -263,23 +268,38 @@ class ExperimentPlanner(object):
         shape_must_be_divisible_by = get_pool_and_conv_props(spacing, initial_patch_size,
                                                              self.UNet_featuremap_min_edge_length,
                                                              999999)
+        num_stages = len(pool_op_kernel_sizes)
+
+        norm = get_matching_instancenorm(unet_conv_op)
+        architecture_kwargs = {
+                                  'network_class_name': self.UNet_class.__module__ + '.' + self.UNet_class.__name__,
+                                  'arch_kwargs': {
+                                      'n_stages': num_stages,
+                                      'features_per_stage': _features_per_stage(num_stages, max_num_features),
+                                      'conv_op': unet_conv_op.__module__ + '.' + unet_conv_op.__name__,
+                                      'kernel_sizes': conv_kernel_sizes,
+                                      'strides': pool_op_kernel_sizes,
+                                      'n_conv_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
+                                      'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
+                                      'conv_bias': True,
+                                      'norm_op': norm.__module__ + '.' + norm.__name__,
+                                      'norm_op_kwargs': {'eps': 1e-5, 'affine': True},
+                                      'dropout_op': None,
+                                      'dropout_op_kwargs': None,
+                                      'nonlin': 'torch.nn.LeakyReLU',
+                                      'nonlin_kwargs': {'inplace': True},
+                                  },
+                                  '_kw_requires_import': ('conv_op', 'norm_op', 'dropout_op', 'nonlin'),
+                              }
 
         # now estimate vram consumption
-        num_stages = len(pool_op_kernel_sizes)
-        estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
-                                                   num_stages,
-                                                   tuple([tuple(i) for i in pool_op_kernel_sizes]),
-                                                   self.UNet_class,
-                                                   len(self.dataset_json['channel_names'].keys()
-                                                       if 'channel_names' in self.dataset_json.keys()
-                                                       else self.dataset_json['modality'].keys()),
-                                                   tuple([min(self.UNet_max_features_2d if len(patch_size) == 2 else
-                                                              self.UNet_max_features_3d,
-                                                              self.UNet_reference_com_nfeatures * 2 ** i) for
-                                                          i in range(len(pool_op_kernel_sizes))]),
-                                                   self.UNet_blocks_per_stage_encoder[:num_stages],
-                                                   self.UNet_blocks_per_stage_decoder[:num_stages - 1],
-                                                   len(self.dataset_json['labels'].keys()))
+        estimate = self.static_estimate_VRAM_usage(patch_size,
+                                                   num_input_channels,
+                                                   len(self.dataset_json['labels'].keys()),
+                                                   architecture_kwargs['network_class_name'],
+                                                   architecture_kwargs['arch_kwargs'],
+                                                   architecture_kwargs['_kw_requires_import'],
+                                                   )
 
         # how large is the reference for us here (batch size etc)?
         # adapt for our vram target
@@ -287,10 +307,11 @@ class ExperimentPlanner(object):
                     (self.UNet_vram_target_GB / self.UNet_reference_val_corresp_GB)
 
         while estimate > reference:
+            _bad_patch_sizes[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
             # print(patch_size)
             # patch size seems to be too large, so we need to reduce it. Reduce the axis that currently violates the
             # aspect ratio the most (that is the largest relative to median shape)
-            axis_to_be_reduced = np.argsort(patch_size / median_shape[:len(spacing)])[-1]
+            axis_to_be_reduced = np.argsort([i / j for i, j in zip(patch_size, median_shape[:len(spacing)])])[-1]
 
             # we cannot simply reduce that axis by shape_must_be_divisible_by[axis_to_be_reduced] because this
             # may cause us to skip some valid sizes, for example shape_must_be_divisible_by is 64 for a shape of 256.
@@ -298,6 +319,7 @@ class ExperimentPlanner(object):
             # (224 / 2**5 = 7; 7 < 2 * self.UNet_featuremap_min_edge_length(4) so it's valid). So we need to first
             # subtract shape_must_be_divisible_by, then recompute it and then subtract the
             # recomputed shape_must_be_divisible_by. Annoying.
+            patch_size = list(patch_size)
             tmp = deepcopy(patch_size)
             tmp[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
             _, _, _, _, shape_must_be_divisible_by = \
@@ -313,20 +335,25 @@ class ExperimentPlanner(object):
                                                                  999999)
 
             num_stages = len(pool_op_kernel_sizes)
-            estimate = self.static_estimate_VRAM_usage(tuple(patch_size),
-                                                       num_stages,
-                                                       tuple([tuple(i) for i in pool_op_kernel_sizes]),
-                                                       self.UNet_class,
-                                                       len(self.dataset_json['channel_names'].keys()
-                                                           if 'channel_names' in self.dataset_json.keys()
-                                                           else self.dataset_json['modality'].keys()),
-                                                       tuple([min(self.UNet_max_features_2d if len(patch_size) == 2 else
-                                                                  self.UNet_max_features_3d,
-                                                                  self.UNet_reference_com_nfeatures * 2 ** i) for
-                                                              i in range(len(pool_op_kernel_sizes))]),
-                                                       self.UNet_blocks_per_stage_encoder[:num_stages],
-                                                       self.UNet_blocks_per_stage_decoder[:num_stages - 1],
-                                                       len(self.dataset_json['labels'].keys()))
+            architecture_kwargs['arch_kwargs'].update({
+                'n_stages': num_stages,
+                'kernel_sizes': conv_kernel_sizes,
+                'strides': pool_op_kernel_sizes,
+                'features_per_stage': _features_per_stage(num_stages, max_num_features),
+                'n_conv_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
+                'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
+            })
+            if _keygen(patch_size, pool_op_kernel_sizes) in _bad_patch_sizes.keys():
+                _bad_patch_sizes[_keygen(patch_size, pool_op_kernel_sizes)] = estimate
+            else:
+                estimate = self.static_estimate_VRAM_usage(
+                    patch_size,
+                    num_input_channels,
+                    len(self.dataset_json['labels'].keys()),
+                    architecture_kwargs['network_class_name'],
+                    architecture_kwargs['arch_kwargs'],
+                    architecture_kwargs['_kw_requires_import'],
+                )
 
         # alright now let's determine the batch size. This will give self.UNet_min_batch_size if the while loop was
         # executed. If not, additional vram headroom is used to increase batch size
@@ -344,7 +371,7 @@ class ExperimentPlanner(object):
 
         normalization_schemes, mask_is_used_for_norm = \
             self.determine_normalization_scheme_and_whether_mask_is_used_for_norm()
-        num_stages = len(pool_op_kernel_sizes)
+
         plan = {
             'data_identifier': data_identifier,
             'preprocessor_name': self.preprocessor_name,
@@ -354,20 +381,13 @@ class ExperimentPlanner(object):
             'spacing': spacing,
             'normalization_schemes': normalization_schemes,
             'use_mask_for_norm': mask_is_used_for_norm,
-            'UNet_class_name': self.UNet_class.__name__,
-            'UNet_base_num_features': self.UNet_base_num_features,
-            'n_conv_per_stage_encoder': self.UNet_blocks_per_stage_encoder[:num_stages],
-            'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
-            'num_pool_per_axis': network_num_pool_per_axis,
-            'pool_op_kernel_sizes': pool_op_kernel_sizes,
-            'conv_kernel_sizes': conv_kernel_sizes,
-            'unet_max_num_features': self.UNet_max_features_3d if len(spacing) == 3 else self.UNet_max_features_2d,
             'resampling_fn_data': resampling_data.__name__,
             'resampling_fn_seg': resampling_seg.__name__,
             'resampling_fn_data_kwargs': resampling_data_kwargs,
             'resampling_fn_seg_kwargs': resampling_seg_kwargs,
             'resampling_fn_probabilities': resampling_softmax.__name__,
             'resampling_fn_probabilities_kwargs': resampling_softmax_kwargs,
+            'architecture': architecture_kwargs
         }
         return plan
 
@@ -382,6 +402,8 @@ class ExperimentPlanner(object):
         So for now if you want a different transpose_forward/backward you need to create a new planner. Also not too
         hard.
         """
+        # we use this as a cache to prevent having to instantiate the architecture too often. Saves computation time
+        _tmp = {}
 
         # first get transpose
         transpose_forward, transpose_backward = self.determine_transpose()
@@ -403,7 +425,7 @@ class ExperimentPlanner(object):
             plan_3d_fullres = self.get_plans_for_configuration(fullres_spacing_transposed,
                                                                new_median_shape_transposed,
                                                                self.generate_data_identifier('3d_fullres'),
-                                                               approximate_n_voxels_dataset)
+                                                               approximate_n_voxels_dataset, _tmp)
             # maybe add 3d_lowres as well
             patch_size_fullres = plan_3d_fullres['patch_size']
             median_num_voxels = np.prod(new_median_shape_transposed, dtype=np.float64)
@@ -413,7 +435,6 @@ class ExperimentPlanner(object):
             lowres_spacing = deepcopy(plan_3d_fullres['spacing'])
 
             spacing_increase_factor = 1.03  # used to be 1.01 but that is slow with new GPU memory estimation!
-
             while num_voxels_in_patch / median_num_voxels < self.lowres_creation_threshold:
                 # we incrementally increase the target spacing. We start with the anisotropic axis/axes until it/they
                 # is/are similar (factor 2) to the other ax(i/e)s.
@@ -426,11 +447,11 @@ class ExperimentPlanner(object):
                                             dtype=np.float64)
                 # print(lowres_spacing)
                 plan_3d_lowres = self.get_plans_for_configuration(lowres_spacing,
-                                                                  [round(i) for i in plan_3d_fullres['spacing'] /
-                                                                   lowres_spacing * new_median_shape_transposed],
+                                                                  tuple([round(i) for i in plan_3d_fullres['spacing'] /
+                                                                   lowres_spacing * new_median_shape_transposed]),
                                                                   self.generate_data_identifier('3d_lowres'),
                                                                   float(np.prod(median_num_voxels) *
-                                                                        self.dataset_json['numTraining']))
+                                                                        self.dataset_json['numTraining']), _tmp)
                 num_voxels_in_patch = np.prod(plan_3d_lowres['patch_size'], dtype=np.int64)
                 print(f'Attempting to find 3d_lowres config. '
                       f'\nCurrent spacing: {lowres_spacing}. '
@@ -448,7 +469,7 @@ class ExperimentPlanner(object):
         # 2D configuration
         plan_2d = self.get_plans_for_configuration(fullres_spacing_transposed[1:],
                                                    new_median_shape_transposed[1:],
-                                                   self.generate_data_identifier('2d'), approximate_n_voxels_dataset)
+                                                   self.generate_data_identifier('2d'), approximate_n_voxels_dataset, _tmp)
         plan_2d['batch_dice'] = True
 
         print('2D U-Net configuration:')
