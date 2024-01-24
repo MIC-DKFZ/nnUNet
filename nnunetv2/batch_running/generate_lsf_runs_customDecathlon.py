@@ -25,14 +25,15 @@ if __name__ == "__main__":
         3: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         4: ("2d", "3d_fullres"),
         17: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        20: ("2d", "3d_fullres"),
         24: ("2d", "3d_fullres"),
         27: ("2d", "3d_fullres"),
         38: ("2d", "3d_fullres"),
         55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        64: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        82: ("2d", "3d_fullres"),
-        # 83: ("2d", "3d_fullres"),
+        137: ("2d", "3d_fullres"),
+        217: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        221: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # kits 2023
+        # amos post challenge
     }
 
     configurations_3d_fr_only = {
@@ -52,22 +53,20 @@ if __name__ == "__main__":
     }
 
     num_gpus = 1
-    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\" -R \"select[hname!='e230-dgxa100-1']\" -R \"select[hname!='e230-dgxa100-2']\" -R \"select[hname!='e230-dgxa100-3']\" -R \"select[hname!='e230-dgxa100-4']\""
-    resources = "-R \"tensorcore\""
+    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
+    resources = ""
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=33G"
-    queue = "-q gpu-lowprio"
-    preamble = "-L /bin/bash \"source ~/load_env_cluster4.sh && "
-    train_command = 'nnUNet_results=/dkfz/cluster/gpu/checkpoints/OE0441/isensee/nnUNet_results_remake_release nnUNetv2_train'
+    queue = "-q test.dgx"
+    preamble = "-L /bin/bash \"source ~/load_env_mamba_slumber.sh && "
+    train_command = 'nnUNetv2_train'
 
     folds = (0, )
     # use_this = configurations_2d_only
-    use_this = merge(configurations_3d_fr_only, configurations_3d_lr_only)
+    use_this = configurations_3d_fr_only
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetPlans',),
-        'nnUNetTrainerDiceCELoss_noSmooth': ('nnUNetPlans',),
-        # 'nnUNetTrainer_DASegOrd0': ('nnUNetPlans',),
+        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetPlans', 'nnUNetResEncUNet2Plans', 'nnUNetResBottleneckEncUNetPlans', 'nnUNetResUNetPlans', 'nnUNetResUNet2Plans', 'nnUNetResUNet3Plans', 'nnUNetDeeperResBottleneckEncUNetPlans'),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
