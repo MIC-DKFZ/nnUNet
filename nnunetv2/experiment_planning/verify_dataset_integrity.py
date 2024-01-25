@@ -76,7 +76,7 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
     if not np.allclose(spacing_seg, spacing_images):
         print('Error: Spacing mismatch between segmentation and corresponding images. \nSpacing images: %s. '
               '\nSpacing seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-              (shape_image, shape_seg, image_files, label_file))
+              (spacing_images, spacing_seg, image_files, label_file))
         ret = False
 
     # check modalities
