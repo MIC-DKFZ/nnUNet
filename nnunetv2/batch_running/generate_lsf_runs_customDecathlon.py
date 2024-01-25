@@ -30,10 +30,9 @@ if __name__ == "__main__":
         38: ("2d", "3d_fullres"),
         55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         137: ("2d", "3d_fullres"),
-        217: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        220: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         221: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        # kits 2023
-        # amos post challenge
+        223: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
     }
 
     configurations_3d_fr_only = {
