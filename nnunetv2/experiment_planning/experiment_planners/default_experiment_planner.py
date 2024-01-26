@@ -202,7 +202,7 @@ class ExperimentPlanner(object):
         modalities = self.dataset_json['channel_names'] if 'channel_names' in self.dataset_json.keys() else \
             self.dataset_json['modality']
         normalization_schemes = [get_normalization_scheme(m) for m in modalities.values()]
-        if self.dataset_fingerprint['median_relative_size_after_cropping'] < (3 / 4.):
+        if self.dataset_fingerprint['median_relative_size_after_cropping'] < (3 / 4.) or self.dataset_json.get("use_mask_for_norm"):
             use_nonzero_mask_for_norm = [i.leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true for i in
                                          normalization_schemes]
         else:
