@@ -83,7 +83,7 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
                                   force_separate_z: Union[bool, None] = False,
                                   separate_z_anisotropy_threshold: float = ANISO_THRESHOLD):
     """
-    needed for segmentation export. Stupid, I know. Maybe we can fix that with Leos new resampling functions
+    needed for segmentation export. Stupid, I know
     """
     if isinstance(data, torch.Tensor):
         data = data.cpu().numpy()

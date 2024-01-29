@@ -34,9 +34,6 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 
 class nnUNetTrainerDA5(nnUNetTrainer):
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
-        """
-        This function is stupid and certainly one of the weakest spots of this implementation. Not entirely sure how we can fix it.
-        """
         patch_size = self.configuration_manager.patch_size
         dim = len(patch_size)
         # todo rotation should be defined dynamically based on patch size (more isotropic patch sizes = more rotation)

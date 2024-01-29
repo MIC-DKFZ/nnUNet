@@ -57,7 +57,6 @@ class nnUNetPredictor(object):
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
             # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
-            # why would I ever want to do that. Stupid dobby. This kills DDP inference...
             pass
         if device.type != 'cuda':
             print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
