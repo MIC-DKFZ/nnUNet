@@ -216,6 +216,9 @@ class ResEncUNetPlanner(ExperimentPlanner):
 
 
 class ResEncUNetPlanner2(ResEncUNetPlanner):
+    """
+    Same as nnUNetPlannerM (nnUNetPlannerM was built from this)
+    """
     def __init__(self, dataset_name_or_id: Union[str, int],
                  gpu_memory_target_in_gb: float = 8,
                  preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetResEncUNet2Plans',
