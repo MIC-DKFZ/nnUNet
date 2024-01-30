@@ -11,7 +11,7 @@ class nnUNetPlannerXL(ResEncUNetPlanner):
     """
     def __init__(self, dataset_name_or_id: Union[str, int],
                  gpu_memory_target_in_gb: float = 8,
-                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetResEncUNet2Plans',
+                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetResEncUNetXLPlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
                  suppress_transpose: bool = False):
         super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name, plans_name,
