@@ -1,6 +1,6 @@
 from typing import Union, List, Tuple
 
-from nnunetv2.experiment_planning.experiment_planners.resUNet_planner import ResUNetPlanner
+from nnunetv2.experiment_planning.experiment_planners.residual_unets.ResUNet_planner import ResUNetPlanner
 
 
 class ResUNetPlanner2(ResUNetPlanner):

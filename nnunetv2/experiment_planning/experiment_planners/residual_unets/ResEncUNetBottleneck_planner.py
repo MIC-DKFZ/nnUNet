@@ -2,23 +2,23 @@ from copy import deepcopy
 from typing import Union, List, Tuple
 
 import numpy as np
+from dynamic_network_architectures.architectures.residual_unet import ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
+from dynamic_network_architectures.building_blocks.residual import BottleneckD
+from torch import nn
 
 from nnunetv2.experiment_planning.experiment_planners.network_topology import get_pool_and_conv_props
-from nnunetv2.experiment_planning.experiment_planners.resUNet_planner import ResUNetPlanner
+from nnunetv2.experiment_planning.experiment_planners.residual_unets.ResEncUNet_planner import ResEncUNetPlanner
 
 
-class ResUNetPlanner3(ResUNetPlanner):
+class ResEncUNetBottleneckPlanner(ResEncUNetPlanner):
     def __init__(self, dataset_name_or_id: Union[str, int],
                  gpu_memory_target_in_gb: float = 8,
-                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetResUNet3Plans',
+                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetResBottleneckEncUNetPlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
                  suppress_transpose: bool = False):
         super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name, plans_name,
                          overwrite_target_spacing, suppress_transpose)
-
-        self.UNet_blocks_per_stage_encoder = (1, 3, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6)
-        self.UNet_blocks_per_stage_decoder = None
 
     def get_plans_for_configuration(self,
                                     spacing: Union[np.ndarray, Tuple[float, ...], List[float]],
@@ -80,7 +80,7 @@ class ResUNetPlanner3(ResUNetPlanner):
                 'kernel_sizes': conv_kernel_sizes,
                 'strides': pool_op_kernel_sizes,
                 'n_blocks_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
-                'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_encoder[:num_stages - 1][::-1],
+                'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
                 'conv_bias': True,
                 'norm_op': norm.__module__ + '.' + norm.__name__,
                 'norm_op_kwargs': {'eps': 1e-5, 'affine': True},
@@ -88,8 +88,10 @@ class ResUNetPlanner3(ResUNetPlanner):
                 'dropout_op_kwargs': None,
                 'nonlin': 'torch.nn.LeakyReLU',
                 'nonlin_kwargs': {'inplace': True},
+                'block': BottleneckD.__module__ + '.' + BottleneckD.__name__,
+                'bottleneck_channels': [i // 4 for i in _features_per_stage(num_stages, max_num_features)]
             },
-            '_kw_requires_import': ('conv_op', 'norm_op', 'dropout_op', 'nonlin'),
+            '_kw_requires_import': ('conv_op', 'norm_op', 'dropout_op', 'nonlin', 'block'),
         }
 
         # now estimate vram consumption
@@ -144,7 +146,8 @@ class ResUNetPlanner3(ResUNetPlanner):
                 'strides': pool_op_kernel_sizes,
                 'features_per_stage': _features_per_stage(num_stages, max_num_features),
                 'n_blocks_per_stage': self.UNet_blocks_per_stage_encoder[:num_stages],
-                'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_encoder[:num_stages - 1][::-1],
+                'n_conv_per_stage_decoder': self.UNet_blocks_per_stage_decoder[:num_stages - 1],
+                'bottleneck_channels': [i // 4 for i in _features_per_stage(num_stages, max_num_features)]
             })
             if _keygen(patch_size, pool_op_kernel_sizes) in _cache.keys():
                 estimate = _cache[_keygen(patch_size, pool_op_kernel_sizes)]
@@ -194,3 +197,34 @@ class ResUNetPlanner3(ResUNetPlanner):
             'architecture': architecture_kwargs
         }
         return plan
+
+class ResEncUNetBottleneckDeeperPlanner(ResEncUNetBottleneckPlanner):
+    def __init__(self, dataset_name_or_id: Union[str, int],
+                 gpu_memory_target_in_gb: float = 8,
+                 preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetDeeperResBottleneckEncUNetPlans',
+                 overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
+                 suppress_transpose: bool = False):
+        super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name, plans_name,
+                         overwrite_target_spacing, suppress_transpose)
+        self.UNet_blocks_per_stage_encoder = (2, 3, 6, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9)
+        self.UNet_blocks_per_stage_decoder = (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+
+
+if __name__ == '__main__':
+    # we know both of these networks run with batch size 2 and 12 on ~8-10GB, respectively
+    net = ResidualEncoderUNet(input_channels=1, n_stages=6, features_per_stage=(32, 64, 128, 256, 320, 320),
+                              conv_op=nn.Conv3d, kernel_sizes=3, strides=(1, 2, 2, 2, 2, 2),
+                              n_blocks_per_stage=(1, 3, 4, 6, 6, 6), num_classes=3,
+                              n_conv_per_stage_decoder=(1, 1, 1, 1, 1),
+                              conv_bias=True, norm_op=nn.InstanceNorm3d, norm_op_kwargs={}, dropout_op=None,
+                              nonlin=nn.LeakyReLU, nonlin_kwargs={'inplace': True}, deep_supervision=True)
+    print(net.compute_conv_feature_map_size((128, 128, 128)))  # -> 558319104. The value you see above was finetuned
+    # from this one to match the regular nnunetplans more closely
+
+    net = ResidualEncoderUNet(input_channels=1, n_stages=7, features_per_stage=(32, 64, 128, 256, 512, 512, 512),
+                              conv_op=nn.Conv2d, kernel_sizes=3, strides=(1, 2, 2, 2, 2, 2, 2),
+                              n_blocks_per_stage=(1, 3, 4, 6, 6, 6, 6), num_classes=3,
+                              n_conv_per_stage_decoder=(1, 1, 1, 1, 1, 1),
+                              conv_bias=True, norm_op=nn.InstanceNorm2d, norm_op_kwargs={}, dropout_op=None,
+                              nonlin=nn.LeakyReLU, nonlin_kwargs={'inplace': True}, deep_supervision=True)
+    print(net.compute_conv_feature_map_size((512, 512)))  # -> 129793792
