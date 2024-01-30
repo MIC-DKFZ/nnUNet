@@ -10,6 +10,7 @@ import torch.multiprocessing as mp
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
+from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
@@ -35,7 +36,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
                           use_compressed: bool = False,
-                          device: torch.device = torch.device('cuda')):
+                          device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -64,7 +65,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     plans = load_json(plans_file)
     dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
     nnunet_trainer = nnunet_trainer(plans=plans, configuration=configuration, fold=fold,
-                                    dataset_json=dataset_json, unpack_dataset=not use_compressed, device=device)
+                                    dataset_json=dataset_json, unpack_dataset=not use_compressed, device=device, logger=logger)
     return nnunet_trainer
 
 
@@ -109,12 +110,12 @@ def cleanup_ddp():
 
 
 def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, use_compressed, disable_checkpointing, c, val,
-            pretrained_weights, npz, val_with_best, world_size):
+            pretrained_weights, npz, val_with_best, world_size, logger: nnUNetLogger | None = None):
     setup_ddp(rank, world_size)
     torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
 
     nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p,
-                                           use_compressed)
+                                           use_compressed, logger=logger)
 
     if disable_checkpointing:
         nnunet_trainer.disable_checkpointing = disable_checkpointing
@@ -148,13 +149,15 @@ def run_training(dataset_name_or_id: Union[str, int],
                  only_run_validation: bool = False,
                  disable_checkpointing: bool = False,
                  val_with_best: bool = False,
-                 device: torch.device = torch.device('cuda')):
-    if plans_identifier == 'nnUNetPlans':
-        print("\n############################\n"
-              "INFO: You are using the old nnU-Net default plans. We have updated our recommendations. "
-              "Please consider using those instead! "
-              "Read more here: https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/resenc_presets.md"
-              "\n############################\n")
+                 device: torch.device = torch.device('cuda'),
+                 logger: nnUNetLogger | None = None):
+    # TODO Deactivated deprecation notice here
+    # if plans_identifier == 'nnUNetPlans':
+    #     print("\n############################\n"
+    #           "INFO: You are using the old nnU-Net default plans. We have updated our recommendations. "
+    #           "Please consider using those instead! "
+    #           "Read more here: https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/resenc_presets.md"
+    #           "\n############################\n")
     if isinstance(fold, str):
         if fold != 'all':
             try:
@@ -189,12 +192,12 @@ def run_training(dataset_name_or_id: Union[str, int],
                      pretrained_weights,
                      export_validation_probabilities,
                      val_with_best,
-                     num_gpus),
+                     num_gpus, logger),
                  nprocs=num_gpus,
                  join=True)
     else:
         nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
-                                               plans_identifier, use_compressed_data, device=device)
+                                               plans_identifier, use_compressed_data, device=device, logger=logger)
 
         if disable_checkpointing:
             nnunet_trainer.disable_checkpointing = disable_checkpointing

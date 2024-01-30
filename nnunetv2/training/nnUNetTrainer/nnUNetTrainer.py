@@ -71,7 +71,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
@@ -172,7 +172,7 @@ class nnUNetTrainer(object):
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
-        self.logger = nnUNetLogger()
+        self.logger = logger if logger else nnUNetLogger()
 
         ### placeholders
         self.dataloader_train = self.dataloader_val = None  # see on_train_start
