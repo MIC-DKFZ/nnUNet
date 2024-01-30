@@ -56,7 +56,6 @@ class nnUNetPredictor(object):
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
             # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
-            # why would I ever want to do that. Stupid dobby. This kills DDP inference...
             pass
         if device.type != 'cuda':
             print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
@@ -601,7 +600,7 @@ class nnUNetPredictor(object):
 
         empty_cache(self.device)
 
-        # Autocast is a little bitch.
+        # Autocast can be annoying
         # If the device_type is 'cpu' then it's slow as heck on some CPUs (no auto bfloat16 support detection)
         # and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False

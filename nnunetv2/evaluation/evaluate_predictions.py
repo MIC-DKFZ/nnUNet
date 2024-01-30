@@ -33,7 +33,7 @@ def key_to_label_or_region(key: str):
 
 def save_summary_json(results: dict, output_file: str):
     """
-    stupid json does not support tuples as keys (why does it have to be so shitty) so we need to convert that shit
+    json does not support tuples as keys (why does it have to be so shitty) so we need to convert that shit
     ourselves
     """
     results_converted = deepcopy(results)
