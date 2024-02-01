@@ -23,6 +23,6 @@ class nnUNetPlannerM(ResEncUNetPlanner):
         self.UNet_reference_val_corresp_GB = 8
 
         # this is supposed to give the same GPU memory requirement as the default nnU-Net
-        self.UNet_reference_val_3d = 600000000
-        self.UNet_reference_val_2d = 133000000
+        self.UNet_reference_val_3d = 680000000
+        self.UNet_reference_val_2d = 135000000
 

@@ -21,14 +21,14 @@ if __name__ == "__main__":
     # after the Nature Methods paper we switch our evaluation to a different (more stable/high quality) set of
     # datasets for evaluation and future development
     configurations_all = {
-        2: ("3d_fullres", "2d"),
-        3: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        4: ("2d", "3d_fullres"),
+        # 2: ("3d_fullres", "2d"),
+        # 3: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 4: ("2d", "3d_fullres"),
         17: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        24: ("2d", "3d_fullres"),
-        27: ("2d", "3d_fullres"),
-        38: ("2d", "3d_fullres"),
-        55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 24: ("2d", "3d_fullres"),
+        # 27: ("2d", "3d_fullres"),
+        # 38: ("2d", "3d_fullres"),
+        # 55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         137: ("2d", "3d_fullres"),
         220: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         221: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetPlans', 'nnUNetResEncUNet2Plans', 'nnUNetResBottleneckEncUNetPlans', 'nnUNetResUNetPlans', 'nnUNetResUNet2Plans', 'nnUNetResUNet3Plans', 'nnUNetDeeperResBottleneckEncUNetPlans'),
+        'nnUNetTrainer': ('nnUNetResEncUNetMPlans', 'nnUNetResEncUNetLPlans', 'nnUNetResEncUNetXLPlans', 'nnUNetResEncUNetXLx8Plans'),
     }
 
     additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
