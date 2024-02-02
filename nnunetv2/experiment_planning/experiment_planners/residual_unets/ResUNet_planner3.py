@@ -27,7 +27,7 @@ class ResUNetPlanner3(ResUNetPlanner):
                                     approximate_n_voxels_dataset: float,
                                     _cache: dict) -> dict:
         def _features_per_stage(num_stages, max_num_features) -> Tuple[int, ...]:
-            return tuple([min(max_num_features, self.UNet_reference_com_nfeatures * 2 ** i) for
+            return tuple([min(max_num_features, self.UNet_base_num_features * 2 ** i) for
                           i in range(num_stages)])
 
         def _keygen(patch_size, strides):
