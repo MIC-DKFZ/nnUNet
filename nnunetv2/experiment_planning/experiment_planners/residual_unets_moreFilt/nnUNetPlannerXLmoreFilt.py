@@ -24,7 +24,6 @@ class nnUNetPlannerXLmoreFilt(ResEncUNetPlanner):
         self.UNet_base_num_features = 64
         self.UNet_max_features_3d = self.UNet_base_num_features * 2 ** 4
 
-        self.UNet_reference_val_3d = 3200000000
+        self.UNet_reference_val_3d = 3100000000
         self.UNet_reference_val_2d = 540000000
-
 
