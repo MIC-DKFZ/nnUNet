@@ -57,7 +57,6 @@ class nnUNetPredictor(object):
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
             # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
-            # why would I ever want to do that. Stupid dobby. This kills DDP inference...
             pass
         if device.type != 'cuda':
             print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
@@ -369,8 +368,8 @@ class nnUNetPredictor(object):
 
                 if ofile is not None:
                     # this needs to go into background processes
-                    # export_prediction_from_logits(prediction, properties, configuration_manager, plans_manager,
-                    #                               dataset_json, ofile, save_probabilities)
+                    # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
+                    #                               self.dataset_json, ofile, save_probabilities)
                     print('sending off prediction to background worker for resampling and export')
                     r.append(
                         export_pool.starmap_async(
@@ -380,10 +379,12 @@ class nnUNetPredictor(object):
                         )
                     )
                 else:
-                    # convert_predicted_logits_to_segmentation_with_correct_shape(prediction, plans_manager,
-                    #                                                             configuration_manager, label_manager,
-                    #                                                             properties,
-                    #                                                             save_probabilities)
+                    # convert_predicted_logits_to_segmentation_with_correct_shape(
+                    #             prediction, self.plans_manager,
+                    #              self.configuration_manager, self.label_manager,
+                    #              properties,
+                    #              save_probabilities)
+
                     print('sending off prediction to background worker for resampling')
                     r.append(
                         export_pool.starmap_async(
@@ -594,7 +595,7 @@ class nnUNetPredictor(object):
 
         empty_cache(self.device)
 
-        # Autocast is a little bitch.
+        # Autocast can be annoying
         # If the device_type is 'cpu' then it's slow as heck on some CPUs (no auto bfloat16 support detection)
         # and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False

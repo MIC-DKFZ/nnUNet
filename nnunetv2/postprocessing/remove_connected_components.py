@@ -229,12 +229,12 @@ def determine_postprocessing(folder_predictions: str,
         'postprocessing_fns': [i.__name__ for i in pp_fns],
         'postprocessing_kwargs': pp_fn_kwargs,
     }
-    # json is a very annoying little bi###. Can't handle tuples as dict keys.
+    # json is very annoying. Can't handle tuples as dict keys.
     tmp['input_folder']['mean'] = {label_or_region_to_key(k): tmp['input_folder']['mean'][k] for k in
                                    tmp['input_folder']['mean'].keys()}
     tmp['postprocessed']['mean'] = {label_or_region_to_key(k): tmp['postprocessed']['mean'][k] for k in
                                     tmp['postprocessed']['mean'].keys()}
-    # did I already say that I hate json? "TypeError: Object of type int64 is not JSON serializable" You retarded bro?
+    # did I already say that I hate json? "TypeError: Object of type int64 is not JSON serializable"
     recursive_fix_for_json_export(tmp)
     save_json(tmp, join(folder_predictions, 'postprocessing.json'))
 

@@ -5,7 +5,8 @@ from typing import List, Union, Tuple, Type
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
-from dynamic_network_architectures.architectures.unet import PlainConvUNet, ResidualEncoderUNet
+from dynamic_network_architectures.architectures.residual_unet import ResidualEncoderUNet
+from dynamic_network_architectures.architectures.unet import PlainConvUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
 
 from nnunetv2.configuration import ANISO_THRESHOLD
@@ -464,7 +465,7 @@ class ExperimentPlanner(object):
         shutil.copy(join(self.raw_dataset_folder, 'dataset.json'),
                     join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
 
-        # json is stupid and I hate it... "Object of type int64 is not JSON serializable" -> my ass
+        # json is ###. I hate it... "Object of type int64 is not JSON serializable"
         plans = {
             'dataset_name': self.dataset_name,
             'plans_name': self.plans_identifier,
