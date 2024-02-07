@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import warnings
 
-import dynamic_network_architectures
 from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Union, Tuple, List, Type, Callable
@@ -67,7 +66,7 @@ class ConfigurationManager(object):
                     "n_conv_per_stage": deepcopy(self.configuration["n_conv_per_stage_encoder"]),
                     "n_conv_per_stage_decoder": deepcopy(self.configuration["n_conv_per_stage_decoder"]),
                     "conv_bias": True,
-                    "norm_op": "torch.nn.modules.instancenorm.InstanceNorm3d",
+                    "norm_op": instnorm.__module__ + '.' + instnorm.__name__,
                     "norm_op_kwargs": {
                         "eps": 1e-05,
                         "affine": True
@@ -88,6 +87,11 @@ class ConfigurationManager(object):
                     "nonlin"
                 ]
             }
+            del self.configuration["UNet_class_name"], self.configuration["UNet_base_num_features"], \
+                self.configuration["n_conv_per_stage_encoder"], self.configuration["n_conv_per_stage_decoder"], \
+                self.configuration["num_pool_per_axis"], self.configuration["pool_op_kernel_sizes"],\
+                self.configuration["conv_kernel_sizes"], self.configuration["unet_max_num_features"]
+            self.configuration["architecture"] = arch_dict
 
     def __repr__(self):
         return self.configuration.__repr__()
