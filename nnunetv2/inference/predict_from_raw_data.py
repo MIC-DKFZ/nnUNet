@@ -469,7 +469,7 @@ class nnUNetPredictor(object):
                     self.network._orig_mod.load_state_dict(params)
 
                 # why not leave prediction on device if perform_everything_on_device? Because this may cause the
-                # second iteration to crash due to OOM. Grabbing tha twith try except cause way more bloated code than
+                # second iteration to crash due to OOM. Grabbing that with try except cause way more bloated code than
                 # this actually saves computation time
                 if prediction is None:
                     prediction = self.predict_sliding_window_return_logits(data).to('cpu')

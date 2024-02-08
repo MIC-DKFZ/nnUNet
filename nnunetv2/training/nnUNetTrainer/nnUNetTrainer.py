@@ -1241,7 +1241,7 @@ class nnUNetTrainer(object):
                                  self.dataset_json),
                             )
                         ))
-                # if we don't barrier from time to time we will get nccl timeouts for large datsets. Yuck.
+                # if we don't barrier from time to time we will get nccl timeouts for large datasets. Yuck.
                 if self.is_ddp and i < last_barrier_at_idx and (i + 1) % 20 == 0:
                     dist.barrier()
 
