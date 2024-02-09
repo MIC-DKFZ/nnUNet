@@ -1214,7 +1214,7 @@ class nnUNetTrainer(object):
             if checkpoint['grad_scaler_state'] is not None:
                 self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
-    def perform_actual_validation(self, save_probabilities: bool = False):
+    def perform_actual_validation(self, save_probabilities: bool = False, clean_val_folder: bool = True):
         self.set_deep_supervision_enabled(False)
         self.network.eval()
 
@@ -1238,6 +1238,8 @@ class nnUNetTrainer(object):
         with multiprocessing.get_context("spawn").Pool(default_num_processes) as segmentation_export_pool:
             worker_list = [i for i in segmentation_export_pool._pool]
             validation_output_folder = join(self.output_folder, 'validation')
+            if clean_val_folder and os.path.isdir(validation_output_folder):
+                shutil.rmtree(validation_output_folder)
             maybe_mkdir_p(validation_output_folder)
 
             # we cannot use self.get_tr_and_val_datasets() here because we might be DDP and then we have to distribute
