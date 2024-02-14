@@ -62,7 +62,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
 
         # Autocast is a little bitch.
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
@@ -74,7 +74,7 @@ class nnUNetTrainerNoDeepSupervision(nnUNetTrainer):
             l = self.loss(output, target)
 
         # the following is needed for online evaluation. Fake dice (green line)
-        axes = [0] + list(range(2, len(output.shape)))
+        axes = [0] + list(range(2, output.ndim))
 
         if self.label_manager.has_regions:
             predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()

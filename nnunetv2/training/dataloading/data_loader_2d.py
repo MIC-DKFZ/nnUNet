@@ -16,6 +16,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # (Lung for example)
             force_fg = self.get_do_oversample(j)
             data, seg, properties = self._data.load_case(current_key)
+            case_properties.append(properties)
 
             # select a class/region first, then a slice where this class is present, then crop to that area
             if not force_fg:

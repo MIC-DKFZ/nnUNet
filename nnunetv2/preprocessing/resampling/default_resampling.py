@@ -65,7 +65,7 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
             pass
 
     if data is not None:
-        assert len(data.shape) == 4, "data must be c x y z"
+        assert data.ndim == 4, "data must be c x y z"
 
     shape = np.array(data[0].shape)
     new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
@@ -117,7 +117,7 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
             pass
 
     if data is not None:
-        assert len(data.shape) == 4, "data must be c x y z"
+        assert data.ndim == 4, "data must be c x y z"
 
     data_reshaped = resample_data_or_seg(
         data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z, rescale_z=rescale_z)
@@ -138,8 +138,8 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
     :param order_z: only applies if do_separate_z is True
     :return:
     """
-    assert len(data.shape) == 4, "data must be (c, x, y, z)"
-    assert len(new_shape) == len(data.shape) - 1
+    assert data.ndim == 4, "data must be (c, x, y, z)"
+    assert len(new_shape) == data.ndim - 1
 
     if is_seg:
         resize_fn = resize_segmentation

@@ -21,7 +21,7 @@ images). So these images could for example be a T1 and a T2 MRI (or whatever els
 channels MUST have the same geometry (same shape, spacing (if applicable) etc.) and
 must be co-registered (if applicable). Input channels are identified by nnU-Net by their FILE_ENDING: a four-digit integer at the end 
 of the filename. Image files must therefore follow the following naming convention: {CASE_IDENTIFIER}_{XXXX}.{FILE_ENDING}. 
-Hereby, XXXX is the 4-digit modality/channel identifier (should be unique for each modality/chanel, e.g., “0000” for T1, “0001” for 
+Hereby, XXXX is the 4-digit modality/channel identifier (should be unique for each modality/channel, e.g., “0000” for T1, “0001” for 
 T2 MRI, …) and FILE_ENDING is the file extension used by your image format (.png, .nii.gz, ...). See below for concrete examples.
 The dataset.json file connects channel names with the channel identifiers in the 'channel_names' key (see below for details).
 
