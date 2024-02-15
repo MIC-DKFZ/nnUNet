@@ -18,7 +18,7 @@ def recursive_fix_for_json_export(my_dict: dict):
         if isinstance(my_dict[k], dict):
             recursive_fix_for_json_export(my_dict[k])
         elif isinstance(my_dict[k], np.ndarray):
-            assert len(my_dict[k].shape) == 1, 'only 1d arrays are supported'
+            assert my_dict[k].ndim == 1, 'only 1d arrays are supported'
             my_dict[k] = fix_types_iterable(my_dict[k], output_type=list)
         elif isinstance(my_dict[k], (np.bool_,)):
             my_dict[k] = bool(my_dict[k])

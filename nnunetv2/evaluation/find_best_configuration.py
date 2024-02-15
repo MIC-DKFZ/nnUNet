@@ -285,7 +285,7 @@ def find_best_configuration_entry_point():
                         help='Set this flag to disable ensembling')
     parser.add_argument('--no_overwrite', action='store_true',
                         help='If set we will not overwrite already ensembled files etc. May speed up concecutive '
-                             'runs of this command (why would oyu want to do that?) at the risk of not updating '
+                             'runs of this command (why would you want to do that?) at the risk of not updating '
                              'outdated results.')
     args = parser.parse_args()
 

@@ -45,15 +45,15 @@ class Tiff3DIO(BaseReaderWriter):
         images = []
         for f in image_fnames:
             image = tifffile.imread(f)
-            if len(image.shape) != 3:
-                raise RuntimeError("Only 3D images are supported! File: %s" % f)
+            if image.ndim != 3:
+                raise RuntimeError(f"Only 3D images are supported! File: {f}")
             images.append(image[None])
 
         # see if aux file can be found
         expected_aux_file = image_fnames[0][:-truncate_length] + '.json'
         if isfile(expected_aux_file):
             spacing = load_json(expected_aux_file)['spacing']
-            assert len(spacing) == 3, 'spacing must have 3 entries, one for each dimension of the image. File: %s' % expected_aux_file
+            assert len(spacing) == 3, f'spacing must have 3 entries, one for each dimension of the image. File: {expected_aux_file}'
         else:
             print(f'WARNING no spacing file found for images {image_fnames}\nAssuming spacing (1, 1, 1).')
             spacing = (1, 1, 1)
@@ -83,7 +83,7 @@ class Tiff3DIO(BaseReaderWriter):
         ending_length = len(ending)
 
         seg = tifffile.imread(seg_fname)
-        if len(seg.shape) != 3:
+        if seg.ndim != 3:
             raise RuntimeError(f"Only 3D images are supported! File: {seg_fname}")
         seg = seg[None]
 
@@ -91,7 +91,7 @@ class Tiff3DIO(BaseReaderWriter):
         expected_aux_file = seg_fname[:-ending_length] + '.json'
         if isfile(expected_aux_file):
             spacing = load_json(expected_aux_file)['spacing']
-            assert len(spacing) == 3, 'spacing must have 3 entries, one for each dimension of the image. File: %s' % expected_aux_file
+            assert len(spacing) == 3, f'spacing must have 3 entries, one for each dimension of the image. File: {expected_aux_file}'
             assert all([i > 0 for i in spacing]), f"Spacing must be > 0, spacing: {spacing}"
         else:
             print(f'WARNING no spacing file found for segmentation {seg_fname}\nAssuming spacing (1, 1, 1).')

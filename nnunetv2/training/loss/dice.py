@@ -2,7 +2,6 @@ from typing import Callable
 
 import torch
 from nnunetv2.utilities.ddp_allgather import AllGatherGrad
-from nnunetv2.utilities.tensor_utilities import sum_tensor
 from torch import nn
 
 
@@ -71,32 +70,31 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
-        shp_x, shp_y = x.shape, y.shape
-
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
-        if not self.do_bg:
-            x = x[:, 1:]
-
         # make everything shape (b, c)
-        axes = list(range(2, len(shp_x)))
-
+        axes = list(range(2, len(x.shape)))
         with torch.no_grad():
-            if len(shp_x) != len(shp_y):
-                y = y.view((shp_y[0], 1, *shp_y[1:]))
+            if len(x.shape) != len(y.shape):
+                y = y.view((y.shape[0], 1, *y.shape[1:]))
 
-            if all([i == j for i, j in zip(shp_x, shp_y)]):
+            if x.shape == y.shape:
                 # if this is the case then gt is probably already a one hot encoding
                 y_onehot = y
             else:
                 gt = y.long()
-                y_onehot = torch.zeros(shp_x, device=x.device, dtype=torch.bool)
+                y_onehot = torch.zeros(x.shape, device=x.device, dtype=torch.bool)
                 y_onehot.scatter_(1, gt, 1)
 
             if not self.do_bg:
                 y_onehot = y_onehot[:, 1:]
+
             sum_gt = y_onehot.sum(axes) if loss_mask is None else (y_onehot * loss_mask).sum(axes)
+
+        # this one MUST be outside the with torch.no_grad(): context. Otherwise no gradients for you
+        if not self.do_bg:
+            x = x[:, 1:]
 
         intersect = (x * y_onehot).sum(axes) if loss_mask is None else (x * y_onehot * loss_mask).sum(axes)
         sum_pred = x.sum(axes) if loss_mask is None else (x * loss_mask).sum(axes)
@@ -139,7 +137,7 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
         if len(shp_x) != len(shp_y):
             gt = gt.view((shp_y[0], 1, *shp_y[1:]))
 
-        if all([i == j for i, j in zip(net_output.shape, gt.shape)]):
+        if net_output.shape == gt.shape:
             # if this is the case then gt is probably already a one hot encoding
             y_onehot = gt
         else:
@@ -174,10 +172,10 @@ def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
         tn = tn ** 2
 
     if len(axes) > 0:
-        tp = sum_tensor(tp, axes, keepdim=False)
-        fp = sum_tensor(fp, axes, keepdim=False)
-        fn = sum_tensor(fn, axes, keepdim=False)
-        tn = sum_tensor(tn, axes, keepdim=False)
+        tp = tp.sum(dim=axes, keepdim=False)
+        fp = fp.sum(dim=axes, keepdim=False)
+        fn = fn.sum(dim=axes, keepdim=False)
+        tn = tn.sum(dim=axes, keepdim=False)
 
     return tp, fp, fn, tn
 
