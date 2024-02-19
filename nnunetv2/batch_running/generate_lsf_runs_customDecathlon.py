@@ -31,7 +31,7 @@ if __name__ == "__main__":
         # 55: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         137: ("2d", "3d_fullres"),
         220: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        221: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
+        # 221: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         223: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
     }
 
@@ -52,23 +52,23 @@ if __name__ == "__main__":
     }
 
     num_gpus = 1
-    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='e230-dgx1-1']\""
+    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\""
     resources = ""
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=33G"
-    queue = "-q test.dgx"
+    queue = "-q gpu"
     preamble = "-L /bin/bash \"source ~/load_env_mamba_slumber.sh && "
     train_command = 'nnUNetv2_train'
 
-    folds = (0, )
+    folds = (1, 2, 3, 4)
     # use_this = configurations_2d_only
     use_this = configurations_3d_fr_only
     # use_this = merge(use_this, configurations_3d_c_only)
 
     use_these_modules = {
-        'nnUNetTrainer': ('nnUNetResEncUNetMPlans', 'nnUNetResEncUNetLPlans', 'nnUNetResEncUNetXLPlans', 'nnUNetResEncUNetXLx8Plans'),
+        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetMPlans', 'nnUNetResEncUNetLPlans', 'nnUNetResEncUNetXLPlans'),
     }
 
-    additional_arguments = f'--disable_checkpointing -num_gpus {num_gpus}'  # ''
+    additional_arguments = f' -num_gpus {num_gpus}'  # ''
 
     output_file = "/home/isensee/deleteme.txt"
     with open(output_file, 'w') as f:
