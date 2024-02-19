@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import dynamic_network_architectures
+import warnings
+
 from copy import deepcopy
 from functools import lru_cache, partial
 from typing import Union, Tuple, List, Type, Callable
@@ -9,8 +10,6 @@ import numpy as np
 import torch
 
 from nnunetv2.preprocessing.resampling.utils import recursive_find_resampling_fn_by_name
-from torch import nn
-
 import nnunetv2
 from batchgenerators.utilities.file_and_folder_operations import load_json, join
 
@@ -18,9 +17,9 @@ from nnunetv2.imageio.reader_writer_registry import recursive_find_reader_writer
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.label_handling.label_handling import get_labelmanager_class_from_plans
 
-
 # see https://adamj.eu/tech/2021/05/13/python-type-hints-how-to-fix-circular-imports/
 from typing import TYPE_CHECKING
+from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
 
 if TYPE_CHECKING:
     from nnunetv2.utilities.label_handling.label_handling import LabelManager
@@ -32,6 +31,68 @@ if TYPE_CHECKING:
 class ConfigurationManager(object):
     def __init__(self, configuration_dict: dict):
         self.configuration = configuration_dict
+
+        # backwards compatibility
+        if 'architecture' not in self.configuration.keys():
+            warnings.warn("Detected old nnU-Net plans format. Attempting to reconstruct network architecture "
+                          "parameters. If this fails, rerun nnUNetv2_plan_experiment for your dataset. If you use a "
+                          "custom architecture, please downgrade nnU-Net yo v2.3 "
+                          "(https://github.com/MIC-DKFZ/nnUNet/releases/tag/v2.3) or update your plans.")
+            # try to build the architecture information from old plans, modify configuration dict to match new standard
+            unet_class_name = self.configuration["UNet_class_name"]
+            if unet_class_name == "PlainConvUNet":
+                network_class_name = "dynamic_network_architectures.architectures.unet.PlainConvUNet"
+            elif unet_class_name == 'ResidualEncoderUNet':
+                network_class_name = "dynamic_network_architectures.architectures.residual_unet.ResidualEncoderUNet"
+            else:
+                raise RuntimeError(f'Unknown architecture {unet_class_name}. This conversion only supports '
+                                   f'PlainConvUNet and ResidualEncoderUNet')
+
+            n_stages = len(self.configuration["n_conv_per_stage_encoder"])
+
+            dim = len(self.configuration["patch_size"])
+            conv_op = convert_dim_to_conv_op(dim)
+            instnorm = get_matching_instancenorm(dimension=dim)
+
+            arch_dict = {
+                'network_class_name': network_class_name,
+                'arch_kwargs': {
+                    "n_stages": n_stages,
+                    "features_per_stage": [min(self.configuration["UNet_base_num_features"] * 2 ** i,
+                                               self.configuration["unet_max_num_features"])
+                                           for i in range(n_stages)],
+                    "conv_op": conv_op.__module__ + '.' + conv_op.__name__,
+                    "kernel_sizes": deepcopy(self.configuration["conv_kernel_sizes"]),
+                    "strides": deepcopy(self.configuration["pool_op_kernel_sizes"]),
+                    "n_conv_per_stage": deepcopy(self.configuration["n_conv_per_stage_encoder"]),
+                    "n_conv_per_stage_decoder": deepcopy(self.configuration["n_conv_per_stage_decoder"]),
+                    "conv_bias": True,
+                    "norm_op": instnorm.__module__ + '.' + instnorm.__name__,
+                    "norm_op_kwargs": {
+                        "eps": 1e-05,
+                        "affine": True
+                    },
+                    "dropout_op": None,
+                    "dropout_op_kwargs": None,
+                    "nonlin": "torch.nn.LeakyReLU",
+                    "nonlin_kwargs": {
+                        "inplace": True
+                    }
+                },
+                # these need to be imported with locate in order to use them:
+                # `conv_op = pydoc.locate(architecture_kwargs['conv_op'])`
+                "_kw_requires_import": [
+                    "conv_op",
+                    "norm_op",
+                    "dropout_op",
+                    "nonlin"
+                ]
+            }
+            del self.configuration["UNet_class_name"], self.configuration["UNet_base_num_features"], \
+                self.configuration["n_conv_per_stage_encoder"], self.configuration["n_conv_per_stage_decoder"], \
+                self.configuration["num_pool_per_axis"], self.configuration["pool_op_kernel_sizes"],\
+                self.configuration["conv_kernel_sizes"], self.configuration["unet_max_num_features"]
+            self.configuration["architecture"] = arch_dict
 
     def __repr__(self):
         return self.configuration.__repr__()
@@ -77,49 +138,20 @@ class ConfigurationManager(object):
         return self.configuration['use_mask_for_norm']
 
     @property
-    def UNet_class_name(self) -> str:
-        return self.configuration['UNet_class_name']
+    def network_arch_class_name(self) -> str:
+        return self.configuration['architecture']['network_class_name']
 
     @property
-    @lru_cache(maxsize=1)
-    def UNet_class(self) -> Type[nn.Module]:
-        unet_class = recursive_find_python_class(join(dynamic_network_architectures.__path__[0], "architectures"),
-                                                 self.UNet_class_name,
-                                                 current_module="dynamic_network_architectures.architectures")
-        if unet_class is None:
-            raise RuntimeError('The network architecture specified by the plans file '
-                               'is non-standard (maybe your own?). Fix this by not using '
-                               'ConfigurationManager.UNet_class to instantiate '
-                               'it (probably just overwrite build_network_architecture of your trainer.')
-        return unet_class
+    def network_arch_init_kwargs(self) -> dict:
+        return self.configuration['architecture']['arch_kwargs']
 
     @property
-    def UNet_base_num_features(self) -> int:
-        return self.configuration['UNet_base_num_features']
+    def network_arch_init_kwargs_req_import(self) -> Union[Tuple[str, ...], List[str]]:
+        return self.configuration['architecture']['_kw_requires_import']
 
     @property
-    def n_conv_per_stage_encoder(self) -> List[int]:
-        return self.configuration['n_conv_per_stage_encoder']
-
-    @property
-    def n_conv_per_stage_decoder(self) -> List[int]:
-        return self.configuration['n_conv_per_stage_decoder']
-
-    @property
-    def num_pool_per_axis(self) -> List[int]:
-        return self.configuration['num_pool_per_axis']
-
-    @property
-    def pool_op_kernel_sizes(self) -> List[List[int]]:
-        return self.configuration['pool_op_kernel_sizes']
-
-    @property
-    def conv_kernel_sizes(self) -> List[List[int]]:
-        return self.configuration['conv_kernel_sizes']
-
-    @property
-    def unet_max_num_features(self) -> int:
-        return self.configuration['unet_max_num_features']
+    def pool_op_kernel_sizes(self) -> Tuple[Tuple[int, ...], ...]:
+        return self.configuration['architecture']['arch_kwargs']['strides']
 
     @property
     @lru_cache(maxsize=1)

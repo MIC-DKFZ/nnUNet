@@ -51,21 +51,24 @@ def plan_experiment_dataset(dataset_id: int,
                             experiment_planner_class: Type[ExperimentPlanner] = ExperimentPlanner,
                             gpu_memory_target_in_gb: float = 8, preprocess_class_name: str = 'DefaultPreprocessor',
                             overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
-                            overwrite_plans_name: Optional[str] = None) -> dict:
+                            overwrite_plans_name: Optional[str] = None) -> Tuple[dict, str]:
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
     kwargs = {}
     if overwrite_plans_name is not None:
         kwargs['plans_name'] = overwrite_plans_name
-    return experiment_planner_class(dataset_id,
-                                    gpu_memory_target_in_gb=gpu_memory_target_in_gb,
-                                    preprocessor_name=preprocess_class_name,
-                                    overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
-                                    overwrite_target_spacing is not None else overwrite_target_spacing,
-                                    suppress_transpose=False,  # might expose this later,
-                                    **kwargs
-                                    ).plan_experiment()
+
+    planner = experiment_planner_class(dataset_id,
+                                       gpu_memory_target_in_gb=gpu_memory_target_in_gb,
+                                       preprocessor_name=preprocess_class_name,
+                                       overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
+                                       overwrite_target_spacing is not None else overwrite_target_spacing,
+                                       suppress_transpose=False,  # might expose this later,
+                                       **kwargs
+                                       )
+    ret = planner.plan_experiment()
+    return ret, planner.plans_identifier
 
 
 def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str = 'ExperimentPlanner',
@@ -78,9 +81,12 @@ def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str 
     experiment_planner = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
                                                      experiment_planner_class_name,
                                                      current_module="nnunetv2.experiment_planning")
+    plans_identifier = None
     for d in dataset_ids:
-        plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb, preprocess_class_name,
-                                overwrite_target_spacing, overwrite_plans_name)
+        _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,
+                                                      preprocess_class_name,
+                                                      overwrite_target_spacing, overwrite_plans_name)
+    return plans_identifier
 
 
 def preprocess_dataset(dataset_id: int,
@@ -125,7 +131,6 @@ def preprocess_dataset(dataset_id: int,
         copy_file(dataset[k]['label'],
                   join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']),
                   update=True)
-
 
 
 def preprocess(dataset_ids: List[int],
