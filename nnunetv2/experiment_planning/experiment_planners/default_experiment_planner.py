@@ -6,7 +6,6 @@ import numpy as np
 import torch
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 
-from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from dynamic_network_architectures.architectures.unet import PlainConvUNet
 from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
 

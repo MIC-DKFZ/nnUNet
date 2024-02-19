@@ -1,6 +1,6 @@
 from typing import Union, List, Tuple
 
-from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
+from dynamic_network_architectures.architectures.residual_unet import ResidualEncoderUNet
 from torch import nn
 
 from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
