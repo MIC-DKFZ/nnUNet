@@ -24,5 +24,6 @@ class nnUNetPlannerXL(ResEncUNetPlanner):
 
         self.UNet_reference_val_3d = 3600000000
         self.UNet_reference_val_2d = 560000000
+        self.max_dataset_covered = 1
 
 

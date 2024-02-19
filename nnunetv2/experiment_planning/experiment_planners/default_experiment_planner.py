@@ -65,6 +65,8 @@ class ExperimentPlanner(object):
         self.UNet_min_batch_size = 2
         self.UNet_max_features_2d = 512
         self.UNet_max_features_3d = 320
+        self.max_dataset_covered = 0.05 # we limit the batch size so that no more than 5% of the dataset can be seen
+        # in a single forward/backward pass
 
         self.UNet_vram_target_GB = gpu_memory_target_in_gb
 
@@ -372,7 +374,7 @@ class ExperimentPlanner(object):
         # we need to cap the batch size to cover at most 5% of the entire dataset. Overfitting precaution. We cannot
         # go smaller than self.UNet_min_batch_size though
         bs_corresponding_to_5_percent = round(
-            approximate_n_voxels_dataset * 0.05 / np.prod(patch_size, dtype=np.float64))
+            approximate_n_voxels_dataset * self.max_dataset_covered / np.prod(patch_size, dtype=np.float64))
         batch_size = max(min(batch_size, bs_corresponding_to_5_percent), self.UNet_min_batch_size)
 
         resampling_data, resampling_data_kwargs, resampling_seg, resampling_seg_kwargs = self.determine_resampling()

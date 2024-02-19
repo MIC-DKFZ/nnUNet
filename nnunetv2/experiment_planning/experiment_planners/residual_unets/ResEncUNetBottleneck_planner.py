@@ -170,7 +170,7 @@ class ResEncUNetBottleneckPlanner(ResEncUNetPlanner):
         # we need to cap the batch size to cover at most 5% of the entire dataset. Overfitting precaution. We cannot
         # go smaller than self.UNet_min_batch_size though
         bs_corresponding_to_5_percent = round(
-            approximate_n_voxels_dataset * 0.05 / np.prod(patch_size, dtype=np.float64))
+            approximate_n_voxels_dataset * self.max_dataset_covered / np.prod(patch_size, dtype=np.float64))
         batch_size = max(min(batch_size, bs_corresponding_to_5_percent), self.UNet_min_batch_size)
 
         resampling_data, resampling_data_kwargs, resampling_seg, resampling_seg_kwargs = self.determine_resampling()

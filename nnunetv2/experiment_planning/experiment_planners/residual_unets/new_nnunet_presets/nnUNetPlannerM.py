@@ -25,4 +25,5 @@ class nnUNetPlannerM(ResEncUNetPlanner):
         # this is supposed to give the same GPU memory requirement as the default nnU-Net
         self.UNet_reference_val_3d = 680000000
         self.UNet_reference_val_2d = 135000000
+        self.max_dataset_covered = 1
 
