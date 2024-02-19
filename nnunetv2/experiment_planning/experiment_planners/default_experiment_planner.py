@@ -316,8 +316,11 @@ class ExperimentPlanner(object):
         reference = (self.UNet_reference_val_2d if len(spacing) == 2 else self.UNet_reference_val_3d) * \
                     (self.UNet_vram_target_GB / self.UNet_reference_val_corresp_GB)
 
-        while estimate > reference:
-            # print(patch_size)
+        ref_bs = self.UNet_reference_val_corresp_bs_2d if len(spacing) == 2 else self.UNet_reference_val_corresp_bs_3d
+        # we enforce a batch size of at least two, reference values may have been computed for different batch sizes.
+        # Correct for that in the while loop if statement
+        while (estimate / ref_bs * 2) > reference:
+            # print(patch_size, estimate, reference)
             # patch size seems to be too large, so we need to reduce it. Reduce the axis that currently violates the
             # aspect ratio the most (that is the largest relative to median shape)
             axis_to_be_reduced = np.argsort([i / j for i, j in zip(patch_size, median_shape[:len(spacing)])])[-1]
@@ -367,7 +370,6 @@ class ExperimentPlanner(object):
 
         # alright now let's determine the batch size. This will give self.UNet_min_batch_size if the while loop was
         # executed. If not, additional vram headroom is used to increase batch size
-        ref_bs = self.UNet_reference_val_corresp_bs_2d if len(spacing) == 2 else self.UNet_reference_val_corresp_bs_3d
         batch_size = round((reference / estimate) * ref_bs)
 
         # we need to cap the batch size to cover at most 5% of the entire dataset. Overfitting precaution. We cannot
