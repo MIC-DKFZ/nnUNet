@@ -1,15 +1,5 @@
-<<<<<<< HEAD
-from dynamic_network_architectures.architectures.unet import PlainConvUNet
-from dynamic_network_architectures.architectures.residual_unet import ResidualEncoderUNet
-from dynamic_network_architectures.building_blocks.helper import get_matching_instancenorm, convert_dim_to_conv_op
-from dynamic_network_architectures.initialization.weight_init import init_last_bn_before_add_to_0
-from nnunetv2.utilities.network_initialization import InitWeights_He
-from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
-from torch import nn
-=======
 import pydoc
 from typing import Union
->>>>>>> feature/improved_network_arch_definition_in_plans
 
 
 def get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels, output_channels,

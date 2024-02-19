@@ -1,15 +1,5 @@
-<<<<<<< HEAD
-from dynamic_network_architectures.architectures.residual_unet import ResidualEncoderUNet
-from dynamic_network_architectures.architectures.unet import PlainConvUNet
-from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_batchnorm
-from dynamic_network_architectures.initialization.weight_init import init_last_bn_before_add_to_0, InitWeights_He
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
-=======
 from typing import Union, Tuple, List
-
 from dynamic_network_architectures.building_blocks.helper import get_matching_batchnorm
->>>>>>> feature/improved_network_arch_definition_in_plans
 from torch import nn
 
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
