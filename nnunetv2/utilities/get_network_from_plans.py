@@ -1,5 +1,9 @@
 import pydoc
+import warnings
 from typing import Union
+
+from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from batchgenerators.utilities.file_and_folder_operations import join
 
 
 def get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels, output_channels,
@@ -11,6 +15,18 @@ def get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import,
             architecture_kwargs[ri] = pydoc.locate(architecture_kwargs[ri])
 
     nw_class = pydoc.locate(network_class)
+    # sometimes things move around, this makes it so that we can at least recover some of that
+    if nw_class is None:
+        warnings.warn(f'Network class {network_class} not found. Attempting to locate it within '
+                      f'dynamic_network_architectures.architectures...')
+        import dynamic_network_architectures
+        nw_class = recursive_find_python_class(join(dynamic_network_architectures.__path__[0], "architectures"),
+                                               network_class.split(".")[-1],
+                                               'dynamic_network_architectures.architectures')
+        if nw_class is not None:
+            print(f'FOUND IT: {nw_class}')
+        else:
+            raise ImportError('Network class could not be found, please check/correct your plans file')
 
     if deep_supervision is not None and 'deep_supervision' not in arch_kwargs.keys():
         arch_kwargs['deep_supervision'] = deep_supervision

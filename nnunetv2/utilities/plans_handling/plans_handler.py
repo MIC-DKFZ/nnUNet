@@ -36,8 +36,8 @@ class ConfigurationManager(object):
         if 'architecture' not in self.configuration.keys():
             warnings.warn("Detected old nnU-Net plans format. Attempting to reconstruct network architecture "
                           "parameters. If this fails, rerun nnUNetv2_plan_experiment for your dataset. If you use a "
-                          "custom architecture, please downgrade nnU-Net yo v2.3 "
-                          "(https://github.com/MIC-DKFZ/nnUNet/releases/tag/v2.3) or update your plans.")
+                          "custom architecture, please downgrade nnU-Net to the version you implemented this "
+                          "or update your implementation + plans.")
             # try to build the architecture information from old plans, modify configuration dict to match new standard
             unet_class_name = self.configuration["UNet_class_name"]
             if unet_class_name == "PlainConvUNet":
