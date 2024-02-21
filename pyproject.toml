@@ -32,7 +32,7 @@ keywords = [
 dependencies = [
     "torch>=2.0.0",
     "acvl-utils>=0.2",
-    "dynamic-network-architectures>=0.2",
+    "dynamic-network-architectures==0.2",
     "tqdm",
     "dicom2nifti",
     "scipy",
