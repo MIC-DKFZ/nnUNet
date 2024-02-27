@@ -199,9 +199,9 @@ class nnUNetTrainer(object):
 
     def initialize(self):
         if not self.was_initialized:
-            self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
-                                                                   self.dataset_json)
-
+            # self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
+            #                                                        self.dataset_json)
+            self.num_input_channels = 3
             self.network = self.build_network_architecture(
                 self.plans_manager,
                 self.dataset_json,
@@ -884,6 +884,12 @@ class nnUNetTrainer(object):
         # lrs are the same for all workers so we don't need to gather them in case of DDP training
         self.logger.log('lrs', self.optimizer.param_groups[0]['lr'], self.current_epoch)
 
+    def make_windows(self, data):
+        ct = data[:,0, ...]
+        ct1 = torch.clip(ct, -180, 260)
+        ct2 = torch.clip(ct, 75, 225)
+        return torch.stack([ct, ct1, ct2], dim = 1)
+
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
         target = batch['target']
@@ -900,6 +906,7 @@ class nnUNetTrainer(object):
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            data = self.make_windows(data)
             output = self.network(data)
             # del data
             l = self.loss(output, target)
@@ -946,6 +953,7 @@ class nnUNetTrainer(object):
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            data = self.make_windows(data)
             output = self.network(data)
             del data
             l = self.loss(output, target)
