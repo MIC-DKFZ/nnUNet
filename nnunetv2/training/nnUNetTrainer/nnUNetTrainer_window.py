@@ -62,7 +62,7 @@ from torch import distributed as dist
 from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
-from nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
 
 class nnUNetTrainer_window(nnUNetTrainer):
