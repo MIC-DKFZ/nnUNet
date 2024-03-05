@@ -145,7 +145,7 @@ class nnUNetTrainer_window(nnUNetTrainer):
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 250
+        self.num_epochs = 1
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -1186,6 +1186,7 @@ class nnUNetTrainer_window(nnUNetTrainer):
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)
+                data = self.make_windows(data)
 
                 if self.is_cascaded:
                     data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
