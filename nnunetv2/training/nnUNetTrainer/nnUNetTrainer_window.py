@@ -1186,6 +1186,7 @@ class nnUNetTrainer_window(nnUNetTrainer):
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)
+                data = self.make_windows(data)
 
                 if self.is_cascaded:
                     data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
