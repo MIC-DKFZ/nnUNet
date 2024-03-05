@@ -1186,7 +1186,6 @@ class nnUNetTrainer_window(nnUNetTrainer):
 
                 self.print_to_log_file(f"predicting {k}")
                 data, seg, properties = dataset_val.load_case(k)
-                data = self.make_windows(data)
 
                 if self.is_cascaded:
                     data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
@@ -1195,7 +1194,7 @@ class nnUNetTrainer_window(nnUNetTrainer):
                     # ignore 'The given NumPy array is not writable' warning
                     warnings.simplefilter("ignore")
                     data = torch.from_numpy(data)
-
+                data = self.make_windows(data)
                 self.print_to_log_file(f'{k}, shape {data.shape}, rank {self.local_rank}')
                 output_filename_truncated = join(validation_output_folder, k)
 
