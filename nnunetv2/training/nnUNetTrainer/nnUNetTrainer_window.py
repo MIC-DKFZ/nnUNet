@@ -1195,7 +1195,7 @@ class nnUNetTrainer_window(nnUNetTrainer):
                     warnings.simplefilter("ignore")
                     data = torch.from_numpy(data)
                 print(data.shape)
-                data = self.make_windows(data)
+                data = self.make_windows(data[None, ...])[0]
                 print(data.shape)
                 self.print_to_log_file(f'{k}, shape {data.shape}, rank {self.local_rank}')
                 output_filename_truncated = join(validation_output_folder, k)
