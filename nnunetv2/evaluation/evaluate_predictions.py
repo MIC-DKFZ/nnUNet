@@ -1,9 +1,11 @@
 import multiprocessing
+import torch
 import os
+from monai.metrics import compute_hausdorff_distance
 from copy import deepcopy
 from multiprocessing import Pool
 from typing import Tuple, List, Union, Optional
-
+from torch.nn.functional import one_hot
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import subfiles, join, save_json, load_json, \
     isfile
@@ -92,7 +94,7 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     # load images
     seg_ref, seg_ref_dict = image_reader_writer.read_seg(reference_file)
     seg_pred, seg_pred_dict = image_reader_writer.read_seg(prediction_file)
-    # spacing = seg_ref_dict['spacing']
+    spacing = seg_ref_dict['spacing']
 
     ignore_mask = seg_ref == ignore_label if ignore_label is not None else None
 
@@ -105,6 +107,12 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
         mask_ref = region_or_label_to_mask(seg_ref, r)
         mask_pred = region_or_label_to_mask(seg_pred, r)
         tp, fp, fn, tn = compute_tp_fp_fn_tn(mask_ref, mask_pred, ignore_mask)
+        o_pred = np.transpose(one_hot(torch.tensor(mask_pred).to(torch.int64)).numpy(), (0, 4, 1, 2, 3))
+        o_ref = np.transpose(one_hot(torch.tensor(mask_ref).to(torch.int64)).numpy(), (0, 4, 1, 2, 3))
+        print(o_ref.shape)
+        print(o_pred.shape)
+        hsd95 = compute_hausdorff_distance(o_pred, o_ref, percentile=95., spacing=spacing).numpy()[0][0]
+        print(hsd95)
         if tp + fp + fn == 0:
             results['metrics'][r]['Dice'] = np.nan
             results['metrics'][r]['IoU'] = np.nan
@@ -115,6 +123,7 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
         results['metrics'][r]['TP'] = tp
         results['metrics'][r]['FN'] = fn
         results['metrics'][r]['TN'] = tn
+        results['metrics'][r]['HSD95'] = hsd95
         results['metrics'][r]['n_pred'] = fp + tp
         results['metrics'][r]['n_ref'] = fn + tp
     return results
