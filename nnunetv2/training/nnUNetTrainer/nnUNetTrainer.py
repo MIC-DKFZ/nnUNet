@@ -834,7 +834,7 @@ class nnUNetTrainer(object):
         if self.unpack_dataset and self.local_rank == 0:
             self.print_to_log_file('unpacking dataset...')
             unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
-                           num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
+                           num_processes=max(1, round(get_allowed_n_proc_DA() // 2)), verify_npy=True)
             self.print_to_log_file('unpacking done...')
 
         if self.is_ddp:
