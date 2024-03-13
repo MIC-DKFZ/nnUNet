@@ -35,6 +35,8 @@ def main():
                         action="store_true")
     parser.add_argument("-c", "--continue_training", help="use this if you want to continue a training",
                         action="store_true")
+    parser.add_argument("-m", "--max_num_epochs", help="use this if you want to train with a different max number of epochs",
+                        required=False, default=1000)
     parser.add_argument("-p", help="plans identifier. Only change this if you created a custom experiment planner",
                         default=default_plans_identifier, required=False)
     parser.add_argument("--use_compressed_data", default=False, action="store_true",
@@ -151,10 +153,13 @@ def main():
         assert issubclass(trainer_class,
                           nnUNetTrainer), "network_trainer was found but is not derived from nnUNetTrainer"
 
-    trainer = trainer_class(plans_file, fold, output_folder=output_folder_name, dataset_directory=dataset_directory,
-                            batch_dice=batch_dice, stage=stage, unpack_data=decompress_data,
+    trainer = trainer_class(plans_file, fold,
+                            output_folder=output_folder_name,dataset_directory=dataset_directory,
+                            batch_dice=batch_dice, stage=stage,
+                            unpack_data=decompress_data,
                             deterministic=deterministic,
-                            fp16=run_mixed_precision)
+                            fp16=run_mixed_precision, 
+                            max_num_epochs=int(args.max_num_epochs))
     if args.disable_saving:
         trainer.save_final_checkpoint = False # whether or not to save the final checkpoint
         trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to
