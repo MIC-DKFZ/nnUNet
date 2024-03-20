@@ -88,6 +88,7 @@ Read these:
 - [Usage instructions](documentation/how_to_use_nnunet.md)
 
 Additional information:
+- [Learning from sparse annotations (scribbles, slices)](documentation/ignore_label.md)
 - [Region-based training](documentation/region_based_training.md)
 - [Manual data splits](documentation/manual_data_splits.md)
 - [Pretraining and finetuning](documentation/pretraining_and_finetuning.md)
