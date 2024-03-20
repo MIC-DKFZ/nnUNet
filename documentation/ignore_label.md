@@ -1,8 +1,20 @@
 # Ignore Label
 
-The _ignore label_ can be used to mark regions that should be ignored by nnU-Net. When the _ignore label_ is used nnU-Net switches internally to a partial variant of its loss function (See our [paper](https://arxiv.org/abs/2403.12834) for more information). Consequently, all pixels marked with the ignore label are ignored during the loss computation and gradients are not propagated from these pixels. Furthermore, these pixels will also be excluded from model evaluation. The most common use-cases for the ignore label are:
+The _ignore label_ can be used to mark regions that should be ignored by nnU-Net. This can be used to 
+learn from images where only sparse annotations are available, for example in the form of scribbles or a limited 
+amount of annotated slices. Internally, this is accomplished by using partial losses, i.e. losses that are only 
+computed on annotated pixels while ignoring the rest. Take a look at our 
+[`DC_and_BCE_loss` loss](../nnunetv2/training/loss/compound_losses.py) to see how this is done.
+During inference (validation and prediction), nnU-Net will always predict dense segmentations. Metric computation in 
+validation is of course only done on annotated pixels.
 
-- Sparse annotation
+Using sparse annotations can be used to train a model for application to new, unseen images or to autocomplete the 
+provided training cases given the sparse labels. 
+
+(See our [paper](https://arxiv.org/abs/2403.12834) for more information)
+
+Typical use-cases for the ignore label are:
+- Save annotation time through sparse annotation schemes
   - Annotation of all or a subset of slices with scribbles (Scribble Supervision)
   - Dense annotation of a subset of slices 
   - Dense annotation of chosen patches/cubes within an image
@@ -12,7 +24,8 @@ The _ignore label_ can be used to mark regions that should be ignored by nnU-Net
 If you are using nnU-Net's ignore label, please cite the following paper in addition to the original nnU-net paper:
 
 ```
-Gotkowski, K., Lüth, C., Jäger, P. F., Ziegler, S., Krämer, L., Denner, S., Xiao, S., Disch, N., H., K., & Isensee, F. (2024). Embarrassingly Simple Scribble Supervision for 3D Medical Segmentation. ArXiv. /abs/2403.12834
+Gotkowski, K., Lüth, C., Jäger, P. F., Ziegler, S., Krämer, L., Denner, S., Xiao, S., Disch, N., H., K., & Isensee, F. 
+(2024). Embarrassingly Simple Scribble Supervision for 3D Medical Segmentation. ArXiv. /abs/2403.12834
 ```
 
 ## Usecases
