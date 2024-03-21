@@ -107,12 +107,10 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
         mask_ref = region_or_label_to_mask(seg_ref, r)
         mask_pred = region_or_label_to_mask(seg_pred, r)
         tp, fp, fn, tn = compute_tp_fp_fn_tn(mask_ref, mask_pred, ignore_mask)
+        # TODO replace with better (faster) one hot directly via numpy (eye + dims)
         o_pred = np.transpose(one_hot(torch.tensor(mask_pred).to(torch.int64)).numpy(), (0, 4, 1, 2, 3))
         o_ref = np.transpose(one_hot(torch.tensor(mask_ref).to(torch.int64)).numpy(), (0, 4, 1, 2, 3))
-        print(o_ref.shape)
-        print(o_pred.shape)
         hsd95 = compute_hausdorff_distance(o_pred, o_ref, percentile=95., spacing=spacing).numpy()[0][0]
-        print(hsd95)
         if tp + fp + fn == 0:
             results['metrics'][r]['Dice'] = np.nan
             results['metrics'][r]['IoU'] = np.nan

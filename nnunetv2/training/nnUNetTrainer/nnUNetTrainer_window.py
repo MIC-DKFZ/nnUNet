@@ -887,9 +887,10 @@ class nnUNetTrainer_window(nnUNetTrainer):
 
     def make_windows(self, data):
         ct = data[:,0, ...]
+        mr = data[:,1, ...]
         ct1 = torch.clip(ct, -180, 260)
         ct2 = torch.clip(ct, 75, 225)
-        return torch.stack([ct, ct1, ct2], dim = 1)
+        return torch.stack([ct, ct1, ct2, mr], dim = 1)
 
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
