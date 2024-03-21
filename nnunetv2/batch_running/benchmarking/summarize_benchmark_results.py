@@ -1,6 +1,6 @@
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.paths import nnUNet_results
+import nnunetv2.paths as paths
 from nnunetv2.utilities.file_path_utilities import get_output_folder
 
 if __name__ == '__main__':
@@ -8,7 +8,7 @@ if __name__ == '__main__':
     datasets = [2, 3, 4, 5]
     plans = ['nnUNetPlans']
     configs = ['2d', '2d_bs3x', '2d_bs6x', '3d_fullres', '3d_fullres_bs3x', '3d_fullres_bs6x']
-    output_file = join(nnUNet_results, 'benchmark_results.csv')
+    output_file = join(paths.nnUNet_results, 'benchmark_results.csv')
 
     torch_version = '2.1.0.dev20230330'#"2.0.0"#"2.1.0.dev20230328"  #"1.11.0a0+gitbc2c6ed"  #
     cudnn_version = 8700  # 8302  #

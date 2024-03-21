@@ -5,14 +5,14 @@ from typing import List
 
 from batchgenerators.utilities.file_and_folder_operations import nifti_files, join, maybe_mkdir_p, save_json
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+import nnunetv2.paths as paths
 import numpy as np
 
 
 def make_out_dirs(dataset_id: int, task_name="ACDC"):
     dataset_name = f"Dataset{dataset_id:03d}_{task_name}"
 
-    out_dir = Path(nnUNet_raw.replace('"', "")) / dataset_name
+    out_dir = Path(paths.nnUNet_raw.replace('"', "")) / dataset_name
     out_train_dir = out_dir / "imagesTr"
     out_labels_dir = out_dir / "labelsTr"
     out_test_dir = out_dir / "imagesTs"
@@ -105,8 +105,8 @@ if __name__ == "__main__":
     convert_acdc(args.input_folder, args.dataset_id)
 
     dataset_name = f"Dataset{args.dataset_id:03d}_{'ACDC'}"
-    labelsTr = join(nnUNet_raw, dataset_name, 'labelsTr')
-    preprocessed_folder = join(nnUNet_preprocessed, dataset_name)
+    labelsTr = join(paths.nnUNet_raw, dataset_name, 'labelsTr')
+    preprocessed_folder = join(paths.nnUNet_preprocessed, dataset_name)
     maybe_mkdir_p(preprocessed_folder)
     split = create_ACDC_split(labelsTr)
     save_json(split, join(preprocessed_folder, 'splits_final.json'), sort_keys=False)

@@ -6,7 +6,7 @@ import SimpleITK as sitk
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 
 
 def copy_BraTS_segmentation_and_convert_labels_to_nnUNet(in_file: str, out_file: str) -> None:
@@ -65,7 +65,7 @@ if __name__ == '__main__':
     foldername = "Dataset%03.0d_%s" % (task_id, task_name)
 
     # setting up nnU-Net folders
-    out_base = join(nnUNet_raw, foldername)
+    out_base = join(paths.nnUNet_raw, foldername)
     imagestr = join(out_base, "imagesTr")
     labelstr = join(out_base, "labelsTr")
     maybe_mkdir_p(imagestr)

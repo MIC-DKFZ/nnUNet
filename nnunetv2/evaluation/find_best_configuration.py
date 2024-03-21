@@ -10,7 +10,7 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
 from nnunetv2.evaluation.accumulate_cv_results import accumulate_cv_results
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, load_summary_json
-from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw, nnUNet_results
+import nnunetv2.paths as paths
 from nnunetv2.postprocessing.remove_connected_components import determine_postprocessing
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
     convert_identifier_to_trainer_plans_config, get_ensemble_name, folds_tuple_to_string
@@ -27,14 +27,14 @@ default_trained_models = tuple([
 def filter_available_models(model_dict: Union[List[dict], Tuple[dict, ...]], dataset_name_or_id: Union[str, int]):
     valid = []
     for trained_model in model_dict:
-        plans_manager = PlansManager(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id),
+        plans_manager = PlansManager(join(paths.nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id),
                                trained_model['plans'] + '.json'))
         # check if configuration exists
         # 3d_cascade_fullres and 3d_lowres do not exist for each dataset so we allow them to be absent IF they are not
         # specified in the plans file
         if trained_model['configuration'] not in plans_manager.available_configurations:
             print(f"Configuration {trained_model['configuration']} not found in plans {trained_model['plans']}.\n"
-                  f"Inferred plans file: {join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id), trained_model['plans'] + '.json')}.")
+                  f"Inferred plans file: {join(paths.nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id), trained_model['plans'] + '.json')}.")
             continue
 
         # check if trained model output folder exists. This is a requirement. No mercy here.
@@ -124,7 +124,7 @@ def find_best_configuration(dataset_name_or_id,
                 label_manager = plans_manager.get_label_manager(dataset_json)
                 rw = plans_manager.image_reader_writer_class()
 
-                compute_metrics_on_folder(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'),
+                compute_metrics_on_folder(join(paths.nnUNet_preprocessed, dataset_name, 'gt_segmentations'),
                                           output_folder_ensemble,
                                           join(output_folder_ensemble, 'summary.json'),
                                           rw,
@@ -154,7 +154,7 @@ def find_best_configuration(dataset_name_or_id,
     print()
 
     print('***Determining postprocessing for best model/ensemble***')
-    determine_postprocessing(all_results[best_key]['source'], join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'),
+    determine_postprocessing(all_results[best_key]['source'], join(paths.nnUNet_preprocessed, dataset_name, 'gt_segmentations'),
                              plans_file_or_dict=join(all_results[best_key]['source'], 'plans.json'),
                              dataset_json_file_or_dict=join(all_results[best_key]['source'], 'dataset.json'),
                              num_processes=num_processes, keep_postprocessed_files=True)

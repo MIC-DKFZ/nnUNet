@@ -17,23 +17,51 @@ import os
 """
 PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
+__paths = {
+    "nnUNet_raw": os.environ.get("nnUNet_raw"),
+    "nnUNet_preprocessed": os.environ.get("nnUNet_preprocessed"),
+    "nnUNet_results": os.environ.get("nnUNet_results"),
+}
 
-nnUNet_raw = os.environ.get('nnUNet_raw')
-nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
-nnUNet_results = os.environ.get('nnUNet_results')
 
-if nnUNet_raw is None:
-    print("nnUNet_raw is not defined and nnU-Net can only be used on data for which preprocessed files "
-          "are already present on your system. nnU-Net cannot be used for experiment planning and preprocessing like "
-          "this. If this is not intended, please read documentation/setting_up_paths.md for information on how to set "
-          "this up properly.")
+def set_paths(
+    nnUNet_raw: str | None = None,
+    nnUNet_preprocessed: str | None = None,
+    nnUNet_results: str | None = None,
+):
+    if nnUNet_raw is not None:
+        __paths["nnUNet_raw"] = nnUNet_raw
+    if nnUNet_preprocessed is not None:
+        __paths["nnUNet_preprocessed"] = nnUNet_preprocessed
+    if nnUNet_results is not None:
+        __paths["nnUNet_results"] = nnUNet_results
 
-if nnUNet_preprocessed is None:
-    print("nnUNet_preprocessed is not defined and nnU-Net can not be used for preprocessing "
-          "or training. If this is not intended, please read documentation/setting_up_paths.md for information on how "
-          "to set this up.")
 
-if nnUNet_results is None:
-    print("nnUNet_results is not defined and nnU-Net cannot be used for training or "
-          "inference. If this is not intended behavior, please read documentation/setting_up_paths.md for information "
-          "on how to set this up.")
+def __getattr__(item: str):
+    if item == "nnUNet_raw":
+        if __paths["nnUNet_raw"] is None:
+            print(
+                "nnUNet_raw is not defined and nnU-Net can only be used on data for which preprocessed files "
+                "are already present on your system. nnU-Net cannot be used for experiment planning and preprocessing like "
+                "this. If this is not intended, please read documentation/setting_up_paths.md for information on how to set "
+                "this up properly."
+            )
+        return __paths["nnUNet_raw"]
+    elif item == "nnUNet_preprocessed":
+        if __paths["nnUNet_preprocessed"] is None:
+            print(
+                "nnUNet_preprocessed is not defined and nnU-Net can not be used for preprocessing "
+                "or training. If this is not intended, please read documentation/setting_up_paths.md for information on how "
+                "to set this up."
+            )
+        return __paths["nnUNet_preprocessed"]
+    elif item == "nnUNet_results":
+        if __paths["nnUNet_results"] is None:
+            print(
+                "nnUNet_results is not defined and nnU-Net cannot be used for training or "
+                "inference. If this is not intended behavior, please read documentation/setting_up_paths.md for information "
+                "on how to set this up."
+            )
+        return __paths["nnUNet_results"]
+    else:
+        raise AttributeError(f"module {__name__} has no attribute {item}")

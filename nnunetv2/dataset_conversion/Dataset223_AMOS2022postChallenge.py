@@ -1,7 +1,7 @@
 import shutil
 
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 
 if __name__ == '__main__':
@@ -10,10 +10,10 @@ if __name__ == '__main__':
     target_dataset_id = 223
     target_dataset_name = f'Dataset{target_dataset_id:3.0f}_AMOS2022postChallenge'
 
-    maybe_mkdir_p(join(nnUNet_raw, target_dataset_name))
-    imagesTr = join(nnUNet_raw, target_dataset_name, 'imagesTr')
-    imagesTs = join(nnUNet_raw, target_dataset_name, 'imagesTs')
-    labelsTr = join(nnUNet_raw, target_dataset_name, 'labelsTr')
+    maybe_mkdir_p(join(paths.nnUNet_raw, target_dataset_name))
+    imagesTr = join(paths.nnUNet_raw, target_dataset_name, 'imagesTr')
+    imagesTs = join(paths.nnUNet_raw, target_dataset_name, 'imagesTs')
+    labelsTr = join(paths.nnUNet_raw, target_dataset_name, 'labelsTr')
     maybe_mkdir_p(imagesTr)
     maybe_mkdir_p(imagesTs)
     maybe_mkdir_p(labelsTr)
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     old_dataset_json = load_json(join(downloaded_amos_dir, 'dataset.json'))
     new_labels = {v: k for k, v in old_dataset_json['labels'].items()}
 
-    generate_dataset_json(join(nnUNet_raw, target_dataset_name), {0: 'nonCT'}, new_labels,
+    generate_dataset_json(join(paths.nnUNet_raw, target_dataset_name), {0: 'nonCT'}, new_labels,
                           num_training_cases=len(train_identifiers), file_ending='.nii.gz', regions_class_order=None,
                           dataset_name=target_dataset_name, reference='https://zenodo.org/record/7155725#.Y0OOCOxBztM',
                           license=old_dataset_json['licence'],  # typo in OG dataset.json

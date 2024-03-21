@@ -5,7 +5,7 @@ from multiprocessing import Pool
 from typing import Optional
 import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.utilities.dataset_name_id_conversion import find_candidate_datasets
 from nnunetv2.configuration import default_num_processes
 import numpy as np
@@ -63,7 +63,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
                                         f"it using overwrite_target_id. Conflicting dataset: {existing_datasets} (check nnUNet_results, nnUNet_preprocessed and nnUNet_raw!)"
 
     target_dataset_name = f"Dataset{target_id:03d}_{dataset_name}"
-    target_folder = join(nnUNet_raw, target_dataset_name)
+    target_folder = join(paths.nnUNet_raw, target_dataset_name)
     target_imagesTr = join(target_folder, 'imagesTr')
     target_imagesTs = join(target_folder, 'imagesTs')
     target_labelsTr = join(target_folder, 'labelsTr')
@@ -111,7 +111,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     del dataset_json["modality"]
     del dataset_json["training"]
     del dataset_json["test"]
-    save_json(dataset_json, join(nnUNet_raw, target_dataset_name, 'dataset.json'), sort_keys=False)
+    save_json(dataset_json, join(paths.nnUNet_raw, target_dataset_name, 'dataset.json'), sort_keys=False)
 
 
 def entry_point():

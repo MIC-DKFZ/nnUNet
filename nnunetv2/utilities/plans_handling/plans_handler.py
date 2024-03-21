@@ -325,11 +325,11 @@ class PlansManager(object):
         return self.plans['foreground_intensity_properties_per_channel']
 
 
+import nnunetv2.paths as paths
 if __name__ == '__main__':
-    from nnunetv2.paths import nnUNet_preprocessed
     from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 
-    plans = load_json(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(3), 'nnUNetPlans.json'))
+    plans = load_json(join(paths.nnUNet_preprocessed, maybe_convert_to_dataset_name(3), 'nnUNetPlans.json'))
     # build new configuration that inherits from 3d_fullres
     plans['configurations']['3d_fullres_bs4'] = {
         'batch_size': 4,

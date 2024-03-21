@@ -48,7 +48,7 @@ from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, resample_and_save
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
-from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
+import nnunetv2.paths as paths
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
@@ -123,11 +123,11 @@ class nnUNetTrainer(object):
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
-        self.preprocessed_dataset_folder_base = join(nnUNet_preprocessed, self.plans_manager.dataset_name) \
-            if nnUNet_preprocessed is not None else None
-        self.output_folder_base = join(nnUNet_results, self.plans_manager.dataset_name,
+        self.preprocessed_dataset_folder_base = join(paths.nnUNet_preprocessed, self.plans_manager.dataset_name) \
+            if paths.nnUNet_preprocessed is not None else None
+        self.output_folder_base = join(paths.nnUNet_results, self.plans_manager.dataset_name,
                                        self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + configuration) \
-            if nnUNet_results is not None else None
+            if paths.nnUNet_results is not None else None
         self.output_folder = join(self.output_folder_base, f'fold_{fold}')
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
@@ -138,7 +138,7 @@ class nnUNetTrainer(object):
         # "previous_stage" and "next_stage"). Otherwise it won't work!
         self.is_cascaded = self.configuration_manager.previous_stage_name is not None
         self.folder_with_segs_from_previous_stage = \
-            join(nnUNet_results, self.plans_manager.dataset_name,
+            join(paths.nnUNet_results, self.plans_manager.dataset_name,
                  self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" +
                  self.configuration_manager.previous_stage_name, 'predicted_next_stage', self.configuration_name) \
                 if self.is_cascaded else None
@@ -1306,7 +1306,7 @@ class nnUNetTrainer(object):
                 if next_stages is not None:
                     for n in next_stages:
                         next_stage_config_manager = self.plans_manager.get_configuration(n)
-                        expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans_manager.dataset_name,
+                        expected_preprocessed_folder = join(paths.nnUNet_preprocessed, self.plans_manager.dataset_name,
                                                             next_stage_config_manager.data_identifier)
 
                         try:

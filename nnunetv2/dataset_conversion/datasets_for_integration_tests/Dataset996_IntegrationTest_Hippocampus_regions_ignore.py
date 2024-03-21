@@ -5,7 +5,7 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import isdir, join, load_json, save_json, nifti_files
 
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -43,14 +43,14 @@ if __name__ == '__main__':
     except RuntimeError:
         pass
 
-    if isdir(join(nnUNet_raw, dataset_name)):
-        shutil.rmtree(join(nnUNet_raw, dataset_name))
+    if isdir(join(paths.nnUNet_raw, dataset_name)):
+        shutil.rmtree(join(paths.nnUNet_raw, dataset_name))
 
     source_dataset = maybe_convert_to_dataset_name(4)
-    shutil.copytree(join(nnUNet_raw, source_dataset), join(nnUNet_raw, dataset_name))
+    shutil.copytree(join(paths.nnUNet_raw, source_dataset), join(paths.nnUNet_raw, dataset_name))
 
     # additionally optimize entire hippocampus region, remove Posterior
-    dj = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
+    dj = load_json(join(paths.nnUNet_raw, dataset_name, 'dataset.json'))
     dj['labels'] = {
         'background': 0,
         'hippocampus': (1, 2),
@@ -58,13 +58,13 @@ if __name__ == '__main__':
         'ignore': 3
     }
     dj['regions_class_order'] = (2, 1)
-    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)
+    save_json(dj, join(paths.nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)
 
     # now add ignore label to segmentation images
     np.random.seed(1234)
     lm = LabelManager(label_dict=dj['labels'], regions_class_order=dj.get('regions_class_order'))
 
-    segs = nifti_files(join(nnUNet_raw, dataset_name, 'labelsTr'))
+    segs = nifti_files(join(paths.nnUNet_raw, dataset_name, 'labelsTr'))
     for s in segs:
         seg_itk = sitk.ReadImage(s)
         seg_npy = sitk.GetArrayFromImage(seg_itk)

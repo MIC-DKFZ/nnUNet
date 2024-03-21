@@ -47,7 +47,7 @@ cons:
 
 Example:
 ```python
-    from nnunetv2.paths import nnUNet_results, nnUNet_raw
+import nnunetv2.paths as paths
     import torch
     from batchgenerators.utilities.file_and_folder_operations import join
     from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor

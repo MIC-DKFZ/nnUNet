@@ -20,7 +20,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 import re
 
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from multiprocessing import Pool
 
 
@@ -74,4 +74,4 @@ def get_filenames_of_train_images_and_targets(raw_dataset_folder: str, dataset_j
 
 
 if __name__ == '__main__':
-    print(get_filenames_of_train_images_and_targets(join(nnUNet_raw, 'Dataset002_Heart')))
+    print(get_filenames_of_train_images_and_targets(join(paths.nnUNet_raw, 'Dataset002_Heart')))

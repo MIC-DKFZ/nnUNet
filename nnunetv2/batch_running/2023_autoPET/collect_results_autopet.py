@@ -23,7 +23,7 @@ def collect_results(trainers: dict, datasets: List, output_file: str,
                             expected_output_folder = get_output_folder(d, module, plans, c)
                             if isdir(expected_output_folder):
                                 results_folds = []
-                                f.write(f"{d},{c},{module},{plans},{r}")
+                                f.write("%s,%s,%s,%s,%s" % (d, c, module, plans, r))
                                 for fl in folds:
                                     expected_output_folder_fold = get_output_folder(d, module, plans, c, fl)
                                     expected_summary_file = join(expected_output_folder_fold, "validation",
@@ -36,8 +36,8 @@ def collect_results(trainers: dict, datasets: List, output_file: str,
                                         foreground_mean = load_summary_json(expected_summary_file)['foreground_mean'][
                                             'Dice']
                                         results_folds.append(foreground_mean)
-                                        f.write(f",{foreground_mean:02.4f}")
-                                f.write(f",{np.nanmean(results_folds):02.4f}\n")
+                                        f.write(",%02.4f" % foreground_mean)
+                                f.write(",%02.4f\n" % np.nanmean(results_folds))
 
 
 def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[str, ...], datasets, trainers):
@@ -55,13 +55,13 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
         f.write("name")
         for d in valid_configs.keys():
             for c in valid_configs[d]:
-                f.write(",%d_%s" % (convert_dataset_name_to_id(d), c[:4]))
+                f.write(",%d_%s" % (convert_dataset_name_to_id(d), c))
         f.write(',mean\n')
         valid_entries = txt[:, 4] == paths.nnUNet_results
         for t in trainers.keys():
             trainer_locs = valid_entries & (txt[:, 2] == t)
             for pl in trainers[t]:
-                f.write(f"{t}__{pl}")
+                f.write("%s__%s" % (t, pl))
                 trainer_plan_locs = trainer_locs & (txt[:, 3] == pl)
                 r = []
                 for d in valid_configs.keys():
@@ -83,31 +83,30 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
                                 r.append(np.nan)
                             else:
                                 mean_dice = np.mean([float(i) for i in fold_results])
-                                f.write(f",{mean_dice:02.4f}")
+                                f.write(",%02.4f" % mean_dice)
                                 r.append(mean_dice)
                         else:
                             print('missing:', t, pl, d, v)
                             f.write(",nan")
                             r.append(np.nan)
-                f.write(f",{np.mean(r):02.4f}\n")
+                f.write(",%02.4f\n" % np.mean(r))
 
 
 if __name__ == '__main__':
     use_these_trainers = {
-        'nnUNetTrainer': ('nnUNetPlans',),
-        'nnUNetTrainer_v1loss': ('nnUNetPlans',),
-     }
-    all_results_file = join(paths.nnUNet_results, 'customDecResults.csv')
-    datasets = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 20, 24, 27, 35, 38, 48, 55, 64, 82]
-    collect_results(use_these_trainers, datasets, all_results_file)
+        'nnUNetTrainerDiceCELoss_noSmooth': ('nnUNetPlans', 'nnUNetPlans_resencUNet'),  # my trainer
+        'nnUNetTrainer_MoreDiverseSampling': ('nnUNetPlans', 'nnUNetPlans_resencUNet'),  # my trainer
+        'nnUNetTrainer_MoreDiverseSampling_noSmooth': ('nnUNetPlans', 'nnUNetPlans_resencUNet'),  # my trainer
+        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetPlans_resencUNet'),  # my trainer
+    }
 
-    folds = (0, 1, 2, 3, 4)
-    configs = ("3d_fullres", "3d_lowres")
-    output_file = join(paths.nnUNet_results, 'customDecResults_summary5fold.csv')
-    summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
+    configs = ("3d_fullres", "3d_fullres_bs80", "3d_fullres_SD", "3d_fullres_192x192x192", "3d_fullres_192x192x192_bs24",
+               "3d_fullres_resenc", "3d_fullres_resenc_bs12", "3d_fullres_resenc_bs24", "3d_fullres_resenc_bs48",
+               "3d_fullres_resenc_bs80", "3d_fullres_resenc_192x192x192_b24")
+    all_results_file= join(paths.nnUNet_results, '2023_autopet_results.csv')
+    datasets = [221, 222]
+    collect_results(use_these_trainers, datasets, all_results_file, configs, folds=(0, 1, 2, 3, 4))
 
     folds = (0, )
-    configs = ("3d_fullres", "3d_lowres")
-    output_file = join(paths.nnUNet_results, 'customDecResults_summaryfold0.csv')
+    output_file = join(paths.nnUNet_results, '2023_autopet_summary.csv')
     summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
-

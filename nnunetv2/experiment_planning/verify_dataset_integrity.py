@@ -23,7 +23,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
     get_filenames_of_train_images_and_targets
@@ -228,6 +228,6 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
 
 if __name__ == "__main__":
     # investigate geometry issues
-    example_folder = join(nnUNet_raw, 'Dataset250_COMPUTING_it0')
+    example_folder = join(paths.nnUNet_raw, 'Dataset250_COMPUTING_it0')
     num_processes = 6
     verify_dataset_integrity(example_folder, num_processes)

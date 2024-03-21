@@ -21,7 +21,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+import nnunetv2.paths as paths
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
     get_filenames_of_train_images_and_targets
@@ -190,7 +190,7 @@ def multiprocessing_plot_overlay_preprocessed(list_of_case_files, list_of_output
 def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folder: str,
                                num_processes: int = 8, channel_idx: int = 0, overlay_intensity: float = 0.6):
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
-    folder = join(nnUNet_raw, dataset_name)
+    folder = join(paths.nnUNet_raw, dataset_name)
     dataset_json = load_json(join(folder, 'dataset.json'))
     dataset = get_filenames_of_train_images_and_targets(folder, dataset_json)
 

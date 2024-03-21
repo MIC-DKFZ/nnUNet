@@ -13,7 +13,7 @@ from nnunetv2.evaluation.accumulate_cv_results import accumulate_cv_results
 from nnunetv2.evaluation.evaluate_predictions import region_or_label_to_mask, compute_metrics_on_folder, \
     load_summary_json, label_or_region_to_key
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.utilities.file_path_utilities import folds_tuple_to_string
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
@@ -335,7 +335,7 @@ def entry_point_apply_postprocessing():
 
 if __name__ == '__main__':
     trained_model_folder = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetTrainer__nnUNetPlans__3d_fullres'
-    labelstr = join(nnUNet_raw, 'Dataset004_Hippocampus', 'labelsTr')
+    labelstr = join(paths.nnUNet_raw, 'Dataset004_Hippocampus', 'labelsTr')
     plans_manager = PlansManager(join(trained_model_folder, 'plans.json'))
     dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
     folds = (0, 1, 2, 3, 4)

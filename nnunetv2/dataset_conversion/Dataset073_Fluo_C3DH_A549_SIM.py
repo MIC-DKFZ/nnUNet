@@ -1,5 +1,5 @@
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+import nnunetv2.paths as paths
 import tifffile
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
@@ -13,9 +13,9 @@ if __name__ == '__main__':
     """
     dataset_name = 'Dataset073_Fluo_C3DH_A549_SIM'
 
-    imagestr = join(nnUNet_raw, dataset_name, 'imagesTr')
-    imagests = join(nnUNet_raw, dataset_name, 'imagesTs')
-    labelstr = join(nnUNet_raw, dataset_name, 'labelsTr')
+    imagestr = join(paths.nnUNet_raw, dataset_name, 'imagesTr')
+    imagests = join(paths.nnUNet_raw, dataset_name, 'imagesTs')
+    labelstr = join(paths.nnUNet_raw, dataset_name, 'labelsTr')
     maybe_mkdir_p(imagestr)
     maybe_mkdir_p(imagests)
     maybe_mkdir_p(labelstr)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     # now we generate the dataset json
     generate_dataset_json(
-        join(nnUNet_raw, dataset_name),
+        join(paths.nnUNet_raw, dataset_name),
         {0: 'fluorescence_microscopy'},
         {'background': 0, 'cell': 1},
         60,
@@ -82,4 +82,4 @@ if __name__ == '__main__':
     splits.append(
         {'train': [i for i in caseids if i.startswith('02_')], 'val': [i for i in caseids if i.startswith('01_')]}
     )
-    save_json(splits, join(nnUNet_preprocessed, dataset_name, 'splits_final.json'))
+    save_json(splits, join(paths.nnUNet_preprocessed, dataset_name, 'splits_final.json'))

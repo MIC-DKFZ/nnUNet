@@ -1,6 +1,6 @@
 from batchgenerators.utilities.file_and_folder_operations import *
 
-from nnunetv2.paths import nnUNet_preprocessed
+import nnunetv2.paths as paths
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 
 if __name__ == '__main__':
@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     for d in args.d:
         dataset_name = maybe_convert_to_dataset_name(d)
-        plans = load_json(join(nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'))
+        plans = load_json(join(paths.nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'))
         plans['configurations']['3d_lowres'] = {
             "data_identifier": "nnUNetPlans_3d_lowres",  # do not be a dumbo and forget this. I was a dumbo. And I paid dearly with ~10 min debugging time
             'inherits_from': '3d_fullres',
@@ -30,4 +30,4 @@ if __name__ == '__main__':
             'inherits_from': '3d_fullres',
             "previous_stage": "3d_lowres"
         }
-        save_json(plans, join(nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'), sort_keys=False)
+        save_json(plans, join(paths.nnUNet_preprocessed, dataset_name, 'nnUNetPlans.json'), sort_keys=False)

@@ -21,7 +21,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from tqdm import tqdm
 
 import nnunetv2
-from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
@@ -198,9 +198,9 @@ class DefaultPreprocessor(object):
         """
         dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
 
-        assert isdir(join(nnUNet_raw, dataset_name)), "The requested dataset could not be found in nnUNet_raw"
+        assert isdir(join(paths.nnUNet_raw, dataset_name)), "The requested dataset could not be found in nnUNet_raw"
 
-        plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
+        plans_file = join(paths.nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
         assert isfile(plans_file), "Expected plans file (%s) not found. Run corresponding nnUNet_plan_experiment " \
                                    "first." % plans_file
         plans = load_json(plans_file)
@@ -212,17 +212,17 @@ class DefaultPreprocessor(object):
         if self.verbose:
             print(configuration_manager)
 
-        dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
+        dataset_json_file = join(paths.nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
 
-        output_directory = join(nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier)
+        output_directory = join(paths.nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier)
 
         if isdir(output_directory):
             shutil.rmtree(output_directory)
 
         maybe_mkdir_p(output_directory)
 
-        dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
+        dataset = get_filenames_of_train_images_and_targets(join(paths.nnUNet_raw, dataset_name), dataset_json)
 
         # identifiers = [os.path.basename(i[:-len(dataset_json['file_ending'])]) for i in seg_fnames]
         # output_filenames_truncated = [join(output_directory, i) for i in identifiers]

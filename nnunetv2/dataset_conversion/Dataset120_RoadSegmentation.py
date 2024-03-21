@@ -5,7 +5,7 @@ from multiprocessing import Pool
 from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 from skimage import io
 from acvl_utils.morphology.morphology_helper import generic_filter_components
 from scipy.ndimage import binary_fill_holes
@@ -34,10 +34,10 @@ if __name__ == "__main__":
 
     dataset_name = 'Dataset120_RoadSegmentation'
 
-    imagestr = join(nnUNet_raw, dataset_name, 'imagesTr')
-    imagests = join(nnUNet_raw, dataset_name, 'imagesTs')
-    labelstr = join(nnUNet_raw, dataset_name, 'labelsTr')
-    labelsts = join(nnUNet_raw, dataset_name, 'labelsTs')
+    imagestr = join(paths.nnUNet_raw, dataset_name, 'imagesTr')
+    imagests = join(paths.nnUNet_raw, dataset_name, 'imagesTs')
+    labelstr = join(paths.nnUNet_raw, dataset_name, 'labelsTr')
+    labelsts = join(paths.nnUNet_raw, dataset_name, 'labelsTs')
     maybe_mkdir_p(imagestr)
     maybe_mkdir_p(imagests)
     maybe_mkdir_p(labelstr)
@@ -83,5 +83,5 @@ if __name__ == "__main__":
             )
         _ = [i.get() for i in r]
 
-    generate_dataset_json(join(nnUNet_raw, dataset_name), {0: 'R', 1: 'G', 2: 'B'}, {'background': 0, 'road': 1},
+    generate_dataset_json(join(paths.nnUNet_raw, dataset_name), {0: 'R', 1: 'G', 2: 'B'}, {'background': 0, 'road': 1},
                           num_train, '.png', dataset_name=dataset_name)

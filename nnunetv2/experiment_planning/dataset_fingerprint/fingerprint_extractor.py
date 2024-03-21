@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+import nnunetv2.paths as paths
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
@@ -28,7 +28,7 @@ class DatasetFingerprintExtractor(object):
         self.verbose = verbose
 
         self.dataset_name = dataset_name
-        self.input_folder = join(nnUNet_raw, dataset_name)
+        self.input_folder = join(paths.nnUNet_raw, dataset_name)
         self.num_processes = num_processes
         self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
         self.dataset = get_filenames_of_train_images_and_targets(self.input_folder, self.dataset_json)
@@ -114,7 +114,7 @@ class DatasetFingerprintExtractor(object):
     def run(self, overwrite_existing: bool = False) -> dict:
         # we do not save the properties file in self.input_folder because that folder might be read-only. We can only
         # reliably write in nnUNet_preprocessed and nnUNet_results, so nnUNet_preprocessed it is
-        preprocessed_output_folder = join(nnUNet_preprocessed, self.dataset_name)
+        preprocessed_output_folder = join(paths.nnUNet_preprocessed, self.dataset_name)
         maybe_mkdir_p(preprocessed_output_folder)
         properties_file = join(preprocessed_output_folder, 'dataset_fingerprint.json')
 

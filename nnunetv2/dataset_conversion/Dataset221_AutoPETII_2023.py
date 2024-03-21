@@ -1,7 +1,7 @@
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+import nnunetv2.paths as paths
 
 
 def convert_autopet(autopet_base_dir:str = '/media/isensee/My Book1/AutoPET/nifti/FDG-PET-CT-Lesions',
@@ -11,7 +11,7 @@ def convert_autopet(autopet_base_dir:str = '/media/isensee/My Book1/AutoPET/nift
     foldername = "Dataset%03.0d_%s" % (nnunet_dataset_id, task_name)
 
     # setting up nnU-Net folders
-    out_base = join(nnUNet_raw, foldername)
+    out_base = join(paths.nnUNet_raw, foldername)
     imagestr = join(out_base, "imagesTr")
     labelstr = join(out_base, "labelsTr")
     maybe_mkdir_p(imagestr)
@@ -54,7 +54,7 @@ def convert_autopet(autopet_base_dir:str = '/media/isensee/My Book1/AutoPET/nift
                 'val': [i for i in identifiers if any([i.startswith(v) for v in val_patients])],
             }
         )
-    pp_out_dir = join(nnUNet_preprocessed, foldername)
+    pp_out_dir = join(paths.nnUNet_preprocessed, foldername)
     maybe_mkdir_p(pp_out_dir)
     save_json(splits, join(pp_out_dir, 'splits_final.json'), sort_keys=False)
 

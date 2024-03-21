@@ -4,7 +4,7 @@ from typing import Union
 from batchgenerators.utilities.file_and_folder_operations import join, isdir, isfile, load_json, subfiles, save_json
 
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
-from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
+import nnunetv2.paths as paths
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
@@ -21,7 +21,7 @@ def move_plans_between_datasets(
     if target_plans_identifier is None:
         target_plans_identifier = source_plans_identifier
 
-    source_folder = join(nnUNet_preprocessed, source_dataset_name)
+    source_folder = join(paths.nnUNet_preprocessed, source_dataset_name)
     assert isdir(source_folder), f"Cannot move plans because preprocessed directory of source dataset is missing. " \
                                  f"Run nnUNetv2_plan_and_preprocess for source dataset first!"
 
@@ -44,7 +44,7 @@ def move_plans_between_datasets(
                 source_plans['configurations'][c]["data_identifier"] = new_identifier
 
     # we need to change the reader writer class!
-    target_raw_data_dir = join(nnUNet_raw, target_dataset_name)
+    target_raw_data_dir = join(paths.nnUNet_raw, target_dataset_name)
     target_dataset_json = load_json(join(target_raw_data_dir, 'dataset.json'))
 
     # we may need to change the reader/writer
@@ -58,7 +58,7 @@ def move_plans_between_datasets(
     if target_plans_identifier is not None:
         source_plans["plans_name"] = target_plans_identifier
 
-    save_json(source_plans, join(nnUNet_preprocessed, target_dataset_name, target_plans_identifier + '.json'),
+    save_json(source_plans, join(paths.nnUNet_preprocessed, target_dataset_name, target_plans_identifier + '.json'),
               sort_keys=False)
 
 

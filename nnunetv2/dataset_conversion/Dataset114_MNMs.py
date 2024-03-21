@@ -8,7 +8,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, save
 
 from nnunetv2.dataset_conversion.Dataset027_ACDC import make_out_dirs
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_preprocessed
+import nnunetv2.paths as paths
 
 
 def read_csv(csv_file: str):
@@ -94,7 +94,7 @@ def save_extracted_nifti_slice(image, ed_frame: int, es_frame: int, out_dir: Pat
 # Create custom splits
 # ------------------------------------------------------------------------------
 def create_custom_splits(src_data_folder: Path, csv_file: str, dataset_id: int, num_val_patients: int = 25):
-    existing_splits = os.path.join(nnUNet_preprocessed, f"Dataset{dataset_id}_MNMs", "splits_final.json")
+    existing_splits = os.path.join(paths.nnUNet_preprocessed, f"Dataset{dataset_id}_MNMs", "splits_final.json")
     splits = load_json(existing_splits)
 
     patients_train = [f.name for f in (src_data_folder / "Training" / "Labeled").iterdir() if f.is_dir()]

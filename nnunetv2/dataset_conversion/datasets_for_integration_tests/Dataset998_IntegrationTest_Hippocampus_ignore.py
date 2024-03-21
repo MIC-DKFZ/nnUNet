@@ -3,7 +3,7 @@ import shutil
 from batchgenerators.utilities.file_and_folder_operations import isdir, join, load_json, save_json
 
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 
 
 if __name__ == '__main__':
@@ -20,14 +20,14 @@ if __name__ == '__main__':
     except RuntimeError:
         pass
 
-    if isdir(join(nnUNet_raw, dataset_name)):
-        shutil.rmtree(join(nnUNet_raw, dataset_name))
+    if isdir(join(paths.nnUNet_raw, dataset_name)):
+        shutil.rmtree(join(paths.nnUNet_raw, dataset_name))
 
     source_dataset = maybe_convert_to_dataset_name(4)
-    shutil.copytree(join(nnUNet_raw, source_dataset), join(nnUNet_raw, dataset_name))
+    shutil.copytree(join(paths.nnUNet_raw, source_dataset), join(paths.nnUNet_raw, dataset_name))
 
     # set class 2 to ignore label
-    dj = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
+    dj = load_json(join(paths.nnUNet_raw, dataset_name, 'dataset.json'))
     dj['labels']['ignore'] = 2
     del dj['labels']['Posterior']
-    save_json(dj, join(nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)
+    save_json(dj, join(paths.nnUNet_raw, dataset_name, 'dataset.json'), sort_keys=False)

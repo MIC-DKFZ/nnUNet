@@ -1,7 +1,7 @@
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw
+import nnunetv2.paths as paths
 
 
 def convert_amos_task2(amos_base_dir: str, nnunet_dataset_id: int = 219):
@@ -14,7 +14,7 @@ def convert_amos_task2(amos_base_dir: str, nnunet_dataset_id: int = 219):
     foldername = "Dataset%03.0d_%s" % (nnunet_dataset_id, task_name)
 
     # setting up nnU-Net folders
-    out_base = join(nnUNet_raw, foldername)
+    out_base = join(paths.nnUNet_raw, foldername)
     imagestr = join(out_base, "imagesTr")
     imagests = join(out_base, "imagesTs")
     labelstr = join(out_base, "labelsTr")
