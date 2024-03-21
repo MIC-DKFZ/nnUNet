@@ -97,11 +97,8 @@ class nnUNetTrainer(object):
                   f"{dist.get_world_size()}."
                   f"Setting device to {self.device}")
             self.device = torch.device(type='cuda', index=self.local_rank)
-        else:
-            if self.device.type == 'cuda':
-                # we might want to let the user pick this but for now please pick the correct GPU with CUDA_VISIBLE_DEVICES=X
-                self.device = torch.device(type='cuda', index=0)
-            print(f"Using device: {self.device}")
+
+        print(f"Using device: {self.device}")
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
