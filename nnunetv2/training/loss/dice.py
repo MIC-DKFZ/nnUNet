@@ -57,12 +57,13 @@ class SoftDiceLoss(nn.Module):
 
 class MemoryEfficientSoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
-                 ddp: bool = True):
+                 ddp: bool = True, my_dice=False):
         """
         saves 1.6 GB on Dataset017 3d_lowres
         """
         super(MemoryEfficientSoftDiceLoss, self).__init__()
 
+        self.my_dice = my_dice
         self.do_bg = do_bg
         self.batch_dice = batch_dice
         self.apply_nonlin = apply_nonlin
@@ -113,10 +114,27 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             sum_pred = sum_pred.sum(0)
             sum_gt = sum_gt.sum(0)
 
-        dc = (2 * intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
+        if self.my_dice:
+            def count_nonzeros(input, dim):
+                mask = (input != 0.0)
+                sum_ = torch.sum(mask, dim)
+                if sum_ == 0:
+                    return 1
+                else:
+                    return sum_
+
+            denominator = sum_gt + sum_pred
+            f: torch.Tensor = 2.0 * intersect / (torch.clip(denominator + self.smooth, 1e-8))
+            # Possibly nan if only bg is in patch can also happen with bd and no background but it is less likely
+
+            # f = (torch.sum(f, dim=-1) / count_nonzeros(ground_o, dim=-1))
+            dc = (torch.sum(f, dim=-1) / count_nonzeros(sum_gt, dim=-1))
+        else:
+            dc = (2 * intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
 
         dc = dc.mean()
         return -dc
+
 
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
