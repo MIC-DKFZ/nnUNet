@@ -422,6 +422,9 @@ class nnUNetPredictor(object):
                                  output_file_truncated: str = None,
                                  save_or_return_probabilities: bool = False):
         """
+        input_image must use SimpleITK axis ordering!
+            (NB: if array comes from a nibabel-loaded image, you must swap the
+             axes of both the array *and* the spacing from [x,y,z] to [z,y,x]!)
         image_properties must only have a 'spacing' key!
         """
         ppa = PreprocessAdapterFromNpy([input_image], [segmentation_previous_stage], [image_properties],

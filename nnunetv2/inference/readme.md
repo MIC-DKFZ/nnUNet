@@ -147,6 +147,7 @@ cons:
 
 tldr:
 - you give one image as npy array
+- array must use [SimpleITK axis order](http://insightsoftwareconsortium.github.io/SimpleITK-Notebooks/Python_html/03_Image_Details.html#Conversion-between-numpy-and-SimpleITK) (see examples below)
 - everything is done in the main process: preprocessing, prediction, resampling, (export)
 - no interlacing, slowest variant!
 - ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON
@@ -160,8 +161,14 @@ cons:
 - never the right choice unless you can only give a single image at a time to nnU-Net
 
 ```python
-    # predict a single numpy array
+    # predict a single numpy array (SimpleITK)
     img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')])
+    ret = predictor.predict_single_npy_array(img, props, None, None, False)
+
+    # predict a single numpy array (Nibabel with axes swapped)
+    img_nii = nib.load('Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')
+    img = np.asanyarray(img_nii.dataobj).transpose([2, 1, 0])  # reverse axis order to match SITK
+    props = {'spacing': img_nii.header.get_zooms()[::-1]}      # reverse axis order to match SITK
     ret = predictor.predict_single_npy_array(img, props, None, None, False)
 ```
 
