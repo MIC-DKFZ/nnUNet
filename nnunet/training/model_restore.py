@@ -129,7 +129,7 @@ def load_model_and_checkpoint_files(folder, folds=None, mixed_precision=None, ch
         assert all([isdir(i) for i in folds]), "list of folds specified but not all output folders are present"
     elif isinstance(folds, int):
         folds = [join(folder, "fold_%d" % folds)]
-        assert all([isdir(i) for i in folds]), "output folder missing for fold %d" % folds
+        assert all([isdir(i) for i in folds]), "output folder missing for %s" % folds[0]
     elif folds is None:
         print("folds is None so we will automatically look for output folders (not using \'all\'!)")
         folds = subfolders(folder, prefix="fold")
