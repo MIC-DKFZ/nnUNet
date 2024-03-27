@@ -224,6 +224,8 @@ class nnUNetTrainer(object):
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
+            if self._do_i_compile():
+                self.loss = torch.compile(self.loss)
             self.was_initialized = True
         else:
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
