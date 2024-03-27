@@ -19,7 +19,6 @@ class nnUNetDataLoaderBase(DataLoader):
                  pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  probabilistic_oversampling: bool = False):
         super().__init__(data, batch_size, 1, None, True, False, True, sampling_probabilities)
-        assert isinstance(data, nnUNetDataset), 'nnUNetDataLoaderBase only supports dictionaries as data'
         self.indices = list(data.keys())
 
         self.oversample_foreground_percent = oversample_foreground_percent
