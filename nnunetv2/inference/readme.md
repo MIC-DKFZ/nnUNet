@@ -147,7 +147,11 @@ cons:
 
 tldr:
 - you give one image as npy array
-- array must use [SimpleITK axis order](http://insightsoftwareconsortium.github.io/SimpleITK-Notebooks/Python_html/03_Image_Details.html#Conversion-between-numpy-and-SimpleITK) (see examples below)
+- axes ordering must match the corresponding training data. The easiest way to achieve that is to use the same I/O class
+                     for loading images as was used during nnU-Net preprocessing! You can find that class in your
+                     plans.json file under the key "image_reader_writer". If you decide to freestyle, know that the
+                     default axis ordering for medical images is the one from SimpleITK. If you load with nibabel,
+                     you need to transpose your axes AND your spacing from [x,y,z] to [z,y,x]!
 - everything is done in the main process: preprocessing, prediction, resampling, (export)
 - no interlacing, slowest variant!
 - ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON
@@ -161,12 +165,17 @@ cons:
 - never the right choice unless you can only give a single image at a time to nnU-Net
 
 ```python
-    # predict a single numpy array (SimpleITK)
+    # predict a single numpy array (SimpleITKIO)
     img, props = SimpleITKIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')])
     ret = predictor.predict_single_npy_array(img, props, None, None, False)
 
-    # predict a single numpy array (Nibabel with axes swapped)
-    img_nii = nib.load('Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')
+    # predict a single numpy array (NibabelIO)
+    img, props = NibabelIO().read_images([join(nnUNet_raw, 'Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')])
+    ret = predictor.predict_single_npy_array(img, props, None, None, False)
+
+    # The following IS NOT RECOMMENDED. Use nnunetv2.imageio!
+    # nibabel, we need to transpose axes and spacing to match the training axes ordering for the nnU-Net default:
+    nib.load('Dataset003_Liver/imagesTr/liver_63_0000.nii.gz')
     img = np.asanyarray(img_nii.dataobj).transpose([2, 1, 0])  # reverse axis order to match SITK
     props = {'spacing': img_nii.header.get_zooms()[::-1]}      # reverse axis order to match SITK
     ret = predictor.predict_single_npy_array(img, props, None, None, False)

@@ -424,9 +424,14 @@ class nnUNetPredictor(object):
         """
         WARNING: SLOW. ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON.
 
-        input_image must use SimpleITK axis ordering!
-            (NB: if array comes from a nibabel-loaded image, you must swap the
-             axes of both the array *and* the spacing from [x,y,z] to [z,y,x]!)
+
+        input_image: Make sure to load the image in the way nnU-Net expects! nnU-Net is trained on a certain axis
+                     ordering which cannot be disturbed in inference,
+                     otherwise you will get bad results. The easiest way to achieve that is to use the same I/O class
+                     for loading images as was used during nnU-Net preprocessing! You can find that class in your
+                     plans.json file under the key "image_reader_writer". If you decide to freestyle, know that the
+                     default axis ordering for medical images is the one from SimpleITK. If you load with nibabel,
+                     you need to transpose your axes AND your spacing from [x,y,z] to [z,y,x]!
         image_properties must only have a 'spacing' key!
         """
         ppa = PreprocessAdapterFromNpy([input_image], [segmentation_previous_stage], [image_properties],
