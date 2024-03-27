@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 
@@ -45,6 +47,20 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
             data_all[j] = np.pad(data, ((0, 0), *padding), 'constant', constant_values=0)
             seg_all[j] = np.pad(seg, ((0, 0), *padding), 'constant', constant_values=-1)
+
+        if self.transforms is not None:
+            data_all = torch.from_numpy(data_all).float()
+            seg_all = torch.from_numpy(seg_all).to(torch.int16)
+            images = []
+            segs = []
+            for b in range(self.batch_size):
+                tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
+                images.append(tmp['image'])
+                segs.append(tmp['segmentation'])
+            data_all = torch.stack(images)
+            seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+            del segs, images
+            return {'data': data_all, 'target': seg_all, 'properties': case_properties, 'keys': selected_keys}
 
         return {'data': data_all, 'seg': seg_all, 'properties': case_properties, 'keys': selected_keys}
 
