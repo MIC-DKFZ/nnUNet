@@ -55,9 +55,8 @@ class nnUNetPredictor(object):
         self.use_gaussian = use_gaussian
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
-            # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
-            pass
-        if device.type != 'cuda':
+            torch.backends.cudnn.benchmark = True
+        else:
             print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_device = False
         self.device = device
