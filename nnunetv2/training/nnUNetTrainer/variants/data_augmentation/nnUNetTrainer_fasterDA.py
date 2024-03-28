@@ -59,7 +59,7 @@ class nnUNetTrainer_fasterDA(nnUNetTrainer):
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
                 p_rotation=0.2,
                 rotation=rotation_for_DA['x'], p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
-                memefficient_seg_sampling=True#, mode_seg='nearest'
+                bg_style_seg_sampling=False#, mode_seg='nearest'
             )
         )
 
