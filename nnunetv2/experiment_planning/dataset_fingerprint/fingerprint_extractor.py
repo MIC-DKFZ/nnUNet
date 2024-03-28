@@ -44,9 +44,7 @@ class DatasetFingerprintExtractor(object):
         """
         images=image with multiple channels = shape (c, x, y(, z))
         """
-        assert images.ndim == 4
-        assert segmentation.ndim == 4
-
+        assert images.ndim == 4 and segmentation.ndim == 4
         assert not np.any(np.isnan(segmentation)), "Segmentation contains NaN values. grrrr.... :-("
         assert not np.any(np.isnan(images)), "Images contains NaN values. grrrr.... :-("
 
@@ -58,6 +56,7 @@ class DatasetFingerprintExtractor(object):
 
         # segmentation is 4d: 1,x,y,z. We need to remove the empty dimension for the following code to work
         foreground_mask = segmentation[0] > 0
+        percentiles = np.array((0.5, 50.0, 99.5))
 
         for i in range(len(images)):
             foreground_pixels = images[i][foreground_mask]
@@ -67,13 +66,21 @@ class DatasetFingerprintExtractor(object):
             # training cases to be underrepresented
             intensities_per_channel.append(
                 rs.choice(foreground_pixels, num_samples, replace=True) if num_fg > 0 else [])
+
+            mean, median, mini, maxi, percentile_99_5, percentile_00_5 = np.nan, np.nan, np.nan, np.nan, np.nan, np.nan
+            if num_fg > 0:
+                percentile_00_5, median, percentile_99_5 = np.percentile(foreground_pixels, percentiles)
+                mean = np.mean(foreground_pixels)
+                mini = np.min(foreground_pixels)
+                maxi = np.max(foreground_pixels)
+
             intensity_statistics_per_channel.append({
-                'mean': np.mean(foreground_pixels) if num_fg > 0 else np.nan,
-                'median': np.median(foreground_pixels) if num_fg > 0 else np.nan,
-                'min': np.min(foreground_pixels) if num_fg > 0 else np.nan,
-                'max': np.max(foreground_pixels) if num_fg > 0 else np.nan,
-                'percentile_99_5': np.percentile(foreground_pixels, 99.5) if num_fg > 0 else np.nan,
-                'percentile_00_5': np.percentile(foreground_pixels, 0.5) if num_fg > 0 else np.nan,
+                'mean': mean,
+                'median': median,
+                'min': mini,
+                'max': maxi,
+                'percentile_99_5': percentile_99_5,
+                'percentile_00_5': percentile_00_5,
 
             })
 
@@ -157,6 +164,7 @@ class DatasetFingerprintExtractor(object):
             spacings = [r[1] for r in results]
             foreground_intensities_per_channel = [np.concatenate([r[2][i] for r in results]) for i in
                                                   range(len(results[0][2]))]
+            foreground_intensities_per_channel = np.array(foreground_intensities_per_channel)
             # we drop this so that the json file is somewhat human readable
             # foreground_intensity_stats_by_case_and_modality = [r[3] for r in results]
             median_relative_size_after_cropping = np.median([r[4] for r in results], 0)
@@ -165,15 +173,18 @@ class DatasetFingerprintExtractor(object):
                                  if 'channel_names' in self.dataset_json.keys()
                                  else self.dataset_json['modality'].keys())
             intensity_statistics_per_channel = {}
+            percentiles = np.array((0.5, 50.0, 99.5))
             for i in range(num_channels):
+                percentile_00_5, median, percentile_99_5 = np.percentile(foreground_intensities_per_channel[i],
+                                                                         percentiles)
                 intensity_statistics_per_channel[i] = {
                     'mean': float(np.mean(foreground_intensities_per_channel[i])),
-                    'median': float(np.median(foreground_intensities_per_channel[i])),
+                    'median': float(median),
                     'std': float(np.std(foreground_intensities_per_channel[i])),
                     'min': float(np.min(foreground_intensities_per_channel[i])),
                     'max': float(np.max(foreground_intensities_per_channel[i])),
-                    'percentile_99_5': float(np.percentile(foreground_intensities_per_channel[i], 99.5)),
-                    'percentile_00_5': float(np.percentile(foreground_intensities_per_channel[i], 0.5)),
+                    'percentile_99_5': float(percentile_99_5),
+                    'percentile_00_5': float(percentile_00_5),
                 }
 
             fingerprint = {
