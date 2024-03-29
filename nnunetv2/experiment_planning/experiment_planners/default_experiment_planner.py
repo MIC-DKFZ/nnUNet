@@ -15,7 +15,6 @@ from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.normalization.map_channel_name_to_normalization import get_normalization_scheme
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
@@ -100,14 +99,10 @@ class ExperimentPlanner(object):
         """
         Works for PlainConvUNet, ResidualEncoderUNet
         """
-        a = torch.get_num_threads()
-        torch.set_num_threads(get_allowed_n_proc_DA())
-        # print(f'instantiating network, patch size {patch_size}, pool op: {arch_kwargs["strides"]}')
         net = get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels,
                                      output_channels,
                                      allow_init=False)
         ret = net.compute_conv_feature_map_size(patch_size)
-        torch.set_num_threads(a)
         return ret
 
     def determine_resampling(self, *args, **kwargs):

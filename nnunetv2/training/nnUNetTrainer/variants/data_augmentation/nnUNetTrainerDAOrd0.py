@@ -1,9 +1,4 @@
-from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
-
-from nnunetv2.training.data_augmentation.custom_transforms.limited_length_multithreaded_augmenter import \
-    LimitedLenWrapper
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 
 
 class nnUNetTrainerDAOrd0(nnUNetTrainer):
@@ -42,17 +37,7 @@ class nnUNetTrainerDAOrd0(nnUNetTrainer):
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
-            mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
-        else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
-
-        return mt_gen_train, mt_gen_val
+        return self.init_dataloaders(dl_tr, tr_transforms, dl_val, val_transforms)
 
 
 class nnUNetTrainer_DASegOrd0(nnUNetTrainer):
@@ -91,17 +76,7 @@ class nnUNetTrainer_DASegOrd0(nnUNetTrainer):
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
-            mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
-        else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
-
-        return mt_gen_train, mt_gen_val
+        return self.init_dataloaders(dl_tr, tr_transforms, dl_val, val_transforms)
 
 
 class nnUNetTrainer_DASegOrd0_NoMirroring(nnUNetTrainer):
@@ -144,14 +119,4 @@ class nnUNetTrainer_DASegOrd0_NoMirroring(nnUNetTrainer):
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
-            mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
-        else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
-
-        return mt_gen_train, mt_gen_val
+        return self.init_dataloaders(dl_tr, tr_transforms, dl_val, val_transforms)

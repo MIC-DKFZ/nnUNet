@@ -2,6 +2,16 @@ import subprocess
 import os
 
 
+def get_allowed_n_proc_DA_val():
+    """
+    This function is used to set the number of processes used for the validation data loader. When nnUNet_n_proc_DA_val
+    is 0, the validation data is loaded sequentially in the main process.
+    """
+    if 'nnUNet_n_proc_DA_val' in os.environ.keys():
+        return int(os.environ['nnUNet_n_proc_DA_val'])
+    return get_allowed_n_proc_DA() // 2
+
+
 def get_allowed_n_proc_DA():
     """
     This function is used to set the number of processes used on different Systems. It is specific to our cluster

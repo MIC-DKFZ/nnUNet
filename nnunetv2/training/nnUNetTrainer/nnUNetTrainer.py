@@ -53,7 +53,7 @@ from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDice
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
-from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA, get_allowed_n_proc_DA_val
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
@@ -635,16 +635,23 @@ class nnUNetTrainer(object):
 
         dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
+        return self.init_dataloaders(dl_tr, tr_transforms, dl_val, val_transforms)
+
+    def init_dataloaders(self, dl_tr, tr_transforms, dl_val, val_transforms):
+        num_processes_train = get_allowed_n_proc_DA()
+        if num_processes_train == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
             mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, data_loader=dl_tr, transform=tr_transforms,
-                                             num_processes=allowed_num_processes, num_cached=6, seeds=None,
+                                             num_processes=num_processes_train, num_cached=6, seeds=None,
                                              pin_memory=self.device.type == 'cuda', wait_time=0.02)
+
+        num_processes_val = get_allowed_n_proc_DA_val()
+        if num_processes_val == 0:
+            mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
+        else:
             mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, data_loader=dl_val,
-                                           transform=val_transforms, num_processes=max(1, allowed_num_processes // 2),
+                                           transform=val_transforms, num_processes=num_processes_val,
                                            num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
                                            wait_time=0.02)
         return mt_gen_train, mt_gen_val
