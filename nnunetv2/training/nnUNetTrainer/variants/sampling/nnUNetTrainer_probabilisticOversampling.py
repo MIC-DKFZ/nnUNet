@@ -18,8 +18,8 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
     If we switch to this oversampling then we can keep it at a constant 0.33 or whatever.
     """
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+                 device: torch.device = torch.device('cuda'), val_iters: int = 50):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device, val_iters)
         self.oversample_foreground_percent = float(np.mean(
             [not sample_idx < round(self.configuration_manager.batch_size * (1 - self.oversample_foreground_percent))
              for sample_idx in range(self.configuration_manager.batch_size)]))
