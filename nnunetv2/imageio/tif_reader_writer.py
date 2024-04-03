@@ -66,11 +66,11 @@ class Tiff3DIO(BaseReaderWriter):
             print(image_fnames)
             raise RuntimeError()
 
-        return np.vstack(images).astype(np.float32), {'spacing': spacing}
+        return np.vstack(images, dtype=np.float32, casting='unsafe'), {'spacing': spacing}
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # not ideal but I really have no clue how to set spacing/resolution information properly in tif files haha
-        tifffile.imwrite(output_fname, data=seg.astype(np.uint8), compression='zlib')
+        tifffile.imwrite(output_fname, data=seg.astype(np.uint8, copy=False), compression='zlib')
         file = os.path.basename(output_fname)
         out_dir = os.path.dirname(output_fname)
         ending = file.split('.')[-1]
@@ -97,4 +97,4 @@ class Tiff3DIO(BaseReaderWriter):
             print(f'WARNING no spacing file found for segmentation {seg_fname}\nAssuming spacing (1, 1, 1).')
             spacing = (1, 1, 1)
 
-        return seg.astype(np.float32), {'spacing': spacing}
+        return seg.astype(np.float32, copy=False), {'spacing': spacing}

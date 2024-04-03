@@ -97,7 +97,6 @@ class SimpleITKIO(BaseReaderWriter):
             print(image_fnames)
             raise RuntimeError()
 
-        stacked_images = np.vstack(images)
         dict = {
             'sitk_stuff': {
                 # this saves the sitk geometry information. This part is NOT used by nnU-Net!
@@ -109,7 +108,7 @@ class SimpleITKIO(BaseReaderWriter):
             # are returned x,y,z but spacing is returned z,y,x. Duh.
             'spacing': spacings_for_nnunet[0]
         }
-        return stacked_images.astype(np.float32), dict
+        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname, ))
@@ -121,7 +120,7 @@ class SimpleITKIO(BaseReaderWriter):
         if output_dimension == 2:
             seg = seg[0]
 
-        itk_image = sitk.GetImageFromArray(seg.astype(np.uint8))
+        itk_image = sitk.GetImageFromArray(seg.astype(np.uint8, copy=False))
         itk_image.SetSpacing(properties['sitk_stuff']['spacing'])
         itk_image.SetOrigin(properties['sitk_stuff']['origin'])
         itk_image.SetDirection(properties['sitk_stuff']['direction'])
