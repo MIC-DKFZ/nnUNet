@@ -43,9 +43,6 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             else:
                 selected_slice = np.random.choice(len(data[0]))
 
-            data = data[:, selected_slice]
-            seg = seg[:, selected_slice]
-
             # the line of death lol
             # this needs to be a separate variable because we could otherwise permanently overwrite
             # properties['class_locations']
@@ -58,7 +55,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             } if (selected_class_or_region is not None) else None
 
             # print(properties)
-            shape = data.shape[1:]
+            shape = data.shape[2:]
             dim = len(shape)
             bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg if selected_class_or_region is not None else None,
                                                class_locations, overwrite_class=selected_class_or_region)
@@ -74,10 +71,10 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
             # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
             # remove label -1 in the data augmentation but this way it is less error prone)
-            this_slice = tuple([slice(0, data.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            this_slice = tuple([slice(0, data.shape[0])] + [selected_slice] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             data = data[this_slice]
 
-            this_slice = tuple([slice(0, seg.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            this_slice = tuple([slice(0, seg.shape[0])] + [selected_slice] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             seg = seg[this_slice]
 
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
