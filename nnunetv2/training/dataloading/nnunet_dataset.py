@@ -43,6 +43,14 @@ class nnUNetDatasetNumpy(object):
         else:
             seg = np.load(seg_npy_file, mmap_mode='r')
 
+        if self.folder_with_segs_from_previous_stage is not None:
+            prev_seg_npy_file = join(self.folder_with_segs_from_previous_stage, identifier + '.npy')
+            if isfile(prev_seg_npy_file):
+                seg_prev = np.load(prev_seg_npy_file, 'r')
+            else:
+                seg_prev = np.load(join(self.folder_with_segs_from_previous_stage, identifier + '.npz'))['seg']
+            seg = np.vstack((seg, seg_prev[None]))
+
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
         return data, seg, properties
 
