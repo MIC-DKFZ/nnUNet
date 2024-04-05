@@ -552,7 +552,7 @@ class nnUNetTrainer(object):
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
-                all_keys_sorted = list(np.sort(list(dataset.keys())))
+                all_keys_sorted = list(np.sort(list(dataset.identifiers)))
                 splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
                 save_json(splits, splits_file)
 
@@ -573,7 +573,7 @@ class nnUNetTrainer(object):
                                        "random (but seeded) 80:20 split!" % (self.fold, len(splits)))
                 # if we request a fold that is not in the split file, create a random 80:20 split
                 rnd = np.random.RandomState(seed=12345 + self.fold)
-                keys = np.sort(list(dataset.keys()))
+                keys = np.sort(list(dataset.identifiers))
                 idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
                 idx_val = [i for i in range(len(keys)) if i not in idx_tr]
                 tr_keys = [keys[i] for i in idx_tr]
@@ -1228,7 +1228,7 @@ class nnUNetTrainer(object):
                         try:
                             # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
                             tmp = dataset_class(expected_preprocessed_folder, [k])
-                            d, s, p = tmp.load_case(k)
+                            d, _, _ = tmp.load_case(k)
                         except FileNotFoundError:
                             self.print_to_log_file(
                                 f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! "

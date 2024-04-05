@@ -29,16 +29,12 @@ class nnUNetDatasetNumpy(object):
     def load_case(self, identifier):
         data_npy_file = join(self.source_folder, identifier + '.npy')
         if not isfile(data_npy_file):
-            warnings.warn(
-                "Data doesn't seem to have been unpacked. This makes loading slow! Consider enabling unpacking")
             data = np.load(join(self.source_folder, identifier + '.npz'))['data']
         else:
             data = np.load(data_npy_file, mmap_mode='r')
 
         seg_npy_file = join(self.source_folder, identifier + '_seg.npy')
         if not isfile(seg_npy_file):
-            warnings.warn(
-                "Seg doesn't seem to have been unpacked. This makes loading slow! Consider enabling unpacking")
             seg = np.load(join(self.source_folder, identifier + '.npz'))['seg']
         else:
             seg = np.load(seg_npy_file, mmap_mode='r')
