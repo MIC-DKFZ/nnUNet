@@ -547,8 +547,8 @@ class nnUNetTrainer(object):
         else:
             splits_file = join(self.preprocessed_dataset_folder_base, "splits_final.json")
             dataset = self.dataset_class(self.preprocessed_dataset_folder,
-                                    identifiers=None,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                         identifiers=None,
+                                         folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
@@ -592,9 +592,9 @@ class nnUNetTrainer(object):
         # load the datasets for training and validation. Note that we always draw random samples so we really don't
         # care about distributing training cases across GPUs.
         dataset_tr = self.dataset_class(self.preprocessed_dataset_folder, tr_keys,
-                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                         folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
@@ -1169,7 +1169,7 @@ class nnUNetTrainer(object):
                 # different
 
             dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
-                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+                                             folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
 
             next_stages = self.configuration_manager.next_stage_names
 

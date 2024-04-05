@@ -1,6 +1,6 @@
 import os
 import warnings
-from typing import List, Union
+from typing import List, Union, Type
 
 import numpy as np
 import shutil
@@ -85,7 +85,7 @@ file_ending_dataset_mapping = {
 }
 
 
-def infer_dataset_class(folder: str):
+def infer_dataset_class(folder: str) -> Type[nnUNetDatasetNumpy]:
     file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)])
     if 'pkl' in file_endings:
         file_endings.remove('pkl')
