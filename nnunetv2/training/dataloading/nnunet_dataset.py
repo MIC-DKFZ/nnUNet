@@ -1,146 +1,96 @@
 import os
-from typing import List
+import warnings
+from typing import List, Union
 
 import numpy as np
 import shutil
 
-from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile
-from nnunetv2.training.dataloading.utils import get_case_identifiers
+from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile, write_pickle, subfiles
+from nnunetv2.configuration import default_num_processes
+from nnunetv2.training.dataloading.utils import unpack_dataset
 
 
-class nnUNetDataset(object):
-    def __init__(self, folder: str, case_identifiers: List[str] = None,
-                 num_images_properties_loading_threshold: int = 0,
+class nnUNetDatasetNumpy(object):
+    def __init__(self, folder: str, identifiers: List[str] = None,
                  folder_with_segs_from_previous_stage: str = None):
-        """
-        This does not actually load the dataset. It merely creates a dictionary where the keys are training case names and
-        the values are dictionaries containing the relevant information for that case.
-        dataset[training_case] -> info
-        Info has the following key:value pairs:
-        - dataset[case_identifier]['properties']['data_file'] -> the full path to the npz file associated with the training case
-        - dataset[case_identifier]['properties']['properties_file'] -> the pkl file containing the case properties
-
-        In addition, if the total number of cases is < num_images_properties_loading_threshold we load all the pickle files
-        (containing auxiliary information). This is done for small datasets so that we don't spend too much CPU time on
-        reading pkl files on the fly during training. However, for large datasets storing all the aux info (which also
-        contains locations of foreground voxels in the images) can cause too much RAM utilization. In that
-        case is it better to load on the fly.
-
-        If properties are loaded into the RAM, the info dicts each will have an additional entry:
-        - dataset[case_identifier]['properties'] -> pkl file content
-
-        IMPORTANT! THIS CLASS ITSELF IS READ-ONLY. YOU CANNOT ADD KEY:VALUE PAIRS WITH nnUNetDataset[key] = value
-        USE THIS INSTEAD:
-        nnUNetDataset.dataset[key] = value
-        (not sure why you'd want to do that though. So don't do it)
-        """
         super().__init__()
         # print('loading dataset')
-        if case_identifiers is None:
-            case_identifiers = get_case_identifiers(folder)
-        case_identifiers.sort()
+        if identifiers is None:
+            identifiers = self.get_identifiers(folder)
+        identifiers.sort()
 
-        self.dataset = {}
-        for c in case_identifiers:
-            self.dataset[c] = {}
-            self.dataset[c]['data_file'] = join(folder, f"{c}.npz")
-            self.dataset[c]['properties_file'] = join(folder, f"{c}.pkl")
-            if folder_with_segs_from_previous_stage is not None:
-                self.dataset[c]['seg_from_prev_stage_file'] = join(folder_with_segs_from_previous_stage, f"{c}.npz")
+        self.source_folder = folder
+        self.folder_with_segs_from_previous_stage = folder_with_segs_from_previous_stage
+        self.identifiers = identifiers
 
-        if len(case_identifiers) <= num_images_properties_loading_threshold:
-            for i in self.dataset.keys():
-                self.dataset[i]['properties'] = load_pickle(self.dataset[i]['properties_file'])
+    def __getitem__(self, identifier):
+        return self.load_case(identifier)
 
-        self.keep_files_open = ('nnUNet_keep_files_open' in os.environ.keys()) and \
-                               (os.environ['nnUNet_keep_files_open'].lower() in ('true', '1', 't'))
-        # print(f'nnUNetDataset.keep_files_open: {self.keep_files_open}')
-
-    def __getitem__(self, key):
-        ret = {**self.dataset[key]}
-        if 'properties' not in ret.keys():
-            ret['properties'] = load_pickle(ret['properties_file'])
-        return ret
-
-    def __setitem__(self, key, value):
-        return self.dataset.__setitem__(key, value)
-
-    def keys(self):
-        return self.dataset.keys()
-
-    def __len__(self):
-        return self.dataset.__len__()
-
-    def items(self):
-        return self.dataset.items()
-
-    def values(self):
-        return self.dataset.values()
-
-    def load_case(self, key):
-        entry = self[key]
-        if 'open_data_file' in entry.keys():
-            data = entry['open_data_file']
-            # print('using open data file')
-        elif isfile(entry['data_file'][:-4] + ".npy"):
-            data = np.load(entry['data_file'][:-4] + ".npy", 'r')
-            if self.keep_files_open:
-                self.dataset[key]['open_data_file'] = data
-                # print('saving open data file')
+    def load_case(self, identifier):
+        data_npy_file = join(self.source_folder, identifier + '.npy')
+        if not isfile(data_npy_file):
+            warnings.warn(
+                "Data doesn't seem to have been unpacked. This makes loading slow! Consider enabling unpacking")
+            data = np.load(join(self.source_folder, identifier + '.npz'))['data']
         else:
-            data = np.load(entry['data_file'])['data']
+            data = np.load(data_npy_file, mmap_mode='r')
 
-        if 'open_seg_file' in entry.keys():
-            seg = entry['open_seg_file']
-            # print('using open data file')
-        elif isfile(entry['data_file'][:-4] + "_seg.npy"):
-            seg = np.load(entry['data_file'][:-4] + "_seg.npy", 'r')
-            if self.keep_files_open:
-                self.dataset[key]['open_seg_file'] = seg
-                # print('saving open seg file')
+        seg_npy_file = join(self.source_folder, identifier + '_seg.npy')
+        if not isfile(seg_npy_file):
+            warnings.warn(
+                "Seg doesn't seem to have been unpacked. This makes loading slow! Consider enabling unpacking")
+            seg = np.load(join(self.source_folder, identifier + '.npz'))['seg']
         else:
-            seg = np.load(entry['data_file'])['seg']
+            seg = np.load(seg_npy_file, mmap_mode='r')
 
-        if 'seg_from_prev_stage_file' in entry.keys():
-            if isfile(entry['seg_from_prev_stage_file'][:-4] + ".npy"):
-                seg_prev = np.load(entry['seg_from_prev_stage_file'][:-4] + ".npy", 'r')
-            else:
-                seg_prev = np.load(entry['seg_from_prev_stage_file'])['seg']
-            seg = np.vstack((seg, seg_prev[None]))
+        properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
+        return data, seg, properties
 
-        return data, seg, entry['properties']
+    @staticmethod
+    def save_case(
+            data: np.ndarray,
+            seg: np.ndarray,
+            properties: dict,
+            output_filename_truncated: str
+    ):
+        np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
+        write_pickle(properties, output_filename_truncated + '.pkl')
+
+    @staticmethod
+    def save_seg(
+            seg: np.ndarray,
+            output_filename_truncated: str
+    ):
+        np.savez_compressed(output_filename_truncated + '.npz', seg=seg)
+
+    @staticmethod
+    def get_identifiers(folder: str) -> List[str]:
+        """
+        returns all identifiers in the preprocessed data folder
+        """
+        case_identifiers = [i[:-4] for i in os.listdir(folder) if i.endswith("npz")]
+        return case_identifiers
+
+    @staticmethod
+    def unpack_dataset(folder: str, overwrite_existing: bool = False,
+                       num_processes: int = default_num_processes,
+                       verify_npy: bool = True):
+        return unpack_dataset(folder, True, overwrite_existing, num_processes, verify_npy)
 
 
-if __name__ == '__main__':
-    # this is a mini test. Todo: We can move this to tests in the future (requires simulated dataset)
+DEFAULT_DATASET_CLASS = nnUNetDatasetNumpy
 
-    folder = '/media/fabian/data/nnUNet_preprocessed/Dataset003_Liver/3d_lowres'
-    ds = nnUNetDataset(folder, num_images_properties_loading_threshold=0) # this should not load the properties!
-    # this SHOULD HAVE the properties
-    ks = ds['liver_0'].keys()
-    assert 'properties' in ks
-    # amazing. I am the best.
+file_ending_dataset_mapping = {
+    'npz': nnUNetDatasetNumpy,
+}
 
-    # this should have the properties
-    ds = nnUNetDataset(folder, num_images_properties_loading_threshold=1000)
-    # now rename the properties file so that it does not exist anymore
-    shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
-    # now we should still be able to access the properties because they have already been loaded
-    ks = ds['liver_0'].keys()
-    assert 'properties' in ks
-    # move file back
-    shutil.move(join(folder, 'liver_XXX.pkl'), join(folder, 'liver_0.pkl'))
 
-    # this should not have the properties
-    ds = nnUNetDataset(folder, num_images_properties_loading_threshold=0)
-    # now rename the properties file so that it does not exist anymore
-    shutil.move(join(folder, 'liver_0.pkl'), join(folder, 'liver_XXX.pkl'))
-    # now this should crash
-    try:
-        ks = ds['liver_0'].keys()
-        raise RuntimeError('we should not have come here')
-    except FileNotFoundError:
-        print('all good')
-        # move file back
-        shutil.move(join(folder, 'liver_XXX.pkl'), join(folder, 'liver_0.pkl'))
-
+def infer_dataset_class(folder: str):
+    file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)])
+    if 'pkl' in file_endings:
+        file_endings.remove('pkl')
+    if 'npy' in file_endings:
+        file_endings.remove('npy')
+    assert len(file_endings) == 1, (f'Found more than one file ending in the folder {folder}. '
+                                    f'Unable to infer nnUNetDataset variant!')
+    return file_ending_dataset_mapping[list(file_endings)[0]]

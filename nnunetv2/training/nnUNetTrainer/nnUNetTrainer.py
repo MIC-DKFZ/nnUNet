@@ -44,8 +44,7 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
     Convert3DTo2DTransform
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
+from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
@@ -67,7 +66,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class nnUNetTrainer(object):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
@@ -116,7 +115,6 @@ class nnUNetTrainer(object):
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
-        self.unpack_dataset = unpack_dataset
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -129,6 +127,7 @@ class nnUNetTrainer(object):
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
                                                 self.configuration_manager.data_identifier)
+        self.dataset_class = None  # -> initialize
         # unlike the previous nnunet folder_with_segs_from_previous_stage is now part of the plans. For now it has to
         # be a different configuration in the same plans
         # IMPORTANT! the mapping must be bijective, so lowres must point to fullres and vice versa (using
@@ -224,6 +223,8 @@ class nnUNetTrainer(object):
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
+
+            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
             self.was_initialized = True
         else:
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
@@ -540,13 +541,13 @@ class nnUNetTrainer(object):
         """
         if self.fold == "all":
             # if fold==all then we use all images for training and validation
-            case_identifiers = get_case_identifiers(self.preprocessed_dataset_folder)
+            case_identifiers = self.dataset_class.get_identifiers(self.preprocessed_dataset_folder)
             tr_keys = case_identifiers
             val_keys = tr_keys
         else:
             splits_file = join(self.preprocessed_dataset_folder_base, "splits_final.json")
-            dataset = nnUNetDataset(self.preprocessed_dataset_folder, case_identifiers=None,
-                                    num_images_properties_loading_threshold=0,
+            dataset = self.dataset_class(self.preprocessed_dataset_folder,
+                                    identifiers=None,
                                     folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
@@ -590,12 +591,10 @@ class nnUNetTrainer(object):
 
         # load the datasets for training and validation. Note that we always draw random samples so we really don't
         # care about distributing training cases across GPUs.
-        dataset_tr = nnUNetDataset(self.preprocessed_dataset_folder, tr_keys,
-                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                   num_images_properties_loading_threshold=0)
-        dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                    num_images_properties_loading_threshold=0)
+        dataset_tr = self.dataset_class(self.preprocessed_dataset_folder, tr_keys,
+                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+        dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
@@ -831,11 +830,12 @@ class nnUNetTrainer(object):
         empty_cache(self.device)
 
         # maybe unpack
-        if self.unpack_dataset and self.local_rank == 0:
-            self.print_to_log_file('unpacking dataset...')
-            unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
-                           num_processes=max(1, round(get_allowed_n_proc_DA() // 2)), verify_npy=True)
-            self.print_to_log_file('unpacking done...')
+        if self.local_rank == 0:
+            self.dataset_class.unpack_dataset(
+                self.preprocessed_dataset_folder,
+                overwrite_existing=False,
+                num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
+                verify_npy=True)
 
         if self.is_ddp:
             dist.barrier()
@@ -1168,9 +1168,8 @@ class nnUNetTrainer(object):
                 # we cannot just have barriers all over the place because the number of keys each GPU receives can be
                 # different
 
-            dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                        num_images_properties_loading_threshold=0)
+            dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
+                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
 
             next_stages = self.configuration_manager.next_stage_names
 
@@ -1179,7 +1178,7 @@ class nnUNetTrainer(object):
 
             results = []
 
-            for i, k in enumerate(dataset_val.keys()):
+            for i, k in enumerate(dataset_val.identifiers):
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
                                                            allowed_num_queued=2)
                 while not proceed:
@@ -1223,11 +1222,12 @@ class nnUNetTrainer(object):
                         next_stage_config_manager = self.plans_manager.get_configuration(n)
                         expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans_manager.dataset_name,
                                                             next_stage_config_manager.data_identifier)
+                        # next stage may have a different dataset class, do not use self.dataset_class
+                        dataset_class = infer_dataset_class(expected_preprocessed_folder)
 
                         try:
                             # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
-                            tmp = nnUNetDataset(expected_preprocessed_folder, [k],
-                                                num_images_properties_loading_threshold=0)
+                            tmp = dataset_class(expected_preprocessed_folder, [k])
                             d, s, p = tmp.load_case(k)
                         except FileNotFoundError:
                             self.print_to_log_file(
@@ -1237,16 +1237,18 @@ class nnUNetTrainer(object):
 
                         target_shape = d.shape[1:]
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
-                        output_file = join(output_folder, k + '.npz')
+                        output_file_truncated = join(output_folder, k)
 
                         # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
                         #                   self.dataset_json)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
-                                (prediction, target_shape, output_file, self.plans_manager,
+                                (prediction, target_shape, output_file_truncated, self.plans_manager,
                                  self.configuration_manager,
                                  properties,
-                                 self.dataset_json),
+                                 self.dataset_json,
+                                 default_num_processes,
+                                 dataset_class),
                             )
                         ))
                 # if we don't barrier from time to time we will get nccl timeouts for large datasets. Yuck.

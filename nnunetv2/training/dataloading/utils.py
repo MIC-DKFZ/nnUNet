@@ -70,13 +70,5 @@ def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_exis
                   )
 
 
-def get_case_identifiers(folder: str) -> List[str]:
-    """
-    finds all npz files in the given folder and reconstructs the training case names from them
-    """
-    case_identifiers = [i[:-4] for i in os.listdir(folder) if i.endswith("npz") and (i.find("segFromPrevStage") == -1)]
-    return case_identifiers
-
-
 if __name__ == '__main__':
     unpack_dataset('/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/2d')

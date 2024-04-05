@@ -3,13 +3,13 @@ from typing import Union, Tuple
 from batchgenerators.dataloading.data_loader import DataLoader
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetNumpy
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 
 class nnUNetDataLoaderBase(DataLoader):
     def __init__(self,
-                 data: nnUNetDataset,
+                 data: nnUNetDatasetNumpy,
                  batch_size: int,
                  patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
                  final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
@@ -19,12 +19,13 @@ class nnUNetDataLoaderBase(DataLoader):
                  pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  probabilistic_oversampling: bool = False):
         super().__init__(data, batch_size, 1, None, True, False, True, sampling_probabilities)
-        self.indices = list(data.keys())
+
+        # this is used by DataLoader for sampling train cases!
+        self.indices = data.identifiers
 
         self.oversample_foreground_percent = oversample_foreground_percent
         self.final_patch_size = final_patch_size
         self.patch_size = patch_size
-        self.list_of_keys = list(self._data.keys())
         # need_to_pad denotes by how much we need to pad the data so that if we sample a patch of size final_patch_size
         # (which is what the network will get) these patches will also cover the border of the images
         self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
@@ -53,7 +54,7 @@ class nnUNetDataLoaderBase(DataLoader):
 
     def determine_shapes(self):
         # load one case
-        data, seg, properties = self._data.load_case(self.indices[0])
+        data, seg, properties = self._data.load_case(self._data.identifiers[0])
         num_color_channels = data.shape[0]
 
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)

@@ -22,6 +22,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
+from nnunetv2.training.dataloading.nnunet_dataset import DEFAULT_DATASET_CLASS
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
@@ -145,8 +146,7 @@ class DefaultPreprocessor(object):
                       dataset_json: Union[dict, str]):
         data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
         # print('dtypes', data.dtype, seg.dtype)
-        np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
-        write_pickle(properties, output_filename_truncated + '.pkl')
+        DEFAULT_DATASET_CLASS.save_case(data, seg, properties, output_filename_truncated)
 
     @staticmethod
     def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[Tuple[int, ...]]],

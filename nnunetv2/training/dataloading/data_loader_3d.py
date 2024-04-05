@@ -1,6 +1,6 @@
 import numpy as np
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetNumpy
 
 
 class nnUNetDataLoader3D(nnUNetDataLoaderBase):
@@ -51,6 +51,6 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
 
 if __name__ == '__main__':
     folder = '/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/3d_fullres'
-    ds = nnUNetDataset(folder, 0)  # this should not load the properties!
+    ds = nnUNetDatasetNumpy(folder, 0)  # this should not load the properties!
     dl = nnUNetDataLoader3D(ds, 5, (16, 16, 16), (16, 16, 16), 0.33, None, None)
     a = next(dl)

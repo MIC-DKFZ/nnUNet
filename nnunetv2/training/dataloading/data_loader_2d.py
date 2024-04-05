@@ -1,6 +1,6 @@
 import numpy as np
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetNumpy
 
 
 class nnUNetDataLoader2D(nnUNetDataLoaderBase):
@@ -86,6 +86,6 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
 if __name__ == '__main__':
     folder = '/media/fabian/data/nnUNet_preprocessed/Dataset004_Hippocampus/2d'
-    ds = nnUNetDataset(folder, None, 1000)  # this should not load the properties!
+    ds = nnUNetDatasetNumpy(folder, None)  # this should not load the properties!
     dl = nnUNetDataLoader2D(ds, 366, (65, 65), (56, 40), 0.33, None, None)
     a = next(dl)
