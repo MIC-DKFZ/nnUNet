@@ -9,6 +9,10 @@ from batchgeneratorsv2.transforms.intensity.brightness import MultiplicativeBrig
 from batchgeneratorsv2.transforms.intensity.contrast import ContrastTransform, BGContrast
 from batchgeneratorsv2.transforms.intensity.gamma import GammaTransform
 from batchgeneratorsv2.transforms.intensity.gaussian_noise import GaussianNoiseTransform
+from batchgeneratorsv2.transforms.nnunet.random_binary_operator import ApplyRandomBinaryOperatorTransform
+from batchgeneratorsv2.transforms.nnunet.remove_connected_components import \
+    RemoveRandomConnectedComponentFromOneHotEncodingTransform
+from batchgeneratorsv2.transforms.nnunet.seg_to_onehot import MoveSegAsOneHotToDataTransform
 from batchgeneratorsv2.transforms.noise.gaussian_blur import GaussianBlurTransform
 from batchgeneratorsv2.transforms.spatial.low_resolution import SimulateLowResolutionTransform
 from batchgeneratorsv2.transforms.spatial.mirroring import MirrorTransform
@@ -57,7 +61,7 @@ class nnUNetTrainer_fasterDA(nnUNetTrainer):
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
                 p_rotation=0.2,
                 rotation=rotation_for_DA['x'], p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
-                bg_style_seg_sampling=False#, mode_seg='nearest'
+                bg_style_seg_sampling=False  # , mode_seg='nearest'
             )
         )
 
@@ -140,9 +144,33 @@ class nnUNetTrainer_fasterDA(nnUNetTrainer):
             RemoveLabelTansform(-1, 0)
         )
         if is_cascaded:
-            raise NotImplementedError
-        # input must be torch tensor
-        # output must be renamed!
+            assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
+            transforms.append(
+                MoveSegAsOneHotToDataTransform(
+                    source_channel_idx=1,
+                    all_labels=foreground_labels,
+                    remove_channel_from_source=True
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    ApplyRandomBinaryOperatorTransform(
+                        channel_idx=list(range(-len(foreground_labels), 0)),
+                        strel_size=(1, 8),
+                        p_per_label=1
+                    ), apply_probability=0.4
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    RemoveRandomConnectedComponentFromOneHotEncodingTransform(
+                        channel_idx=list(range(-len(foreground_labels), 0)),
+                        fill_with_other_class_p=0,
+                        dont_do_if_covers_more_than_x_percent=0.15,
+                        p_per_label=1
+                    ), apply_probability=0.2
+                )
+            )
 
         if regions is not None:
             # the ignore label must also be converted
@@ -166,13 +194,20 @@ class nnUNetTrainer_fasterDA(nnUNetTrainer):
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
     ) -> BasicTransform:
-        if is_cascaded:
-            raise NotImplementedError
-
         transforms = []
         transforms.append(
             RemoveLabelTansform(-1, 0)
         )
+
+        if is_cascaded:
+            transforms.append(
+                MoveSegAsOneHotToDataTransform(
+                    source_channel_idx=1,
+                    all_labels=foreground_labels,
+                    remove_channel_from_source=True
+                )
+            )
+
         if regions is not None:
             # the ignore label must also be converted
             transforms.append(
@@ -387,9 +422,34 @@ class nnUNetTrainer_fasterDA_bg_style_seg_sampling(nnUNetTrainer_fasterDA):
             RemoveLabelTansform(-1, 0)
         )
         if is_cascaded:
-            raise NotImplementedError
-        # input must be torch tensor
-        # output must be renamed!
+            assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
+            transforms.append(
+                MoveSegAsOneHotToDataTransform(
+                    source_channel_idx=1,
+                    all_labels=foreground_labels,
+                    remove_channel_from_source=True
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    ApplyRandomBinaryOperatorTransform(
+                        channel_idx=list(range(-len(foreground_labels), 0)),
+                        strel_size=(1, 8),
+                        p_per_label=1
+                    ), apply_probability=0.4
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    RemoveRandomConnectedComponentFromOneHotEncodingTransform(
+                        channel_idx=list(range(-len(foreground_labels), 0)),
+                        fill_with_other_class_p=0,
+                        dont_do_if_covers_more_than_x_percent=0.15,
+                        p_per_label=1
+                    )
+                    , apply_probability=0.2
+                )
+            )
 
         if regions is not None:
             # the ignore label must also be converted
