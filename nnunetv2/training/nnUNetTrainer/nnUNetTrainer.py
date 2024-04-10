@@ -649,6 +649,9 @@ class nnUNetTrainer(object):
                                            transform=val_transforms, num_processes=max(1, allowed_num_processes // 2),
                                            num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
                                            wait_time=0.02)
+        # # let's get this party started
+        _ = next(mt_gen_train)
+        _ = next(mt_gen_val)
         return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
@@ -821,6 +824,10 @@ class nnUNetTrainer(object):
         mod.decoder.deep_supervision = enabled
 
     def on_train_start(self):
+        # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
+        # which may not be present  when doing inference
+        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
+
         if not self.was_initialized:
             self.initialize()
 
@@ -841,10 +848,6 @@ class nnUNetTrainer(object):
 
         if self.is_ddp:
             dist.barrier()
-
-        # dataloaders must be instantiated here because they need access to the training data which may not be present
-        # when doing inference
-        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
 
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'), sort_keys=False)
@@ -1286,15 +1289,19 @@ class nnUNetTrainer(object):
 
             self.on_train_epoch_start()
             train_outputs = []
+            st = time()
             for batch_id in range(self.num_iterations_per_epoch):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
+            print('train time', time() - st)
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
+                st = time()
                 for batch_id in range(self.num_val_iterations_per_epoch):
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                print('val time', time() - st)
                 self.on_validation_epoch_end(val_outputs)
 
             self.on_epoch_end()
