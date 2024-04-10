@@ -573,11 +573,14 @@ class nnUNetPredictor(object):
             predicted_logits = torch.zeros((self.label_manager.num_segmentation_heads, *data.shape[1:]),
                                            dtype=torch.half,
                                            device=results_device)
+            n_predictions = torch.zeros(data.shape[1:], dtype=torch.half, device=results_device)
+
             if self.use_gaussian:
                 gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
                                             value_scaling_factor=10,
                                             device=results_device)
-                n_predictions = torch.zeros(data.shape[1:], dtype=torch.half, device=results_device)
+            else:
+                gaussian = 1
 
             if not self.allow_tqdm and self.verbose:
                 print(f'running prediction: {len(slicers)} steps')
@@ -589,11 +592,10 @@ class nnUNetPredictor(object):
 
                 if self.use_gaussian:
                     prediction *= gaussian
-                    n_predictions[sl[1:]] += gaussian
                 predicted_logits[sl] += prediction
+                n_predictions[sl[1:]] += gaussian
 
-            if self.use_gaussian:
-                predicted_logits /= n_predictions
+            predicted_logits /= n_predictions
             # check for infs
             if torch.any(torch.isinf(predicted_logits)):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
