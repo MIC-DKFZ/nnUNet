@@ -272,5 +272,5 @@ def run_training_entry():
 
 
 if __name__ == '__main__':
-    multiprocessing.set_start_method("spawn")
+    # multiprocessing.set_start_method("spawn")
     run_training_entry()
