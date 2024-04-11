@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import socket
 from typing import Union, Optional
@@ -271,4 +272,5 @@ def run_training_entry():
 
 
 if __name__ == '__main__':
+    multiprocessing.set_start_method("spawn")
     run_training_entry()
