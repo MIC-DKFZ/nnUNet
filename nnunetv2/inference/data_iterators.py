@@ -38,7 +38,7 @@ def preprocess_fromfiles_save_to_queue(list_of_lists: List[List[str]],
                 seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
                 data = np.vstack((data, seg_onehot))
 
-            data = torch.from_numpy(data).contiguous().float()
+            data = torch.from_numpy(data).to(dtype=torch.float32, memory_format=torch.contiguous_format)
 
             item = {'data': data, 'data_properties': data_properties,
                     'ofile': output_filenames_truncated[idx] if output_filenames_truncated is not None else None}
@@ -146,9 +146,7 @@ class PreprocessAdapter(DataLoader):
 
     def generate_train_batch(self):
         idx = self.get_indices()[0]
-        files = self._data[idx][0]
-        seg_prev_stage = self._data[idx][1]
-        ofile = self._data[idx][2]
+        files, seg_prev_stage, ofile = self._data[idx][0]
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
@@ -192,10 +190,7 @@ class PreprocessAdapterFromNpy(DataLoader):
 
     def generate_train_batch(self):
         idx = self.get_indices()[0]
-        image = self._data[idx][0]
-        seg_prev_stage = self._data[idx][1]
-        props = self._data[idx][2]
-        ofname = self._data[idx][3]
+        image, seg_prev_stage, props, ofname = self._data[idx][0]
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
@@ -238,7 +233,7 @@ def preprocess_fromnpy_save_to_queue(list_of_images: List[np.ndarray],
                 seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
                 data = np.vstack((data, seg_onehot))
 
-            data = torch.from_numpy(data).contiguous().float()
+            data = torch.from_numpy(data).to(dtype=torch.float32, memory_format=torch.contiguous_format)
 
             item = {'data': data, 'data_properties': list_of_image_properties[idx],
                     'ofile': truncated_ofnames[idx] if truncated_ofnames is not None else None}
