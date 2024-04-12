@@ -41,7 +41,7 @@ def resample_torch(data: Union[torch.Tensor, np.ndarray],
             if is_seg:
                 unique_values = torch.unique(data)
                 result_dtype = torch.int8 if max(unique_values) < 127 else torch.int16
-                result_seg = torch.zeros((data.shape[0], *new_shape), dtype=result_dtype, device=device)
+                result = torch.zeros((data.shape[0], *new_shape), dtype=result_dtype, device=device)
                 if not memefficient_seg_resampling:
                     # believe it or not, the implementation below is 3x as fast (at least on Liver CT and on CPU)
                     # Why? Because argmax is slow. The implementation below immediately sets most locations and only lets the
@@ -53,24 +53,22 @@ def resample_torch(data: Union[torch.Tensor, np.ndarray],
                     #     result[i] = F.interpolate((data[None] == u).float() * 1000, new_shape, mode='trilinear', antialias=False)[0]
                     # result = unique_values[result.argmax(0)]
 
-                    result = torch.zeros((len(unique_values), data.shape[0], *new_shape), dtype=torch.float16, device=device)
+                    result_tmp = torch.zeros((len(unique_values), data.shape[0], *new_shape), dtype=torch.float16, device=device)
                     scale_factor = 1000
-                    done_mask = torch.zeros_like(result_seg, dtype=torch.bool, device=device)
+                    done_mask = torch.zeros_like(result, dtype=torch.bool, device=device)
                     for i, u in enumerate(unique_values):
-                        result[i] = F.interpolate((data[None] == u).float() * scale_factor, new_shape, mode='trilinear', antialias=False)[0]
-                        mask = result[i] > (0.7 * scale_factor)
-                        result_seg[mask] = u.item()
+                        result_tmp[i] = F.interpolate((data[None] == u).float() * scale_factor, new_shape, mode='trilinear', antialias=False)[0]
+                        mask = result_tmp[i] > (0.7 * scale_factor)
+                        result[mask] = u.item()
                         done_mask |= mask
                     if not torch.all(done_mask):
                         # print('resolving argmax', torch.sum(~done_mask), "voxels to go")
-                        result_seg[~done_mask] = unique_values[result[:, ~done_mask].argmax(0)].to(result_dtype)
-                    result = result_seg
+                        result[~done_mask] = unique_values[result_tmp[:, ~done_mask].argmax(0)].to(result_dtype)
                 else:
                     for i, u in enumerate(unique_values):
                         if u == 0:
                             pass
-                        result_seg[F.interpolate((data[None] == u).float(), new_shape, mode='trilinear', antialias=False)[0] > 0.5] = u
-                    result = result_seg
+                        result[F.interpolate((data[None] == u).float(), new_shape, mode='trilinear', antialias=False)[0] > 0.5] = u
             else:
                 result = F.interpolate(data[None].float(), new_shape, mode='trilinear', antialias=False)[0]
             if input_was_numpy:
@@ -86,6 +84,7 @@ if __name__ == '__main__':
     target_shape = (128, 128, 128)
     temp_data = torch.rand((16, 63, 63, 63))
     temp_seg = torch.randint(0, 4, (16, 63, 63, 63))
+
     # temp_seg = torch.zeros((16, 63, 63, 63))
     temp_seg[:, :10, :10, :10] = 1
     temp_seg[:, :10, -10:, :10] = 2
