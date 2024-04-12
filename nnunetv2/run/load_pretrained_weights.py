@@ -1,6 +1,7 @@
 import torch
 from torch._dynamo import OptimizedModule
 from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
 
 
 def load_pretrained_weights(network, fname, verbose=False):
@@ -15,7 +16,10 @@ def load_pretrained_weights(network, fname, verbose=False):
     nnUNetTrainer.save_checkpoint takes care of that!
 
     """
-    saved_model = torch.load(fname)
+    if dist.is_initialized():
+        saved_model = torch.load(fname, map_location=torch.device('cuda', dist.get_rank()))
+    else:
+        saved_model = torch.load(fname)
     pretrained_dict = saved_model['network_weights']
 
     skip_strings_in_pretrained = [

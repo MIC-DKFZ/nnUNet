@@ -55,9 +55,8 @@ class nnUNetPredictor(object):
         self.use_gaussian = use_gaussian
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
-            # device = torch.device(type='cuda', index=0)  # set the desired GPU with CUDA_VISIBLE_DEVICES!
-            pass
-        if device.type != 'cuda':
+            torch.backends.cudnn.benchmark = True
+        else:
             print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_device = False
         self.device = device
@@ -422,6 +421,16 @@ class nnUNetPredictor(object):
                                  output_file_truncated: str = None,
                                  save_or_return_probabilities: bool = False):
         """
+        WARNING: SLOW. ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON.
+
+
+        input_image: Make sure to load the image in the way nnU-Net expects! nnU-Net is trained on a certain axis
+                     ordering which cannot be disturbed in inference,
+                     otherwise you will get bad results. The easiest way to achieve that is to use the same I/O class
+                     for loading images as was used during nnU-Net preprocessing! You can find that class in your
+                     plans.json file under the key "image_reader_writer". If you decide to freestyle, know that the
+                     default axis ordering for medical images is the one from SimpleITK. If you load with nibabel,
+                     you need to transpose your axes AND your spacing from [x,y,z] to [z,y,x]!
         image_properties must only have a 'spacing' key!
         """
         ppa = PreprocessAdapterFromNpy([input_image], [segmentation_previous_stage], [image_properties],
@@ -464,30 +473,28 @@ class nnUNetPredictor(object):
         """
         n_threads = torch.get_num_threads()
         torch.set_num_threads(default_num_processes if default_num_processes < n_threads else n_threads)
-        with torch.no_grad():
-            prediction = None
+        prediction = None
 
-            for params in self.list_of_parameters:
+        for params in self.list_of_parameters:
 
-                # messing with state dict names...
-                if not isinstance(self.network, OptimizedModule):
-                    self.network.load_state_dict(params)
-                else:
-                    self.network._orig_mod.load_state_dict(params)
+            # messing with state dict names...
+            if not isinstance(self.network, OptimizedModule):
+                self.network.load_state_dict(params)
+            else:
+                self.network._orig_mod.load_state_dict(params)
 
-                # why not leave prediction on device if perform_everything_on_device? Because this may cause the
-                # second iteration to crash due to OOM. Grabbing that with try except cause way more bloated code than
-                # this actually saves computation time
-                if prediction is None:
-                    prediction = self.predict_sliding_window_return_logits(data).to('cpu')
-                else:
-                    prediction += self.predict_sliding_window_return_logits(data).to('cpu')
+            # why not leave prediction on device if perform_everything_on_device? Because this may cause the
+            # second iteration to crash due to OOM. Grabbing that with try except cause way more bloated code than
+            # this actually saves computation time
+            if prediction is None:
+                prediction = self.predict_sliding_window_return_logits(data).to('cpu')
+            else:
+                prediction += self.predict_sliding_window_return_logits(data).to('cpu')
 
-            if len(self.list_of_parameters) > 1:
-                prediction /= len(self.list_of_parameters)
+        if len(self.list_of_parameters) > 1:
+            prediction /= len(self.list_of_parameters)
 
-            if self.verbose: print('Prediction done')
-            prediction = prediction.to('cpu')
+        if self.verbose: print('Prediction done')
         torch.set_num_threads(n_threads)
         return prediction
 
@@ -534,11 +541,12 @@ class nnUNetPredictor(object):
             # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
             assert max(mirror_axes) <= x.ndim - 3, 'mirror_axes does not match the dimension of the input!'
 
+            mirror_axes = [m + 2 for m in mirror_axes]
             axes_combinations = [
-                c for i in range(len(mirror_axes)) for c in itertools.combinations([m + 2 for m in mirror_axes], i + 1)
+                c for i in range(len(mirror_axes)) for c in itertools.combinations(mirror_axes, i + 1)
             ]
             for axes in axes_combinations:
-                prediction += torch.flip(self.network(torch.flip(x, (*axes,))), (*axes,))
+                prediction += torch.flip(self.network(torch.flip(x, axes)), axes)
             prediction /= (len(axes_combinations) + 1)
         return prediction
 
@@ -565,21 +573,26 @@ class nnUNetPredictor(object):
                                            dtype=torch.half,
                                            device=results_device)
             n_predictions = torch.zeros(data.shape[1:], dtype=torch.half, device=results_device)
+
             if self.use_gaussian:
                 gaussian = compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
                                             value_scaling_factor=10,
                                             device=results_device)
+            else:
+                gaussian = 1
 
-            if self.verbose: print('running prediction')
-            if not self.allow_tqdm and self.verbose: print(f'{len(slicers)} steps')
+            if not self.allow_tqdm and self.verbose:
+                print(f'running prediction: {len(slicers)} steps')
             for sl in tqdm(slicers, disable=not self.allow_tqdm):
                 workon = data[sl][None]
-                workon = workon.to(self.device, non_blocking=False)
+                workon = workon.to(self.device)
 
                 prediction = self._internal_maybe_mirror_and_predict(workon)[0].to(results_device)
 
-                predicted_logits[sl] += (prediction * gaussian if self.use_gaussian else prediction)
-                n_predictions[sl[1:]] += (gaussian if self.use_gaussian else 1)
+                if self.use_gaussian:
+                    prediction *= gaussian
+                predicted_logits[sl] += prediction
+                n_predictions[sl[1:]] += gaussian
 
             predicted_logits /= n_predictions
             # check for infs
@@ -594,6 +607,7 @@ class nnUNetPredictor(object):
             raise e
         return predicted_logits
 
+    @torch.inference_mode()
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) \
             -> Union[np.ndarray, torch.Tensor]:
         assert isinstance(input_image, torch.Tensor)
@@ -608,38 +622,38 @@ class nnUNetPredictor(object):
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False
         # is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
-        with torch.no_grad():
-            with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-                assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
+        with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
-                if self.verbose: print(f'Input shape: {input_image.shape}')
-                if self.verbose: print("step_size:", self.tile_step_size)
-                if self.verbose: print("mirror_axes:", self.allowed_mirroring_axes if self.use_mirroring else None)
+            if self.verbose: 
+                print(f'Input shape: {input_image.shape}')
+                print("step_size:", self.tile_step_size)
+                print("mirror_axes:", self.allowed_mirroring_axes if self.use_mirroring else None)
 
-                # if input_image is smaller than tile_size we need to pad it to tile_size.
-                data, slicer_revert_padding = pad_nd_image(input_image, self.configuration_manager.patch_size,
-                                                           'constant', {'value': 0}, True,
-                                                           None)
+            # if input_image is smaller than tile_size we need to pad it to tile_size.
+            data, slicer_revert_padding = pad_nd_image(input_image, self.configuration_manager.patch_size,
+                                                       'constant', {'value': 0}, True,
+                                                       None)
 
-                slicers = self._internal_get_sliding_window_slicers(data.shape[1:])
+            slicers = self._internal_get_sliding_window_slicers(data.shape[1:])
 
-                if self.perform_everything_on_device and self.device != 'cpu':
-                    # we need to try except here because we can run OOM in which case we need to fall back to CPU as a results device
-                    try:
-                        predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
-                                                                                               self.perform_everything_on_device)
-                    except RuntimeError:
-                        print(
-                            'Prediction on device was unsuccessful, probably due to a lack of memory. Moving results arrays to CPU')
-                        empty_cache(self.device)
-                        predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, False)
-                else:
+            if self.perform_everything_on_device and self.device != 'cpu':
+                # we need to try except here because we can run OOM in which case we need to fall back to CPU as a results device
+                try:
                     predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
                                                                                            self.perform_everything_on_device)
+                except RuntimeError:
+                    print(
+                        'Prediction on device was unsuccessful, probably due to a lack of memory. Moving results arrays to CPU')
+                    empty_cache(self.device)
+                    predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, False)
+            else:
+                predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
+                                                                                       self.perform_everything_on_device)
 
-                empty_cache(self.device)
-                # revert padding
-                predicted_logits = predicted_logits[tuple([slice(None), *slicer_revert_padding[1:]])]
+            empty_cache(self.device)
+            # revert padding
+            predicted_logits = predicted_logits[(slice(None), *slicer_revert_padding[1:])]
         return predicted_logits
 
 
