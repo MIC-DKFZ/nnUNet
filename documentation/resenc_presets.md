@@ -43,9 +43,9 @@ nnU: whether the architectrue was integrated and tested with the nnU-Net framewo
 ## How to use the new presets
 
 We offer three new presets, each targeted for a different GPU VRAM and compute budget:
-- **nnU-Net ResEnc M**: similar GPU budget to the standard UNet configuration. Best suited for GPUs with 9-11GB VRAM. Training time: ~9h on A100
-- **nnU-Net ResEnc L**: requires a GPU with 24GB VRAM. Training time: ~22.7h on A100
-- **nnU-Net ResEnc XL**: requires a GPU with 40GB VRAM. Training time: ~36.6h on A100
+- **nnU-Net ResEnc M**: similar GPU budget to the standard UNet configuration. Best suited for GPUs with 9-11GB VRAM. Training time: ~12h on A100
+- **nnU-Net ResEnc L**: requires a GPU with 24GB VRAM. Training time: ~35h on A100
+- **nnU-Net ResEnc XL**: requires a GPU with 40GB VRAM. Training time: ~66h on A100
 
 We recommend **nnU-Net ResEnc L** as the new default nnU-Net configuration to try!
 
