@@ -230,7 +230,11 @@ class nnUNetTrainer(object):
                                "That should not happen.")
 
     def _do_i_compile(self):
-        return ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
+        # new default: compile is enabled!
+        if 'nnUNet_compile' not in os.environ.keys():
+            return True
+        else:
+            return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
 
     def _save_debug_information(self):
         # saving some debug information

@@ -49,7 +49,7 @@ def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_nam
 
 def plan_experiment_dataset(dataset_id: int,
                             experiment_planner_class: Type[ExperimentPlanner] = ExperimentPlanner,
-                            gpu_memory_target_in_gb: float = 8, preprocess_class_name: str = 'DefaultPreprocessor',
+                            gpu_memory_target_in_gb: float = None, preprocess_class_name: str = 'DefaultPreprocessor',
                             overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
                             overwrite_plans_name: Optional[str] = None) -> Tuple[dict, str]:
     """
@@ -58,9 +58,10 @@ def plan_experiment_dataset(dataset_id: int,
     kwargs = {}
     if overwrite_plans_name is not None:
         kwargs['plans_name'] = overwrite_plans_name
+    if gpu_memory_target_in_gb is not None:
+        kwargs['gpu_memory_target_in_gb'] = gpu_memory_target_in_gb
 
     planner = experiment_planner_class(dataset_id,
-                                       gpu_memory_target_in_gb=gpu_memory_target_in_gb,
                                        preprocessor_name=preprocess_class_name,
                                        overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
                                        overwrite_target_spacing is not None else overwrite_target_spacing,
@@ -72,7 +73,7 @@ def plan_experiment_dataset(dataset_id: int,
 
 
 def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str = 'ExperimentPlanner',
-                     gpu_memory_target_in_gb: float = 8, preprocess_class_name: str = 'DefaultPreprocessor',
+                     gpu_memory_target_in_gb: float = None, preprocess_class_name: str = 'DefaultPreprocessor',
                      overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
                      overwrite_plans_name: Optional[str] = None):
     """
