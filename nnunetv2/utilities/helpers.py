@@ -18,6 +18,10 @@ def empty_cache(device: torch.device):
     else:
         pass
 
+class DummyMetricWriter():
+    def write_metric(self, x:float|int, string:str):
+        pass
+
 
 class dummy_context(object):
     def __enter__(self):
