@@ -2,7 +2,12 @@
 
 When using these presets, please cite our recent paper on the need for rigorous validation in 3D medical image segmentation:
 
-> TBD
+> Isensee, F.<sup>* </sup>, Wald, T.<sup>* </sup>, Ulrich, C.<sup>* </sup>, Baumgartner, M.<sup>* </sup>, Roy, S., Maier-Hein, K.<sup>†</sup>, Jaeger, P.<sup>†</sup> (2024). nnU-Net Revisited: A Call for Rigorous Validation in 3D Medical Image Segmentation. arXiv preprint arXiv:2404.09556.
+
+*: shared first authors\
+<sup>†</sup>: shared last authors
+
+[PAPER LINK](https://arxiv.org/pdf/2404.09556.pdf)
 
 
 Residual Encoder UNets have been supported by nnU-Net since our participation in KiTS2019, but have flown under the radar.
