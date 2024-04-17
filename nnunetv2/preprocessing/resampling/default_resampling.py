@@ -90,6 +90,9 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     """
     needed for segmentation export. Stupid, I know
     """
+    if isinstance(data, torch.Tensor):
+        data = data.numpy()
+
     do_separate_z, axis = determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing,
                                                       separate_z_anisotropy_threshold)
 
