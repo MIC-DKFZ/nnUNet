@@ -9,7 +9,7 @@ Residual encoder UNet presets substantially improve segmentation performance.
 They ship for a variety of GPU memory targets. It's all awesome stuff, promised! 
 Read more :point_right: [here](documentation/resenc_presets.md) :point_left:
 
-Also check out our new paper (link available soon!) on systematically benchmarking recent developments in medical image segmentation. You might be surprised!
+Also check out our [new paper](https://arxiv.org/pdf/2404.09556.pdf) on systematically benchmarking recent developments in medical image segmentation. You might be surprised!
 
 # What is nnU-Net?
 Image datasets are enormously diverse: image dimensionality (2D, 3D), modalities/input channels (RGB image, CT, MRI, microscopy, ...), 
