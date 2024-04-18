@@ -202,7 +202,7 @@ class nnUNetDatasetBlosc2(object):
         # Compute final block size based on both candidates
         block_size = max_block_size_cand_1 if max_block_size_cand_1 < max_block_size_cand_2 else max_block_size_cand_2
 
-        # Compute maximum recommended chunk size based on L2 cache size
+        # Compute maximum recommended chunk size based on L3 cache size
         max_chunk_size_cand_1 = 0
         chunk_byte_size = 0
         i = 0
@@ -231,6 +231,7 @@ DEFAULT_DATASET_CLASS = nnUNetDatasetNumpy
 
 file_ending_dataset_mapping = {
     'npz': nnUNetDatasetNumpy,
+    'b2nd': nnUNetDatasetBlosc2
 }
 
 
