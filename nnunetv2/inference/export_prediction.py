@@ -8,7 +8,7 @@ from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
 from batchgenerators.utilities.file_and_folder_operations import load_json, isfile, save_pickle
 
 from nnunetv2.configuration import default_num_processes
-from nnunetv2.training.dataloading.nnunet_dataset import DEFAULT_DATASET_CLASS
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -138,7 +138,7 @@ def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: 
         segmentation = segmentation.cpu().numpy()
 
     if dataset_class is None:
-        DEFAULT_DATASET_CLASS.save_seg(segmentation.astype(np.uint8), output_file)
+        nnUNetDatasetBlosc2.save_seg(segmentation.astype(np.uint8), output_file)
     else:
         dataset_class.save_seg(segmentation.astype(np.uint8), output_file)
     torch.set_num_threads(old_threads)

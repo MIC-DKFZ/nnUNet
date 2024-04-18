@@ -133,11 +133,9 @@ class nnUNetDatasetBlosc2(object):
             chunks_seg = chunks
         if blocks_seg is None:
             blocks_seg = blocks
-        if blocks is not None and blocks[0] <= data.shape[0] and blocks[1] <= data.shape[1] and blocks[2] <= data.shape[
-            2]:
-            blosc2.asarray(data, urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks)
-            blosc2.asarray(seg, urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
-            write_pickle(properties, output_filename_truncated + '.pkl')
+        blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks)
+        blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
+        write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
     def save_seg(
@@ -236,7 +234,8 @@ class nnUNetDatasetBlosc2(object):
             estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
             if all([i == j for i, j in zip(chunk_size, image_size)]):
                 break
-        return block_size, chunk_size
+        print(image_size, chunk_size, block_size)
+        return tuple(block_size), tuple(chunk_size)
 
 
 file_ending_dataset_mapping = {

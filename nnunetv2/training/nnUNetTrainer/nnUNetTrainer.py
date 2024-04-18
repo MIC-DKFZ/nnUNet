@@ -225,6 +225,7 @@ class nnUNetTrainer(object):
             self.loss = self._build_loss()
 
             self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
             self.was_initialized = True
         else:
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
@@ -602,6 +603,9 @@ class nnUNetTrainer(object):
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
+        if self.dataset_class is None:
+            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
