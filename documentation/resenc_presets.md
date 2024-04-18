@@ -52,7 +52,7 @@ We offer three new presets, each targeted for a different GPU VRAM and compute b
 - **nnU-Net ResEnc L**: requires a GPU with 24GB VRAM. Training time: ~35h on A100
 - **nnU-Net ResEnc XL**: requires a GPU with 40GB VRAM. Training time: ~66h on A100
 
-### **:point_left: We recommend **nnU-Net ResEnc L** as the new default nnU-Net configuration! :point_right:**
+### **:point_right: We recommend **nnU-Net ResEnc L** as the new default nnU-Net configuration! :point_left:**
 
 The new presets are available as follows ((M/L/XL) = pick one!):
 1. Specify the desired configuration when running experiment planning and preprocessing: 
