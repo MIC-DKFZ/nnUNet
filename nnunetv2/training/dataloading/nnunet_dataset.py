@@ -82,7 +82,7 @@ class nnUNetDatasetNumpy(object):
                        num_processes: int = default_num_processes,
                        verify_npy: bool = True):
         return unpack_dataset(folder, True, overwrite_existing, num_processes, verify_npy)
-    
+
 
 class nnUNetDatasetBlosc2(object):
     def __init__(self, folder: str, identifiers: List[str] = None,
@@ -121,16 +121,17 @@ class nnUNetDatasetBlosc2(object):
             seg: np.ndarray,
             properties: dict,
             output_filename_truncated: str,
-            chunks = None,
-            blocks = None,
-            chunks_seg = None,
-            blocks_seg = None
+            chunks=None,
+            blocks=None,
+            chunks_seg=None,
+            blocks_seg=None
     ):
         if chunks_seg is None:
             chunks_seg = chunks
         if blocks_seg is None:
             blocks_seg = blocks
-        if blocks is not None and blocks[0] <= data.shape[0] and blocks[1] <= data.shape[1] and blocks[2] <= data.shape[2]:
+        if blocks is not None and blocks[0] <= data.shape[0] and blocks[1] <= data.shape[1] and blocks[2] <= data.shape[
+            2]:
             blosc2.asarray(data, urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks)
             blosc2.asarray(seg, urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
             write_pickle(properties, output_filename_truncated + '.pkl')
@@ -139,8 +140,8 @@ class nnUNetDatasetBlosc2(object):
     def save_seg(
             seg: np.ndarray,
             output_filename_truncated: str,
-            chunks_seg = None,
-            blocks_seg = None
+            chunks_seg=None,
+            blocks_seg=None
     ):
         blosc2.asarray(seg, urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
 
@@ -159,7 +160,8 @@ class nnUNetDatasetBlosc2(object):
         pass
 
     @staticmethod
-    def comp_blosc2_params(patch_size, num_channels, data_bit_size, l1_cache_size=32768, l3_cache_size=1441792):  # 11MiB / 8 = 1441792, 64MiB / 12 = 5.767e+6
+    def comp_blosc2_params(patch_size, num_channels, data_bit_size, l1_cache_size=32768,
+                           l3_cache_size=1441792):  # 11MiB / 8 = 1441792, 64MiB / 12 = 5.767e+6
         """
         Computes a recommended block and chunk size for saving arrays with blosc v2.
 
@@ -183,17 +185,19 @@ class nnUNetDatasetBlosc2(object):
         i = 0
         while block_byte_size < l1_cache_size:
             i += 1
-            max_block_size_cand_1 = 2**i
-            block_byte_size = nnUNetDatasetBlosc2.comp_data_byte_size([max_block_size_cand_1] * len(patch_size), num_channels, data_bit_size)
-        max_block_size_cand_1 = 2**(i-1)
+            max_block_size_cand_1 = 2 ** i
+            block_byte_size = nnUNetDatasetBlosc2.comp_data_byte_size([max_block_size_cand_1] * len(patch_size),
+                                                                      num_channels, data_bit_size)
+        max_block_size_cand_1 = 2 ** (i - 1)
 
         # Compute maximum block size candidate based on patch size
         max_block_size_cand_2 = 0
         i = 0
-        while max_block_size_cand_2 < (patch_size[0] / 2):  # Block size should be smaller than the patch size. Value 2 might be changed in the future.
+        while max_block_size_cand_2 < (patch_size[
+                                           0] / 2):  # Block size should be smaller than the patch size. Value 2 might be changed in the future.
             i += 1
-            max_block_size_cand_2 = 2**i
-        max_block_size_cand_2 = 2**(i-1)
+            max_block_size_cand_2 = 2 ** i
+        max_block_size_cand_2 = 2 ** (i - 1)
 
         # Compute final block size based on both candidates
         block_size = max_block_size_cand_1 if max_block_size_cand_1 < max_block_size_cand_2 else max_block_size_cand_2
@@ -204,21 +208,23 @@ class nnUNetDatasetBlosc2(object):
         i = 0
         while chunk_byte_size < l3_cache_size:
             i += 1
-            max_chunk_size_cand_1 = 2**i
-            chunk_byte_size = nnUNetDatasetBlosc2.comp_data_byte_size([max_chunk_size_cand_1] * len(patch_size), num_channels, data_bit_size)
-        max_chunk_size_cand_1 = 2**(i-1)
+            max_chunk_size_cand_1 = 2 ** i
+            chunk_byte_size = nnUNetDatasetBlosc2.comp_data_byte_size([max_chunk_size_cand_1] * len(patch_size),
+                                                                      num_channels, data_bit_size)
+        max_chunk_size_cand_1 = 2 ** (i - 1)
 
         # Compute maximum block size candidate based on patch size
-        max_chunk_size_cand_2 = 2**int(math.log2(block_size)+3)  # Chunk size should not be extremly larger than the block size. Value 3 might be changed in the future.
+        max_chunk_size_cand_2 = 2 ** int(math.log2(
+            block_size) + 3)  # Chunk size should not be extremly larger than the block size. Value 3 might be changed in the future.
 
         # Compute final chunk size based on both candidates
         chunk_size = max_chunk_size_cand_1 if max_chunk_size_cand_1 < max_chunk_size_cand_2 else max_chunk_size_cand_2
 
-        return block_size, chunk_size    
+        return block_size, chunk_size
 
     @staticmethod
     def comp_data_byte_size(shape, num_channels, data_bit_size):
-        return int(np.prod(shape)*num_channels*data_bit_size/8)
+        return int(np.prod(shape) * num_channels * data_bit_size / 8)
 
 
 DEFAULT_DATASET_CLASS = nnUNetDatasetNumpy
