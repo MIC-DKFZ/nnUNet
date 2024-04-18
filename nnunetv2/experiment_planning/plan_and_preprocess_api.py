@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Type, Optional, Tuple, Union
 
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, load_json
@@ -79,6 +80,12 @@ def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str 
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
+    if experiment_planner_class_name == 'ExperimentPlanner':
+        print("\n############################\n"
+              "INFO: You are using the old nnU-Net default planner. We have updated our recommendations. "
+              "Please consider using those instead! "
+              "Read more here: https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/resenc_presets.md"
+              "\n############################\n")
     experiment_planner = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
                                                      experiment_planner_class_name,
                                                      current_module="nnunetv2.experiment_planning")

@@ -4,7 +4,7 @@ Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looki
 
 Coming from V1? Check out the [TLDR Migration Guide](documentation/tldr_migration_guide_from_v1.md). Reading the rest of the documentation is still strongly recommended ;-)
 
-## **2024-04-12 UPDATE: New residual encoder UNet presets available!**
+## **2024-04-18 UPDATE: New residual encoder UNet presets available!**
 Residual encoder UNet presets substantially improve segmentation performance.
 They ship for a variety of GPU memory targets. It's all awesome stuff, promised! 
 Read more :point_right: [here](documentation/resenc_presets.md) :point_left:
