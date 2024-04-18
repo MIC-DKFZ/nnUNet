@@ -40,7 +40,7 @@ they offer improved segmentation performance!
 Results taken from our paper (see above), reported values are Dice scores computed over 5-fold cross-validation on each 
 dataset. All models trained from scratch.
 
-RT: run time (measured on 1x Nvidia A100 PCIe 40GB)\
+RT: training run time (measured on 1x Nvidia A100 PCIe 40GB)\
 VRAM: GPU VRAM used during training, as reported by nvidia-smi\
 Arch.: CNN = convolutional neural network; TF = transformer; Mam = Mamba\
 nnU: whether the architectrue was integrated and tested with the nnU-Net framework (either by us or the original authors)
@@ -66,6 +66,44 @@ consistent across all nnU-Net commands: `-p nnUNetResEncUNet(M/L/XL)Plans`
 
 Training results for the new presets will be stored in a dedicated folder and will not overwrite standard nnU-Net 
 results! So don't be afraid to give it a go!
+
+## Scaling ResEnc nnU-Net beyond the Presets
+The presets differ from `ResEncUNetPlanner` in two ways:
+- They set new default values for `gpu_memory_target_in_gb` to target the respective VRAM consumptions
+- They remove the batch size cap of 0.05 (= previously one batch could not cover mode pixels than 5% of the entire dataset, not it can be arbitrarily large)
+
+The preset are merely there ot make life easier, and to provide standardized configurations people can benchmark with.
+You can easily adapt the GPU memory target to match your GPU, and to scale beyond 40GB of GPU memory. 
+
+Here is an example for how to scale to 80GB VRAM on Dataset003_Liver:
+
+`nnUNetv2_plan_experiment -d 3 -pl nnUNetPlannerResEncM -gpu_memory_target 80 -overwrite_plans_name nnUNetResEncUNetPlans_80G`
+
+Just use `-p nnUNetResEncUNetPlans_80G` moving forward as outlined above! Running the example above will yield a 
+warning ("You are running nnUNetPlannerM with a non-standard gpu_memory_target_in_gb"). This warning can be ignored here.
+**Always change the plans identifier with `-overwrite_plans_name NEW_PLANS_NAME` when messing with the VRAM target in 
+order to not overwrite preset plans!**
+
+Why not use `ResEncUNetPlanner` -> because that one still has the 5% cap in place!
+
+### Scaling to multiple GPUs
+When scaling to multiple GPUs, do not just specify the combined amount of VRAM to `nnUNetv2_plan_experiment` as this 
+may result in patch sizes that are too large to be processed by individual GPUs. It is best to let this command run for 
+the VRAM budget of one GPU, and then manually edit the plans file to increase the batch size. You can use [configuration inheritance](explanation_plans_files.md).
+In the configurations dictionary of the generated plans JSON file, add the following entry:
+
+```json
+        "3d_fullres_bsXX": {
+            "inherits_from": "3d_fullres",
+            "batch_size": XX
+        },
+```
+Where XX is the new batch size. If 3d_fullres has a batch size of 2 for one GPU and you are planning to scale to 8 GPUs, make the new batch size 2x8=16!
+You can then train the new configuration using nnU-Net's multi-GPU settings:
+
+```bash
+nnUNetv2_train DATASETID 3d_fullres_bsXX FOLD -p nnUNetResEncUNetPlans_80G -num_gpus 8
+```
 
 ## Proposing a new segmentation method? Benchmark the right way!
 When benchmarking new segmentation methods against nnU-Net, we encourage to benchmark against the residual encoder 
