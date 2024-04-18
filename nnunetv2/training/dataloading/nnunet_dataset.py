@@ -6,6 +6,7 @@ from typing import List, Union, Type, Tuple
 import numpy as np
 import blosc2
 import shutil
+from blosc2 import Filter, Codec
 
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile, write_pickle, subfiles
 from nnunetv2.configuration import default_num_processes
@@ -133,6 +134,7 @@ class nnUNetDatasetBlosc2(object):
             chunks_seg = chunks
         if blocks_seg is None:
             blocks_seg = blocks
+
         blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks)
         blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
@@ -218,6 +220,8 @@ class nnUNetDatasetBlosc2(object):
             block_size[picked_axis + 1] = 2**(max(0, math.floor(math.log2(block_size[picked_axis + 1] - 1))))
             estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
 
+        # note: there is no use extending the chunk size to 3d when we have a 2d patch size! This would unnecessarily
+        # load data into L3
         # now tile the blocks into chunks until we hit image_size or the l3 cache per core limit
         chunk_size = deepcopy(block_size)
         estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
@@ -226,12 +230,15 @@ class nnUNetDatasetBlosc2(object):
             axis_order = np.argsort(chunk_size[1:] / block_size[1:])
             idx = 0
             picked_axis = axis_order[idx]
-            while chunk_size[picked_axis + 1] == image_size[picked_axis + 1]:
+            while chunk_size[picked_axis + 1] == image_size[picked_axis + 1] or patch_size[picked_axis] == 1:
                 idx += 1
                 picked_axis = axis_order[idx]
             chunk_size[picked_axis + 1] += block_size[picked_axis + 1]
             chunk_size[picked_axis + 1] = min(chunk_size[picked_axis + 1], image_size[picked_axis + 1])
             estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
+            if patch_size[0] == 1:
+                if all([i == j for i, j in zip(chunk_size[2:], image_size[2:])]):
+                    break
             if all([i == j for i, j in zip(chunk_size, image_size)]):
                 break
         print(image_size, chunk_size, block_size)

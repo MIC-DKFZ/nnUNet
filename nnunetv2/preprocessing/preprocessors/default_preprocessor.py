@@ -145,6 +145,8 @@ class DefaultPreprocessor(object):
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager,
                       dataset_json: Union[dict, str]):
         data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
+        data = data.astype(np.float32, copy=False)
+        seg = seg.astype(np.int16, copy=False)
         # print('dtypes', data.dtype, seg.dtype)
         block_size_data, chunk_size_data = nnUNetDatasetBlosc2.comp_blosc2_params(
             data.shape,
@@ -154,8 +156,7 @@ class DefaultPreprocessor(object):
             data.shape,
             tuple(configuration_manager.patch_size),
             seg.itemsize)
-        # chunk_size_data = chunk_size_seg = (1, 64, 64, 64)
-        # block_size_data = block_size_seg = (1, 16, 16, 16)
+
         nnUNetDatasetBlosc2.save_case(data, seg, properties, output_filename_truncated,
                                       chunks=chunk_size_data, blocks=block_size_data,
                                       chunks_seg=chunk_size_seg, blocks_seg=block_size_seg)
