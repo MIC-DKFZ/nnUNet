@@ -262,6 +262,7 @@ class DefaultPreprocessor(object):
                                            'reducing the number of workers might help')
                     done = [i for i in remaining if r[i].ready()]
                     for _ in done:
+                        r[_].get()  # allows triggering errors
                         pbar.update()
                     remaining = [i for i in remaining if i not in done]
                     sleep(0.1)
