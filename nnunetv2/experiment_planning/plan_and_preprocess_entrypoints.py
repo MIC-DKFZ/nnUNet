@@ -37,11 +37,12 @@ def plan_experiment_entry():
                         help='[OPTIONAL] Name of the Experiment Planner class that should be used. Default is '
                              '\'ExperimentPlanner\'. Note: There is no longer a distinction between 2d and 3d planner. '
                              'It\'s an all in one solution now. Wuch. Such amazing.')
-    parser.add_argument('-gpu_memory_target', default=8, type=float, required=False,
-                        help='[OPTIONAL] DANGER ZONE! Sets a custom GPU memory target. Default: 8 [GB]. Changing this will '
+    parser.add_argument('-gpu_memory_target', default=None, type=float, required=False,
+                        help='[OPTIONAL] DANGER ZONE! Sets a custom GPU memory target (in GB). Default: None (=Planner '
+                             'class default is used). Changing this will '
                              'affect patch and batch size and will '
                              'definitely affect your models performance! Only use this if you really know what you '
-                             'are doing and NEVER use this without running the default nnU-Net first (as a baseline).')
+                             'are doing and NEVER use this without running the default nnU-Net first as a baseline.')
     parser.add_argument('-preprocessor_name', default='DefaultPreprocessor', type=str, required=False,
                         help='[OPTIONAL] DANGER ZONE! Sets a custom preprocessor class. This class must be located in '
                              'nnunetv2.preprocessing. Default: \'DefaultPreprocessor\'. Changing this may affect your '
@@ -131,11 +132,12 @@ def plan_and_preprocess_entry():
                         help='[OPTIONAL] Name of the Experiment Planner class that should be used. Default is '
                              '\'ExperimentPlanner\'. Note: There is no longer a distinction between 2d and 3d planner. '
                              'It\'s an all in one solution now. Wuch. Such amazing.')
-    parser.add_argument('-gpu_memory_target', default=8, type=int, required=False,
-                        help='[OPTIONAL] DANGER ZONE! Sets a custom GPU memory target. Default: 8 [GB]. Changing this will '
+    parser.add_argument('-gpu_memory_target', default=None, type=float, required=False,
+                        help='[OPTIONAL] DANGER ZONE! Sets a custom GPU memory target (in GB). Default: None (=Planner '
+                             'class default is used). Changing this will '
                              'affect patch and batch size and will '
                              'definitely affect your models performance! Only use this if you really know what you '
-                             'are doing and NEVER use this without running the default nnU-Net first (as a baseline).')
+                             'are doing and NEVER use this without running the default nnU-Net first as a baseline.')
     parser.add_argument('-preprocessor_name', default='DefaultPreprocessor', type=str, required=False,
                         help='[OPTIONAL] DANGER ZONE! Sets a custom preprocessor class. This class must be located in '
                              'nnunetv2.preprocessing. Default: \'DefaultPreprocessor\'. Changing this may affect your '
@@ -183,7 +185,8 @@ def plan_and_preprocess_entry():
 
     # experiment planning
     print('Experiment planning...')
-    plans_identifier = plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name, args.overwrite_target_spacing, args.overwrite_plans_name)
+    plans_identifier = plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name,
+                                        args.overwrite_target_spacing, args.overwrite_plans_name)
 
     # manage default np
     if args.np is None:
