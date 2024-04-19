@@ -57,7 +57,7 @@ def convert_folder_with_preds_back_to_BraTS_labeling_convention(input_folder: st
 
 
 if __name__ == '__main__':
-    brats_data_dir = '/home/isensee/drives/E132-Rohdaten/BraTS_2021/training'
+    brats_data_dir = '/home/stud/strasser/data/raw_downloaded_data'
 
     task_id = 137
     task_name = "BraTS2021"
