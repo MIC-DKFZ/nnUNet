@@ -127,7 +127,9 @@ class nnUNetDatasetBlosc2(object):
             chunks=None,
             blocks=None,
             chunks_seg=None,
-            blocks_seg=None
+            blocks_seg=None,
+            clevel: int = 5,
+            codec = blosc2.Codec.BLOSCLZ
     ):
         blosc2.set_nthreads(1)
         if chunks_seg is None:
@@ -135,8 +137,16 @@ class nnUNetDatasetBlosc2(object):
         if blocks_seg is None:
             blocks_seg = blocks
 
-        blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks)
-        blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
+        cparams = {
+            'codec': codec,
+            # 'filters': [blosc2.Filter.SHUFFLE],
+            # 'splitmode': blosc2.SplitMode.ALWAYS_SPLIT,
+            'clevel': clevel,
+            # 'tuner': blosc2.Tuner.BTUNE
+        }
+        print(data.shape, blocks, chunks)
+        blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks, cparams=cparams)
+        blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg, cparams=cparams)
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
@@ -241,7 +251,7 @@ class nnUNetDatasetBlosc2(object):
                     break
             if all([i == j for i, j in zip(chunk_size, image_size)]):
                 break
-        print(image_size, chunk_size, block_size)
+        # print(image_size, chunk_size, block_size)
         return tuple(block_size), tuple(chunk_size)
 
 
