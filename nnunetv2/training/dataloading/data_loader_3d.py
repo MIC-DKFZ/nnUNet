@@ -47,7 +47,7 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             data_all[j] = np.pad(data, padding, 'constant', constant_values=0)
             seg_all[j] = np.pad(seg, padding, 'constant', constant_values=-1)
 
-        return {'data': data_all, 'seg': seg_all, 'properties': case_properties, 'keys': selected_keys}
+        return {'data': data_all, 'seg': seg_all, 'keys': selected_keys}
 
 
 if __name__ == '__main__':
