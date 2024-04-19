@@ -1,6 +1,7 @@
 import os
 import warnings
 from copy import deepcopy
+from functools import lru_cache
 from typing import List, Union, Type, Tuple
 
 import numpy as np
@@ -49,10 +50,11 @@ class nnUNetDatasetNumpy(object):
                 seg_prev = np.load(prev_seg_npy_file, 'r')
             else:
                 seg_prev = np.load(join(self.folder_with_segs_from_previous_stage, identifier + '.npz'))['seg']
-            seg = np.vstack((seg, seg_prev[None]))
+        else:
+            seg_prev = None
 
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
-        return data, seg, properties
+        return data, seg, seg_prev, properties
 
     @staticmethod
     def save_case(
@@ -113,10 +115,11 @@ class nnUNetDatasetBlosc2(object):
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_b2nd_file = join(self.folder_with_segs_from_previous_stage, identifier + '.b2nd')
             seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r')
-            seg = np.vstack((seg, seg_prev[None]))
+        else:
+            seg_prev = None
 
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
-        return data, seg, properties
+        return data, seg, seg_prev, properties
 
     @staticmethod
     def save_case(
@@ -128,8 +131,8 @@ class nnUNetDatasetBlosc2(object):
             blocks=None,
             chunks_seg=None,
             blocks_seg=None,
-            clevel: int = 5,
-            codec = blosc2.Codec.BLOSCLZ
+            clevel: int = 8,
+            codec=blosc2.Codec.ZSTD
     ):
         blosc2.set_nthreads(1)
         if chunks_seg is None:
@@ -142,9 +145,8 @@ class nnUNetDatasetBlosc2(object):
             # 'filters': [blosc2.Filter.SHUFFLE],
             # 'splitmode': blosc2.SplitMode.ALWAYS_SPLIT,
             'clevel': clevel,
-            # 'tuner': blosc2.Tuner.BTUNE
         }
-        print(data.shape, blocks, chunks)
+        # print(output_filename_truncated, data.shape, seg.shape, blocks, chunks, blocks_seg, chunks_seg)
         blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks, cparams=cparams)
         blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg, cparams=cparams)
         write_pickle(properties, output_filename_truncated + '.pkl')
@@ -156,7 +158,7 @@ class nnUNetDatasetBlosc2(object):
             chunks_seg=None,
             blocks_seg=None
     ):
-        blosc2.asarray(seg, urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg)
+        blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg)
 
     @staticmethod
     def get_identifiers(folder: str) -> List[str]:
@@ -223,12 +225,15 @@ class nnUNetDatasetBlosc2(object):
             axis_order = np.argsort(block_size[1:] / patch_size)[::-1]
             idx = 0
             picked_axis = axis_order[idx]
-            while block_size[picked_axis + 1] == 1:
+            while block_size[picked_axis + 1] == 1 or block_size[picked_axis + 1] == image_size[picked_axis + 1]:
                 idx += 1
                 picked_axis = axis_order[idx]
             # now reduce that axis to the next lowest power of 2
             block_size[picked_axis + 1] = 2**(max(0, math.floor(math.log2(block_size[picked_axis + 1] - 1))))
+            block_size[picked_axis + 1] = min(block_size[picked_axis + 1], image_size[picked_axis + 1])
             estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
+            if all([i == j for i, j in zip(block_size, image_size)]):
+                break
 
         # note: there is no use extending the chunk size to 3d when we have a 2d patch size! This would unnecessarily
         # load data into L3

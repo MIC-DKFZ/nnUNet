@@ -15,7 +15,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
             # (Lung for example)
             force_fg = self.get_do_oversample(j)
-            data, seg, properties = self._data.load_case(current_key)
+            data, seg, seg_prev, properties = self._data.load_case(current_key)
             case_properties.append(properties)
 
             # select a class/region first, then a slice where this class is present, then crop to that area
@@ -76,6 +76,10 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
             this_slice = tuple([slice(0, seg.shape[0])] + [selected_slice] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             seg = seg[this_slice]
+            if seg_prev is not None:
+                this_slice = tuple([slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+                seg_prev = seg_prev[this_slice]
+                seg = np.vstack((seg, seg_prev[None]))
 
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
             data_all[j] = np.pad(data, ((0, 0), *padding), 'constant', constant_values=0)

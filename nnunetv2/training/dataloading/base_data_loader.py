@@ -54,11 +54,14 @@ class nnUNetDataLoaderBase(DataLoader):
 
     def determine_shapes(self):
         # load one case
-        data, seg, properties = self._data.load_case(self._data.identifiers[0])
+        data, seg, seg_prev, properties = self._data.load_case(self._data.identifiers[0])
         num_color_channels = data.shape[0]
 
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
-        seg_shape = (self.batch_size, seg.shape[0], *self.patch_size)
+        channels_seg = seg.shape[0]
+        if seg_prev is not None:
+            channels_seg += 1
+        seg_shape = (self.batch_size, channels_seg, *self.patch_size)
         return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],

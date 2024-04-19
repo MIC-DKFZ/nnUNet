@@ -16,7 +16,7 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             # (Lung for example)
             force_fg = self.get_do_oversample(j)
 
-            data, seg, properties = self._data.load_case(i)
+            data, seg, seg_prev, properties = self._data.load_case(i)
             case_properties.append(properties)
 
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
@@ -41,6 +41,10 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
 
             this_slice = tuple([slice(0, seg.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             seg = seg[this_slice]
+            if seg_prev is not None:
+                this_slice = tuple([slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+                seg_prev = seg_prev[this_slice]
+                seg = np.vstack((seg, seg_prev[None]))
 
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
             padding = ((0, 0), *padding)
