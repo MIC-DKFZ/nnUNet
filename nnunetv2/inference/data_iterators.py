@@ -146,7 +146,7 @@ class PreprocessAdapter(DataLoader):
 
     def generate_train_batch(self):
         idx = self.get_indices()[0]
-        files, seg_prev_stage, ofile = self._data[idx][0]
+        files, seg_prev_stage, ofile = self._data[idx]
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
@@ -190,7 +190,7 @@ class PreprocessAdapterFromNpy(DataLoader):
 
     def generate_train_batch(self):
         idx = self.get_indices()[0]
-        image, seg_prev_stage, props, ofname = self._data[idx][0]
+        image, seg_prev_stage, props, ofname = self._data[idx]
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
