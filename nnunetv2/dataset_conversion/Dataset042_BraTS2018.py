@@ -58,10 +58,10 @@ def convert_folder_with_preds_back_to_BraTS_labeling_convention(input_folder: st
 
 
 if __name__ == '__main__':
-    brats_data_dir = '/home/stud/strasser/archive/brats2019/MICCAI_BraTS_2019_Data_Training'
+    brats_data_dir = '/home/stud/strasser/archive/brats2018/MICCAI_BraTS_2018_Data_Training'
 
-    task_id = 43
-    task_name = "BraTS2019"
+    task_id = 42
+    task_name = "BraTS2018"
 
     foldername = "Dataset%03.0d_%s" % (task_id, task_name)
 
@@ -72,8 +72,8 @@ if __name__ == '__main__':
     maybe_mkdir_p(imagestr)
     maybe_mkdir_p(labelstr)
 
-    case_ids_hgg = subdirs(join(brats_data_dir, "HGG"), prefix='BraTS', join=False)
-    case_ids_lgg = subdirs(join(brats_data_dir, "LGG"), prefix="BraTS", join=False)
+    case_ids_hgg = subdirs(join(brats_data_dir, "HGG"), prefix='Brats', join=False)
+    case_ids_lgg = subdirs(join(brats_data_dir, "LGG"), prefix="Brats", join=False)
 
     print("copying hggs")
     for c in tqdm(case_ids_hgg):
@@ -102,7 +102,7 @@ if __name__ == '__main__':
                               'tumor core': (2, 3),
                               'enhancing tumor': (3, )
                           },
-                          num_training_cases=(len(case_ids_hgg) + len(case_ids_lgg)),
+                          num_training_cases=(len(case_ids_lgg) + len(case_ids_hgg)),
                           file_ending='.nii',
                           regions_class_order=(1, 2, 3),
                           license='see https://www.synapse.org/#!Synapse:syn25829067/wiki/610863',
