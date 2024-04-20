@@ -151,7 +151,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
         dtype_out = data.dtype
     reshaped_final = np.zeros((data.shape[0], *new_shape), dtype=dtype_out)
     if np.any(shape != new_shape):
-        data = data.astype(float)
+        data = data.astype(float, copy=False)
         if do_separate_z:
             # print("separate z, order in z is", order_z, "order inplane is", order)
             assert len(axis) == 1, "only one anisotropic axis supported"
