@@ -68,9 +68,9 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
                 del segs, images
             if torch is not None:
                 torch.set_num_threads(torch_nthreads)
-            return {'data': data_all, 'target': seg_all, 'properties': case_properties, 'keys': selected_keys}
+            return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
-        return {'data': data_all, 'seg': seg_all, 'properties': case_properties, 'keys': selected_keys}
+        return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
 
 if __name__ == '__main__':
