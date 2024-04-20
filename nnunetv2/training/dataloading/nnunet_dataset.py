@@ -106,15 +106,18 @@ class nnUNetDatasetBlosc2(object):
         return self.load_case(identifier)
 
     def load_case(self, identifier):
+        dparams = {
+            'nthreads': 1
+        }
         data_b2nd_file = join(self.source_folder, identifier + '.b2nd')
-        data = blosc2.open(urlpath=data_b2nd_file, mode='r')
+        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams)
 
         seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
-        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r')
+        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams)
 
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_b2nd_file = join(self.folder_with_segs_from_previous_stage, identifier + '.b2nd')
-            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r')
+            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams)
         else:
             seg_prev = None
 
