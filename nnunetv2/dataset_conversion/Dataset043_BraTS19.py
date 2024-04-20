@@ -102,7 +102,7 @@ if __name__ == '__main__':
                               'tumor core': (2, 3),
                               'enhancing tumor': (3, )
                           },
-                          num_training_cases=len(case_ids),
+                          num_training_cases=(len(case_ids_hgg) + len(case_ids_lgg)),
                           file_ending='.nii.gz',
                           regions_class_order=(1, 2, 3),
                           license='see https://www.synapse.org/#!Synapse:syn25829067/wiki/610863',
