@@ -544,6 +544,9 @@ class nnUNetTrainer(object):
         use a random 80:20 data split.
         :return:
         """
+        if self.dataset_class is None:
+            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
         if self.fold == "all":
             # if fold==all then we use all images for training and validation
             case_identifiers = self.dataset_class.get_identifiers(self.preprocessed_dataset_folder)

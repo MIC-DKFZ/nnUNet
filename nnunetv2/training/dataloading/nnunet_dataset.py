@@ -165,7 +165,7 @@ class nnUNetDatasetBlosc2(object):
         """
         returns all identifiers in the preprocessed data folder
         """
-        case_identifiers = [i[:-5] for i in os.listdir(folder) if i.endswith("b2nd")]
+        case_identifiers = [i[:-5] for i in os.listdir(folder) if i.endswith(".b2nd") and not i.endswith("_seg.b2nd")]
         return case_identifiers
 
     @staticmethod
