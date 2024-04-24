@@ -14,7 +14,7 @@
 import multiprocessing
 import shutil
 from time import sleep
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
