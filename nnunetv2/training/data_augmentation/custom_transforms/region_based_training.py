@@ -26,9 +26,7 @@ class ConvertSegmentationToRegionsTransform(AbstractTransform):
             b, c, *shape = seg.shape
             region_output = np.zeros((b, len(self.regions), *shape), dtype=bool)
             for region_id, region_labels in enumerate(self.regions):
-                if not isinstance(region_labels, (list, tuple)):
-                    region_labels = (region_labels, )
-                for label_value in region_labels:
-                    region_output[:, region_id] |= (seg[:, self.seg_channel] == label_value)
+                region_output[:, region_id] |= np.isin(seg[:, self.seg_channel], region_labels)
             data_dict[self.output_key] = region_output.astype(np.uint8, copy=False)
         return data_dict
+
