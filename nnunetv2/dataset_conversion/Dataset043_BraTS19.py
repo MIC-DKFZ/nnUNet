@@ -1,6 +1,5 @@
 import multiprocessing
 import shutil
-from multiprocessing import Pool
 
 import SimpleITK as sitk
 import numpy as np
@@ -47,7 +46,8 @@ def load_convert_labels_back_to_BraTS(filename, input_folder, output_folder):
     sitk.WriteImage(d, join(output_folder, filename))
 
 
-def convert_folder_with_preds_back_to_BraTS_labeling_convention(input_folder: str, output_folder: str, num_processes: int = 12):
+def convert_folder_with_preds_back_to_BraTS_labeling_convention(input_folder: str, output_folder: str,
+                                                                num_processes: int = 12):
     """
     reads all prediction files (nifti) in the input folder, converts the labels back to BraTS convention and saves the
     """
@@ -58,7 +58,7 @@ def convert_folder_with_preds_back_to_BraTS_labeling_convention(input_folder: st
 
 
 if __name__ == '__main__':
-    brats_data_dir = '/home/stud/strasser/archive/brats2019/MICCAI_BraTS_2019_Data_Training'
+    brats_data_dir = ...
 
     task_id = 43
     task_name = "BraTS2019"
@@ -100,7 +100,7 @@ if __name__ == '__main__':
                               'background': 0,
                               'whole tumor': (1, 2, 3),
                               'tumor core': (2, 3),
-                              'enhancing tumor': (3, )
+                              'enhancing tumor': (3,)
                           },
                           num_training_cases=(len(case_ids_hgg) + len(case_ids_lgg)),
                           file_ending='.nii',
