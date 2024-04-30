@@ -93,7 +93,7 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         if not np.allclose(affine_image, affine_seg):
             print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
                   'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
-                  'nnUNet_plot_dataset_pngs to verify if everything is OK!\n'
+                  'nnUNetv2_plot_overlay_pngs to verify if everything is OK!\n'
                   % (affine_image, affine_seg, image_files, label_file))
 
     # sitk checks
