@@ -148,7 +148,7 @@ class JHUPredictor(nnUNetPredictor):
 
 
 if __name__ == '__main__':
-    # /home/isensee/Downloads/jhu_preliminary_trained_model/nnUNetTrainer_fasterDA_minVal_float16data__nnUNetResEncUNetLPlans_torchres__3d_fullres
+    # /home/isensee/JHU_trained_model
     # /home/isensee/Downloads/AbdomenAtlasTest
     # /home/isensee/Downloads/AbdomenAtlasTest_pred
 
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     predictor.initialize_from_trained_model_folder(
         args.model,
         ('all', ),
-        'checkpoint_anon.pth'  # TODO update
+        'checkpoint_latest.pth'
     )
 
     # we need to create list of list of input files
@@ -187,8 +187,8 @@ if __name__ == '__main__':
         output_folders,
         save_probabilities=False,
         overwrite=True,
-        num_processes_preprocessing=3,
-        num_processes_segmentation_export=6,
+        num_processes_preprocessing=2,
+        num_processes_segmentation_export=3,
         folder_with_segs_from_prev_stage=None,
         num_parts=1,
         part_id=0
