@@ -15,6 +15,7 @@ from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAu
 from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+from batchgeneratorsv2.helpers.scalar_type import RandomScalar
 from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
 from batchgeneratorsv2.transforms.intensity.brightness import MultiplicativeBrightnessTransform
 from batchgeneratorsv2.transforms.intensity.contrast import ContrastTransform, BGContrast
@@ -384,6 +385,9 @@ class nnUNetTrainer(object):
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
 
+        if self._do_i_compile():
+            loss.dc = torch.compile(loss.dc)
+
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
         # this gives higher resolution outputs more weight in the loss
 
@@ -402,6 +406,7 @@ class nnUNetTrainer(object):
             weights = weights / weights.sum()
             # now wrap the loss
             loss = DeepSupervisionWrapper(loss, weights)
+
         return loss
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -415,17 +420,9 @@ class nnUNetTrainer(object):
             do_dummy_2d_data_aug = False
             # todo revisit this parametrization
             if max(patch_size) / min(patch_size) > 1.5:
-                rotation_for_DA = {
-                    'x': (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
-                    'y': (0, 0),
-                    'z': (0, 0)
-                }
+                rotation_for_DA = (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi)
             else:
-                rotation_for_DA = {
-                    'x': (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi),
-                    'y': (0, 0),
-                    'z': (0, 0)
-                }
+                rotation_for_DA = (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi)
             mirror_axes = (0, 1)
         elif dim == 3:
             # todo this is not ideal. We could also have patch_size (64, 16, 128) in which case a full 180deg 2d rot would be bad
@@ -433,17 +430,9 @@ class nnUNetTrainer(object):
             do_dummy_2d_data_aug = (max(patch_size) / patch_size[0]) > ANISO_THRESHOLD
             if do_dummy_2d_data_aug:
                 # why do we rotate 180 deg here all the time? We should also restrict it
-                rotation_for_DA = {
-                    'x': (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi),
-                    'y': (0, 0),
-                    'z': (0, 0)
-                }
+                rotation_for_DA = (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi)
             else:
-                rotation_for_DA = {
-                    'x': (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi),
-                    'y': (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi),
-                    'z': (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi),
-                }
+                rotation_for_DA = (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi)
             mirror_axes = (0, 1, 2)
         else:
             raise RuntimeError()
@@ -451,7 +440,9 @@ class nnUNetTrainer(object):
         # todo this function is stupid. It doesn't even use the correct scale range (we keep things as they were in the
         #  old nnunet for now)
         initial_patch_size = get_patch_size(patch_size[-dim:],
-                                            *rotation_for_DA.values(),
+                                            rotation_for_DA,
+                                            rotation_for_DA,
+                                            rotation_for_DA,
                                             (0.85, 1.25))
         if do_dummy_2d_data_aug:
             initial_patch_size[0] = patch_size[0]
@@ -632,7 +623,6 @@ class nnUNetTrainer(object):
         # training pipeline
         tr_transforms = self.get_training_transforms(
             patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
-            order_resampling_data=3, order_resampling_seg=1,
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
@@ -697,13 +687,10 @@ class nnUNetTrainer(object):
     @staticmethod
     def get_training_transforms(
             patch_size: Union[np.ndarray, Tuple[int]],
-            rotation_for_DA: dict,
+            rotation_for_DA: RandomScalar,
             deep_supervision_scales: Union[List, Tuple, None],
             mirror_axes: Tuple[int, ...],
             do_dummy_2d_data_aug: bool,
-            order_resampling_data: int = 3,
-            order_resampling_seg: int = 1,
-            border_val_seg: int = -1,
             use_mask_for_norm: List[bool] = None,
             is_cascaded: bool = False,
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
@@ -722,7 +709,7 @@ class nnUNetTrainer(object):
             SpatialTransform(
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
                 p_rotation=0.2,
-                rotation=rotation_for_DA['x'], p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
+                rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
                 bg_style_seg_sampling=False  # , mode_seg='nearest'
             )
         )
