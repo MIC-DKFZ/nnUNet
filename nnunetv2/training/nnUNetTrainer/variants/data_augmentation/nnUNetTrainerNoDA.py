@@ -1,9 +1,9 @@
 from typing import Union, Tuple, List
 
-from batchgenerators.transforms.abstract_transforms import AbstractTransform
+import numpy as np
+from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
 
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-import numpy as np
 
 
 class nnUNetTrainerNoDA(nnUNetTrainer):
@@ -20,21 +20,16 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
                                 is_cascaded: bool = False,
                                 foreground_labels: Union[Tuple[int, ...], List[int]] = None,
                                 regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-                                ignore_label: int = None) -> AbstractTransform:
+                                ignore_label: int = None) -> BasicTransform:
         return nnUNetTrainer.get_validation_transforms(deep_supervision_scales, is_cascaded, foreground_labels,
                                                        regions, ignore_label)
 
-    def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
-        return super().get_plain_dataloaders(
-            initial_patch_size=self.configuration_manager.patch_size,
-            dim=dim
-        )
-
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
         # we need to disable mirroring here so that no mirroring will be applied in inferene!
-        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
+        rotation_for_DA, do_dummy_2d_data_aug, _, _ = \
             super().configure_rotation_dummyDA_mirroring_and_inital_patch_size()
         mirror_axes = None
         self.inference_allowed_mirroring_axes = None
+        initial_patch_size = self.configuration_manager.patch_size
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 

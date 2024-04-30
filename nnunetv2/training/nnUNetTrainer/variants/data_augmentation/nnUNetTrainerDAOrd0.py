@@ -1,7 +1,8 @@
+from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 
-from nnunetv2.training.data_augmentation.custom_transforms.limited_length_multithreaded_augmenter import \
-    LimitedLenWrapper
+from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
+from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 
@@ -40,17 +41,49 @@ class nnUNetTrainerDAOrd0(nnUNetTrainer):
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
 
-        dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
+        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
+
+        # we set transforms=None because this trainer still uses batchgenerators which expects transforms to be passed to
+        if dim == 2:
+            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
+                                       initial_patch_size,
+                                       self.configuration_manager.patch_size,
+                                       self.label_manager,
+                                       oversample_foreground_percent=self.oversample_foreground_percent,
+                                       sampling_probabilities=None, pad_sides=None, transforms=None)
+            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.label_manager,
+                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                        sampling_probabilities=None, pad_sides=None, transforms=None)
+        else:
+            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
+                                       initial_patch_size,
+                                       self.configuration_manager.patch_size,
+                                       self.label_manager,
+                                       oversample_foreground_percent=self.oversample_foreground_percent,
+                                       sampling_probabilities=None, pad_sides=None, transforms=None)
+            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.label_manager,
+                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                        sampling_probabilities=None, pad_sides=None, transforms=None)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
+            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=tr_transforms,
+                                                        num_processes=allowed_num_processes, num_cached=6, seeds=None,
+                                                        pin_memory=self.device.type == 'cuda', wait_time=0.02)
+            mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
+                                                      transform=val_transforms,
+                                                      num_processes=max(1, allowed_num_processes // 2),
+                                                      num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
+                                                      wait_time=0.02)
 
         return mt_gen_train, mt_gen_val
 
@@ -89,17 +122,49 @@ class nnUNetTrainer_DASegOrd0(nnUNetTrainer):
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
 
-        dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
+        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
+
+        # we set transforms=None because this trainer still uses batchgenerators which expects transforms to be passed to
+        if dim == 2:
+            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
+                                       initial_patch_size,
+                                       self.configuration_manager.patch_size,
+                                       self.label_manager,
+                                       oversample_foreground_percent=self.oversample_foreground_percent,
+                                       sampling_probabilities=None, pad_sides=None, transforms=None)
+            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.label_manager,
+                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                        sampling_probabilities=None, pad_sides=None, transforms=None)
+        else:
+            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
+                                       initial_patch_size,
+                                       self.configuration_manager.patch_size,
+                                       self.label_manager,
+                                       oversample_foreground_percent=self.oversample_foreground_percent,
+                                       sampling_probabilities=None, pad_sides=None, transforms=None)
+            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.label_manager,
+                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                        sampling_probabilities=None, pad_sides=None, transforms=None)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
+            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=tr_transforms,
+                                                        num_processes=allowed_num_processes, num_cached=6, seeds=None,
+                                                        pin_memory=self.device.type == 'cuda', wait_time=0.02)
+            mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
+                                                      transform=val_transforms,
+                                                      num_processes=max(1, allowed_num_processes // 2),
+                                                      num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
+                                                      wait_time=0.02)
 
         return mt_gen_train, mt_gen_val
 
@@ -142,16 +207,48 @@ class nnUNetTrainer_DASegOrd0_NoMirroring(nnUNetTrainer):
                                                         self.label_manager.has_regions else None,
                                                         ignore_label=self.label_manager.ignore_label)
 
-        dl_tr, dl_val = self.get_plain_dataloaders(initial_patch_size, dim)
+        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
+
+        # we set transforms=None because this trainer still uses batchgenerators which expects transforms to be passed to
+        if dim == 2:
+            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
+                                       initial_patch_size,
+                                       self.configuration_manager.patch_size,
+                                       self.label_manager,
+                                       oversample_foreground_percent=self.oversample_foreground_percent,
+                                       sampling_probabilities=None, pad_sides=None, transforms=None)
+            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.label_manager,
+                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                        sampling_probabilities=None, pad_sides=None, transforms=None)
+        else:
+            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
+                                       initial_patch_size,
+                                       self.configuration_manager.patch_size,
+                                       self.label_manager,
+                                       oversample_foreground_percent=self.oversample_foreground_percent,
+                                       sampling_probabilities=None, pad_sides=None, transforms=None)
+            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.configuration_manager.patch_size,
+                                        self.label_manager,
+                                        oversample_foreground_percent=self.oversample_foreground_percent,
+                                        sampling_probabilities=None, pad_sides=None, transforms=None)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
-            mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, dl_tr, tr_transforms,
-                                             allowed_num_processes, 6, None, True, 0.02)
-            mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, dl_val, val_transforms,
-                                           max(1, allowed_num_processes // 2), 3, None, True, 0.02)
+            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=tr_transforms,
+                                                        num_processes=allowed_num_processes, num_cached=6, seeds=None,
+                                                        pin_memory=self.device.type == 'cuda', wait_time=0.02)
+            mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
+                                                      transform=val_transforms,
+                                                      num_processes=max(1, allowed_num_processes // 2),
+                                                      num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
+                                                      wait_time=0.02)
 
         return mt_gen_train, mt_gen_val
