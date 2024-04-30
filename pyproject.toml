@@ -49,7 +49,8 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "imagecodecs",
-    "yacs"
+    "yacs",
+    "batchgeneratorsv2"
 ]
 
 [project.urls]

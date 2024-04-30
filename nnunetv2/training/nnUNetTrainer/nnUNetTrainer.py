@@ -367,8 +367,6 @@ class nnUNetTrainer(object):
 
             print("worker", my_rank, "oversample", oversample_percent)
             print("worker", my_rank, "batch_size", batch_size_per_GPU[my_rank])
-            # self.print_to_log_file("worker", my_rank, "oversample", oversample_percents[my_rank])
-            # self.print_to_log_file("worker", my_rank, "batch_size", batch_sizes[my_rank])
 
             self.batch_size = batch_size_per_GPU[my_rank]
             self.oversample_foreground_percent = oversample_percent
