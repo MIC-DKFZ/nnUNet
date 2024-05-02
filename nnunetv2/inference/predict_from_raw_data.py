@@ -536,20 +536,44 @@ class nnUNetPredictor(object):
 
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
-        prediction = self.network(x)
 
-        if mirror_axes is not None:
-            # check for invalid numbers in mirror_axes
-            # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
-            assert max(mirror_axes) <= x.ndim - 3, 'mirror_axes does not match the dimension of the input!'
+        if mirror_axes is None:
+            return self.network(x)
 
-            mirror_axes = [m + 2 for m in mirror_axes]
-            axes_combinations = [
-                c for i in range(len(mirror_axes)) for c in itertools.combinations(mirror_axes, i + 1)
-            ]
+        # check for invalid numbers in mirror_axes
+        # x should be 5d for 3d images and 4d for 2d. so the max value of mirror_axes cannot exceed len(x.shape) - 3
+        assert max(mirror_axes) <= x.ndim - 3, 'mirror_axes does not match the dimension of the input!'
+
+        mirror_axes = [m + 2 for m in mirror_axes]
+        axes_combinations = [
+            c for i in range(len(mirror_axes)) for c in itertools.combinations(mirror_axes, i + 1)
+        ]
+
+        self.tta_batch = True
+        if self.tta_batch:
+            self.tta_batch_size = 4 if len(mirror_axes) == 3 else 2
+
+            assert (len(axes_combinations) + 1) % self.tta_batch_size == 0, '(len(axes_combinations) + 1) must be divisible by self.tta_batch_size'
+            
+            x_combinations = [torch.flip(x, axes) for axes in axes_combinations]
+            x_combinations.insert(0, x)
+
+            prediction = 0
+            for i in range(0, len(x_combinations), self.tta_batch_size):
+                batch_x = torch.cat(x_combinations[i:i+self.tta_batch_size], dim=0)
+                batch_prediction = self.network(batch_x)
+
+                for j in range(batch_prediction.shape[0]):
+                    original_idx = i + j
+                    axes_to_flip_back = axes_combinations[original_idx - 1] if original_idx != 0 else []
+                    prediction += torch.flip(batch_prediction[j:j+1], axes_to_flip_back)
+
+        else:
+            prediction = self.network(x)
             for axes in axes_combinations:
                 prediction += torch.flip(self.network(torch.flip(x, axes)), axes)
-            prediction /= (len(axes_combinations) + 1)
+
+        prediction /= (len(axes_combinations) + 1)
         return prediction
 
     def _internal_predict_sliding_window_return_logits(self,
