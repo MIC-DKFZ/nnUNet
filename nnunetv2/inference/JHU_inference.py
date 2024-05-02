@@ -148,6 +148,7 @@ class JHUPredictor(nnUNetPredictor):
 
 
 if __name__ == '__main__':
+    # python nnunetv2/inference/JHU_inference.py /home/isensee/Downloads/AbdomenAtlasTest /home/isensee/Downloads/AbdomenAtlasTest_pred -model /home/isensee/JHU_trained_model
     # /home/isensee/JHU_trained_model
     # /home/isensee/Downloads/AbdomenAtlasTest
     # /home/isensee/Downloads/AbdomenAtlasTest_pred
