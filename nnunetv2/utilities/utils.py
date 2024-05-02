@@ -16,6 +16,7 @@ import os.path
 from functools import lru_cache
 from typing import Union
 
+from tqdm import tqdm
 from batchgenerators.utilities.file_and_folder_operations import *
 import numpy as np
 import re
@@ -42,7 +43,7 @@ def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, ide
         identifiers = get_identifiers_from_splitted_dataset_folder(folder, file_ending)
     files = subfiles(folder, suffix=file_ending, join=False, sort=True)
     list_of_lists = []
-    for f in identifiers:
+    for f in tqdm(identifiers):
         p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))
         list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
     return list_of_lists
