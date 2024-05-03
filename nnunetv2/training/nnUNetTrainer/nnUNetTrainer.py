@@ -604,6 +604,7 @@ class nnUNetTrainer(object):
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
+        print("get_dataloaders...")
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
@@ -655,6 +656,8 @@ class nnUNetTrainer(object):
         # # let's get this party started
         _ = next(mt_gen_train)
         _ = next(mt_gen_val)
+
+        print("get_dataloaders... done")
         return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
