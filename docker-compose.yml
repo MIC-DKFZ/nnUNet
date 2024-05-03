@@ -1,0 +1,47 @@
+version: "1.0"
+services:
+
+  nnUNet:
+    image: nnunet:latest
+    command: tail -F anything
+    volumes:
+      - /media:/media
+      - ./.git:/.taboulet_git:ro
+      - ./taboulet:/taboulet
+      - ./cardiotable:/cardiotable
+      - ../nnUNet:/nnUNet
+      - ../cardiolib:/app
+      - ~/.config/gcloud:/root/.config/gcloud
+      - /mnt/disks:/mnt/disks
+      - ~/.aws:/root/.aws
+    environment:
+      - CARDIOLOGS_RELEASE_PASSWORD
+      - CARDIOLOGS_RELEASE_EMAIL
+      - CARDIOLOGS_RELEASE_API_URL
+      - CARDIOLOGS_APP_PASSWORD
+      - CARDIOLOGS_APP_EMAIL
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - AWS_REGISTRIES_CREDENTIALS
+      - AZURE_STORAGE_ACCOUNT_NAME
+      - AZURE_STORAGE_ACCESS_KEY
+      - AZURE_STORAGE_ACCOUNTS_KEYS
+      - REPORT_OPERATOR_NAME
+      - REPORT_OPERATOR_FUNCTION
+      - CARDIOLOGS_ANNOTATOR_PASSWORD
+      - ANNOTATION_CONSENSUS_PASSWORD
+      - CLUSTER_DB_CREDENTIALS
+      - MLFLOW_TRACKING_URI=https://mlflow-scripts.cardiologs.com
+      - MLFLOW_TRACKING_USERNAME=mlflow
+      - MLFLOW_TRACKING_PASSWORD
+      - USER
+      - HOSTNAME="${HOSTNAME:-docker}"
+      - TF_CPP_MIN_LOG_LEVEL
+      - PYTHONHASHSEED=0
+      - nnUNet_raw=/taboulet/data/nnUnet/nnUNet_raw
+      - nnUNet_preprocessed=/taboulet/data/nnUnet/nnUNet_preprocessed
+      - nnUNet_results=/taboulet/data/nnUnet/nnUNet_results
+    privileged: true
+    shm_size: '16gb'
+    runtime: nvidia
