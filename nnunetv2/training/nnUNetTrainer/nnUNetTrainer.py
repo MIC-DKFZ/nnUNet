@@ -1297,13 +1297,14 @@ class nnUNetTrainer(object):
 
     def run_training(self):
         self.on_train_start()
-
+        print(f"Train from epoch {self.current_epoch} to {self.num_epochs - 1}")
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
             self.on_train_epoch_start()
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
+                print(f"Training iteration {batch_id + 1}/{self.num_iterations_per_epoch}")
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
             self.on_train_epoch_end(train_outputs)
 
