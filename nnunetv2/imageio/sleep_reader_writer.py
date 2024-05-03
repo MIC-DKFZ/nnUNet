@@ -24,21 +24,15 @@ class SleepReaderWriter(BaseReaderWriter):
     supported_file_endings = ['.npy']
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
-        image_list = []
-        for f in image_fnames:
-            image = np.load(f)  # input shape (n_samples, 6)
-            image = image.T[None, :, :, None]  # to shape (6, 1, n_samples, 1) as (c, 1, y, z)
-            image_list.append(image)
-        assert self._check_all_same([i.shape for i in image_list])
-        return np.vstack(image_list).astype(np.float32), {'spacing': (999, 1, 1)}
+        assert len(image_fnames) == 1
+        image = np.load(image_fnames[0])  # input shape: (n_samples, 6)
+        image = image.T[:, None, :, None]  # output shape: (6, 1, n_samples, 1) as (c, 1, y, z)
+        return image.astype(np.float32), {'spacing': (999, 1, 1)}
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
-        seg_list = []
-        for f in seg_fname:
-            seg = np.load(f)  # input shape (n_samples,)
-            seg_list.append(seg[None, None, :, None])  # to shape (1, 1, n_samples, 1) as (1, 1, y, z)
-        assert self._check_all_same([i.shape for i in seg_list])
-        return np.vstack(seg_list).astype(np.uint8), {'spacing': (999, 1, 1)}
+        seg = np.load(seg_fname)  # input shape: (n_samples,)
+        seg = seg[None, None, :, None]  # output shape: (1, 1, n_samples, 1) as (1, 1, y, z)
+        return seg.astype(np.uint8), {'spacing': (999, 1, 1)}
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         np.save(output_fname, np.squeeze(seg.astype(np.uint8)))
