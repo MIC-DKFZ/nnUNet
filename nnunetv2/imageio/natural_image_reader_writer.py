@@ -44,7 +44,7 @@ class NaturalImage2DIO(BaseReaderWriter):
                                                                          "dimension must have shape 3 or 4 " \
                                                                          f"(RGB or RGBA). Image shape here is {npy_img.shape}"
                 # move RGB(A) to front, add additional dim so that we have shape (1, c, X, Y), where c is either 3 or 4
-                images.append(npy_img.transpose((2, 0, 1))[:, None])
+                images.append(npy_img.transpose((2, 0, 1))[None,:])
             elif npy_img.ndim == 2:
                 # grayscale image
                 images.append(npy_img[None, None])
