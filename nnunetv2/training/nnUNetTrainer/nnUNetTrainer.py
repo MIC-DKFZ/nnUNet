@@ -212,10 +212,10 @@ class nnUNetTrainer(object):
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
             ).to(self.device)
-            # compile network for free speedup
-            if self._do_i_compile():
-                self.print_to_log_file('Using torch.compile...')
-                self.network = torch.compile(self.network)
+            # # compile network for free speedup
+            # if self._do_i_compile():
+            #     self.print_to_log_file('Using torch.compile...')
+            #     self.network = torch.compile(self.network)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
@@ -231,10 +231,11 @@ class nnUNetTrainer(object):
 
     def _do_i_compile(self):
         # new default: compile is enabled!
-        if 'nnUNet_compile' not in os.environ.keys():
-            return True
-        else:
-            return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
+        # if 'nnUNet_compile' not in os.environ.keys():
+        #     return True
+        # else:
+        #     return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
+        return False
 
     def _save_debug_information(self):
         # saving some debug information
@@ -912,6 +913,14 @@ class nnUNetTrainer(object):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
+
+        # print(f"target len: {len(target)}")
+        # print(f"target shape: {target[0].shape}")
+        # print(f"data shape: {data.shape}")
+        # print(self.network)
+        # print(f"\n{'-'*50} test inference on network \n")
+        # print(self.network(data))
+        # print(f"\n{'-'*50} DONE \n")
 
         self.optimizer.zero_grad(set_to_none=True)
         # Autocast can be annoying
