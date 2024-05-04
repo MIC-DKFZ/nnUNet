@@ -6,6 +6,7 @@ services:
     command: tail -F anything
     volumes:
       - ../taboulet/taboulet/data/nnUnet:/taboulet/data/nnUnet
+      - .:/nnUNet
     environment:
       - nnUNet_raw=/taboulet/data/nnUnet/nnUNet_raw
       - nnUNet_preprocessed=/taboulet/data/nnUnet/nnUNet_preprocessed
