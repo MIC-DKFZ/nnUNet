@@ -8,6 +8,7 @@ from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
 from typing import Union, Tuple, List
+from tqdm import tqdm
 
 import numpy as np
 import torch
@@ -141,12 +142,12 @@ class nnUNetTrainer(object):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2
+        self.initial_lr = 1e-3
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 50
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -1303,8 +1304,7 @@ class nnUNetTrainer(object):
 
             self.on_train_epoch_start()
             train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
-                print(f"Training iteration {batch_id + 1}/{self.num_iterations_per_epoch}")
+            for batch_id in tqdm(range(self.num_iterations_per_epoch)):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
             self.on_train_epoch_end(train_outputs)
 
