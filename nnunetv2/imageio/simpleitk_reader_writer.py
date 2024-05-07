@@ -23,7 +23,8 @@ class SimpleITKIO(BaseReaderWriter):
     supported_file_endings = [
         '.nii.gz',
         '.nrrd',
-        '.mha'
+        '.mha',
+        '.gipl'
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
