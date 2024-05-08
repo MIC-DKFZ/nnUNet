@@ -203,8 +203,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     with multiprocessing.get_context("spawn").Pool(num_processes) as p:
         result = p.starmap(
             verify_labels,
-            zip([join(folder, 'labelsTr', i) for i in labelfiles], [reader_writer_class] * len(labelfiles),
-                [expected_labels] * len(labelfiles))
+            zip(labelfiles, [reader_writer_class] * len(labelfiles), [expected_labels] * len(labelfiles))
         )
         if not all(result):
             raise RuntimeError(
