@@ -1,4 +1,3 @@
-**There is an new version of nnUNet with many benefits: [nnUNetv2](https://github.com/MIC-DKFZ/nnUNet).**
 
 **[2020_10_21] Update:** We now have documentation for [common questions](documentation/common_questions.md) and
 [common issues](documentation/common_problems_and_solutions.md). We now also provide [reference epoch times for
