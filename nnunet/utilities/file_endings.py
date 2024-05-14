@@ -17,10 +17,13 @@ from batchgenerators.utilities.file_and_folder_operations import *
 
 
 def remove_trailing_slash(filename: str):
-    while filename.endswith('/'):
-        filename = filename[:-1]
-    return filename
-
+    # while filename.endswith('/'):
+    #     filename = filename[:-1]
+    # return filename
+    return os.path.normpath(filename)
+def get_last_folder(filename: str):
+    return os.path.basename(remove_trailing_slash(filename))
+    
 
 def maybe_add_0000_to_all_niigz(folder):
     nii_gz = subfiles(folder, suffix='.nii.gz')

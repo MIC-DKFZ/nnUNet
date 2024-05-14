@@ -37,27 +37,35 @@ def summarize_plans(file):
 def write_plans_to_file(f, plans_file):
     print(plans_file)
     a = load_pickle(plans_file)
-    stages = list(a['plans_per_stage'].keys())
-    stages.sort()
+    stages = sorted(a['plans_per_stage'].keys())
     for stage in stages:
         patch_size_in_mm = [i * j for i, j in zip(a['plans_per_stage'][stages[stage]]['patch_size'],
                                                   a['plans_per_stage'][stages[stage]]['current_spacing'])]
         median_patient_size_in_mm = [i * j for i, j in zip(a['plans_per_stage'][stages[stage]]['median_patient_size_in_voxels'],
                                                   a['plans_per_stage'][stages[stage]]['current_spacing'])]
-        f.write(plans_file.split("/")[-2])
-        f.write(";%s" % plans_file.split("/")[-1])
+        # f.write(plans_file.split("/")[-2])
+        # f.write(";%s" % plans_file.split("/")[-1])
+        split_path = os.path.normpath(plans_file).split(os.path.sep)
+        f.write(split_path[-2])
+        f.write(f";{split_path[-1]}")
         f.write(";%d" % stage)
-        f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['batch_size']))
-        f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['num_pool_per_axis']))
-        f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['patch_size']))
-        f.write(";%s" % str([str("%03.2f" % i) for i in patch_size_in_mm]))
-        f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['median_patient_size_in_voxels']))
-        f.write(";%s" % str([str("%03.2f" % i) for i in median_patient_size_in_mm]))
-        f.write(";%s" % str([str("%03.2f" % i) for i in a['plans_per_stage'][stages[stage]]['current_spacing']]))
-        f.write(";%s" % str([str("%03.2f" % i) for i in a['plans_per_stage'][stages[stage]]['original_spacing']]))
-        f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['pool_op_kernel_sizes']))
-        f.write(";%s" % str(a['plans_per_stage'][stages[stage]]['conv_kernel_sizes']))
-        f.write(";%s" % str(a['data_identifier']))
+        f.write(f";{str(a['plans_per_stage'][stages[stage]]['batch_size'])}")
+        f.write(f";{str(a['plans_per_stage'][stages[stage]]['num_pool_per_axis'])}")
+        f.write(f";{str(a['plans_per_stage'][stages[stage]]['patch_size'])}")
+        f.write(f';{[str("%03.2f" % i) for i in patch_size_in_mm]}')
+        f.write(
+            f";{str(a['plans_per_stage'][stages[stage]]['median_patient_size_in_voxels'])}"
+        )
+        f.write(f';{[str("%03.2f" % i) for i in median_patient_size_in_mm]}')
+        f.write(
+            f""";{[str("%03.2f" % i) for i in a['plans_per_stage'][stages[stage]]['current_spacing']]}"""
+        )
+        f.write(
+            f""";{[str("%03.2f" % i) for i in a['plans_per_stage'][stages[stage]]['original_spacing']]}"""
+        )
+        f.write(f";{str(a['plans_per_stage'][stages[stage]]['pool_op_kernel_sizes'])}")
+        f.write(f";{str(a['plans_per_stage'][stages[stage]]['conv_kernel_sizes'])}")
+        f.write(f";{str(a['data_identifier'])}")
         f.write("\n")
 
 

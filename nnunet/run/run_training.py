@@ -27,10 +27,14 @@ from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("network")
-    parser.add_argument("network_trainer")
-    parser.add_argument("task", help="can be task name or task id")
-    parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
+    # parser.add_argument("network")
+    # parser.add_argument("network_trainer")
+    # parser.add_argument("task", help="can be task name or task id")
+    # parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
+    parser.add_argument("-net", "--network", default='3d_fullres')
+    parser.add_argument("-nt", "--network_trainer", default='nnUNetTrainerV2')
+    parser.add_argument("-task", "--task", default='Task004_Hippocampus', help="can be task name or task id")
+    parser.add_argument("-f", "--fold", default='all', help='0, 1, ..., 5 or \'all\'')
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
                         action="store_true")
     parser.add_argument("-c", "--continue_training", help="use this if you want to continue a training",
@@ -122,10 +126,9 @@ def main():
         task_id = int(task)
         task = convert_id_to_task_name(task_id)
 
-    if fold == 'all':
-        pass
-    else:
+    if fold != 'all':
         fold = int(fold)
+
 
     # if force_separate_z == "None":
     #     force_separate_z = None
@@ -172,19 +175,14 @@ def main():
             if args.continue_training:
                 # -c was set, continue a previous training and ignore pretrained weights
                 trainer.load_latest_checkpoint()
-            elif (not args.continue_training) and (args.pretrained_weights is not None):
+            elif args.pretrained_weights is not None:
                 # we start a new training. If pretrained_weights are set, use them
                 load_pretrained_weights(trainer.network, args.pretrained_weights)
-            else:
-                # new training without pretraine weights, do nothing
-                pass
-
             trainer.run_training()
+        elif valbest:
+            trainer.load_best_checkpoint(train=False)
         else:
-            if valbest:
-                trainer.load_best_checkpoint(train=False)
-            else:
-                trainer.load_final_checkpoint(train=False)
+            trainer.load_final_checkpoint(train=False)
 
         trainer.network.eval()
 

@@ -97,7 +97,8 @@ class nnUNetTrainerV2_fullEvals(nnUNetTrainerV2):
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            # fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']

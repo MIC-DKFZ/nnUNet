@@ -39,12 +39,7 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.utilities.one_hot_encoding import to_one_hot
 
 
-def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes,
-                             transpose_forward):
-    # suppress output
-    # sys.stdout = open(os.devnull, 'w')
-
-    errors_in = []
+def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs_from_prev_stage, classes,transpose_forward):
     for i, l in enumerate(list_of_lists):
         try:
             output_file = output_files[i]
@@ -59,10 +54,9 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
                 seg_prev = sitk.GetArrayFromImage(sitk.ReadImage(segs_from_prev_stage[i]))
                 # check to see if shapes match
                 img = sitk.GetArrayFromImage(sitk.ReadImage(l[0]))
-                assert all([i == j for i, j in zip(seg_prev.shape, img.shape)]), "image and segmentation from previous " \
-                                                                                 "stage don't have the same pixel array " \
-                                                                                 "shape! image: %s, seg_prev: %s" % \
-                                                                                 (l[0], segs_from_prev_stage[i])
+                assert all(
+                    i == j for i, j in zip(seg_prev.shape, img.shape)
+                ), f"image and segmentation from previous stage don't have the same pixel array shape! image: {l[0]}, seg_prev: {segs_from_prev_stage[i]}"
                 seg_prev = seg_prev.transpose(transpose_forward)
                 seg_reshaped = resize_segmentation(seg_prev, d.shape[1:], order=1)
                 seg_reshaped = to_one_hot(seg_reshaped, classes)
@@ -88,7 +82,7 @@ def preprocess_save_to_queue(preprocess_fn, q, list_of_lists, output_files, segs
             print("error in", l)
             print(e)
     q.put("end")
-    if len(errors_in) > 0:
+    if errors_in := []:
         print("There were some errors in the following cases:", errors_in)
         print("These cases were ignored.")
     else:
@@ -240,11 +234,7 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             transpose_backward = trainer.plans.get('transpose_backward')
             softmax = softmax.transpose([0] + [i + 1 for i in transpose_backward])
 
-        if save_npz:
-            npz_file = output_filename[:-7] + ".npz"
-        else:
-            npz_file = None
-
+        npz_file = output_filename[:-7] + ".npz" if save_npz else None
         if hasattr(trainer, 'regions_class_order'):
             region_class_order = trainer.regions_class_order
         else:
@@ -396,17 +386,12 @@ def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_thread
             all_seg_outputs[i] = res[0]
 
         print("obtaining segmentation map")
-        if len(params) > 1:
-            # we dont need to normalize the softmax by 1 / len(params) because this would not change the outcome of the argmax
-            seg = softmax_aggr.argmax(0)
-        else:
-            seg = all_seg_outputs[0]
-
+        seg = softmax_aggr.argmax(0) if len(params) > 1 else all_seg_outputs[0]
         print("applying transpose_backward")
         transpose_forward = trainer.plans.get('transpose_forward')
         if transpose_forward is not None:
             transpose_backward = trainer.plans.get('transpose_backward')
-            seg = seg.transpose([i for i in transpose_backward])
+            seg = seg.transpose(list(transpose_backward))
 
         if hasattr(trainer, 'regions_class_order'):
             region_class_order = trainer.regions_class_order
@@ -540,7 +525,7 @@ def predict_cases_fastest(model, list_of_lists, output_filenames, folds, num_thr
         transpose_forward = trainer.plans.get('transpose_forward')
         if transpose_forward is not None:
             transpose_backward = trainer.plans.get('transpose_backward')
-            seg = seg.transpose([i for i in transpose_backward])
+            seg = seg.transpose(list(transpose_backward))
 
         print("initializing segmentation export")
         results.append(pool.starmap_async(save_segmentation_nifti,
@@ -603,7 +588,7 @@ def check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities)
         print("found %d unexpected remaining files in the folder. Here are some examples:" % len(remaining),
               np.random.choice(remaining, min(len(remaining), 10)))
 
-    if len(missing) > 0:
+    if missing:
         print("Some files are missing:")
         print(missing)
         raise RuntimeError("missing files in input_folder")
@@ -653,32 +638,17 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
     if lowres_segmentations is not None:
         assert isdir(lowres_segmentations), "if lowres_segmentations is not None then it must point to a directory"
         lowres_segmentations = [join(lowres_segmentations, i + ".nii.gz") for i in case_ids]
-        assert all([isfile(i) for i in lowres_segmentations]), "not all lowres_segmentations files are present. " \
-                                                               "(I was searching for case_id.nii.gz in that folder)"
+        assert all(isfile(i) for i in lowres_segmentations), (
+            "not all lowres_segmentations files are present. "
+            "(I was searching for case_id.nii.gz in that folder)"
+        )
         lowres_segmentations = lowres_segmentations[part_id::num_parts]
     else:
         lowres_segmentations = None
 
-    if mode == "normal":
-        if overwrite_all_in_gpu is None:
-            all_in_gpu = False
-        else:
-            all_in_gpu = overwrite_all_in_gpu
-
-        return predict_cases(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
-                             save_npz, num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations, tta,
-                             mixed_precision=mixed_precision, overwrite_existing=overwrite_existing,
-                             all_in_gpu=all_in_gpu,
-                             step_size=step_size, checkpoint_name=checkpoint_name,
-                             segmentation_export_kwargs=segmentation_export_kwargs,
-                             disable_postprocessing=disable_postprocessing)
-    elif mode == "fast":
-        if overwrite_all_in_gpu is None:
-            all_in_gpu = False
-        else:
-            all_in_gpu = overwrite_all_in_gpu
-
-        assert save_npz is False
+    if mode == "fast":
+        assert not save_npz
+        all_in_gpu = False if overwrite_all_in_gpu is None else overwrite_all_in_gpu
         return predict_cases_fast(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
                                   num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                                   tta, mixed_precision=mixed_precision, overwrite_existing=overwrite_existing,
@@ -687,18 +657,23 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
                                   segmentation_export_kwargs=segmentation_export_kwargs,
                                   disable_postprocessing=disable_postprocessing)
     elif mode == "fastest":
-        if overwrite_all_in_gpu is None:
-            all_in_gpu = False
-        else:
-            all_in_gpu = overwrite_all_in_gpu
-
-        assert save_npz is False
+        all_in_gpu = False if overwrite_all_in_gpu is None else overwrite_all_in_gpu
+        assert not save_npz
         return predict_cases_fastest(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
                                      num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations,
                                      tta, mixed_precision=mixed_precision, overwrite_existing=overwrite_existing,
                                      all_in_gpu=all_in_gpu,
                                      step_size=step_size, checkpoint_name=checkpoint_name,
                                      disable_postprocessing=disable_postprocessing)
+    elif mode == "normal":
+        all_in_gpu = False if overwrite_all_in_gpu is None else overwrite_all_in_gpu
+        return predict_cases(model, list_of_lists[part_id::num_parts], output_files[part_id::num_parts], folds,
+                             save_npz, num_threads_preprocessing, num_threads_nifti_save, lowres_segmentations, tta,
+                             mixed_precision=mixed_precision, overwrite_existing=overwrite_existing,
+                             all_in_gpu=all_in_gpu,
+                             step_size=step_size, checkpoint_name=checkpoint_name,
+                             segmentation_export_kwargs=segmentation_export_kwargs,
+                             disable_postprocessing=disable_postprocessing)
     else:
         raise ValueError("unrecognized mode. Must be normal, fast or fastest")
 
@@ -810,9 +785,7 @@ if __name__ == "__main__":
         lowres_segmentations = None
 
     if isinstance(folds, list):
-        if folds[0] == 'all' and len(folds) == 1:
-            pass
-        else:
+        if folds[0] != 'all' or len(folds) != 1:
             folds = [int(i) for i in folds]
     elif folds == "None":
         folds = None

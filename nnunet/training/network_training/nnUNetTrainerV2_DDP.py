@@ -328,10 +328,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
 
         self.maybe_update_lr(self.epoch)  # if we dont overwrite epoch then self.epoch+1 is used which is not what we
         # want at the start of the training
-        if isinstance(self.network, DDP):
-            net = self.network.module
-        else:
-            net = self.network
+        net = self.network.module if isinstance(self.network, DDP) else self.network
         ds = net.do_ds
         net.do_ds = True
 
@@ -365,7 +362,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
             if self.use_progress_bar:
                 with trange(self.num_batches_per_epoch) as tbar:
                     for b in tbar:
-                        tbar.set_description("Epoch {}/{}".format(self.epoch+1, self.max_num_epochs))
+                        tbar.set_description(f"Epoch {self.epoch + 1}/{self.max_num_epochs}")
 
                         l = self.run_iteration(self.tr_gen, True)
 
@@ -429,10 +426,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                  step_size: float = 0.5, save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
                  validation_folder_name: str = 'validation_raw', debug: bool = False, all_in_gpu: bool = False,
                  segmentation_export_kwargs: dict = None, run_postprocessing_on_folds: bool = True):
-        if isinstance(self.network, DDP):
-            net = self.network.module
-        else:
-            net = self.network
+        net = self.network.module if isinstance(self.network, DDP) else self.network
         ds = net.do_ds
         net.do_ds = False
 
@@ -494,54 +488,54 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         # for evaluation (which is done by local rank 0)
         for k in all_keys:
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            # fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
-            if k in my_keys:
-                if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
-                        (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
-                    data = np.load(self.dataset[k]['data_file'])['data']
+            if k in my_keys and (overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
+                                            (save_softmax and not isfile(join(output_folder, fname + ".npz")))):
+                data = np.load(self.dataset[k]['data_file'])['data']
 
-                    print(k, data.shape)
-                    data[-1][data[-1] == -1] = 0
+                print(k, data.shape)
+                data[-1][data[-1] == -1] = 0
 
-                    softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
-                                                                                         do_mirroring=do_mirroring,
-                                                                                         mirror_axes=mirror_axes,
-                                                                                         use_sliding_window=use_sliding_window,
-                                                                                         step_size=step_size,
-                                                                                         use_gaussian=use_gaussian,
-                                                                                         all_in_gpu=all_in_gpu,
-                                                                                         mixed_precision=self.fp16)[1]
+                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                     do_mirroring=do_mirroring,
+                                                                                     mirror_axes=mirror_axes,
+                                                                                     use_sliding_window=use_sliding_window,
+                                                                                     step_size=step_size,
+                                                                                     use_gaussian=use_gaussian,
+                                                                                     all_in_gpu=all_in_gpu,
+                                                                                     mixed_precision=self.fp16)[1]
 
-                    softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
+                softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
-                    if save_softmax:
-                        softmax_fname = join(output_folder, fname + ".npz")
-                    else:
-                        softmax_fname = None
+                if save_softmax:
+                    softmax_fname = join(output_folder, fname + ".npz")
+                else:
+                    softmax_fname = None
 
-                    """There is a problem with python process communication that prevents us from communicating objects
-                    larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-                    communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
-                    enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
-                    patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
-                    then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
-                    filename or np.ndarray and will handle this automatically"""
-                    if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
-                        np.save(join(output_folder, fname + ".npy"), softmax_pred)
-                        softmax_pred = join(output_folder, fname + ".npy")
+                """There is a problem with python process communication that prevents us from communicating objects
+                larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+                communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
+                enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+                patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+                then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
+                filename or np.ndarray and will handle this automatically"""
+                if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                    np.save(join(output_folder, fname + ".npy"), softmax_pred)
+                    softmax_pred = join(output_folder, fname + ".npy")
 
-                    results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                                             ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                               properties, interpolation_order,
-                                                               self.regions_class_order,
-                                                               None, None,
-                                                               softmax_fname, None, force_separate_z,
-                                                               interpolation_order_z),
-                                                              )
-                                                             )
-                                   )
+                results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
+                                                         ((softmax_pred, join(output_folder, fname + ".nii.gz"),
+                                                           properties, interpolation_order,
+                                                           self.regions_class_order,
+                                                           None, None,
+                                                           softmax_fname, None, force_separate_z,
+                                                           interpolation_order_z),
+                                                          )
+                                                         )
+                               )
 
         _ = [i.get() for i in results]
         self.print_to_log_file("finished prediction")
@@ -551,7 +545,8 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
         if self.local_rank == 0:
             # evaluate raw predictions
             self.print_to_log_file("evaluation of raw predictions")
-            task = self.dataset_directory.split("/")[-1]
+            # task = self.dataset_directory.split("/")[-1]
+            task = os.path.basename(self.dataset_directory)
             job_name = self.experiment_name
             _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                                  json_output_file=join(output_folder, "summary.json"),
@@ -588,7 +583,7 @@ class nnUNetTrainerV2_DDP(nnUNetTrainerV2):
                         attempts += 1
                         sleep(1)
                 if not success:
-                    print("Could not copy gt nifti file %s into folder %s" % (f, gt_nifti_folder))
+                    print(f"Could not copy gt nifti file {f} into folder {gt_nifti_folder}")
                     if e is not None:
                         raise e
 

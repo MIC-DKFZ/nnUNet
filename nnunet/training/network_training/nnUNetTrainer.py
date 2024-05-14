@@ -139,17 +139,18 @@ class nnUNetTrainer(NetworkTrainer):
         :param fold:
         :return:
         """
-        if fold is not None:
-            if isinstance(fold, str):
-                assert fold == "all", "if self.fold is a string then it must be \'all\'"
-                if self.output_folder.endswith("%s" % str(self.fold)):
-                    self.output_folder = self.output_folder_base
-                self.output_folder = join(self.output_folder, "%s" % str(fold))
-            else:
-                if self.output_folder.endswith("fold_%s" % str(self.fold)):
-                    self.output_folder = self.output_folder_base
-                self.output_folder = join(self.output_folder, "fold_%s" % str(fold))
-            self.fold = fold
+        if fold is None:
+            return
+        if isinstance(fold, str):
+            assert fold == "all", "if self.fold is a string then it must be \'all\'"
+            if self.output_folder.endswith(f"{str(self.fold)}"):
+                self.output_folder = self.output_folder_base
+            self.output_folder = join(self.output_folder, f"{str(fold)}")
+        else:
+            if self.output_folder.endswith(f"fold_{str(self.fold)}"):
+                self.output_folder = self.output_folder_base
+            self.output_folder = join(self.output_folder, f"fold_{str(fold)}")
+        self.fold = fold
 
     def setup_DA_params(self):
         if self.threeD:
@@ -203,32 +204,34 @@ class nnUNetTrainer(NetworkTrainer):
         self.setup_DA_params()
 
         if training:
-            self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                      "_stage%d" % self.stage)
-
-            self.dl_tr, self.dl_val = self.get_basic_generators()
-            if self.unpack_data:
-                self.print_to_log_file("unpacking dataset")
-                unpack_dataset(self.folder_with_preprocessed_data)
-                self.print_to_log_file("done")
-            else:
-                self.print_to_log_file(
-                    "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
-                    "will wait all winter for your model to finish!")
-            self.tr_gen, self.val_gen = get_default_augmentation(self.dl_tr, self.dl_val,
-                                                                 self.data_aug_params[
-                                                                     'patch_size_for_spatialtransform'],
-                                                                 self.data_aug_params)
-            self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
-                                   also_print_to_console=False)
-            self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
-                                   also_print_to_console=False)
-        else:
-            pass
+            self._extracted_from_initialize_19()
         self.initialize_network()
         self.initialize_optimizer_and_scheduler()
         # assert isinstance(self.network, (SegmentationNetwork, nn.DataParallel))
         self.was_initialized = True
+
+    # TODO Rename this here and in `initialize`
+    def _extracted_from_initialize_19(self):
+        self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
+                                                  "_stage%d" % self.stage)
+
+        self.dl_tr, self.dl_val = self.get_basic_generators()
+        if self.unpack_data:
+            self.print_to_log_file("unpacking dataset")
+            unpack_dataset(self.folder_with_preprocessed_data)
+            self.print_to_log_file("done")
+        else:
+            self.print_to_log_file(
+                "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
+                "will wait all winter for your model to finish!")
+        self.tr_gen, self.val_gen = get_default_augmentation(self.dl_tr, self.dl_val,
+                                                             self.data_aug_params[
+                                                                 'patch_size_for_spatialtransform'],
+                                                             self.data_aug_params)
+        self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
+                               also_print_to_console=False)
+        self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
+                               also_print_to_console=False)
 
     def initialize_network(self):
         """
@@ -295,13 +298,12 @@ class nnUNetTrainer(NetworkTrainer):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-    def save_debug_information(self):
+    def run_training(self):
         # saving some debug information
         dct = OrderedDict()
         for k in self.__dir__():
-            if not k.startswith("__"):
-                if not callable(getattr(self, k)):
-                    dct[k] = str(getattr(self, k))
+            if not k.startswith("__") and not callable(getattr(self, k)):
+                dct[k] = str(getattr(self, k))
         del dct['plans']
         del dct['intensity_properties']
         del dct['dataset']
@@ -313,8 +315,7 @@ class nnUNetTrainer(NetworkTrainer):
 
         shutil.copy(self.plans_file, join(self.output_folder_base, "plans.pkl"))
 
-    def run_training(self):
-        self.save_debug_information()
+    
         super(nnUNetTrainer, self).run_training()
 
     def load_plans_file(self):
@@ -327,8 +328,8 @@ class nnUNetTrainer(NetworkTrainer):
     def process_plans(self, plans):
         if self.stage is None:
             assert len(list(plans['plans_per_stage'].keys())) == 1, \
-                "If self.stage is None then there can be only one stage in the plans file. That seems to not be the " \
-                "case. Please specify which stage of the cascade must be trained"
+                    "If self.stage is None then there can be only one stage in the plans file. That seems to not be the " \
+                    "case. Please specify which stage of the cascade must be trained"
             self.stage = list(plans['plans_per_stage'].keys())[0]
         self.plans = plans
 
@@ -385,7 +386,7 @@ class nnUNetTrainer(NetworkTrainer):
         elif len(self.patch_size) == 3:
             self.threeD = True
         else:
-            raise RuntimeError("invalid patch size in plans file: %s" % str(self.patch_size))
+            raise RuntimeError(f"invalid patch size in plans file: {str(self.patch_size)}")
 
         if "conv_per_stage" in plans.keys():  # this ha sbeen added to the plans only recently
             self.conv_per_stage = plans['conv_per_stage']
@@ -433,8 +434,9 @@ class nnUNetTrainer(NetworkTrainer):
         preprocessor_class = recursive_find_python_class([join(nnunet.__path__[0], "preprocessing")],
                                                          preprocessor_name,
                                                          current_module="nnunet.preprocessing")
-        assert preprocessor_class is not None, "Could not find preprocessor %s in nnunet.preprocessing" % \
-                                               preprocessor_name
+        assert (
+            preprocessor_class is not None
+        ), f"Could not find preprocessor {preprocessor_name} in nnunet.preprocessing"
         preprocessor = preprocessor_class(self.normalization_schemes, self.use_mask_for_norm,
                                           self.transpose_forward, self.intensity_properties)
 
@@ -508,9 +510,9 @@ class nnUNetTrainer(NetworkTrainer):
 
         if do_mirroring:
             assert self.data_aug_params["do_mirror"], "Cannot do mirroring as test time augmentation when training " \
-                                                      "was done without mirroring"
+                                                          "was done without mirroring"
 
-        valid = list((SegmentationNetwork, nn.DataParallel))
+        valid = [SegmentationNetwork, nn.DataParallel]
         assert isinstance(self.network, tuple(valid))
 
         current_mode = self.network.training
@@ -585,9 +587,10 @@ class nnUNetTrainer(NetworkTrainer):
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            # fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
-                    (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
+                                (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
 
                 print(k, data.shape)
@@ -604,11 +607,7 @@ class nnUNetTrainer(NetworkTrainer):
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
-                if save_softmax:
-                    softmax_fname = join(output_folder, fname + ".npz")
-                else:
-                    softmax_fname = None
-
+                softmax_fname = join(output_folder, fname + ".npz") if save_softmax else None
                 """There is a problem with python process communication that prevents us from communicating objects
                 larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
                 communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
@@ -638,13 +637,18 @@ class nnUNetTrainer(NetworkTrainer):
 
         # evaluate raw predictions
         self.print_to_log_file("evaluation of raw predictions")
-        task = self.dataset_directory.split("/")[-1]
+        # task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
-        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
-                             json_output_file=join(output_folder, "summary.json"),
-                             json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
-                             json_author="Fabian",
-                             json_task=task, num_threads=default_num_threads)
+        _ = aggregate_scores(
+            pred_gt_tuples,
+            labels=list(range(self.num_classes)),
+            json_output_file=join(output_folder, "summary.json"),
+            json_name=job_name + f" val tiled {use_sliding_window}",
+            json_author="Fabian",
+            json_task=task,
+            num_threads=default_num_threads,
+        )
 
         if run_postprocessing_on_folds:
             # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
@@ -671,7 +675,7 @@ class nnUNetTrainer(NetworkTrainer):
                     shutil.copy(f, gt_nifti_folder)
                     success = True
                 except OSError:
-                    print("Could not copy gt nifti file %s into folder %s" % (f, gt_nifti_folder))
+                    print(f"Could not copy gt nifti file {f} into folder {gt_nifti_folder}")
                     traceback.print_exc()
                     attempts += 1
                     sleep(1)

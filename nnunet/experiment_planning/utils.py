@@ -26,7 +26,7 @@ from nnunet.experiment_planning.DatasetAnalyzer import DatasetAnalyzer
 from nnunet.experiment_planning.common_utils import split_4d_nifti
 from nnunet.paths import nnUNet_raw_data, nnUNet_cropped_data, preprocessing_output_dir
 from nnunet.preprocessing.cropping import ImageCropper
-
+from nnunet.utilities.file_endings import get_last_folder
 
 def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_output_id=None):
     assert isdir(join(input_folder, "imagesTr")) and isdir(join(input_folder, "labelsTr")) and \
@@ -34,18 +34,19 @@ def split_4d(input_folder, num_processes=default_num_threads, overwrite_task_out
         "The input folder must be a valid Task folder from the Medical Segmentation Decathlon with at least the " \
         "imagesTr and labelsTr subfolders and the dataset.json file"
 
-    while input_folder.endswith("/"):
-        input_folder = input_folder[:-1]
+    # while input_folder.endswith("/"):
+    #     input_folder = input_folder[:-1]
 
-    full_task_name = input_folder.split("/")[-1]
+    # full_task_name = input_folder.split("/")[-1]
+    full_task_name = get_last_folder(input_folder)
 
     assert full_task_name.startswith("Task"), "The input folder must point to a folder that starts with TaskXX_"
 
     first_underscore = full_task_name.find("_")
     assert first_underscore == 6, "Input folder start with TaskXX with XX being a 3-digit id: 00, 01, 02 etc"
 
-    input_task_id = int(full_task_name[4:6])
     if overwrite_task_output_id is None:
+        input_task_id = int(full_task_name[4:6])
         overwrite_task_output_id = input_task_id
 
     task_name = full_task_name[7:]
@@ -88,11 +89,16 @@ def create_lists_from_splitted_dataset(base_folder_splitted):
         training_files = d['training']
     num_modalities = len(d['modality'].keys())
     for tr in training_files:
-        cur_pat = []
-        for mod in range(num_modalities):
-            cur_pat.append(join(base_folder_splitted, "imagesTr", tr['image'].split("/")[-1][:-7] +
-                                "_%04.0d.nii.gz" % mod))
-        cur_pat.append(join(base_folder_splitted, "labelsTr", tr['label'].split("/")[-1]))
+        cur_pat = [
+            join(
+                base_folder_splitted,
+                "imagesTr",
+                os.path.basename(tr['image'])[:-7] + "_%04.0d.nii.gz" % mod,
+            )
+            for mod in range(num_modalities)
+        ]
+        # cur_pat.append(join(base_folder_splitted, "labelsTr", tr['label'].split("/")[-1]))
+        cur_pat.append(join(base_folder_splitted, "labelsTr", os.path.basename(tr['label'])))
         lists.append(cur_pat)
     return lists, {int(i): d['modality'][str(i)] for i in d['modality'].keys()}
 
@@ -104,19 +110,17 @@ def create_lists_from_splitted_dataset_folder(folder):
     :return:
     """
     caseIDs = get_caseIDs_from_splitted_dataset_folder(folder)
-    list_of_lists = []
-    for f in caseIDs:
-        list_of_lists.append(subfiles(folder, prefix=f, suffix=".nii.gz", join=True, sort=True))
-    return list_of_lists
+    return [
+        subfiles(folder, prefix=f, suffix=".nii.gz", join=True, sort=True)
+        for f in caseIDs
+    ]
 
 
 def get_caseIDs_from_splitted_dataset_folder(folder):
     files = subfiles(folder, suffix=".nii.gz", join=False)
     # all files must be .nii.gz and have 4 digit modality index
     files = [i[:-12] for i in files]
-    # only unique patient ids
-    files = np.unique(files)
-    return files
+    return np.unique(files)
 
 
 def crop(task_string, override=False, num_threads=default_num_threads):
@@ -171,9 +175,11 @@ def plan_and_preprocess(task_string, processes_lowres=default_num_threads, proce
         # if there is more than one my_data_identifier (different brnaches) then this code will run for all of them if
         # they start with the same string. not problematic, but not pretty
         stages = [i for i in subdirs(preprocessing_output_dir_this_task_train, join=True, sort=True)
-                  if i.split("/")[-1].find("stage") != -1]
+                #   if i.split("/")[-1].find("stage") != -1]
+                if os.path.basename(i).find("stage") != -1]
         for s in stages:
-            print(s.split("/")[-1])
+            # print(s.split("/")[-1])
+            print(os.path.basename(s))
             list_of_npz_files = subfiles(s, True, None, ".npz", True)
             list_of_pkl_files = [i[:-4]+".pkl" for i in list_of_npz_files]
             all_classes = []
@@ -205,7 +211,7 @@ def add_classes_in_slice_info(args):
     # contain this class
     classes_in_slice = OrderedDict()
     for axis in range(3):
-        other_axes = tuple([i for i in range(3) if i != axis])
+        other_axes = tuple(i for i in range(3) if i != axis)
         classes_in_slice[axis] = OrderedDict()
         for c in all_classes:
             valid_slices = np.where(np.sum(seg_map == c, axis=other_axes) > 0)[0]

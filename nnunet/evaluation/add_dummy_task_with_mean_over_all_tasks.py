@@ -32,7 +32,8 @@ for t in task_descriptors:
     mean_scores[t] = OrderedDict()
 
 json_files = subfiles(folder, True, None, ".json", True)
-json_files = [i for i in json_files if not i.split("/")[-1].startswith(".")]  # stupid mac
+# json_files = [i for i in json_files if not i.split("/")[-1].startswith(".")]  # stupid mac
+json_files = [i for i in json_files if not os.path.basename(i).startswith(".")]  # stupid mac
 for j in json_files:
     with open(j, 'r') as f:
         res = json.load(f)
