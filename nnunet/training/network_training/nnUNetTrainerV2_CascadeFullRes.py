@@ -45,8 +45,10 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                           deterministic, previous_trainer, fp16)
 
         if self.output_folder is not None:
-            task = self.output_folder.split("/")[-3]
-            plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]
+            # task = self.output_folder.split("/")[-3]
+            # plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]
+            task = os.path.normpath(self.output_folder).split(os.path.sep)[-3]
+            plans_identifier = os.path.normpath(self.output_folder).split(os.path.sep)[-2].split("__")[-1]
 
             folder_with_segs_prev_stage = join(network_training_output_dir, "3d_lowres",
                                                task, previous_trainer + "__" + plans_identifier, "pred_next_stage")
@@ -76,16 +78,15 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
         self.load_dataset()
         self.do_split()
 
-        if self.threeD:
-            dl_tr = DataLoader3D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
-                                 True, oversample_foreground_percent=self.oversample_foreground_percent,
-                                 pad_mode="constant", pad_sides=self.pad_all_sides)
-            dl_val = DataLoader3D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, True,
-                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                  pad_mode="constant", pad_sides=self.pad_all_sides)
-        else:
+        if not self.threeD:
             raise NotImplementedError("2D has no cascade")
 
+        dl_tr = DataLoader3D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
+                             True, oversample_foreground_percent=self.oversample_foreground_percent,
+                             pad_mode="constant", pad_sides=self.pad_all_sides)
+        dl_val = DataLoader3D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, True,
+                              oversample_foreground_percent=self.oversample_foreground_percent,
+                              pad_mode="constant", pad_sides=self.pad_all_sides)
         return dl_tr, dl_val
 
     def process_plans(self, plans):
@@ -138,7 +139,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
             weights = np.array([1 / (2 ** i) for i in range(net_numpool)])
 
             # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-            mask = np.array([True if i < net_numpool - 1 else False for i in range(net_numpool)])
+            mask = np.array([i < net_numpool - 1 for i in range(net_numpool)])
             weights[~mask] = 0
             weights = weights / weights.sum()
             self.ds_loss_weights = weights
@@ -150,34 +151,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                                                       "_stage%d" % self.stage)
 
             if training:
-                if not isdir(self.folder_with_segs_from_prev_stage):
-                    raise RuntimeError(
-                        "Cannot run final stage of cascade. Run corresponding 3d_lowres first and predict the "
-                        "segmentations for the next stage")
-
-                self.dl_tr, self.dl_val = self.get_basic_generators()
-                if self.unpack_data:
-                    print("unpacking dataset")
-                    unpack_dataset(self.folder_with_preprocessed_data)
-                    print("done")
-                else:
-                    print(
-                        "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
-                        "will wait all winter for your model to finish!")
-
-                self.tr_gen, self.val_gen = get_moreDA_augmentation(self.dl_tr, self.dl_val,
-                                                                    self.data_aug_params[
-                                                                        'patch_size_for_spatialtransform'],
-                                                                    self.data_aug_params,
-                                                                    deep_supervision_scales=self.deep_supervision_scales,
-                                                                    pin_memory=self.pin_memory)
-                self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
-                                       also_print_to_console=False)
-                self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
-                                       also_print_to_console=False)
-            else:
-                pass
-
+                self._extracted_from_initialize_37()
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
 
@@ -186,6 +160,34 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
 
         self.was_initialized = True
+
+    # TODO Rename this here and in `initialize`
+    def _extracted_from_initialize_37(self):
+        if not isdir(self.folder_with_segs_from_prev_stage):
+            raise RuntimeError(
+                "Cannot run final stage of cascade. Run corresponding 3d_lowres first and predict the "
+                "segmentations for the next stage")
+
+        self.dl_tr, self.dl_val = self.get_basic_generators()
+        if self.unpack_data:
+            print("unpacking dataset")
+            unpack_dataset(self.folder_with_preprocessed_data)
+            print("done")
+        else:
+            print(
+                "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
+                "will wait all winter for your model to finish!")
+
+        self.tr_gen, self.val_gen = get_moreDA_augmentation(self.dl_tr, self.dl_val,
+                                                            self.data_aug_params[
+                                                                'patch_size_for_spatialtransform'],
+                                                            self.data_aug_params,
+                                                            deep_supervision_scales=self.deep_supervision_scales,
+                                                            pin_memory=self.pin_memory)
+        self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())),
+                               also_print_to_console=False)
+        self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
+                               also_print_to_console=False)
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
                  save_softmax: bool = True, use_gaussian: bool = True, overwrite: bool = True,
@@ -248,10 +250,11 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            # fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
 
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
-                    (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
+                                (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 data = np.load(self.dataset[k]['data_file'])['data']
 
                 # concat segmentation of previous step
@@ -274,11 +277,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
-                if save_softmax:
-                    softmax_fname = join(output_folder, fname + ".npz")
-                else:
-                    softmax_fname = None
-
+                softmax_fname = join(output_folder, fname + ".npz") if save_softmax else None
                 """There is a problem with python process communication that prevents us from communicating objects 
                 larger than 2 GB between processes (basically when the length of the pickle string that will be sent is 
                 communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long 
@@ -307,13 +306,18 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
 
         # evaluate raw predictions
         self.print_to_log_file("evaluation of raw predictions")
-        task = self.dataset_directory.split("/")[-1]
+        # task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
-        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
-                             json_output_file=join(output_folder, "summary.json"),
-                             json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
-                             json_author="Fabian",
-                             json_task=task, num_threads=default_num_threads)
+        _ = aggregate_scores(
+            pred_gt_tuples,
+            labels=list(range(self.num_classes)),
+            json_output_file=join(output_folder, "summary.json"),
+            json_name=job_name + f" val tiled {use_sliding_window}",
+            json_author="Fabian",
+            json_task=task,
+            num_threads=default_num_threads,
+        )
 
         if run_postprocessing_on_folds:
             # in the old nnunet we would stop here. Now we add a postprocessing. This postprocessing can remove everything
@@ -344,7 +348,7 @@ class nnUNetTrainerV2CascadeFullRes(nnUNetTrainerV2):
                     attempts += 1
                     sleep(1)
             if not success:
-                print("Could not copy gt nifti file %s into folder %s" % (f, gt_nifti_folder))
+                print(f"Could not copy gt nifti file {f} into folder {gt_nifti_folder}")
                 if e is not None:
                     raise e
 

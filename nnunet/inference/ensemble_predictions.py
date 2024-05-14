@@ -24,42 +24,45 @@ from nnunet.postprocessing.connected_components import apply_postprocessing_to_f
 
 
 def merge_files(files, properties_files, out_file, override, store_npz):
-    if override or not isfile(out_file):
-        softmax = [np.load(f)['softmax'][None] for f in files]
-        softmax = np.vstack(softmax)
-        softmax = np.mean(softmax, 0)
-        props = [load_pickle(f) for f in properties_files]
+    if not override and isfile(out_file):
+        return
+    softmax = [np.load(f)['softmax'][None] for f in files]
+    softmax = np.vstack(softmax)
+    softmax = np.mean(softmax, 0)
+    props = [load_pickle(f) for f in properties_files]
 
-        reg_class_orders = [p['regions_class_order'] if 'regions_class_order' in p.keys() else None
-                            for p in props]
+    reg_class_orders = [p['regions_class_order'] if 'regions_class_order' in p.keys() else None
+                        for p in props]
 
-        if not all([i is None for i in reg_class_orders]):
-            # if reg_class_orders are not None then they must be the same in all pkls
-            tmp = reg_class_orders[0]
-            for r in reg_class_orders[1:]:
-                assert tmp == r, 'If merging files with regions_class_order, the regions_class_orders of all ' \
-                                 'files must be the same. regions_class_order: %s, \n files: %s' % \
-                                 (str(reg_class_orders), str(files))
-            regions_class_order = tmp
-        else:
-            regions_class_order = None
+    if any(i is not None for i in reg_class_orders):
+        # if reg_class_orders are not None then they must be the same in all pkls
+        tmp = reg_class_orders[0]
+        for r in reg_class_orders[1:]:
+            assert tmp == r, 'If merging files with regions_class_order, the regions_class_orders of all ' \
+                             'files must be the same. regions_class_order: %s, \n files: %s' % \
+                             (str(reg_class_orders), str(files))
+        regions_class_order = tmp
+    else:
+        regions_class_order = None
 
-        # Softmax probabilities are already at target spacing so this will not do any resampling (resampling parameters
-        # don't matter here)
-        save_segmentation_nifti_from_softmax(softmax, out_file, props[0], 3, regions_class_order, None, None,
-                                             force_separate_z=None)
-        if store_npz:
-            np.savez_compressed(out_file[:-7] + ".npz", softmax=softmax)
-            save_pickle(props, out_file[:-7] + ".pkl")
+    # Softmax probabilities are already at target spacing so this will not do any resampling (resampling parameters
+    # don't matter here)
+    save_segmentation_nifti_from_softmax(softmax, out_file, props[0], 3, regions_class_order, None, None,
+                                         force_separate_z=None)
+    if store_npz:
+        np.savez_compressed(out_file[:-7] + ".npz", softmax=softmax)
+        save_pickle(props, out_file[:-7] + ".pkl")
 
 
 def merge(folders, output_folder, threads, override=True, postprocessing_file=None, store_npz=False):
-    maybe_mkdir_p(output_folder)
+    # maybe_mkdir_p(output_folder)
+    os.makedirs(output_folder, exist_ok=True)
 
     if postprocessing_file is not None:
         output_folder_orig = deepcopy(output_folder)
         output_folder = join(output_folder, 'not_postprocessed')
-        maybe_mkdir_p(output_folder)
+        # maybe_mkdir_p(output_folder)
+        os.makedirs(output_folder, exist_ok=True)
     else:
         output_folder_orig = None
 
@@ -69,10 +72,12 @@ def merge(folders, output_folder, threads, override=True, postprocessing_file=No
     patient_ids = np.unique(patient_ids)
 
     for f in folders:
-        assert all([isfile(join(f, i + ".npz")) for i in patient_ids]), "Not all patient npz are available in " \
-                                                                        "all folders"
-        assert all([isfile(join(f, i + ".pkl")) for i in patient_ids]), "Not all patient pkl are available in " \
-                                                                        "all folders"
+        assert all(isfile(join(f, i + ".npz")) for i in patient_ids), (
+            "Not all patient npz are available in " "all folders"
+        )
+        assert all(isfile(join(f, i + ".pkl")) for i in patient_ids), (
+            "Not all patient pkl are available in " "all folders"
+        )
 
     files = []
     property_files = []

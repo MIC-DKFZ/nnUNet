@@ -68,11 +68,14 @@ def predict_next_stage(trainer, stage_to_be_predicted_folder):
             data_preprocessed, do_mirroring=trainer.data_aug_params["do_mirror"],
             mirror_axes=trainer.data_aug_params['mirror_axes'], mixed_precision=trainer.fp16)[1]
 
-        data_file_nofolder = data_file.split("/")[-1]
+        # data_file_nofolder = data_file.split("/")[-1]
+        data_file_nofolder = os.path.basename(data_file)
         data_file_nextstage = join(stage_to_be_predicted_folder, data_file_nofolder)
         data_nextstage = np.load(data_file_nextstage)['data']
         target_shp = data_nextstage.shape[1:]
-        output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
+        # output_file = join(output_folder, data_file_nextstage.split("/")[-1][:-4] + "_segFromPrevStage.npz")
+        output_file = join(output_folder, os.path.basename(data_file_nextstage)[:-4] + "_segFromPrevStage.npz")
+
 
         if np.prod(predicted_probabilities.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
             np.save(output_file[:-4] + ".npy", predicted_probabilities)

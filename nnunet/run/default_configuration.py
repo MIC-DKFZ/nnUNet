@@ -23,10 +23,13 @@ from nnunet.training.model_restore import recursive_find_python_class
 def get_configuration_from_output_folder(folder):
     # split off network_training_output_dir
     folder = folder[len(network_training_output_dir):]
-    if folder.startswith("/"):
-        folder = folder[1:]
+    # if folder.startswith("/"):
+    #     folder = folder[1:]
+    if folder.startswith(os.path.sep):
+        folder = folder[len(os.path.sep):]
 
-    configuration, task, trainer_and_plans_identifier = folder.split("/")
+    # configuration, task, trainer_and_plans_identifier = folder.split("/")
+    configuration, task, trainer_and_plans_identifier = os.path.normpath(folder).split(os.path.sep)
     trainer, plans_identifier = trainer_and_plans_identifier.split("__")
     return configuration, task, trainer, plans_identifier
 
@@ -38,6 +41,7 @@ def get_default_configuration(network, task, network_trainer, plans_identifier=d
         "network can only be one of the following: \'2d\', \'3d_lowres\', \'3d_fullres\', \'3d_cascade_fullres\'"
 
     dataset_directory = join(preprocessing_output_dir, task)
+    os.makedirs(dataset_directory, exist_ok=True)
 
     if network == '2d':
         plans_file = join(preprocessing_output_dir, task, plans_identifier + "_plans_2D.pkl")

@@ -48,71 +48,83 @@ def verify_same_geometry(img_1: sitk.Image, img_2: sitk.Image):
 
     same_ori = np.all(np.isclose(ori1, ori2))
     if not same_ori:
-        print("the origin does not match between the images:")
-        print(ori1)
-        print(ori2)
-
+        _extracted_from_verify_same_geometry_7(
+            "the origin does not match between the images:", ori1, ori2
+        )
     same_spac = np.all(np.isclose(spacing1, spacing2))
     if not same_spac:
-        print("the spacing does not match between the images")
-        print(spacing1)
-        print(spacing2)
-
+        _extracted_from_verify_same_geometry_7(
+            "the spacing does not match between the images", spacing1, spacing2
+        )
     same_dir = np.all(np.isclose(direction1, direction2))
     if not same_dir:
-        print("the direction does not match between the images")
-        print(direction1)
-        print(direction2)
-
+        _extracted_from_verify_same_geometry_7(
+            "the direction does not match between the images",
+            direction1,
+            direction2,
+        )
     same_size = np.all(np.isclose(size1, size2))
     if not same_size:
-        print("the size does not match between the images")
-        print(size1)
-        print(size2)
+        _extracted_from_verify_same_geometry_7(
+            "the size does not match between the images", size1, size2
+        )
+    return bool(same_ori and same_spac and same_dir and same_size)
 
-    if same_ori and same_spac and same_dir and same_size:
-        return True
-    else:
-        return False
+
+# TODO Rename this here and in `verify_same_geometry`
+def _extracted_from_verify_same_geometry_7(arg0, arg1, arg2):
+    print(arg0)
+    print(arg1)
+    print(arg2)
 
 
 def verify_contains_only_expected_labels(itk_img: str, valid_labels: (tuple, list)):
     img_npy = sitk.GetArrayFromImage(sitk.ReadImage(itk_img))
     uniques = np.unique(img_npy)
     invalid_uniques = [i for i in uniques if i not in valid_labels]
-    if len(invalid_uniques) == 0:
-        r = True
-    else:
-        r = False
+    r = not invalid_uniques
     return r, invalid_uniques
 
 
 def verify_dataset_integrity(folder):
     """
+    The function `verify_dataset_integrity` checks the integrity of a dataset by verifying the presence
+    of required files, alignment of pixel grids, absence of unexpected labels, and consistency of image
+    geometries.
+    
+    :param folder: The `verify_dataset_integrity` function is designed to check the integrity of a
+    dataset stored in a specified folder. The function performs various checks to ensure that the
+    dataset is structured correctly and that the data within it is valid for training a neural network
+    model
+    """
+    """
     folder needs the imagesTr, imagesTs and labelsTr subfolders. There also needs to be a dataset.json
     checks if all training cases and labels are present
-    checks if all test cases (if any) are present
-    for each case, checks whether all modalities apre present
+    checks if all test cases (if any) are present for each case, checks whether all modalities apre present
     for each case, checks whether the pixel grids are aligned
     checks whether the labels really only contain values they should
     :param folder:
     :return:
     """
-    assert isfile(join(folder, "dataset.json")), "There needs to be a dataset.json file in folder, folder=%s" % folder
-    assert isdir(join(folder, "imagesTr")), "There needs to be a imagesTr subfolder in folder, folder=%s" % folder
-    assert isdir(join(folder, "labelsTr")), "There needs to be a labelsTr subfolder in folder, folder=%s" % folder
+    assert isfile(join(folder, "dataset.json")), f"There needs to be a dataset.json file in folder, folder={folder}"
+    assert isdir(join(folder, "imagesTr")), f"There needs to be a imagesTr subfolder in folder, folder={folder}"
+    assert isdir(join(folder, "labelsTr")), f"There needs to be a labelsTr subfolder in folder, folder={folder}"
     dataset = load_json(join(folder, "dataset.json"))
     training_cases = dataset['training']
     num_modalities = len(dataset['modality'].keys())
     test_cases = dataset['test']
-    expected_train_identifiers = [i['image'].split("/")[-1][:-7] for i in training_cases]
-    expected_test_identifiers = [i.split("/")[-1][:-7] for i in test_cases]
+    # expected_train_identifiers = [i['image'].split("/")[-1][:-7] for i in training_cases]
+    # expected_test_identifiers = [i.split("/")[-1][:-7] for i in test_cases]
+    expected_train_identifiers = [os.path.basename(i['image'])[:-7] for i in training_cases]
+    expected_test_identifiers = [os.path.basename(i)[:-7] for i in test_cases]
+
+    if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)):
+        raise RuntimeError("found duplicate training cases in dataset.json")
 
     ## check training set
     nii_files_in_imagesTr = subfiles((join(folder, "imagesTr")), suffix=".nii.gz", join=False)
     nii_files_in_labelsTr = subfiles((join(folder, "labelsTr")), suffix=".nii.gz", join=False)
 
-    label_files = []
     geometries_OK = True
     has_nan = False
 
@@ -120,6 +132,7 @@ def verify_dataset_integrity(folder):
     if len(expected_train_identifiers) != len(np.unique(expected_train_identifiers)): raise RuntimeError("found duplicate training cases in dataset.json")
 
     print("Verifying training set")
+    label_files = []
     for c in expected_train_identifiers:
         print("checking case", c)
         # check if all files are present
@@ -128,9 +141,10 @@ def verify_dataset_integrity(folder):
         expected_image_files = [join(folder, "imagesTr", c + "_%04.0d.nii.gz" % i) for i in range(num_modalities)]
         assert isfile(expected_label_file), "could not find label file for case %s. Expected file: \n%s" % (
             c, expected_label_file)
-        assert all([isfile(i) for i in
-                    expected_image_files]), "some image files are missing for case %s. Expected files:\n %s" % (
-            c, expected_image_files)
+        assert all(isfile(i) for i in expected_image_files), (
+            "some image files are missing for case %s. Expected files:\n %s"
+            % (c, expected_image_files)
+        )
 
         # verify that all modalities and the label have the same shape and geometry.
         label_itk = sitk.ReadImage(expected_label_file)
@@ -138,7 +152,7 @@ def verify_dataset_integrity(folder):
         nans_in_seg = np.any(np.isnan(sitk.GetArrayFromImage(label_itk)))
         has_nan = has_nan | nans_in_seg
         if nans_in_seg:
-            print("There are NAN values in segmentation %s" % expected_label_file)
+            print(f"There are NAN values in segmentation {expected_label_file}")
 
         images_itk = [sitk.ReadImage(i) for i in expected_image_files]
         for i, img in enumerate(images_itk):
@@ -147,11 +161,11 @@ def verify_dataset_integrity(folder):
             same_geometry = verify_same_geometry(img, label_itk)
             if not same_geometry:
                 geometries_OK = False
-                print("The geometry of the image %s does not match the geometry of the label file. The pixel arrays "
-                      "will not be aligned and nnU-Net cannot use this data. Please make sure your image modalities "
-                      "are coregistered and have the same geometry as the label" % expected_image_files[0][:-12])
+                print(
+                    f"The geometry of the image {expected_image_files[0][:-12]} does not match the geometry of the label file. The pixel arrays will not be aligned and nnU-Net cannot use this data. Please make sure your image modalities are coregistered and have the same geometry as the label"
+                )
             if nans_in_image:
-                print("There are NAN values in image %s" % expected_image_files[i])
+                print(f"There are NAN values in image {expected_image_files[i]}")
 
         # now remove checked files from the lists nii_files_in_imagesTr and nii_files_in_labelsTr
         for i in expected_image_files:
@@ -159,14 +173,16 @@ def verify_dataset_integrity(folder):
         nii_files_in_labelsTr.remove(os.path.basename(expected_label_file))
 
     # check for stragglers
-    assert len(
-        nii_files_in_imagesTr) == 0, "there are training cases in imagesTr that are not listed in dataset.json: %s" % nii_files_in_imagesTr
-    assert len(
-        nii_files_in_labelsTr) == 0, "there are training cases in labelsTr that are not listed in dataset.json: %s" % nii_files_in_labelsTr
+    assert (
+        len(nii_files_in_imagesTr) == 0
+    ), f"there are training cases in imagesTr that are not listed in dataset.json: {nii_files_in_imagesTr}"
+    assert (
+        len(nii_files_in_labelsTr) == 0
+    ), f"there are training cases in labelsTr that are not listed in dataset.json: {nii_files_in_labelsTr}"
 
     # verify that only properly declared values are present in the labels
     print("Verifying label values")
-    expected_labels = list(int(i) for i in dataset['labels'].keys())
+    expected_labels = [int(i) for i in dataset['labels'].keys()]
     expected_labels.sort()
 
     # check if labels are in consecutive order
@@ -183,8 +199,9 @@ def verify_dataset_integrity(folder):
     print("Expected label values are", expected_labels)
     for i, r in enumerate(results):
         if not r[0]:
-            print("Unexpected labels found in file %s. Found these unexpected values (they should not be there) %s" % (
-                label_files[i], r[1]))
+            print(
+                f"Unexpected labels found in file {label_files[i]}. Found these unexpected values (they should not be there) {r[1]}"
+            )
             fail = True
 
     if fail:
@@ -194,16 +211,17 @@ def verify_dataset_integrity(folder):
         print("Labels OK")
 
     # check test set, but only if there actually is a test set
-    if len(expected_test_identifiers) > 0:
+    if expected_test_identifiers:
         print("Verifying test set")
         nii_files_in_imagesTs = subfiles((join(folder, "imagesTs")), suffix=".nii.gz", join=False)
 
         for c in expected_test_identifiers:
             # check if all files are present
             expected_image_files = [join(folder, "imagesTs", c + "_%04.0d.nii.gz" % i) for i in range(num_modalities)]
-            assert all([isfile(i) for i in
-                        expected_image_files]), "some image files are missing for case %s. Expected files:\n %s" % (
-                c, expected_image_files)
+            assert all(isfile(i) for i in expected_image_files), (
+                "some image files are missing for case %s. Expected files:\n %s"
+                % (c, expected_image_files)
+            )
 
             # verify that all modalities and the label have the same geometry. We use the affine for this
             if num_modalities > 1:
@@ -211,15 +229,16 @@ def verify_dataset_integrity(folder):
                 reference_img = images_itk[0]
 
                 for i, img in enumerate(images_itk[1:]):
-                    assert verify_same_geometry(img, reference_img), "The modalities of the image %s do not seem to be " \
-                                                                     "registered. Please coregister your modalities." % (
-                                                                         expected_image_files[i])
+                    assert verify_same_geometry(
+                        img, reference_img
+                    ), f"The modalities of the image {expected_image_files[i]} do not seem to be registered. Please coregister your modalities."
 
             # now remove checked files from the lists nii_files_in_imagesTr and nii_files_in_labelsTr
             for i in expected_image_files:
                 nii_files_in_imagesTs.remove(os.path.basename(i))
-        assert len(
-            nii_files_in_imagesTs) == 0, "there are training cases in imagesTs that are not listed in dataset.json: %s" % nii_files_in_imagesTr
+        assert (
+            len(nii_files_in_imagesTs) == 0
+        ), f"there are training cases in imagesTs that are not listed in dataset.json: {nii_files_in_imagesTr}"
 
     all_same, unique_orientations = verify_all_same_orientation(join(folder, "imagesTr"))
     if not all_same:

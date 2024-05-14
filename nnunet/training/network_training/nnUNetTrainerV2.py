@@ -45,7 +45,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 1000
+        self.max_num_epochs = 1000     # Need to change the number of epoch here from 1000 to 200
         self.initial_lr = 1e-2
         self.deep_supervision_scales = None
         self.ds_loss_weights = None
@@ -81,7 +81,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
             weights = np.array([1 / (2 ** i) for i in range(net_numpool)])
 
             # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-            mask = np.array([True] + [True if i < net_numpool - 1 else False for i in range(1, net_numpool)])
+            mask = np.array([True] + [i < net_numpool - 1 for i in range(1, net_numpool)])
             weights[~mask] = 0
             weights = weights / weights.sum()
             self.ds_loss_weights = weights
@@ -115,9 +115,6 @@ class nnUNetTrainerV2(nnUNetTrainer):
                                        also_print_to_console=False)
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())),
                                        also_print_to_console=False)
-            else:
-                pass
-
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
 
@@ -290,18 +287,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
-                self.print_to_log_file("Creating new 5-fold cross-validation split...")
-                splits = []
-                all_keys_sorted = np.sort(list(self.dataset.keys()))
-                kfold = KFold(n_splits=5, shuffle=True, random_state=12345)
-                for i, (train_idx, test_idx) in enumerate(kfold.split(all_keys_sorted)):
-                    train_keys = np.array(all_keys_sorted)[train_idx]
-                    test_keys = np.array(all_keys_sorted)[test_idx]
-                    splits.append(OrderedDict())
-                    splits[-1]['train'] = train_keys
-                    splits[-1]['val'] = test_keys
-                save_pickle(splits, splits_file)
-
+                splits = self._extracted_from_do_split_20(splits_file)
             else:
                 self.print_to_log_file("Using splits from existing split file:", splits_file)
                 splits = load_pickle(splits_file)
@@ -336,6 +322,22 @@ class nnUNetTrainerV2(nnUNetTrainer):
         for i in val_keys:
             self.dataset_val[i] = self.dataset[i]
 
+    # TODO Rename this here and in `do_split`
+    def _extracted_from_do_split_20(self, splits_file):
+        self.print_to_log_file("Creating new 5-fold cross-validation split...")
+        result = []
+        all_keys_sorted = np.sort(list(self.dataset.keys()))
+        kfold = KFold(n_splits=5, shuffle=True, random_state=12345)
+        for train_idx, test_idx in kfold.split(all_keys_sorted):
+            train_keys = np.array(all_keys_sorted)[train_idx]
+            test_keys = np.array(all_keys_sorted)[test_idx]
+            result.append(OrderedDict())
+            result[-1]['train'] = train_keys
+            result[-1]['val'] = test_keys
+        save_pickle(result, splits_file)
+
+        return result
+
     def setup_DA_params(self):
         """
         - we increase roation angle from [-15, 15] to [-30, 30]
@@ -345,8 +347,11 @@ class nnUNetTrainerV2(nnUNetTrainer):
         :return:
         """
 
-        self.deep_supervision_scales = [[1, 1, 1]] + list(list(i) for i in 1 / np.cumprod(
-            np.vstack(self.net_num_pool_op_kernel_sizes), axis=0))[:-1]
+        self.deep_supervision_scales = [[1, 1, 1]] + [
+            list(i)
+            for i in 1
+            / np.cumprod(np.vstack(self.net_num_pool_op_kernel_sizes), axis=0)
+        ][:-1]
 
         if self.threeD:
             self.data_aug_params = default_3D_augmentation_params
@@ -357,9 +362,9 @@ class nnUNetTrainerV2(nnUNetTrainer):
                 self.data_aug_params["dummy_2D"] = True
                 self.print_to_log_file("Using dummy2d data augmentation")
                 self.data_aug_params["elastic_deform_alpha"] = \
-                    default_2D_augmentation_params["elastic_deform_alpha"]
+                        default_2D_augmentation_params["elastic_deform_alpha"]
                 self.data_aug_params["elastic_deform_sigma"] = \
-                    default_2D_augmentation_params["elastic_deform_sigma"]
+                        default_2D_augmentation_params["elastic_deform_sigma"]
                 self.data_aug_params["rotation_x"] = default_2D_augmentation_params["rotation_x"]
         else:
             self.do_dummy_2D_aug = False
@@ -398,10 +403,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         :param epoch:
         :return:
         """
-        if epoch is None:
-            ep = self.epoch + 1
-        else:
-            ep = epoch
+        ep = self.epoch + 1 if epoch is None else epoch
         self.optimizer.param_groups[0]['lr'] = poly_lr(ep, self.max_num_epochs, self.initial_lr, 0.9)
         self.print_to_log_file("lr:", np.round(self.optimizer.param_groups[0]['lr'], decimals=6))
 
@@ -415,14 +417,13 @@ class nnUNetTrainerV2(nnUNetTrainer):
 
         # it can rarely happen that the momentum of nnUNetTrainerV2 is too high for some dataset. If at epoch 100 the
         # estimated validation Dice is still 0 then we reduce the momentum from 0.99 to 0.95
-        if self.epoch == 100:
-            if self.all_val_eval_metrics[-1] == 0:
-                self.optimizer.param_groups[0]["momentum"] = 0.95
-                self.network.apply(InitWeights_He(1e-2))
-                self.print_to_log_file("At epoch 100, the mean foreground Dice was 0. This can be caused by a too "
-                                       "high momentum. High momentum (0.99) is good for datasets where it works, but "
-                                       "sometimes causes issues such as this one. Momentum has now been reduced to "
-                                       "0.95 and network weights have been reinitialized")
+        if self.epoch == 100 and self.all_val_eval_metrics[-1] == 0:
+            self.optimizer.param_groups[0]["momentum"] = 0.95
+            self.network.apply(InitWeights_He(1e-2))
+            self.print_to_log_file("At epoch 100, the mean foreground Dice was 0. This can be caused by a too "
+                                   "high momentum. High momentum (0.99) is good for datasets where it works, but "
+                                   "sometimes causes issues such as this one. Momentum has now been reduced to "
+                                   "0.95 and network weights have been reinitialized")
         return continue_training
 
     def run_training(self):

@@ -22,7 +22,10 @@ from collections import OrderedDict
 
 def create_nonzero_mask(data):
     from scipy.ndimage import binary_fill_holes
-    assert len(data.shape) == 4 or len(data.shape) == 3, "data must have shape (C, X, Y, Z) or shape (C, X, Y)"
+    assert len(data.shape) in {
+        4,
+        3,
+    }, "data must have shape (C, X, Y, Z) or shape (C, X, Y)"
     nonzero_mask = np.zeros(data.shape[1:], dtype=bool)
     for c in range(data.shape[0]):
         this_mask = data[c] != 0
@@ -49,17 +52,17 @@ def crop_to_bbox(image, bbox):
 
 
 def get_case_identifier(case):
-    case_identifier = case[0].split("/")[-1].split(".nii.gz")[0][:-5]
-    return case_identifier
+    return os.path.basename(case[0]).split(".nii.gz")[0][:-5]
 
 
 def get_case_identifier_from_npz(case):
-    case_identifier = case.split("/")[-1][:-4]
-    return case_identifier
+    return os.path.basename(case)[:-4]
 
 
 def load_case_from_list_of_files(data_files, seg_file=None):
-    assert isinstance(data_files, list) or isinstance(data_files, tuple), "case must be either a list or a tuple"
+    assert isinstance(
+        data_files, (list, tuple)
+    ), "case must be either a list or a tuple"
     properties = OrderedDict()
     data_itk = [sitk.ReadImage(f) for f in data_files]
 
@@ -117,7 +120,7 @@ def crop_to_nonzero(data, seg=None, nonzero_label=-1):
 
 
 def get_patient_identifiers_from_cropped_files(folder):
-    return [i.split("/")[-1][:-4] for i in subfiles(folder, join=True, suffix=".npz")]
+    return [os.path.basename(i)[:-4] for i in subfiles(folder, join=True, suffix=".npz")]
 
 
 class ImageCropper(object):
@@ -141,7 +144,7 @@ class ImageCropper(object):
         data, seg, bbox = crop_to_nonzero(data, seg, nonzero_label=-1)
         shape_after = data.shape
         print("before crop:", shape_before, "after crop:", shape_after, "spacing:",
-              np.array(properties["original_spacing"]), "\n")
+                np.array(properties["original_spacing"]), "\n")
 
         properties["crop_bbox"] = bbox
         properties['classes'] = np.unique(seg)
@@ -157,15 +160,24 @@ class ImageCropper(object):
     def load_crop_save(self, case, case_identifier, overwrite_existing=False):
         try:
             print(case_identifier)
-            if overwrite_existing \
-                    or (not os.path.isfile(os.path.join(self.output_folder, "%s.npz" % case_identifier))
-                        or not os.path.isfile(os.path.join(self.output_folder, "%s.pkl" % case_identifier))):
+            if (
+                overwrite_existing
+                or not os.path.isfile(
+                    os.path.join(self.output_folder, f"{case_identifier}.npz")
+                )
+                or not os.path.isfile(
+                    os.path.join(self.output_folder, f"{case_identifier}.pkl")
+                )
+            ):
 
                 data, seg, properties = self.crop_from_list_of_files(case[:-1], case[-1])
 
                 all_data = np.vstack((data, seg))
-                np.savez_compressed(os.path.join(self.output_folder, "%s.npz" % case_identifier), data=all_data)
-                with open(os.path.join(self.output_folder, "%s.pkl" % case_identifier), 'wb') as f:
+                np.savez_compressed(
+                    os.path.join(self.output_folder, f"{case_identifier}.npz"),
+                    data=all_data,
+                )
+                with open(os.path.join(self.output_folder, f"{case_identifier}.pkl"), 'wb') as f:
                     pickle.dump(properties, f)
         except Exception as e:
             print("Exception in", case_identifier, ":")
@@ -176,7 +188,8 @@ class ImageCropper(object):
         return subfiles(self.output_folder, join=True, suffix=".npz")
 
     def get_patient_identifiers_from_cropped_files(self):
-        return [i.split("/")[-1][:-4] for i in self.get_list_of_cropped_files()]
+        # return [i.split("/")[-1][:-4] for i in self.get_list_of_cropped_files()]
+        return [os.path.basename(i)[:-4] for i in self.get_list_of_cropped_files()]
 
     def run_cropping(self, list_of_files, overwrite_existing=False, output_folder=None):
         """
@@ -192,12 +205,12 @@ class ImageCropper(object):
 
         output_folder_gt = os.path.join(self.output_folder, "gt_segmentations")
         maybe_mkdir_p(output_folder_gt)
-        for j, case in enumerate(list_of_files):
+        for case in list_of_files:
             if case[-1] is not None:
                 shutil.copy(case[-1], output_folder_gt)
 
         list_of_args = []
-        for j, case in enumerate(list_of_files):
+        for case in list_of_files:
             case_identifier = get_case_identifier(case)
             list_of_args.append((case, case_identifier, overwrite_existing))
 
@@ -207,10 +220,10 @@ class ImageCropper(object):
         p.join()
 
     def load_properties(self, case_identifier):
-        with open(os.path.join(self.output_folder, "%s.pkl" % case_identifier), 'rb') as f:
+        with open(os.path.join(self.output_folder, f"{case_identifier}.pkl"), 'rb') as f:
             properties = pickle.load(f)
         return properties
 
     def save_properties(self, case_identifier, properties):
-        with open(os.path.join(self.output_folder, "%s.pkl" % case_identifier), 'wb') as f:
+        with open(os.path.join(self.output_folder, f"{case_identifier}.pkl"), 'wb') as f:
             pickle.dump(properties, f)

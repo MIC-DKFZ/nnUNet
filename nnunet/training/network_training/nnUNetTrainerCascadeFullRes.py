@@ -42,8 +42,10 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                           deterministic, previous_trainer, fp16)
 
         if self.output_folder is not None:
-            task = self.output_folder.split("/")[-3]
-            plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]
+            # task = self.output_folder.split("/")[-3]
+            # plans_identifier = self.output_folder.split("/")[-2].split("__")[-1]
+            task = os.path.normpath(self.output_folder).split(os.path.sep)[-3]
+            plans_identifier = os.path.normpath(self.output_folder).split(os.path.sep)[-2].split("__")[-1]
 
             folder_with_segs_prev_stage = join(network_training_output_dir, "3d_lowres",
                                                task, previous_trainer + "__" + plans_identifier, "pred_next_stage")
@@ -62,8 +64,9 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         for k in self.dataset:
             self.dataset[k]['seg_from_prev_stage_file'] = join(self.folder_with_segs_from_prev_stage,
                                                                k + "_segFromPrevStage.npz")
-            assert isfile(self.dataset[k]['seg_from_prev_stage_file']), \
-                "seg from prev stage missing: %s" % (self.dataset[k]['seg_from_prev_stage_file'])
+            assert isfile(
+                self.dataset[k]['seg_from_prev_stage_file']
+            ), f"seg from prev stage missing: {self.dataset[k]['seg_from_prev_stage_file']}"
         for k in self.dataset_val:
             self.dataset_val[k]['seg_from_prev_stage_file'] = join(self.folder_with_segs_from_prev_stage,
                                                                    k + "_segFromPrevStage.npz")
@@ -74,13 +77,12 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
     def get_basic_generators(self):
         self.load_dataset()
         self.do_split()
-        if self.threeD:
-            dl_tr = DataLoader3D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
-                                 True, oversample_foreground_percent=self.oversample_foreground_percent)
-            dl_val = DataLoader3D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, True,
-                                  oversample_foreground_percent=self.oversample_foreground_percent)
-        else:
+        if not self.threeD:
             raise NotImplementedError
+        dl_tr = DataLoader3D(self.dataset_tr, self.basic_generator_patch_size, self.patch_size, self.batch_size,
+                             True, oversample_foreground_percent=self.oversample_foreground_percent)
+        dl_val = DataLoader3D(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, True,
+                              oversample_foreground_percent=self.oversample_foreground_percent)
         return dl_tr, dl_val
 
     def process_plans(self, plans):
@@ -143,8 +145,6 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                                                                      self.data_aug_params)
                 self.print_to_log_file("TRAINING KEYS:\n %s" % (str(self.dataset_tr.keys())))
                 self.print_to_log_file("VALIDATION KEYS:\n %s" % (str(self.dataset_val.keys())))
-        else:
-            pass
         self.initialize_network()
         assert isinstance(self.network, SegmentationNetwork)
         self.was_initialized = True
@@ -180,11 +180,7 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
         output_folder = join(self.output_folder, validation_folder_name)
         maybe_mkdir_p(output_folder)
 
-        if do_mirroring:
-            mirror_axes = self.data_aug_params['mirror_axes']
-        else:
-            mirror_axes = ()
-
+        mirror_axes = self.data_aug_params['mirror_axes'] if do_mirroring else ()
         pred_gt_tuples = []
 
         export_pool = Pool(2)
@@ -217,20 +213,10 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
                 transpose_backward = self.plans.get('transpose_backward')
                 softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in transpose_backward])
 
-            fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            # fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            fname = os.path.basename(properties['list_of_data_files'][0])[:-12]
 
-            if save_softmax:
-                softmax_fname = join(output_folder, fname + ".npz")
-            else:
-                softmax_fname = None
-
-            """There is a problem with python process communication that prevents us from communicating objects 
-            larger than 2 GB between processes (basically when the length of the pickle string that will be sent is 
-            communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long 
-            enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually 
-            patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will 
-            then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either 
-            filename or np.ndarray and will handle this automatically"""
+            softmax_fname = join(output_folder, fname + ".npz") if save_softmax else None
             if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                 np.save(fname + ".npy", softmax_pred)
                 softmax_pred = fname + ".npy"
@@ -250,7 +236,8 @@ class nnUNetTrainerCascadeFullRes(nnUNetTrainer):
 
         _ = [i.get() for i in results]
 
-        task = self.dataset_directory.split("/")[-1]
+        # task = self.dataset_directory.split("/")[-1]
+        task = os.path.basename(self.dataset_directory)
         job_name = self.experiment_name
         _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"), json_name=job_name,
