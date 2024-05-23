@@ -1,3 +1,5 @@
+import subprocess
+
 import torch
 from batchgenerators.utilities.file_and_folder_operations import save_json, join, isfile, load_json
 
@@ -53,13 +55,15 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
             else:
                 old_results = {}
             # generate some unique key
-            my_key = f"{cudnn_version}__{torch_version.replace(' ', '')}__{gpu_name.replace(' ', '')}__gpus_{num_gpus}"
+            hostname = subprocess.getoutput('hostname')
+            my_key = f"{hostname}__{cudnn_version}__{torch_version.replace(' ', '')}__{gpu_name.replace(' ', '')}__num_gpus_{num_gpus}"
             old_results[my_key] = {
                 'torch_version': torch_version,
                 'cudnn_version': cudnn_version,
                 'gpu_name': gpu_name,
                 'fastest_epoch': fastest_epoch,
                 'num_gpus': num_gpus,
+                'hostname': hostname
             }
             save_json(old_results,
                       join(self.output_folder, 'benchmark_result.json'))
