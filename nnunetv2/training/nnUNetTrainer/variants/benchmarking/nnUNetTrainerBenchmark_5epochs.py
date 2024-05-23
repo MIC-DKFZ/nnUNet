@@ -29,6 +29,7 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
             super().run_training()
         except RuntimeError:
             self.crashed_with_runtime_error = True
+        self.on_train_end()
 
     def on_train_end(self):
         super().on_train_end()
