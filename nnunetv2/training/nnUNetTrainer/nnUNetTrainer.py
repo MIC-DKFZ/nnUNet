@@ -237,8 +237,16 @@ class nnUNetTrainer(object):
 
     def _do_i_compile(self):
         # new default: compile is enabled!
+
+        # CPU compile crashes for 2D models. Not sure if we even want to support CPU compile!? Better disable
         if self.device == torch.device('cpu'):
             return False
+
+        # default torch.compile doesn't work on windows because there are apparently no triton wheels for it
+        # https://discuss.pytorch.org/t/windows-support-timeline-for-torch-compile/182268/2
+        if os.name == 'nt':
+            return False
+
         if 'nnUNet_compile' not in os.environ.keys():
             return True
         else:
