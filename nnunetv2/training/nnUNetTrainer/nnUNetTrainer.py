@@ -1043,7 +1043,10 @@ class nnUNetTrainer(object):
                 # CAREFUL that you don't rely on target after this line!
                 target[target == self.label_manager.ignore_label] = 0
             else:
-                mask = 1 - target[:, -1:]
+                if target.dtype == torch.bool:
+                    mask = ~target[:, -1:]
+                else:
+                    mask = 1 - target[:, -1:]
                 # CAREFUL that you don't rely on target after this line!
                 target = target[:, :-1]
         else:
