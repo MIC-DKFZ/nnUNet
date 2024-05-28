@@ -38,7 +38,7 @@ nnUNetv2_extract_fingerprint -d SOURCE_DATASET
 Now we can take the plans from the target dataset and transfer it to the source:
 
 ```bash
-nnUNetv2_move_plans_between_datasets -s TARGET_DATASET -t SOURCE_DATASET -sp SOURCE_PLANS_IDENTIFIER -tp TARGET_PLANS_IDENTIFIER
+nnUNetv2_move_plans_between_datasets -s SOURCE_DATASET -t TARGET_DATASET -sp SOURCE_PLANS_IDENTIFIER -tp TARGET_PLANS_IDENTIFIER
 ```
 
 `SOURCE_PLANS_IDENTIFIER` is hereby probably nnUNetPlans unless you changed the experiment planner in 
