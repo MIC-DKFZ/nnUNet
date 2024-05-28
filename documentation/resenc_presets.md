@@ -72,7 +72,7 @@ The presets differ from `ResEncUNetPlanner` in two ways:
 - They set new default values for `gpu_memory_target_in_gb` to target the respective VRAM consumptions
 - They remove the batch size cap of 0.05 (= previously one batch could not cover mode pixels than 5% of the entire dataset, not it can be arbitrarily large)
 
-The preset are merely there ot make life easier, and to provide standardized configurations people can benchmark with.
+The presets are merely there to make life easier, and to provide standardized configurations people can benchmark with.
 You can easily adapt the GPU memory target to match your GPU, and to scale beyond 40GB of GPU memory. 
 
 Here is an example for how to scale to 80GB VRAM on Dataset003_Liver:

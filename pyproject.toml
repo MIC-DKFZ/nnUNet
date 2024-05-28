@@ -1,6 +1,6 @@
 [project]
 name = "nnunetv2"
-version = "2.4"
+version = "2.5"
 requires-python = ">=3.9"
 description = "nnU-Net is a framework for out-of-the box image segmentation."
 readme = "readme.md"
@@ -49,7 +49,9 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "imagecodecs",
-    "yacs"
+    "yacs",
+    "batchgeneratorsv2",
+    "einops"
 ]
 
 [project.urls]
