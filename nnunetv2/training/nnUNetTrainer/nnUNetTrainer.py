@@ -237,6 +237,8 @@ class nnUNetTrainer(object):
 
     def _do_i_compile(self):
         # new default: compile is enabled!
+        if self.device == torch.device('cpu'):
+            return False
         if 'nnUNet_compile' not in os.environ.keys():
             return True
         else:
