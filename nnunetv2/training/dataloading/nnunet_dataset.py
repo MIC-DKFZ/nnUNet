@@ -110,14 +110,14 @@ class nnUNetDatasetBlosc2(object):
             'nthreads': 1
         }
         data_b2nd_file = join(self.source_folder, identifier + '.b2nd')
-        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams)
+        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams, mmap_mode='r')
 
         seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
-        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams)
+        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, mmap_mode='r')
 
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_b2nd_file = join(self.folder_with_segs_from_previous_stage, identifier + '.b2nd')
-            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams)
+            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams, mmap_mode='r')
         else:
             seg_prev = None
 
