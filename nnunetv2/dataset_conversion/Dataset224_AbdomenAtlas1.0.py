@@ -41,5 +41,6 @@ if __name__ == '__main__':
         len(cases),
         '.nii.gz',
         None,
-        target_dataset_name
+        target_dataset_name,
+        overwrite_image_reader_writer='NibabelIOWithReorient'
     )
