@@ -201,6 +201,11 @@ class nnUNetTrainer(object):
                                "Nature methods, 18(2), 203-211.\n"
                                "#######################################################################\n",
                                also_print_to_console=True, add_timestamp=False)
+        self.__post_init__()
+
+    def __post_init__(self):
+        pass
+
 
     def initialize(self):
         if not self.was_initialized:
