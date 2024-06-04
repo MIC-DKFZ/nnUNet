@@ -176,7 +176,7 @@ if __name__ == '__main__':
     predictor.initialize_from_trained_model_folder(
         args.model,
         ('all', ),
-        'checkpoint_latest.pth'
+        'checkpoint_final.pth'
     )
 
     # we need to create list of list of input files

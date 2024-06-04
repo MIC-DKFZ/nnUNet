@@ -4,6 +4,20 @@ from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_j
 
 
 if __name__ == '__main__':
+    """
+    How to train our submission to the JHU benchmark
+    
+    1. Execute this script here to convert the dataset into nnU-Net format. Adapt the paths to your system!
+    2. Run planning and preprocessing: `nnUNetv2_plan_and_preprocess -d 224 -npfp 64 -np 64 -c 3d_fullres -pl 
+    nnUNetPlannerResEncL_torchres`. Adapt the number of processes to your System (-np; -npfp)! Note that each process 
+    will again spawn 4 threads for resampling. This custom planner replaces the nnU-Net default resampling scheme with 
+    a torch-based implementation which is faster but less accurate. This is needed to satisfy the inference speed 
+    constraints.
+    3. Run training with `nnUNetv2_train 224 3d_fullres all -p nnUNetResEncUNetLPlans_torchres`. 24GB VRAM required, 
+    training will take ~28-30h.
+    """
+
+
     base = '/home/isensee/Downloads/AbdomenAtlas1.0Mini'
     cases = subdirs(base, join=False, prefix='BDMAP')
 
