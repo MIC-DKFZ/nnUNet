@@ -52,10 +52,12 @@ def determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing, 
     if axis is not None:
         if len(axis) == 3:
             do_separate_z = False
+            axis = None
         elif len(axis) == 2:
             # this happens for spacings like (0.24, 1.25, 1.25) for example. In that case we do not want to resample
             # separately in the out of plane axis
             do_separate_z = False
+            axis = None
         else:
             pass
     return do_separate_z, axis
@@ -77,7 +79,7 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
     shape = np.array(data.shape)
     new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
 
-    assert len(axis) == 1, "only one anisotropic axis supported"
+    assert axis is None or len(axis) == 1, "only one anisotropic axis supported"
     data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis[0], order, do_separate_z, order_z=order_z)
     return data_reshaped
 
@@ -102,7 +104,7 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     if data is not None:
         assert data.ndim == 4, "data must be c x y z"
 
-    assert len(axis) == 1, "only one anisotropic axis supported"
+    assert axis is None or len(axis) == 1, "only one anisotropic axis supported"
     data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis[0], order, do_separate_z, order_z=order_z)
     return data_reshaped
 
