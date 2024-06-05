@@ -31,7 +31,8 @@ def compute_new_shape(old_shape: Union[Tuple[int, ...], List[int], np.ndarray],
     return new_shape
 
 
-def determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing, separate_z_anisotropy_threshold: float = ANISO_THRESHOLD):
+def determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing,
+                                separate_z_anisotropy_threshold: float = ANISO_THRESHOLD) -> Tuple[bool, int]:
     if force_separate_z is not None:
         do_separate_z = force_separate_z
         if force_separate_z:
@@ -59,7 +60,7 @@ def determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing, 
             do_separate_z = False
             axis = None
         else:
-            pass
+            axis = axis[0]
     return do_separate_z, axis
 
 
@@ -79,8 +80,7 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
     shape = np.array(data.shape)
     new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
 
-    assert axis is None or len(axis) == 1, "only one anisotropic axis supported"
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis[0], order, do_separate_z, order_z=order_z)
+    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
     return data_reshaped
 
 
@@ -104,8 +104,7 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     if data is not None:
         assert data.ndim == 4, "data must be c x y z"
 
-    assert axis is None or len(axis) == 1, "only one anisotropic axis supported"
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis[0], order, do_separate_z, order_z=order_z)
+    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
     return data_reshaped
 
 
