@@ -1,11 +1,13 @@
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Union, Tuple, List
 
 import numpy as np
 import pandas as pd
+import sklearn
 import torch
 from batchgenerators.augmentations.utils import resize_segmentation
-from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage import map_coordinates
 from skimage.transform import resize
 from nnunetv2.configuration import ANISO_THRESHOLD
 
@@ -75,7 +77,8 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
     shape = np.array(data.shape)
     new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
 
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
+    assert len(axis) == 1, "only one anisotropic axis supported"
+    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis[0], order, do_separate_z, order_z=order_z)
     return data_reshaped
 
 
@@ -99,7 +102,8 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     if data is not None:
         assert data.ndim == 4, "data must be c x y z"
 
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
+    assert len(axis) == 1, "only one anisotropic axis supported"
+    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis[0], order, do_separate_z, order_z=order_z)
     return data_reshaped
 
 
@@ -135,8 +139,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
         data = data.astype(float, copy=False)
         if do_separate_z:
             # print("separate z, order in z is", order_z, "order inplane is", order)
-            assert len(axis) == 1, "only one anisotropic axis supported"
-            axis = axis[0]
+            assert axis is not None, 'If do_separate_z, we need to know what axis is anisotropic'
             if axis == 0:
                 new_shape_2d = new_shape[1:]
             elif axis == 1:
@@ -145,20 +148,23 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                 new_shape_2d = new_shape[:-1]
 
             for c in range(data.shape[0]):
-                reshaped_here = np.zeros((data.shape[1], *new_shape_2d))
+                tmp = deepcopy(new_shape)
+                tmp[axis] = shape[axis]
+                reshaped_here = np.zeros(tmp)
                 for slice_id in range(shape[axis]):
                     if axis == 0:
                         reshaped_here[slice_id] = resize_fn(data[c, slice_id], new_shape_2d, order, **kwargs)
                     elif axis == 1:
-                        reshaped_here[slice_id] = resize_fn(data[c, :, slice_id], new_shape_2d, order, **kwargs)
+                        reshaped_here[:, slice_id] = resize_fn(data[c, :, slice_id], new_shape_2d, order, **kwargs)
                     else:
-                        reshaped_here[slice_id] = resize_fn(data[c, :, :, slice_id], new_shape_2d, order, **kwargs)
+                        reshaped_here[:, :, slice_id] = resize_fn(data[c, :, :, slice_id], new_shape_2d, order, **kwargs)
                 if shape[axis] != new_shape[axis]:
 
                     # The following few lines are blatantly copied and modified from sklearn's resize()
                     rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
                     orig_rows, orig_cols, orig_dim = reshaped_here.shape
 
+                    # align_corners=False
                     row_scale = float(orig_rows) / rows
                     col_scale = float(orig_cols) / cols
                     dim_scale = float(orig_dim) / dim
@@ -187,3 +193,10 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
     else:
         # print("no resampling necessary")
         return data
+
+
+if __name__ == '__main__':
+    input_array = np.random.random((1, 42, 231, 142))
+    output_shape = (52, 256, 256)
+    out = resample_data_or_seg(input_array, output_shape, is_seg=False, axis=3, order=1, order_z=0, do_separate_z=True)
+    print(out.shape, input_array.shape)
