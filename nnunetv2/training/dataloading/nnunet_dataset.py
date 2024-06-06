@@ -1,5 +1,6 @@
 import os
 import warnings
+from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import lru_cache
 from typing import List, Union, Type, Tuple
@@ -15,7 +16,10 @@ from nnunetv2.training.dataloading.utils import unpack_dataset
 import math
 
 
-class nnUNetDatasetNumpy(object):
+class nnUNetBaseDataset(ABC):
+    """
+    Defines the interface
+    """
     def __init__(self, folder: str, identifiers: List[str] = None,
                  folder_with_segs_from_previous_stage: str = None):
         super().__init__()
@@ -31,6 +35,33 @@ class nnUNetDatasetNumpy(object):
     def __getitem__(self, identifier):
         return self.load_case(identifier)
 
+    @abstractmethod
+    def load_case(self, identifier):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def save_case(
+            data: np.ndarray,
+            seg: np.ndarray,
+            properties: dict,
+            output_filename_truncated: str
+            ):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def get_identifiers(folder: str) -> List[str]:
+        pass
+
+    @staticmethod
+    def unpack_dataset(folder: str, overwrite_existing: bool = False,
+                       num_processes: int = default_num_processes,
+                       verify: bool = True):
+        pass
+
+
+class nnUNetDatasetNumpy(nnUNetBaseDataset):
     def load_case(self, identifier):
         data_npy_file = join(self.source_folder, identifier + '.npy')
         if not isfile(data_npy_file):
@@ -84,22 +115,14 @@ class nnUNetDatasetNumpy(object):
     @staticmethod
     def unpack_dataset(folder: str, overwrite_existing: bool = False,
                        num_processes: int = default_num_processes,
-                       verify_npy: bool = True):
-        return unpack_dataset(folder, True, overwrite_existing, num_processes, verify_npy)
+                       verify: bool = True):
+        return unpack_dataset(folder, True, overwrite_existing, num_processes, verify)
 
 
-class nnUNetDatasetBlosc2(object):
+class nnUNetDatasetBlosc2(nnUNetBaseDataset):
     def __init__(self, folder: str, identifiers: List[str] = None,
                  folder_with_segs_from_previous_stage: str = None):
-        super().__init__()
-        # print('loading dataset')
-        if identifiers is None:
-            identifiers = self.get_identifiers(folder)
-        identifiers.sort()
-
-        self.source_folder = folder
-        self.folder_with_segs_from_previous_stage = folder_with_segs_from_previous_stage
-        self.identifiers = identifiers
+        super().__init__(folder, identifiers, folder_with_segs_from_previous_stage)
         blosc2.set_nthreads(1)
 
     def __getitem__(self, identifier):
@@ -150,8 +173,10 @@ class nnUNetDatasetBlosc2(object):
             'clevel': clevel,
         }
         # print(output_filename_truncated, data.shape, seg.shape, blocks, chunks, blocks_seg, chunks_seg)
-        blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks, blocks=blocks, cparams=cparams, mmap_mode='w+')
-        blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg, blocks=blocks_seg, cparams=cparams, mmap_mode='w+')
+        blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks,
+                       blocks=blocks, cparams=cparams, mmap_mode='w+')
+        blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg,
+                       blocks=blocks_seg, cparams=cparams, mmap_mode='w+')
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
@@ -174,16 +199,17 @@ class nnUNetDatasetBlosc2(object):
     @staticmethod
     def unpack_dataset(folder: str, overwrite_existing: bool = False,
                        num_processes: int = default_num_processes,
-                       verify_npy: bool = True):
+                       verify: bool = True):
         pass
 
     @staticmethod
     def comp_blosc2_params(
             image_size: Tuple[int, int, int, int],
             patch_size: Union[Tuple[int, int], Tuple[int, int, int]],
-            bytes_per_pixel: int = 4, # 4 byte are float32
-            l1_cache_size_per_core_in_bytes=32768,  #1 Kibibyte (KiB) = 2^10 Byte;  32 KiB = 32768 Byte
-            l3_cache_size_per_core_in_bytes=1441792,  # 1 Mibibyte (MiB) = 2^20 Byte = 1.048.576 Byte; 1.375MiB = 1441792 Byte
+            bytes_per_pixel: int = 4,  # 4 byte are float32
+            l1_cache_size_per_core_in_bytes=32768,  # 1 Kibibyte (KiB) = 2^10 Byte;  32 KiB = 32768 Byte
+            l3_cache_size_per_core_in_bytes=1441792,
+            # 1 Mibibyte (MiB) = 2^20 Byte = 1.048.576 Byte; 1.375MiB = 1441792 Byte
             safety_factor: float = 0.8  # we dont will the caches to the brim. 0.8 means we target 80% of the caches
     ):
         """
@@ -219,7 +245,7 @@ class nnUNetDatasetBlosc2(object):
         if len(patch_size) == 2:
             patch_size = [1, *patch_size]
         patch_size = np.array(patch_size)
-        block_size = np.array((num_channels, *[2**(max(0, math.floor(math.log2(i / 2)))) for i in patch_size]))
+        block_size = np.array((num_channels, *[2 ** (max(0, math.floor(math.log2(i / 2)))) for i in patch_size]))
 
         # shrink the block size until it fits in L1
         estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
@@ -232,7 +258,7 @@ class nnUNetDatasetBlosc2(object):
                 idx += 1
                 picked_axis = axis_order[idx]
             # now reduce that axis to the next lowest power of 2
-            block_size[picked_axis + 1] = 2**(max(0, math.floor(math.log2(block_size[picked_axis + 1] - 1))))
+            block_size[picked_axis + 1] = 2 ** (max(0, math.floor(math.log2(block_size[picked_axis + 1] - 1))))
             block_size[picked_axis + 1] = min(block_size[picked_axis + 1], image_size[picked_axis + 1])
             estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
             if all([i == j for i, j in zip(block_size, image_size)]):
@@ -269,7 +295,7 @@ file_ending_dataset_mapping = {
 }
 
 
-def infer_dataset_class(folder: str) -> Type[nnUNetDatasetNumpy]:
+def infer_dataset_class(folder: str) -> Union[Type[nnUNetDatasetBlosc2], Type[nnUNetDatasetNumpy]]:
     file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)])
     if 'pkl' in file_endings:
         file_endings.remove('pkl')

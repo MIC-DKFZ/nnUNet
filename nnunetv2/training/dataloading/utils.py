@@ -57,7 +57,7 @@ def _convert_to_npy(npz_file: str, unpack_segmentation: bool = True, overwrite_e
 
 def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_existing: bool = False,
                    num_processes: int = default_num_processes,
-                   verify_npy: bool = False):
+                   verify: bool = False):
     """
     all npz files in this folder belong to the dataset, unpack them all
     """
@@ -66,7 +66,7 @@ def unpack_dataset(folder: str, unpack_segmentation: bool = True, overwrite_exis
         p.starmap(_convert_to_npy, zip(npz_files,
                                        [unpack_segmentation] * len(npz_files),
                                        [overwrite_existing] * len(npz_files),
-                                       [verify_npy] * len(npz_files))
+                                       [verify] * len(npz_files))
                   )
 
 

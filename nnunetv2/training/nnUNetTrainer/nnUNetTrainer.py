@@ -927,7 +927,7 @@ class nnUNetTrainer(object):
                 self.preprocessed_dataset_folder,
                 overwrite_existing=False,
                 num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
-                verify_npy=True)
+                verify=True)
 
         if self.is_ddp:
             dist.barrier()
