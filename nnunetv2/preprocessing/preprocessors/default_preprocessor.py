@@ -260,7 +260,6 @@ class DefaultPreprocessor(object):
                         pbar.update()
                     remaining = [i for i in remaining if i not in done]
                     sleep(0.1)
-            _ = [i.get() for i in r]
 
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
                       configuration_manager: ConfigurationManager) -> np.ndarray:
