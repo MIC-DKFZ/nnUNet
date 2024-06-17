@@ -31,8 +31,12 @@ def compute_new_shape(old_shape: Union[Tuple[int, ...], List[int], np.ndarray],
     return new_shape
 
 
-def determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing,
-                                separate_z_anisotropy_threshold: float = ANISO_THRESHOLD) -> Tuple[bool, int]:
+
+def determine_do_sep_z_and_axis(
+        force_separate_z: bool,
+        current_spacing,
+        new_spacing,
+        separate_z_anisotropy_threshold: float = ANISO_THRESHOLD) -> Tuple[bool, Union[int, None]]:
     if force_separate_z is not None:
         do_separate_z = force_separate_z
         if force_separate_z:
