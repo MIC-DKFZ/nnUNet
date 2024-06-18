@@ -118,6 +118,7 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
         yield item
     [p.join() for p in processes]
 
+
 class PreprocessAdapter(DataLoader):
     def __init__(self, list_of_lists: List[List[str]],
                  list_of_segs_from_prev_stage_files: Union[None, List[str]],
