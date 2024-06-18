@@ -15,6 +15,8 @@ from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 # the Evaluator class of the previous nnU-Net was great and all but man was it overengineered. Keep it simple
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from monai.metrics import compute_hausdorff_distance
+
 
 
 def label_or_region_to_key(label_or_region: Union[int, Tuple[int]]):
@@ -99,17 +101,29 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     results['reference_file'] = reference_file
     results['prediction_file'] = prediction_file
     results['metrics'] = {}
+    spacing = seg_ref_dict['spacing']
     for r in labels_or_regions:
         results['metrics'][r] = {}
         mask_ref = region_or_label_to_mask(seg_ref, r)
         mask_pred = region_or_label_to_mask(seg_pred, r)
         tp, fp, fn, tn = compute_tp_fp_fn_tn(mask_ref, mask_pred, ignore_mask)
+        
+        mask_pred_int = mask_pred.astype(np.int64)
+        one_hot_mask_pred = np.eye(np.max(mask_pred_int) + 1)[mask_pred_int]
+        o_pred = np.transpose(one_hot_mask_pred, (0, 4, 1, 2, 3))
+
+        mask_ref_int = mask_ref.astype(np.int64)
+        one_hot_mask_ref = np.eye(np.max(mask_ref_int) + 1)[mask_ref_int]
+        o_ref = np.transpose(one_hot_mask_ref, (0, 4, 1, 2, 3))
+        hsd95 = compute_hausdorff_distance(o_pred, o_ref, percentile=95., spacing=spacing).numpy()[0][0]
+        
         if tp + fp + fn == 0:
             results['metrics'][r]['Dice'] = np.nan
             results['metrics'][r]['IoU'] = np.nan
         else:
             results['metrics'][r]['Dice'] = 2 * tp / (2 * tp + fp + fn)
             results['metrics'][r]['IoU'] = tp / (tp + fp + fn)
+        results['metrics'][r]['HSD95'] = hsd95
         results['metrics'][r]['FP'] = fp
         results['metrics'][r]['TP'] = tp
         results['metrics'][r]['FN'] = fn
