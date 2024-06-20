@@ -21,11 +21,11 @@ import numpy as np
 class BaseReaderWriter(ABC):
     @staticmethod
     def _check_all_same(input_list):
-        # compare all entries to the first
-        for i in input_list[1:]:
-            if i != input_list[0]:
-                return False
-        return True
+        if len(input_list) == 1:
+            return True
+        else:
+            # compare all entries to the first
+            return np.allclose(input_list[0], input_list[1:])
 
     @staticmethod
     def _check_all_same_array(input_list):

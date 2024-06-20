@@ -31,6 +31,7 @@ def compute_new_shape(old_shape: Union[Tuple[int, ...], List[int], np.ndarray],
     return new_shape
 
 
+
 def determine_do_sep_z_and_axis(
         force_separate_z: bool,
         current_spacing,

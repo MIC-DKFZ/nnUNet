@@ -163,7 +163,7 @@ a plot of the training (blue) and validation (red) loss during training. Also sh
   average over all cases but pretend that there is only one validation case from which we sample patches). The reason for
   this is that the 'global Dice' is easy to compute during training and is still quite useful to evaluate whether a model
   is training at all or not. A proper validation takes way too long to be done each epoch. It is run at the end of the training.
-- validation_raw: in this folder are the predicted validation cases after the training has finished. The summary.json file in here
+- validation: in this folder are the predicted validation cases after the training has finished. The summary.json file in here
   contains the validation metrics (a mean over all cases is provided at the start of the file). If `--npz` was set then 
 the compressed softmax outputs (saved as .npz files) are in here as well. 
 
