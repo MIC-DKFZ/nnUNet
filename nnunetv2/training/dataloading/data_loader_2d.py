@@ -90,6 +90,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
         if self.transforms is not None:
             with torch.no_grad():
                 with threadpool_limits(limits=1, user_api=None):
+
                     data_all = torch.from_numpy(data_all).float()
                     seg_all = torch.from_numpy(seg_all).to(torch.int16)
                     images = []
@@ -99,7 +100,10 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
                         images.append(tmp['image'])
                         segs.append(tmp['segmentation'])
                     data_all = torch.stack(images)
-                    seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    if isinstance(segs[0], list):
+                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    else:
+                        seg_all = torch.stack(segs)
                     del segs, images
 
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}

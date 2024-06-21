@@ -62,7 +62,10 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
                         images.append(tmp['image'])
                         segs.append(tmp['segmentation'])
                     data_all = torch.stack(images)
-                    seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    if isinstance(segs[0], list):
+                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    else:
+                        seg_all = torch.stack(segs)
                     del segs, images
 
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
