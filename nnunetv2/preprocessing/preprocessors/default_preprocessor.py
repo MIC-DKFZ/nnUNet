@@ -153,7 +153,7 @@ class DefaultPreprocessor(object):
             tuple(configuration_manager.patch_size),
             data.itemsize)
         block_size_seg, chunk_size_seg = nnUNetDatasetBlosc2.comp_blosc2_params(
-            data.shape,
+            seg.shape,
             tuple(configuration_manager.patch_size),
             seg.itemsize)
 
