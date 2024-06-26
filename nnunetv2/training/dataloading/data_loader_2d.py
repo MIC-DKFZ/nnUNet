@@ -44,7 +44,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             if selected_class_or_region is not None:
                 selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
             else:
-                selected_slice = np.random.choice(len(data[0]))
+                selected_slice = np.random.choice(data.shape[1])
 
             # the line of death lol
             # this needs to be a separate variable because we could otherwise permanently overwrite
