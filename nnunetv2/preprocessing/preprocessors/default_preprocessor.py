@@ -100,7 +100,7 @@ class DefaultPreprocessor(object):
             # when using the ignore label we want to sample only from annotated regions. Therefore we also need to
             # collect samples uniformly from all classes (incl background)
             if label_manager.has_ignore_label:
-                collect_for_this.append(label_manager.all_labels)
+                collect_for_this.append([-1] + label_manager.all_labels)
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
@@ -137,6 +137,8 @@ class DefaultPreprocessor(object):
         else:
             seg = None
 
+        if self.verbose:
+            print(seg_file)
         data, seg = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
                                       dataset_json)
         return data, seg, data_properties
@@ -247,7 +249,6 @@ class DefaultPreprocessor(object):
             # p is pretty nifti. If we kill workers they just respawn but don't do any work.
             # So we need to store the original pool of workers.
             workers = [j for j in p._pool]
-
             for k in dataset.keys():
                 r.append(p.starmap_async(self.run_case_save,
                                          ((join(output_directory, k), dataset[k]['images'], dataset[k]['label'],

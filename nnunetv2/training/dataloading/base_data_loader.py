@@ -38,7 +38,7 @@ class nnUNetDataLoaderBase(DataLoader):
         self.pad_sides = pad_sides
         self.data_shape, self.seg_shape = self.determine_shapes()
         self.sampling_probabilities = sampling_probabilities
-        self.annotated_classes_key = tuple(label_manager.all_labels)
+        self.annotated_classes_key = tuple([-1] + label_manager.all_labels)
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling

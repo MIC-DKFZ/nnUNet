@@ -41,8 +41,8 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
                 selected_class_or_region = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
                     len(eligible_classes_or_regions) > 0 else None
-            if selected_class_or_region is not None:
-                selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
+            if selected_class_or_region is not None and len(properties['class_locations'][selected_class_or_region]) > 0:
+                selected_slice = properties['class_locations'][selected_class_or_region][np.random.choice(properties['class_locations'][selected_class_or_region].shape[1])][1]
             else:
                 selected_slice = np.random.choice(data.shape[1])
 
