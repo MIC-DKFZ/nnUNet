@@ -9,7 +9,6 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 class nnUNetTrainer_autopetiii(nnUNetTrainer):
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
-        print(data['ofile'])
         target = batch['target']
 
         data = data.to(self.device, non_blocking=True)
