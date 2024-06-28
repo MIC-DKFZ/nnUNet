@@ -12,7 +12,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+import warnings
 from typing import Tuple, Union, List
 import numpy as np
 from nibabel import io_orientation
@@ -26,12 +26,11 @@ class NibabelIO(BaseReaderWriter):
     Nibabel loads the images in a different order than sitk. We convert the axes to the sitk order to be
     consistent. This is of course considered properly in segmentation export as well.
 
-    IMPORTANT: Run nnUNet_plot_dataset_pngs to verify that this did not destroy the alignment of data and seg!
+    IMPORTANT: Run nnUNetv2_plot_overlay_pngs to verify that this did not destroy the alignment of data and seg!
     """
     supported_file_endings = [
+        '.nii',
         '.nii.gz',
-        '.nrrd',
-        '.mha'
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
@@ -67,7 +66,7 @@ class NibabelIO(BaseReaderWriter):
             print(original_affines)
             print('Image files:')
             print(image_fnames)
-            print('It is up to you to decide whether that\'s a problem. You should run nnUNet_plot_dataset_pngs to verify '
+            print('It is up to you to decide whether that\'s a problem. You should run nnUNetv2_plot_overlay_pngs to verify '
                   'that segmentations and data overlap.')
         if not self._check_all_same(spacings_for_nnunet):
             print('ERROR! Not all input images have the same spacing_for_nnunet! This might be caused by them not '
@@ -104,12 +103,11 @@ class NibabelIOWithReorient(BaseReaderWriter):
     Nibabel loads the images in a different order than sitk. We convert the axes to the sitk order to be
     consistent. This is of course considered properly in segmentation export as well.
 
-    IMPORTANT: Run nnUNet_plot_dataset_pngs to verify that this did not destroy the alignment of data and seg!
+    IMPORTANT: Run nnUNetv2_plot_overlay_pngs to verify that this did not destroy the alignment of data and seg!
     """
     supported_file_endings = [
+        '.nii',
         '.nii.gz',
-        '.nrrd',
-        '.mha'
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
@@ -149,7 +147,7 @@ class NibabelIOWithReorient(BaseReaderWriter):
             print(reoriented_affines)
             print('Image files:')
             print(image_fnames)
-            print('It is up to you to decide whether that\'s a problem. You should run nnUNet_plot_dataset_pngs to verify '
+            print('It is up to you to decide whether that\'s a problem. You should run nnUNetv2_plot_overlay_pngs to verify '
                   'that segmentations and data overlap.')
         if not self._check_all_same(spacings_for_nnunet):
             print('ERROR! Not all input images have the same spacing_for_nnunet! This might be caused by them not '
@@ -179,8 +177,10 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
         seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['reoriented_affine'])
         seg_nib_reoriented = seg_nib.as_reoriented(io_orientation(properties['nibabel_stuff']['original_affine']))
-        assert np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine), \
-            'restored affine does not match original affine'
+        if not np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine):
+            print(f'WARNING: Restored affine does not match original affine. File: {output_fname}')
+            print(f'Original affine\n', properties['nibabel_stuff']['original_affine'])
+            print(f'Restored affine\n', seg_nib_reoriented.affine)
         nibabel.save(seg_nib_reoriented, output_fname)
 
 

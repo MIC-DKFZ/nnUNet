@@ -1,4 +1,7 @@
 import numpy as np
+import torch
+from threadpoolctl import threadpool_limits
+
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 
@@ -29,8 +32,8 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
             # valid_bbox is just the coord that lied within the data cube. It will be padded to match the patch size
             # later
-            valid_bbox_lbs = [max(0, bbox_lbs[i]) for i in range(dim)]
-            valid_bbox_ubs = [min(shape[i], bbox_ubs[i]) for i in range(dim)]
+            valid_bbox_lbs = np.clip(bbox_lbs, a_min=0, a_max=None)
+            valid_bbox_ubs = np.minimum(shape, bbox_ubs)
 
             # At this point you might ask yourself why we would treat seg differently from seg_from_previous_stage.
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
@@ -43,10 +46,31 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             seg = seg[this_slice]
 
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
-            data_all[j] = np.pad(data, ((0, 0), *padding), 'constant', constant_values=0)
-            seg_all[j] = np.pad(seg, ((0, 0), *padding), 'constant', constant_values=-1)
+            padding = ((0, 0), *padding)
+            data_all[j] = np.pad(data, padding, 'constant', constant_values=0)
+            seg_all[j] = np.pad(seg, padding, 'constant', constant_values=-1)
 
-        return {'data': data_all, 'seg': seg_all, 'properties': case_properties, 'keys': selected_keys}
+        if self.transforms is not None:
+            if torch is not None:
+                torch_nthreads = torch.get_num_threads()
+                torch.set_num_threads(1)
+            with threadpool_limits(limits=1, user_api=None):
+                data_all = torch.from_numpy(data_all).float()
+                seg_all = torch.from_numpy(seg_all).to(torch.int16)
+                images = []
+                segs = []
+                for b in range(self.batch_size):
+                    tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
+                    images.append(tmp['image'])
+                    segs.append(tmp['segmentation'])
+                data_all = torch.stack(images)
+                seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                del segs, images
+            if torch is not None:
+                torch.set_num_threads(torch_nthreads)
+            return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+
+        return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
 
 if __name__ == '__main__':

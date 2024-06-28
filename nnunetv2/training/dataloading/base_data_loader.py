@@ -17,9 +17,9 @@ class nnUNetDataLoaderBase(DataLoader):
                  oversample_foreground_percent: float = 0.0,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
-                 probabilistic_oversampling: bool = False):
+                 probabilistic_oversampling: bool = False,
+                 transforms=None):
         super().__init__(data, batch_size, 1, None, True, False, True, sampling_probabilities)
-        assert isinstance(data, nnUNetDataset), 'nnUNetDataLoaderBase only supports dictionaries as data'
         self.indices = list(data.keys())
 
         self.oversample_foreground_percent = oversample_foreground_percent
@@ -41,6 +41,7 @@ class nnUNetDataLoaderBase(DataLoader):
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
+        self.transforms = transforms
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """

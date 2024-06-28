@@ -46,7 +46,7 @@ Add the following to the 'configurations' dict in 'nnUNetPlans.json':
 ```json
         "3d_fullres_resenc": {
             "inherits_from": "3d_fullres",
-            "UNet_class_name": "ResidualEncoderUNet",
+            "network_arch_class_name": "ResidualEncoderUNet",
             "n_conv_per_stage_encoder": [
                 1,
                 3,

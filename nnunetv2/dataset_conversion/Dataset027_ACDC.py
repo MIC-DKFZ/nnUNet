@@ -1,9 +1,12 @@
 import os
 import shutil
 from pathlib import Path
+from typing import List
 
+from batchgenerators.utilities.file_and_folder_operations import nifti_files, join, maybe_mkdir_p, save_json
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from nnunetv2.paths import nnUNet_raw
+from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+import numpy as np
 
 
 def make_out_dirs(dataset_id: int, task_name="ACDC"):
@@ -20,6 +23,22 @@ def make_out_dirs(dataset_id: int, task_name="ACDC"):
     os.makedirs(out_test_dir, exist_ok=True)
 
     return out_dir, out_train_dir, out_labels_dir, out_test_dir
+
+
+def create_ACDC_split(labelsTr_folder: str, seed: int = 1234) -> List[dict[str, List]]:
+    # labelsTr_folder = '/home/isensee/drives/gpu_data_root/OE0441/isensee/nnUNet_raw/nnUNet_raw_remake/Dataset027_ACDC/labelsTr'
+    nii_files = nifti_files(labelsTr_folder, join=False)
+    patients = np.unique([i[:len('patient000')] for i in nii_files])
+    rs = np.random.RandomState(seed)
+    rs.shuffle(patients)
+    splits = []
+    for fold in range(5):
+        val_patients = patients[fold::5]
+        train_patients = [i for i in patients if i not in val_patients]
+        val_cases = [i[:-7] for i in nii_files for j in val_patients if i.startswith(j)]
+        train_cases = [i[:-7] for i in nii_files for j in train_patients if i.startswith(j)]
+        splits.append({'train': train_cases, 'val': val_cases})
+    return splits
 
 
 def copy_files(src_data_folder: Path, train_dir: Path, labels_dir: Path, test_dir: Path):
@@ -84,4 +103,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("Converting...")
     convert_acdc(args.input_folder, args.dataset_id)
+
+    dataset_name = f"Dataset{args.dataset_id:03d}_{'ACDC'}"
+    labelsTr = join(nnUNet_raw, dataset_name, 'labelsTr')
+    preprocessed_folder = join(nnUNet_preprocessed, dataset_name)
+    maybe_mkdir_p(preprocessed_folder)
+    split = create_ACDC_split(labelsTr)
+    save_json(split, join(preprocessed_folder, 'splits_final.json'), sort_keys=False)
+
     print("Done!")

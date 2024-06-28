@@ -76,7 +76,7 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
     if not np.allclose(spacing_seg, spacing_images):
         print('Error: Spacing mismatch between segmentation and corresponding images. \nSpacing images: %s. '
               '\nSpacing seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-              (shape_image, shape_seg, image_files, label_file))
+              (spacing_images, spacing_seg, image_files, label_file))
         ret = False
 
     # check modalities
@@ -93,7 +93,7 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         if not np.allclose(affine_image, affine_seg):
             print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
                   'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
-                  'nnUNet_plot_dataset_pngs to verify if everything is OK!\n'
+                  'nnUNetv2_plot_overlay_pngs to verify if everything is OK!\n'
                   % (affine_image, affine_seg, image_files, label_file))
 
     # sitk checks
@@ -203,8 +203,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     with multiprocessing.get_context("spawn").Pool(num_processes) as p:
         result = p.starmap(
             verify_labels,
-            zip([join(folder, 'labelsTr', i) for i in labelfiles], [reader_writer_class] * len(labelfiles),
-                [expected_labels] * len(labelfiles))
+            zip(labelfiles, [reader_writer_class] * len(labelfiles), [expected_labels] * len(labelfiles))
         )
         if not all(result):
             raise RuntimeError(

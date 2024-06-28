@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import socket
 from typing import Union, Optional
@@ -148,6 +149,12 @@ def run_training(dataset_name_or_id: Union[str, int],
                  disable_checkpointing: bool = False,
                  val_with_best: bool = False,
                  device: torch.device = torch.device('cuda')):
+    if plans_identifier == 'nnUNetPlans':
+        print("\n############################\n"
+              "INFO: You are using the old nnU-Net default plans. We have updated our recommendations. "
+              "Please consider using those instead! "
+              "Read more here: https://github.com/MIC-DKFZ/nnUNet/blob/master/documentation/resenc_presets.md"
+              "\n############################\n")
     if isinstance(fold, str):
         if fold != 'all':
             try:
@@ -271,4 +278,8 @@ def run_training_entry():
 
 
 if __name__ == '__main__':
+    os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['MKL_NUM_THREADS'] = '1'
+    os.environ['OPENBLAS_NUM_THREADS'] = '1'
+    # multiprocessing.set_start_method("spawn")
     run_training_entry()

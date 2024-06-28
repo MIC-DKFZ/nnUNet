@@ -3,8 +3,9 @@ import os.path
 from copy import deepcopy
 from typing import Union, List, Tuple
 
-from batchgenerators.utilities.file_and_folder_operations import load_json, join, isdir, save_json
-
+from batchgenerators.utilities.file_and_folder_operations import (
+    load_json, join, isdir, listdir, save_json
+)
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
 from nnunetv2.evaluation.accumulate_cv_results import accumulate_cv_results
@@ -320,6 +321,11 @@ def accumulate_crossval_results_entry_point():
         merged_output_folder = join(trained_model_folder, f'crossval_results_folds_{folds_tuple_to_string(args.f)}')
     else:
         merged_output_folder = args.o
+        if isdir(merged_output_folder) and len(listdir(merged_output_folder)) > 0:
+            raise FileExistsError(
+                f"Output folder {merged_output_folder} exists and is not empty. "
+                f"To avoid data loss, nnUNet requires an empty output folder."
+            )
 
     accumulate_cv_results(trained_model_folder, merged_output_folder, args.f)
 

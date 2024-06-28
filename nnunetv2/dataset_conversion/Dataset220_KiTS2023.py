@@ -31,7 +31,7 @@ def convert_kits2023(kits_base_dir: str, nnunet_dataset_id: int = 220):
                           regions_class_order=(1, 3, 2),
                           num_training_cases=len(cases), file_ending='.nii.gz',
                           dataset_name=task_name, reference='none',
-                          release='prerelease',
+                          release='0.1.3',
                           overwrite_image_reader_writer='NibabelIOWithReorient',
                           description="KiTS2023")
 
