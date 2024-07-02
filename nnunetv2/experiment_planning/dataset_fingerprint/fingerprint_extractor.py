@@ -3,6 +3,7 @@ import os
 from time import sleep
 from typing import List, Type, Union
 
+import nibabel as nib
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, save_json, isfile, maybe_mkdir_p
 from tqdm import tqdm
