@@ -12,6 +12,7 @@ if __name__ == '__main__':
         tile_step_size=0.5,
         use_gaussian=True,
         use_mirroring=True,
+        use_batch_tta=True,
         perform_everything_on_device=True,
         device=torch.device('cuda', 0),
         verbose=False,
