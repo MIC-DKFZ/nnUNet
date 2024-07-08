@@ -83,14 +83,20 @@ class DC_and_BCE_loss(nn.Module):
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
         if self.use_ignore_label:
             # target is one hot encoded here. invert it so that it is True wherever we can compute the loss
-            mask = (1 - target[:, -1:]).bool()
+            if target.dtype == torch.bool:
+                mask = ~target[:, -1:]
+            else:
+                mask = (1 - target[:, -1:]).bool()
             # remove ignore channel now that we have the mask
-            target_regions = torch.clone(target[:, :-1])
+            # why did we use clone in the past? Should have documented that...
+            # target_regions = torch.clone(target[:, :-1])
+            target_regions = target[:, :-1]
         else:
             target_regions = target
             mask = None
 
         dc_loss = self.dc(net_output, target_regions, loss_mask=mask)
+        target_regions = target_regions.float()
         if mask is not None:
             ce_loss = (self.ce(net_output, target_regions) * mask).sum() / torch.clip(mask.sum(), min=1e-8)
         else:

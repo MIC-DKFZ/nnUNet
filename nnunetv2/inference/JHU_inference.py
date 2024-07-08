@@ -148,8 +148,8 @@ class JHUPredictor(nnUNetPredictor):
 
 
 if __name__ == '__main__':
-    # python nnunetv2/inference/JHU_inference.py /home/isensee/Downloads/AbdomenAtlasTest /home/isensee/Downloads/AbdomenAtlasTest_pred -model /home/isensee/JHU_trained_model
-    # /home/isensee/JHU_trained_model
+    # python nnunetv2/inference/JHU_inference.py /home/isensee/Downloads/AbdomenAtlasTest /home/isensee/Downloads/AbdomenAtlasTest_pred -model /home/isensee/temp/JHU/trained_model_ep3850
+    # /home/isensee/temp/JHU/trained_model_ep3850
     # /home/isensee/Downloads/AbdomenAtlasTest
     # /home/isensee/Downloads/AbdomenAtlasTest_pred
 
@@ -159,6 +159,7 @@ if __name__ == '__main__':
     parser.add_argument('input_dir', type=str)
     parser.add_argument('output_dir', type=str)
     parser.add_argument('-model', required=True, type=str)
+    parser.add_argument('--disable_tqdm', required=False, action='store_true', default=False)
     args = parser.parse_args()
 
     predictor = JHUPredictor(
@@ -167,15 +168,15 @@ if __name__ == '__main__':
         use_mirroring=True,
         perform_everything_on_device=True,
         device=torch.device('cuda', 0),
-        verbose=True,
+        verbose=False,
         verbose_preprocessing=False,
-        allow_tqdm=True
+        allow_tqdm=not args.disable_tqdm
     )
 
     predictor.initialize_from_trained_model_folder(
         args.model,
         ('all', ),
-        'checkpoint_latest.pth'
+        'checkpoint_final.pth'
     )
 
     # we need to create list of list of input files

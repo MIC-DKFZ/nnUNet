@@ -163,7 +163,7 @@ a plot of the training (blue) and validation (red) loss during training. Also sh
   average over all cases but pretend that there is only one validation case from which we sample patches). The reason for
   this is that the 'global Dice' is easy to compute during training and is still quite useful to evaluate whether a model
   is training at all or not. A proper validation takes way too long to be done each epoch. It is run at the end of the training.
-- validation_raw: in this folder are the predicted validation cases after the training has finished. The summary.json file in here
+- validation: in this folder are the predicted validation cases after the training has finished. The summary.json file in here
   contains the validation metrics (a mean over all cases is provided at the start of the file). If `--npz` was set then 
 the compressed softmax outputs (saved as .npz files) are in here as well. 
 
@@ -289,6 +289,13 @@ from the respective training). You can pick these files from any of the ensemble
 
 ## How to run inference with pretrained models
 See [here](run_inference_with_pretrained_models.md)
+
+## How to Deploy and Run Inference with YOUR Pretrained Models
+To facilitate the use of pretrained models on a different computer for inference purposes, follow these streamlined steps:
+1. Exporting the Model: Utilize the `nnUNetv2_export_model_to_zip` function to package your trained model into a .zip file. This file will contain all necessary model files.
+2. Transferring the Model: Transfer the .zip file to the target computer where inference will be performed.
+3. Importing the Model: On the new PC, use the `nnUNetv2_install_pretrained_model_from_zip` to load the pretrained model from the .zip file.
+Please note that both computers must have nnU-Net installed along with all its dependencies to ensure compatibility and functionality of the model.
 
 [//]: # (## Examples)
 

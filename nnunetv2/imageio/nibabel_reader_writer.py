@@ -31,8 +31,6 @@ class NibabelIO(BaseReaderWriter):
     supported_file_endings = [
         '.nii',
         '.nii.gz',
-        '.nrrd',
-        '.mha'
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
@@ -79,14 +77,13 @@ class NibabelIO(BaseReaderWriter):
             print(image_fnames)
             raise RuntimeError()
 
-        stacked_images = np.vstack(images)
         dict = {
             'nibabel_stuff': {
                 'original_affine': original_affines[0],
             },
             'spacing': spacings_for_nnunet[0]
         }
-        return stacked_images.astype(np.float32), dict
+        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname, ))
@@ -110,8 +107,6 @@ class NibabelIOWithReorient(BaseReaderWriter):
     supported_file_endings = [
         '.nii',
         '.nii.gz',
-        '.nrrd',
-        '.mha'
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
@@ -162,7 +157,6 @@ class NibabelIOWithReorient(BaseReaderWriter):
             print(image_fnames)
             raise RuntimeError()
 
-        stacked_images = np.vstack(images)
         dict = {
             'nibabel_stuff': {
                 'original_affine': original_affines[0],
@@ -170,14 +164,14 @@ class NibabelIOWithReorient(BaseReaderWriter):
             },
             'spacing': spacings_for_nnunet[0]
         }
-        return stacked_images.astype(np.float32), dict
+        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # revert transpose
-        seg = seg.transpose((2, 1, 0)).astype(np.uint8)
+        seg = seg.transpose((2, 1, 0)).astype(np.uint8, copy=False)
 
         seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['reoriented_affine'])
         seg_nib_reoriented = seg_nib.as_reoriented(io_orientation(properties['nibabel_stuff']['original_affine']))

@@ -79,7 +79,7 @@ def preprocess_entry():
                         help='[OPTIONAL] Configurations for which the preprocessing should be run. Default: 2d 3d_fullres '
                              '3d_lowres. 3d_cascade_fullres does not need to be specified because it uses the data '
                              'from 3d_fullres. Configurations that do not exist for some dataset will be skipped.')
-    parser.add_argument('-np', type=int, nargs='+', default=[8, 4, 8], required=False,
+    parser.add_argument('-np', type=int, nargs='+', default=None, required=False,
                         help="[OPTIONAL] Use this to define how many processes are to be used. If this is just one number then "
                              "this number of processes is used for all configurations specified with -c. If it's a "
                              "list of numbers this list must have as many elements as there are configurations. We "
@@ -96,12 +96,8 @@ def preprocess_entry():
                              'Recommended for cluster environments')
     args, unrecognized_args = parser.parse_known_args()
     if args.np is None:
-        default_np = {
-            '2d': 4,
-            '3d_lowres': 8,
-            '3d_fullres': 4
-        }
-        np = {default_np[c] if c in default_np.keys() else 4 for c in args.c}
+        default_np = {"2d": 8, "3d_fullres": 4, "3d_lowres": 8}
+        np = [default_np[c] if c in default_np.keys() else 4 for c in args.c]
     else:
         np = args.np
     preprocess(args.d, args.plans_name, configurations=args.c, num_processes=np, verbose=args.verbose)

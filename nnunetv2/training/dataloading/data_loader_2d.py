@@ -88,23 +88,23 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             seg_all[j] = np.pad(seg, ((0, 0), *padding), 'constant', constant_values=-1)
 
         if self.transforms is not None:
-            if torch is not None:
-                torch_nthreads = torch.get_num_threads()
-                torch.set_num_threads(1)
-            with threadpool_limits(limits=1, user_api=None):
-                data_all = torch.from_numpy(data_all).float()
-                seg_all = torch.from_numpy(seg_all).to(torch.int16)
-                images = []
-                segs = []
-                for b in range(self.batch_size):
-                    tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
-                    images.append(tmp['image'])
-                    segs.append(tmp['segmentation'])
-                data_all = torch.stack(images)
-                seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
-                del segs, images
-            if torch is not None:
-                torch.set_num_threads(torch_nthreads)
+            with torch.no_grad():
+                with threadpool_limits(limits=1, user_api=None):
+
+                    data_all = torch.from_numpy(data_all).float()
+                    seg_all = torch.from_numpy(seg_all).to(torch.int16)
+                    images = []
+                    segs = []
+                    for b in range(self.batch_size):
+                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
+                        images.append(tmp['image'])
+                        segs.append(tmp['segmentation'])
+                    data_all = torch.stack(images)
+                    if isinstance(segs[0], list):
+                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    else:
+                        seg_all = torch.stack(segs)
+                    del segs, images
 
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
