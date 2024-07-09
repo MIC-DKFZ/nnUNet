@@ -28,12 +28,16 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
 from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerDA5 import nnUNetTrainerDA5
 from nnunetv2.training.nnUNetTrainer.variants.sparse_labels.nnUNetTrainer_betterIgnoreSampling import \
     nnUNetDataLoader2DBetterIgnSampling, nnUNetDataLoader3DBetterIgnSampling
 
 
-class nnUNetTrainer_airwayAug_new(nnUNetTrainer):
+class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
+    """
+    We inherit from nnUNetTrainerDA5 now because that trainer still uses the old DA and we can piggyback on the
+    compatibility that it has built in
+    """
     @staticmethod
     def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
                                 rotation_for_DA: dict,
@@ -52,6 +56,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainer):
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
 
         tr_transforms = []
+        tr_transforms.append(RenameTransform('target', 'seg', True))
 
         # don't do color augmentations while in 2d mode with 3d data because the color channel is overloaded!!
         if do_dummy_2d_data_aug: # todo

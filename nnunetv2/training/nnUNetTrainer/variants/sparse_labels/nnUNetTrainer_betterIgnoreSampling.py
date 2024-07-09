@@ -2,6 +2,8 @@ from typing import Union, Tuple
 
 import numpy as np
 import torch
+from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
+from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
@@ -10,7 +12,9 @@ from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_lo
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerDA5 import nnUNetTrainerDA5, nnUNetTrainerDA5ord0
+from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerDA5 import nnUNetTrainerDA5, \
+    nnUNetTrainerDA5ord0
+from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 
 
 class nnUNetDataLoaderBaseBetterIgnSampling(nnUNetDataLoaderBase):
@@ -69,7 +73,7 @@ class nnUNetDataLoaderBaseBetterIgnSampling(nnUNetDataLoaderBase):
                     # 2022_11_25: had to read it today. Wasn't too bad
                     selected_class = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
                         (overwrite_class is None or (
-                                    overwrite_class not in eligible_classes_or_regions)) else overwrite_class
+                                overwrite_class not in eligible_classes_or_regions)) else overwrite_class
                 # print(f'I want to have foreground, selected class: {selected_class}')
             else:
                 raise RuntimeError('lol what!?')
@@ -85,7 +89,8 @@ class nnUNetDataLoaderBaseBetterIgnSampling(nnUNetDataLoaderBase):
                     allowed_max_pos_offset = [min(d - s, p // 2) for s, p, d in
                                               zip(selected_voxel[1:], self.patch_size, data_shape)]
                     for d in range(len(self.patch_size)):
-                         selected_voxel[d + 1] += np.random.randint(-allowed_max_neg_offset[d], allowed_max_pos_offset[d])
+                        selected_voxel[d + 1] += np.random.randint(-allowed_max_neg_offset[d],
+                                                                   allowed_max_pos_offset[d])
                     # offset = deepcopy(selected_voxel)
                     # # make sure selected voxels are within image boundaries
                     # selected_voxel = [selected_voxel[0]] + [max(0, i) for i in selected_voxel[1:]]
@@ -124,40 +129,89 @@ class nnUNetDataLoader3DBetterIgnSampling(nnUNetDataLoader3D):
 
 
 class nnUNetTrainer_betterIgnoreSampling(nnUNetTrainer):
-    def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
+    def get_dataloaders(self):
+        patch_size = self.configuration_manager.patch_size
+        dim = len(patch_size)
+
+        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
+        # outputs?
+
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        (
+            rotation_for_DA,
+            do_dummy_2d_data_aug,
+            initial_patch_size,
+            mirror_axes,
+        ) = self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
+
+        # training pipeline
+        tr_transforms = self.get_training_transforms(
+            patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label)
+
+        # validation pipeline
+        val_transforms = self.get_validation_transforms(deep_supervision_scales,
+                                                        is_cascaded=self.is_cascaded,
+                                                        foreground_labels=self.label_manager.foreground_labels,
+                                                        regions=self.label_manager.foreground_regions if
+                                                        self.label_manager.has_regions else None,
+                                                        ignore_label=self.label_manager.ignore_label)
+
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         if dim == 2:
-            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr,
-                                                        self.batch_size,
+            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr, self.batch_size,
                                                         initial_patch_size,
                                                         self.configuration_manager.patch_size,
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
-                                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val,
-                                                         self.batch_size,
+                                                        sampling_probabilities=None, pad_sides=None,
+                                                        transforms=tr_transforms)
+            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val, self.batch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
-                                                         sampling_probabilities=None, pad_sides=None)
+                                                         sampling_probabilities=None, pad_sides=None,
+                                                         transforms=val_transforms)
         else:
-            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr,
-                                                        self.batch_size,
+            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr, self.batch_size,
                                                         initial_patch_size,
                                                         self.configuration_manager.patch_size,
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
-                                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val,
-                                                         self.batch_size,
+                                                        sampling_probabilities=None, pad_sides=None,
+                                                        transforms=tr_transforms)
+            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val, self.batch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
-                                                         sampling_probabilities=None, pad_sides=None)
-        return dl_tr, dl_val
+                                                         sampling_probabilities=None, pad_sides=None,
+                                                         transforms=val_transforms)
+
+        allowed_num_processes = get_allowed_n_proc_DA()
+        if allowed_num_processes == 0:
+            mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
+            mt_gen_val = SingleThreadedAugmenter(dl_val, None)
+        else:
+            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
+                                                        num_processes=allowed_num_processes,
+                                                        num_cached=max(6, allowed_num_processes // 2), seeds=None,
+                                                        pin_memory=self.device.type == 'cuda', wait_time=0.002)
+            mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
+                                                      transform=None, num_processes=max(1, allowed_num_processes // 2),
+                                                      num_cached=max(3, allowed_num_processes // 4), seeds=None,
+                                                      pin_memory=self.device.type == 'cuda',
+                                                      wait_time=0.002)
+        # # let's get this party started
+        _ = next(mt_gen_train)
+        _ = next(mt_gen_val)
+        return mt_gen_train, mt_gen_val
 
 
 class nnUNetTrainer_betterIgnoreSampling_noSmooth(nnUNetTrainer_betterIgnoreSampling):
@@ -177,7 +231,7 @@ class nnUNetTrainer_betterIgnoreSampling_noSmooth(nnUNetTrainer_betterIgnoreSamp
 
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
-            weights = np.array([1 / (2**i) for i in range(len(deep_supervision_scales))])
+            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
             weights[-1] = 0
 
             # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
@@ -185,80 +239,6 @@ class nnUNetTrainer_betterIgnoreSampling_noSmooth(nnUNetTrainer_betterIgnoreSamp
             # now wrap the loss
             loss = DeepSupervisionWrapper(loss, weights)
         return loss
-
-
-class nnUNetTrainerDA5_betterIgnoreSampling(nnUNetTrainerDA5):
-    def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
-        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
-        if dim == 2:
-            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr,
-                                                        self.batch_size,
-                                                        initial_patch_size,
-                                                        self.configuration_manager.patch_size,
-                                                        self.label_manager,
-                                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val,
-                                                         self.batch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.label_manager,
-                                                         oversample_foreground_percent=self.oversample_foreground_percent,
-                                                         sampling_probabilities=None, pad_sides=None)
-        else:
-            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr,
-                                                        self.batch_size,
-                                                        initial_patch_size,
-                                                        self.configuration_manager.patch_size,
-                                                        self.label_manager,
-                                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val,
-                                                         self.batch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.label_manager,
-                                                         oversample_foreground_percent=self.oversample_foreground_percent,
-                                                         sampling_probabilities=None, pad_sides=None)
-        return dl_tr, dl_val
-
-
-class nnUNetTrainerDA5ord0_betterIgnoreSampling(nnUNetTrainerDA5ord0):
-    def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
-        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
-        if dim == 2:
-            dl_tr = nnUNetDataLoader2DBetterIgnSampling(dataset_tr,
-                                                        self.batch_size,
-                                                        initial_patch_size,
-                                                        self.configuration_manager.patch_size,
-                                                        self.label_manager,
-                                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val,
-                                                         self.batch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.label_manager,
-                                                         oversample_foreground_percent=self.oversample_foreground_percent,
-                                                         sampling_probabilities=None, pad_sides=None)
-        else:
-            dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr,
-                                                        self.batch_size,
-                                                        initial_patch_size,
-                                                        self.configuration_manager.patch_size,
-                                                        self.label_manager,
-                                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                                        sampling_probabilities=None, pad_sides=None)
-            dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val,
-                                                         self.batch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.configuration_manager.patch_size,
-                                                         self.label_manager,
-                                                         oversample_foreground_percent=self.oversample_foreground_percent,
-                                                         sampling_probabilities=None, pad_sides=None)
-        return dl_tr, dl_val
 
 
 class nnUNetTrainer_betterIgnoreSampling_10epochs(nnUNetTrainer_betterIgnoreSampling):
