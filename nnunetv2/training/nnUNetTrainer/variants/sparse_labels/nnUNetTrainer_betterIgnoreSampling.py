@@ -229,6 +229,9 @@ class nnUNetTrainer_betterIgnoreSampling_noSmooth(nnUNetTrainer_betterIgnoreSamp
                                   ignore_label=self.label_manager.ignore_label,
                                   dice_class=MemoryEfficientSoftDiceLoss)
 
+        if self._do_i_compile():
+            loss.dc = torch.compile(loss.dc)
+
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
             weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])

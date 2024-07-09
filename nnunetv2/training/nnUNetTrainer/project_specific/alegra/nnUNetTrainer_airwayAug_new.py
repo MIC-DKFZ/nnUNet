@@ -38,6 +38,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
     We inherit from nnUNetTrainerDA5 now because that trainer still uses the old DA and we can piggyback on the
     compatibility that it has built in
     """
+
     @staticmethod
     def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
                                 rotation_for_DA: dict,
@@ -59,7 +60,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
         tr_transforms.append(RenameTransform('target', 'seg', True))
 
         # don't do color augmentations while in 2d mode with 3d data because the color channel is overloaded!!
-        if do_dummy_2d_data_aug: # todo
+        if do_dummy_2d_data_aug:  # todo
             ignore_axes = (0,)
             tr_transforms.append(Convert3DTo2DTransform())
             patch_size_spatial = patch_size[1:]
@@ -70,7 +71,9 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
         tr_transforms.append(SpatialTransform(
             patch_size_spatial, patch_center_dist_from_border=None,
             do_elastic_deform=False, alpha=(0, 0), sigma=(0, 0),
-            do_rotation=True, angle_x=rotation_for_DA['x'], angle_y=rotation_for_DA['y'], angle_z=rotation_for_DA['z'],
+            do_rotation=True, angle_x=rotation_for_DA,
+            angle_y=rotation_for_DA,
+            angle_z=rotation_for_DA,
             p_rot_per_axis=1,  # todo experiment with this
             do_scale=True, scale=(0.7, 1.4),
             border_mode_data="constant", border_cval_data=0, order_data=order_resampling_data,
@@ -281,7 +284,7 @@ class nnUNetTrainer_airwayAug_new_noSmooth(nnUNetTrainer_airwayAug_new):
 
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
-            weights = np.array([1 / (2**i) for i in range(len(deep_supervision_scales))])
+            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
             weights[-1] = 0
 
             # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
