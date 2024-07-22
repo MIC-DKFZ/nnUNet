@@ -38,7 +38,7 @@ nnUNetv2_extract_fingerprint -d PRETRAINING_DATASET
 Now we can take the plans from the target dataset and transfer it to the pretraining dataset:
 
 ```bash
-nnUNetv2_move_plans_between_datasets -s PRETRAINING_DATASET -t TARGET_DATASET -sp PRETRAINING_PLANS_IDENTIFIER -tp TARGET_PLANS_IDENTIFIER
+nnUNetv2_move_plans_between_datasets -s TARGET_DATASET -t PRETRAINING_DATASET -sp PRETRAINING_PLANS_IDENTIFIER -tp TARGET_PLANS_IDENTIFIER
 ```
 
 `PRETRAINING_PLANS_IDENTIFIER` is hereby probably nnUNetPlans unless you changed the experiment planner in 
