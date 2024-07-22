@@ -491,7 +491,7 @@ class nnUNetPredictor(object):
             if prediction is None:
                 prediction = self.predict_sliding_window_return_logits(data).to('cpu')
                 if prediction.is_inference():
-                    # in place update is not possible for a tensor outside InferenceMode. Clone the tensor first.
+                    # in place update will not be possible for an InferenceMode tensor. Clone the tensor to take it out of InferenceMode.
                     prediction = prediction.clone()
             else:
                 prediction += self.predict_sliding_window_return_logits(data).to('cpu')
