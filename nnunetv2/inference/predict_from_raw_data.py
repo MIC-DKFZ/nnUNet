@@ -490,6 +490,9 @@ class nnUNetPredictor(object):
             # this actually saves computation time
             if prediction is None:
                 prediction = self.predict_sliding_window_return_logits(data).to('cpu')
+                if prediction.is_inference():
+                    # in place update is not possible for a tensor outside InferenceMode. Clone the tensor first.
+                    prediction = prediction.clone()
             else:
                 prediction += self.predict_sliding_window_return_logits(data).to('cpu')
 
