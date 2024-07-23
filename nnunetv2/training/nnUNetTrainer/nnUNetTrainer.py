@@ -42,7 +42,7 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
     Convert3DTo2DTransform
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset, nnUNetPytorchDataset
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
@@ -62,6 +62,7 @@ from torch import distributed as dist
 from torch.cuda import device_count
 from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
 
 
 class nnUNetTrainer(object):
@@ -1278,3 +1279,166 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()        
+
+class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True, device: torch.device = torch.device('cuda')):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)    
+
+    # Re-write the get_dataloaders function to get PyTorch datasets
+    def get_dataloaders(self):
+        patch_size = self.configuration_manager.patch_size
+        dim = len(patch_size)
+
+        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
+        # outputs?
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
+            self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
+
+        # training pipeline
+        tr_transforms = self.get_training_transforms(
+            patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
+            order_resampling_data=3, order_resampling_seg=1,
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label)
+
+        # validation pipeline
+        val_transforms = self.get_validation_transforms(deep_supervision_scales,
+                                                        is_cascaded=self.is_cascaded,
+                                                        foreground_labels=self.label_manager.foreground_labels,
+                                                        regions=self.label_manager.foreground_regions if
+                                                        self.label_manager.has_regions else None,
+                                                        ignore_label=self.label_manager.ignore_label)        
+
+        allowed_num_processes = get_allowed_n_proc_DA()
+
+        # Instantiate the PyTorch datasets
+        tr_dataset, val_dataset = self.get_tr_and_val_datasets()
+        # Instantiate the Pytorch dataloaders
+        dl_tr = DataLoader(tr_dataset, batch_size=self.batch_size, shuffle=True, num_workers=allowed_num_processes)
+        dl_val = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=allowed_num_processes)
+
+        return dl_tr, dl_val
+
+    def get_tr_and_val_datasets(self):
+        # create dataset split
+        tr_keys, val_keys = self.do_split()
+
+        # Get initial 
+        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
+            self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()        
+
+        # load the datasets for training and validation. 
+        dataset_tr = nnUNetPytorchDataset(self.preprocessed_dataset_folder, initial_patch_size, 
+                                          self.configuration_manager.patch_size, self.label_manager, tr_keys,
+                                          oversample_foreground_percent=self.oversample_foreground_percent,
+                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                   num_images_properties_loading_threshold=0)
+        dataset_val = nnUNetPytorchDataset(self.preprocessed_dataset_folder, self.configuration_manager.patch_size, 
+                                           self.configuration_manager.patch_size, self.label_manager, val_keys,
+                                           oversample_foreground_percent=self.oversample_foreground_percent,
+                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+                                    num_images_properties_loading_threshold=0)
+        
+        return dataset_tr, dataset_val
+
+    # Train and Val step need to be reimplemented for first 2 lines
+    # original nnUnet dataloader returns dict
+    # Pytorch data loader returns tuple
+    def train_step(self, batch: dict) -> dict:
+        data = batch[0]
+        target = batch[1]
+
+        data = data.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
+        else:
+            target = target.to(self.device, non_blocking=True)
+
+        self.optimizer.zero_grad(set_to_none=True)
+        # Autocast is a little bitch.
+        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
+        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
+        # So autocast will only be active if we have a cuda device.
+        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            output = self.network(data)
+            # del data
+            l = self.loss(output, target)
+
+        if self.grad_scaler is not None:
+            self.grad_scaler.scale(l).backward()
+            self.grad_scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+            self.grad_scaler.step(self.optimizer)
+            self.grad_scaler.update()
+        else:
+            l.backward()
+            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
+            self.optimizer.step()
+        return {'loss': l.detach().cpu().numpy()}        
+    
+    def validation_step(self, batch: dict) -> dict:
+        data = batch[0]
+        target = batch[1]
+
+        data = data.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
+        else:
+            target = target.to(self.device, non_blocking=True)
+
+        # Autocast is a little bitch.
+        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
+        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
+        # So autocast will only be active if we have a cuda device.
+        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+        # we only need the output with the highest output resolution
+        output = output[0]
+        target = target[0]
+
+        # the following is needed for online evaluation. Fake dice (green line)
+        axes = [0] + list(range(2, output.ndim))
+
+        if self.label_manager.has_regions:
+            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
+        else:
+            # no need for softmax
+            output_seg = output.argmax(1)[:, None]
+            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
+            predicted_segmentation_onehot.scatter_(1, output_seg, 1)
+            del output_seg
+
+        if self.label_manager.has_ignore_label:
+            if not self.label_manager.has_regions:
+                mask = (target != self.label_manager.ignore_label).float()
+                # CAREFUL that you don't rely on target after this line!
+                target[target == self.label_manager.ignore_label] = 0
+            else:
+                mask = 1 - target[:, -1:]
+                # CAREFUL that you don't rely on target after this line!
+                target = target[:, :-1]
+        else:
+            mask = None
+
+        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
+
+        tp_hard = tp.detach().cpu().numpy()
+        fp_hard = fp.detach().cpu().numpy()
+        fn_hard = fn.detach().cpu().numpy()
+        if not self.label_manager.has_regions:
+            # if we train with regions all segmentation heads predict some kind of foreground. In conventional
+            # (softmax training) there needs tobe one output for the background. We are not interested in the
+            # background Dice
+            # [1:] in order to remove background
+            tp_hard = tp_hard[1:]
+            fp_hard = fp_hard[1:]
+            fn_hard = fn_hard[1:]
+
+        return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}    
