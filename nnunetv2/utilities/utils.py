@@ -21,6 +21,7 @@ import numpy as np
 import re
 
 from nnunetv2.paths import nnUNet_raw
+from multiprocessing import Pool
 
 
 def get_identifiers_from_splitted_dataset_folder(folder: str, file_ending: str):
@@ -33,7 +34,12 @@ def get_identifiers_from_splitted_dataset_folder(folder: str, file_ending: str):
     return files
 
 
-def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, identifiers: List[str] = None) -> List[
+def create_paths_fn(folder, files, file_ending, f):
+    p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))            
+    return [join(folder, i) for i in files if p.fullmatch(i)]
+
+
+def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, identifiers: List[str] = None, num_processes: int = 12) -> List[
     List[str]]:
     """
     does not rely on dataset.json
@@ -42,9 +48,11 @@ def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, ide
         identifiers = get_identifiers_from_splitted_dataset_folder(folder, file_ending)
     files = subfiles(folder, suffix=file_ending, join=False, sort=True)
     list_of_lists = []
-    for f in identifiers:
-        p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))
-        list_of_lists.append([join(folder, i) for i in files if p.fullmatch(i)])
+
+    params_list = [(folder, files, file_ending, f) for f in identifiers]
+    with Pool(processes=num_processes) as pool:
+        list_of_lists = pool.starmap(create_paths_fn, params_list)
+        
     return list_of_lists
 
 

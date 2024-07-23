@@ -43,7 +43,7 @@ class NaturalImage2DIO(BaseReaderWriter):
                 assert npy_img.shape[-1] == 3 or npy_img.shape[-1] == 4, "If image has three dimensions then the last " \
                                                                          "dimension must have shape 3 or 4 " \
                                                                          f"(RGB or RGBA). Image shape here is {npy_img.shape}"
-                # move RGB(A) to front, add additional dim so that we have shape (1, c, X, Y), where c is either 3 or 4
+                # move RGB(A) to front, add additional dim so that we have shape (c, 1, X, Y), where c is either 3 or 4
                 images.append(npy_img.transpose((2, 0, 1))[:, None])
             elif npy_img.ndim == 2:
                 # grayscale image
@@ -56,13 +56,13 @@ class NaturalImage2DIO(BaseReaderWriter):
             print('Image files:')
             print(image_fnames)
             raise RuntimeError()
-        return np.vstack(images).astype(np.float32), {'spacing': (999, 1, 1)}
+        return np.vstack(images, dtype=np.float32, casting='unsafe'), {'spacing': (999, 1, 1)}
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
-        io.imsave(output_fname, seg[0].astype(np.uint8), check_contrast=False)
+        io.imsave(output_fname, seg[0].astype(np.uint8, copy=False), check_contrast=False)
 
 
 if __name__ == '__main__':

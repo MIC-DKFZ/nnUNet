@@ -237,6 +237,27 @@ class nnUNetTrainer(object):
 
     def _do_i_compile(self):
         # new default: compile is enabled!
+
+        # compile does not work on mps
+        if self.device == torch.device('mps'):
+            if 'nnUNet_compile' in os.environ.keys() and os.environ['nnUNet_compile'].lower() in ('true', '1', 't'):
+                self.print_to_log_file("INFO: torch.compile disabled because of unsupported mps device")
+            return False
+
+        # CPU compile crashes for 2D models. Not sure if we even want to support CPU compile!? Better disable
+        if self.device == torch.device('cpu'):
+            if 'nnUNet_compile' in os.environ.keys() and os.environ['nnUNet_compile'].lower() in ('true', '1', 't'):
+                self.print_to_log_file("INFO: torch.compile disabled because device is CPU")
+            return False
+
+        # default torch.compile doesn't work on windows because there are apparently no triton wheels for it
+        # https://discuss.pytorch.org/t/windows-support-timeline-for-torch-compile/182268/2
+        if os.name == 'nt':
+            if 'nnUNet_compile' in os.environ.keys() and os.environ['nnUNet_compile'].lower() in ('true', '1', 't'):
+                self.print_to_log_file("INFO: torch.compile disabled because Windows is not natively supported. If "
+                                       "you know what you are doing, check https://discuss.pytorch.org/t/windows-support-timeline-for-torch-compile/182268/2")
+            return False
+
         if 'nnUNet_compile' not in os.environ.keys():
             return True
         else:
@@ -1043,7 +1064,10 @@ class nnUNetTrainer(object):
                 # CAREFUL that you don't rely on target after this line!
                 target[target == self.label_manager.ignore_label] = 0
             else:
-                mask = 1 - target[:, -1:]
+                if target.dtype == torch.bool:
+                    mask = ~target[:, -1:]
+                else:
+                    mask = 1 - target[:, -1:]
                 # CAREFUL that you don't rely on target after this line!
                 target = target[:, :-1]
         else:

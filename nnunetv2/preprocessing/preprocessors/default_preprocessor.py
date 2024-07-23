@@ -230,15 +230,17 @@ class DefaultPreprocessor(object):
         # multiprocessing magic.
         r = []
         with multiprocessing.get_context("spawn").Pool(num_processes) as p:
+            remaining = list(range(len(dataset)))
+            # p is pretty nifti. If we kill workers they just respawn but don't do any work.
+            # So we need to store the original pool of workers.
+            workers = [j for j in p._pool]
+
             for k in dataset.keys():
                 r.append(p.starmap_async(self.run_case_save,
                                          ((join(output_directory, k), dataset[k]['images'], dataset[k]['label'],
                                            plans_manager, configuration_manager,
                                            dataset_json),)))
-            remaining = list(range(len(dataset)))
-            # p is pretty nifti. If we kill workers they just respawn but don't do any work.
-            # So we need to store the original pool of workers.
-            workers = [j for j in p._pool]
+
             with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
@@ -251,6 +253,8 @@ class DefaultPreprocessor(object):
                                            'an error message, out of RAM is likely the problem. In that case '
                                            'reducing the number of workers might help')
                     done = [i for i in remaining if r[i].ready()]
+                    # get done so that errors can be raised
+                    _ = [r[i].get() for i in done]
                     for _ in done:
                         r[_].get()  # allows triggering errors
                         pbar.update()
