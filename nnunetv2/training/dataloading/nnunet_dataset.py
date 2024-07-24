@@ -152,7 +152,7 @@ class nnUNetPytorchDataset(Dataset, nnUNetDataset):
     
     def load_case(self, idx):
         # This is different because Pytorch indexes with numbers not keys
-        key = self.keys()[idx]
+        key = list(self.keys())[idx]
         entry = self._get_case_dict[key]
         if 'open_data_file' in entry.keys():
             data = entry['open_data_file']

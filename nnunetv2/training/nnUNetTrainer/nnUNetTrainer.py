@@ -1442,3 +1442,53 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
             fn_hard = fn_hard[1:]
 
         return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}    
+    
+    def run_training(self):
+        self.on_train_start()
+
+        for epoch in range(self.current_epoch, self.num_epochs):
+            self.on_epoch_start()
+
+            self.on_train_epoch_start()
+            train_outputs = []
+            for batch_id in range(self.num_iterations_per_epoch):
+                train_outputs.append(self.train_step(next(iter(self.dataloader_train))))
+            self.on_train_epoch_end(train_outputs)
+
+            with torch.no_grad():
+                self.on_validation_epoch_start()
+                val_outputs = []
+                # Rewritten because PyTorch dataloader accessed using next(iter())
+                for batch_id in range(self.num_val_iterations_per_epoch):
+                    val_outputs.append(self.validation_step(next(iter(self.dataloader_val))))
+                self.on_validation_epoch_end(val_outputs)
+
+            self.on_epoch_end()
+
+        self.on_train_end()
+
+    def run_dataloading_test(self):
+        self.on_train_start()
+        
+        # Set number of epochs and iterations to use for test
+        self.num_epochs = 5
+        self.num_iterations_per_epoch = 10
+
+        print(f"Running with just {self.num_epochs} epochs")        
+
+        for epoch in range(self.current_epoch, self.num_epochs):
+            self.on_epoch_start()
+
+            self.on_train_epoch_start()
+            train_outputs = []
+            for batch_id in range(self.num_iterations_per_epoch):
+                train_batch = next(self.dataloader_train)
+                # Wait for 291629.4ms - To simulate train step
+                time.sleep(0.2916294)
+                del train_batch
+                # Here I can also save the train batch as well
+            self.on_train_epoch_end(train_outputs)
+
+            self.on_epoch_end()
+
+        self.on_train_end()            

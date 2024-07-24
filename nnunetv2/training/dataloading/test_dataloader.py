@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import shutil
 
-from nnunetv2.dataloading.nnunet_dataset import nnUNetDataset, nnUNetPytorchDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset, nnUNetPytorchDataset
 
 import os
 import socket
@@ -151,7 +151,7 @@ def run_dataloader_test_entry():
     else:
         device = torch.device('mps')
 
-    run_dataloader_test(args.dataloader_type, args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
+    run_dataloader_test(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
                  args.num_gpus, args.use_compressed, device=device)
 
 
