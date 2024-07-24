@@ -138,7 +138,8 @@ class nnUNetPytorchDataset(Dataset, nnUNetDataset):
         nnUNetDataset.__init__(self, folder, case_identifiers, num_images_properties_loading_threshold,
                  folder_with_segs_from_previous_stage)
         Dataset.__init__(self)
-
+        self.final_patch_size = final_patch_size
+        self.patch_size = patch_size
         self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
         self.has_ignore = label_manager.has_ignore_label
         self.annotated_classes_key = tuple(label_manager.all_labels)
