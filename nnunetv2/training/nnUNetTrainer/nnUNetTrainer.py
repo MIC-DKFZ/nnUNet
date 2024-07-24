@@ -1286,32 +1286,6 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
 
     # Re-write the get_dataloaders function to get PyTorch datasets
     def get_dataloaders(self):
-        patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
-
-        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
-        # outputs?
-        deep_supervision_scales = self._get_deep_supervision_scales()
-
-        rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
-            self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
-
-        # training pipeline
-        tr_transforms = self.get_training_transforms(
-            patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
-            order_resampling_data=3, order_resampling_seg=1,
-            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
-            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
-            ignore_label=self.label_manager.ignore_label)
-
-        # validation pipeline
-        val_transforms = self.get_validation_transforms(deep_supervision_scales,
-                                                        is_cascaded=self.is_cascaded,
-                                                        foreground_labels=self.label_manager.foreground_labels,
-                                                        regions=self.label_manager.foreground_regions if
-                                                        self.label_manager.has_regions else None,
-                                                        ignore_label=self.label_manager.ignore_label)        
 
         allowed_num_processes = get_allowed_n_proc_DA()
 
@@ -1330,15 +1304,39 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
         # Get initial 
         rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes = \
             self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()        
+        
+        patch_size = self.configuration_manager.patch_size
+        dim = len(patch_size)
+
+        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
+        # outputs?
+        deep_supervision_scales = self._get_deep_supervision_scales()        
+
+        # training pipeline
+        tr_transforms = self.get_training_transforms(
+            patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
+            order_resampling_data=3, order_resampling_seg=1,
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
+            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label)
+
+        # validation pipeline
+        val_transforms = self.get_validation_transforms(deep_supervision_scales,
+                                                        is_cascaded=self.is_cascaded,
+                                                        foreground_labels=self.label_manager.foreground_labels,
+                                                        regions=self.label_manager.foreground_regions if
+                                                        self.label_manager.has_regions else None,
+                                                        ignore_label=self.label_manager.ignore_label)                    
 
         # load the datasets for training and validation. 
         dataset_tr = nnUNetPytorchDataset(self.preprocessed_dataset_folder, initial_patch_size, 
-                                          self.configuration_manager.patch_size, self.label_manager, tr_keys,
+                                          self.configuration_manager.patch_size, self.label_manager, tr_transforms, tr_keys,
                                           oversample_foreground_percent=self.oversample_foreground_percent,
                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
                                    num_images_properties_loading_threshold=0)
         dataset_val = nnUNetPytorchDataset(self.preprocessed_dataset_folder, self.configuration_manager.patch_size, 
-                                           self.configuration_manager.patch_size, self.label_manager, val_keys,
+                                           self.configuration_manager.patch_size, self.label_manager, val_transforms, val_keys,
                                            oversample_foreground_percent=self.oversample_foreground_percent,
                                     folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
                                     num_images_properties_loading_threshold=0)

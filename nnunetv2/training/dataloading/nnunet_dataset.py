@@ -1,14 +1,15 @@
 import os
-from typing import List, Union, Tuple
+import shutil
+from typing import List, Tuple, Union
 
 import numpy as np
-import shutil
-
-from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile
-from nnunetv2.training.dataloading.utils import get_case_identifiers
-
+from batchgenerators.utilities.file_and_folder_operations import (isfile, join,
+                                                                  load_pickle)
 from torch.utils.data import Dataset
+
+from nnunetv2.training.dataloading.utils import get_case_identifiers
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
+
 
 class nnUNetDataset(object):
     def __init__(self, folder: str, case_identifiers: List[str] = None,
@@ -129,7 +130,8 @@ class nnUNetPytorchDataset(Dataset, nnUNetDataset):
     '''     
     def __init__(self, folder: str, patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
                  final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
-                 label_manager: LabelManager,                 
+                 label_manager: LabelManager,
+                 transform,                 
                  case_identifiers: List[str] = None,                 
                  oversample_foreground_percent: float = 0.0,
                  num_images_properties_loading_threshold: int = 0,
@@ -144,6 +146,7 @@ class nnUNetPytorchDataset(Dataset, nnUNetDataset):
         self.has_ignore = label_manager.has_ignore_label
         self.annotated_classes_key = tuple(label_manager.all_labels)
         self.oversample_foreground_percent = oversample_foreground_percent
+        self.transform = transform
     
     def _get_case_dict(self, key):
         ret = {**self.dataset[key]}
@@ -242,10 +245,12 @@ class nnUNetPytorchDataset(Dataset, nnUNetDataset):
         data_padded = np.pad(data, ((0, 0), *padding), 'constant', constant_values=0)
         seg_padded = np.pad(seg, ((0, 0), *padding), 'constant', constant_values=-1)
 
-        # Apply transforms here !! - Not done yet :(
+        # Apply transforms here !! - The transforms are also responsible for going from
+        # initial patch size -> final patch size (as in plans file)
+        data_dict_ = {"data": data_padded[None,...], "seg": seg_padded[None,...]}
+        data_dict_ = self.transform(**data_dict_)
 
-        return data_padded, seg_padded
-
+        return data_dict_["data"][0], data_dict_["target"][0]
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
                  overwrite_class: Union[int, Tuple[int, ...]] = None, verbose: bool = False):
