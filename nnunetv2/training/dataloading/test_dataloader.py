@@ -115,8 +115,6 @@ def run_dataloader_test(dataset_name_or_id: Union[str, int],
 def run_dataloader_test_entry():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataloader_type', type=str,
-                        help="Dataloader type - original_nnunet vs. pytorch nnunet")    
     parser.add_argument('dataset_name_or_id', type=str,
                         help="Dataset name or ID to train with")
     parser.add_argument('configuration', type=str,
