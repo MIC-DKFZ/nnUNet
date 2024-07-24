@@ -4,7 +4,8 @@ from typing import List
 import numpy as np
 import shutil
 
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset, nnUNetPytorchDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
 
 import os
 import socket

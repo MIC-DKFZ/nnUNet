@@ -42,7 +42,9 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
     Convert3DTo2DTransform
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset, nnUNetPytorchDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
+
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
@@ -1271,7 +1273,7 @@ class nnUNetTrainer(object):
             for batch_id in range(self.num_iterations_per_epoch):
                 train_batch = next(self.dataloader_train)
                 # Wait for 291629.4ms - To simulate train step
-                time.sleep(0.2916294)
+                # time.sleep(0.2916294)
                 del train_batch
                 # Here I can also save the train batch as well
             self.on_train_epoch_end(train_outputs)
