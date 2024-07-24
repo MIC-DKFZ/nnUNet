@@ -1482,7 +1482,7 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
             self.on_train_epoch_start()
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
-                train_batch = next(self.dataloader_train)
+                train_batch = next(iter(self.dataloader_train))
                 # Wait for 291629.4ms - To simulate train step
                 time.sleep(0.2916294)
                 del train_batch
