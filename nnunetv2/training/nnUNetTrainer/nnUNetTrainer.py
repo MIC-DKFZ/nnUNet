@@ -1294,8 +1294,8 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
         # Instantiate the PyTorch datasets
         tr_dataset, val_dataset = self.get_tr_and_val_datasets()
         # Instantiate the Pytorch dataloaders
-        dl_tr = DataLoader(tr_dataset, batch_size=self.batch_size, shuffle=True, num_workers=allowed_num_processes)
-        dl_val = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=allowed_num_processes)
+        dl_tr = DataLoader(tr_dataset, batch_size=self.batch_size, shuffle=True, num_workers=allowed_num_processes, persistent_workers=True)
+        dl_val = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=allowed_num_processes, persistent_workers=True)
 
         return dl_tr, dl_val
 
