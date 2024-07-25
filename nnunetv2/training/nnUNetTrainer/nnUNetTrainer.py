@@ -1237,14 +1237,17 @@ class nnUNetTrainer(object):
 
     def run_training(self):
         self.on_train_start()
-
+        import time
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
             self.on_train_epoch_start()
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
+                time1 = time.time()
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
+                time2 = time.time()
+                print(f"Current batch_id: {batch_id} - Time: {time2 - time1}")
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
@@ -1259,6 +1262,7 @@ class nnUNetTrainer(object):
         self.on_train_end()
 
     def run_dataloading_test(self):
+        import time
         self.on_train_start()
         
         # Set number of epochs and iterations to use for test
@@ -1273,16 +1277,11 @@ class nnUNetTrainer(object):
             self.on_train_epoch_start()
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
-                train_batch = next(self.dataloader_train)
-                # Wait for 291629.4ms - To simulate train step
-                # time.sleep(0.2916294)
-                del train_batch
-                # Here I can also save the train batch as well
-            self.on_train_epoch_end(train_outputs)
-
-            self.on_epoch_end()
-
-        self.on_train_end()        
+                t1 = time.time()
+                train_batch = next(iter(self.dataloader_train))
+                t2 = time.time()
+                print(f"Current batch_id: {batch_id} - Time: {t2 - t1}")
+                del train_batch                    
 
 class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True, device: torch.device = torch.device('cuda')):
@@ -1302,10 +1301,12 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
             val_sampler = DistributedSampler(val_dataset)
 
             # Instantiate the Pytorch dataloaders
-            dl_tr = DataLoader(tr_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=200, sampler=tr_sampler)
-            dl_val = DataLoader(val_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=50, sampler=val_sampler)
+            # dl_tr = DataLoader(tr_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=200, sampler=tr_sampler)
+            # dl_val = DataLoader(val_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=50, sampler=val_sampler)
+            dl_tr = DataLoader(tr_dataset, batch_size=int(self.batch_size), shuffle=True, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=200)
+            dl_val = DataLoader(val_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=50)            
         else:
-            dl_tr = DataLoader(tr_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=200)
+            dl_tr = DataLoader(tr_dataset, batch_size=int(self.batch_size), shuffle=True, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=200)
             dl_val = DataLoader(val_dataset, batch_size=int(self.batch_size), shuffle=False, num_workers=allowed_num_processes, persistent_workers=True, pin_memory=True, prefetch_factor=50)
 
 
@@ -1366,20 +1367,31 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
 
             self.on_train_epoch_start()
             train_outputs = []
+            iterator = iter(self.dataloader_train)
             for batch_id in range(self.num_iterations_per_epoch):
-                print(f"Current batch_id: {batch_id} - Time: {time.time()}")
-                train_batch_tuple = next(iter(self.dataloader_train))                
+                time1 = time.time()
+                try:
+                    train_batch_tuple = next(iterator)
+                except StopIteration:
+                    iterator = iter(self.dataloader_train)
+                    train_batch_tuple = next(iterator)                                    
                 train_batch = {"data": train_batch_tuple[0], "target": train_batch_tuple[1]}
                 train_outputs.append(self.train_step(train_batch))
+                time2 = time.time()
+                print(f"Current batch_id: {batch_id} - Time: {time2 - time1}")
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                # Rewritten because PyTorch dataloader accessed using next(iter())                
+                iterator = iter(self.dataloader_val)       
                 for batch_id in range(self.num_val_iterations_per_epoch):
                     print(f"Current batch_id: {batch_id} - Time: {time.time()}")
-                    val_batch_tuple = next(iter(self.dataloader_val))
+                    try:
+                        val_batch_tuple = next(iterator)
+                    except StopIteration:
+                        iterator = iter(self.dataloader_val)
+                        val_batch_tuple = next(iterator)
                     val_batch = {"data": val_batch_tuple[0], "target": val_batch_tuple[1]}
                     val_outputs.append(self.validation_step(val_batch))
                 self.on_validation_epoch_end(val_outputs)
@@ -1390,7 +1402,7 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
 
     def run_dataloading_test(self):
         self.on_train_start()
-        
+        import time
         # Set number of epochs and iterations to use for test
         self.num_epochs = 5
         self.num_iterations_per_epoch = 10
@@ -1402,13 +1414,15 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
 
             self.on_train_epoch_start()
             train_outputs = []
+            iterator = iter(self.dataloader_train)
             for batch_id in range(self.num_iterations_per_epoch):
-                train_batch = next(iter(self.dataloader_train))
+                t1 = time.time()
+                try:
+                    train_batch = next(iterator)
+                except StopIteration:
+                    iterator = iter(self.dataloader_train)
+                    train_batch = next(iterator)
+                t2 = time.time()
+                print(f"Current batch_id: {batch_id} - Time: {t2 - t1}")
                 # Wait for 291629.4ms - To simulate train step                
-                del train_batch
-                # Here I can also save the train batch as well
-            self.on_train_epoch_end(train_outputs)
-
-            self.on_epoch_end()
-
-        self.on_train_end()            
+                del train_batch      
