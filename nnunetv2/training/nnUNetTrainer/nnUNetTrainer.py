@@ -1346,8 +1346,9 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
         return dataset_tr, dataset_val
     
     def run_training(self):
+        print("Running training with New Dataloader ! ")
         self.on_train_start()
-
+        import time
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
@@ -1362,8 +1363,9 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                # Rewritten because PyTorch dataloader accessed using next(iter())
+                # Rewritten because PyTorch dataloader accessed using next(iter())                
                 for batch_id in range(self.num_val_iterations_per_epoch):
+                    print(f"Current batch_id: {batch_id} - Time: {time.time()}")
                     val_batch_tuple = next(iter(self.dataloader_val))
                     val_batch = {"data": val_batch_tuple[0], "target": val_batch_tuple[1]}
                     val_outputs.append(self.validation_step(val_batch))
