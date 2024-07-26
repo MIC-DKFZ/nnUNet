@@ -467,6 +467,7 @@ class nnUNetPredictor(object):
             else:
                 return ret
 
+    @torch.inference_mode()
     def predict_logits_from_preprocessed_data(self, data: torch.Tensor) -> torch.Tensor:
         """
         IMPORTANT! IF YOU ARE RUNNING THE CASCADE, THE SEGMENTATION FROM THE PREVIOUS STAGE MUST ALREADY BE STACKED ON
@@ -615,7 +616,8 @@ class nnUNetPredictor(object):
                     pbar.update()
             queue.join()
 
-            predicted_logits /= n_predictions
+            # predicted_logits /= n_predictions
+            torch.div(predicted_logits, n_predictions)
             # check for infs
             if torch.any(torch.isinf(predicted_logits)):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
