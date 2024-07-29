@@ -51,7 +51,8 @@ dependencies = [
     "imagecodecs",
     "yacs",
     "batchgeneratorsv2>=0.2",
-    "einops"
+    "einops",
+    "blosc2>=3.0.0b1"
 ]
 
 [project.urls]
