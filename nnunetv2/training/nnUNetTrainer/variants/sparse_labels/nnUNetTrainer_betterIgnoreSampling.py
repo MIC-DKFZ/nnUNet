@@ -229,8 +229,10 @@ class nnUNetTrainer_betterIgnoreSampling_noSmooth(nnUNetTrainer_betterIgnoreSamp
                                   ignore_label=self.label_manager.ignore_label,
                                   dice_class=MemoryEfficientSoftDiceLoss)
 
-        if self._do_i_compile():
-            loss.dc = torch.compile(loss.dc)
+        # FIXME Compiled DICE forward function fails for BraTS training, complaining
+        #       about static expression "if x.shape == y.shape:"
+        # if self._do_i_compile():
+        #     loss.dc = torch.compile(loss.dc)
 
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
