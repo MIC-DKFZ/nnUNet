@@ -599,7 +599,7 @@ class nnUNetPredictor(object):
             if not self.allow_tqdm and self.verbose:
                 print(f'running prediction: {len(slicers)} steps')
 
-            with tqdm(desc=None, total=len(slicers), disable=self.allow_tqdm) as pbar:
+            with tqdm(desc=None, total=len(slicers), disable=not self.allow_tqdm) as pbar:
                 while True:
                     item = queue.get()
                     if item == 'end':
