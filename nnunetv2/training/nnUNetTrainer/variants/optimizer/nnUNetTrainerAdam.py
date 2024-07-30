@@ -29,30 +29,30 @@ class nnUNetTrainerVanillaAdam(nnUNetTrainer):
 
 
 class nnUNetTrainerVanillaAdam1en3(nnUNetTrainerVanillaAdam):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 1e-3
 
 
 class nnUNetTrainerVanillaAdam3en4(nnUNetTrainerVanillaAdam):
     # https://twitter.com/karpathy/status/801621764144971776?lang=en
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 3e-4
 
 
 class nnUNetTrainerAdam1en3(nnUNetTrainerAdam):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 1e-3
 
 
 class nnUNetTrainerAdam3en4(nnUNetTrainerAdam):
     # https://twitter.com/karpathy/status/801621764144971776?lang=en
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 3e-4

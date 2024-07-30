@@ -8,6 +8,7 @@ from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
 from batchgenerators.utilities.file_and_folder_operations import load_json, isfile, save_pickle
 
 from nnunetv2.configuration import default_num_processes
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -109,15 +110,9 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
 
 def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: List[int], output_file: str,
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager, properties_dict: dict,
-                      dataset_json_dict_or_file: Union[dict, str], num_threads_torch: int = default_num_processes) \
+                      dataset_json_dict_or_file: Union[dict, str], num_threads_torch: int = default_num_processes,
+                      dataset_class=None) \
         -> None:
-    # # needed for cascade
-    # if isinstance(predicted, str):
-    #     assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
-    #                               "isfile(segmentation_softmax) must be True"
-    #     del_file = deepcopy(predicted)
-    #     predicted = np.load(predicted)
-    #     os.remove(del_file)
     old_threads = torch.get_num_threads()
     torch.set_num_threads(num_threads_torch)
 
@@ -143,5 +138,9 @@ def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: 
     # segmentation may be torch.Tensor but we continue with numpy
     if isinstance(segmentation, torch.Tensor):
         segmentation = segmentation.cpu().numpy()
-    np.savez_compressed(output_file, seg=segmentation.astype(np.uint8))
+
+    if dataset_class is None:
+        nnUNetDatasetBlosc2.save_seg(segmentation.astype(np.uint8), output_file)
+    else:
+        dataset_class.save_seg(segmentation.astype(np.uint8), output_file)
     torch.set_num_threads(old_threads)

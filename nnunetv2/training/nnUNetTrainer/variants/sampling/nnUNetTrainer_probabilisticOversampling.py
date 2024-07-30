@@ -17,9 +17,9 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
     Here we compute the actual oversampling percentage used by nnUNetTrainer in order to be as consistent as possible.
     If we switch to this oversampling then we can keep it at a constant 0.33 or whatever.
     """
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.oversample_foreground_percent = float(np.mean(
             [not sample_idx < round(self.configuration_manager.batch_size * (1 - self.oversample_foreground_percent))
              for sample_idx in range(self.configuration_manager.batch_size)]))
@@ -69,16 +69,16 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
 
 
 class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.oversample_foreground_percent = 0.33
 
 
 class nnUNetTrainer_probabilisticOversampling_010(nnUNetTrainer_probabilisticOversampling):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.oversample_foreground_percent = 0.1
 
 

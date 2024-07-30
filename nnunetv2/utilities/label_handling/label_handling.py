@@ -140,6 +140,7 @@ class LabelManager(object):
 
         return probabilities
 
+    @torch.inference_mode()
     def convert_probabilities_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \
             Union[np.ndarray, torch.Tensor]:
         """

@@ -3,7 +3,7 @@ import torch
 from threadpoolctl import threadpool_limits
 
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetNumpy
 
 
 class nnUNetDataLoader2D(nnUNetDataLoaderBase):
@@ -18,7 +18,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
             # (Lung for example)
             force_fg = self.get_do_oversample(j)
-            data, seg, properties = self._data.load_case(current_key)
+            data, seg, seg_prev, properties = self._data.load_case(current_key)
             case_properties.append(properties)
 
             # select a class/region first, then a slice where this class is present, then crop to that area
@@ -41,13 +41,10 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
                 selected_class_or_region = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
                     len(eligible_classes_or_regions) > 0 else None
-            if selected_class_or_region is not None:
-                selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
+            if selected_class_or_region is not None and len(properties['class_locations'][selected_class_or_region]) > 0:
+                selected_slice = properties['class_locations'][selected_class_or_region][np.random.choice(properties['class_locations'][selected_class_or_region].shape[1])][1]
             else:
-                selected_slice = np.random.choice(len(data[0]))
-
-            data = data[:, selected_slice]
-            seg = seg[:, selected_slice]
+                selected_slice = np.random.choice(data.shape[1])
 
             # the line of death lol
             # this needs to be a separate variable because we could otherwise permanently overwrite
@@ -61,7 +58,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             } if (selected_class_or_region is not None) else None
 
             # print(properties)
-            shape = data.shape[1:]
+            shape = data.shape[2:]
             dim = len(shape)
             bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg if selected_class_or_region is not None else None,
                                                class_locations, overwrite_class=selected_class_or_region)
@@ -77,11 +74,15 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
             # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
             # remove label -1 in the data augmentation but this way it is less error prone)
-            this_slice = tuple([slice(0, data.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            this_slice = tuple([slice(0, data.shape[0])] + [selected_slice] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             data = data[this_slice]
 
-            this_slice = tuple([slice(0, seg.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            this_slice = tuple([slice(0, seg.shape[0])] + [selected_slice] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             seg = seg[this_slice]
+            if seg_prev is not None:
+                this_slice = tuple([slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+                seg_prev = seg_prev[this_slice]
+                seg = np.vstack((seg, seg_prev[None]))
 
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
             data_all[j] = np.pad(data, ((0, 0), *padding), 'constant', constant_values=0)
@@ -90,7 +91,6 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
         if self.transforms is not None:
             with torch.no_grad():
                 with threadpool_limits(limits=1, user_api=None):
-
                     data_all = torch.from_numpy(data_all).float()
                     seg_all = torch.from_numpy(seg_all).to(torch.int16)
                     images = []
@@ -113,6 +113,6 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
 if __name__ == '__main__':
     folder = '/media/fabian/data/nnUNet_preprocessed/Dataset004_Hippocampus/2d'
-    ds = nnUNetDataset(folder, None, 1000)  # this should not load the properties!
+    ds = nnUNetDatasetNumpy(folder, None)  # this should not load the properties!
     dl = nnUNetDataLoader2D(ds, 366, (65, 65), (56, 40), 0.33, None, None)
     a = next(dl)

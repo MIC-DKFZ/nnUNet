@@ -24,6 +24,7 @@ import nnunetv2
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
@@ -99,7 +100,7 @@ class DefaultPreprocessor(object):
             # when using the ignore label we want to sample only from annotated regions. Therefore we also need to
             # collect samples uniformly from all classes (incl background)
             if label_manager.has_ignore_label:
-                collect_for_this.append(label_manager.all_labels)
+                collect_for_this.append([-1] + label_manager.all_labels)
 
             # no need to filter background in regions because it is already filtered in handle_labels
             # print(all_labels, regions)
@@ -136,6 +137,8 @@ class DefaultPreprocessor(object):
         else:
             seg = None
 
+        if self.verbose:
+            print(seg_file)
         data, seg = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
                                       dataset_json)
         return data, seg, data_properties
@@ -144,9 +147,21 @@ class DefaultPreprocessor(object):
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager,
                       dataset_json: Union[dict, str]):
         data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
+        data = data.astype(np.float32, copy=False)
+        seg = seg.astype(np.int16, copy=False)
         # print('dtypes', data.dtype, seg.dtype)
-        np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
-        write_pickle(properties, output_filename_truncated + '.pkl')
+        block_size_data, chunk_size_data = nnUNetDatasetBlosc2.comp_blosc2_params(
+            data.shape,
+            tuple(configuration_manager.patch_size),
+            data.itemsize)
+        block_size_seg, chunk_size_seg = nnUNetDatasetBlosc2.comp_blosc2_params(
+            seg.shape,
+            tuple(configuration_manager.patch_size),
+            seg.itemsize)
+
+        nnUNetDatasetBlosc2.save_case(data, seg, properties, output_filename_truncated,
+                                      chunks=chunk_size_data, blocks=block_size_data,
+                                      chunks_seg=chunk_size_seg, blocks_seg=block_size_seg)
 
     @staticmethod
     def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[Tuple[int, ...]]],
@@ -234,7 +249,6 @@ class DefaultPreprocessor(object):
             # p is pretty nifti. If we kill workers they just respawn but don't do any work.
             # So we need to store the original pool of workers.
             workers = [j for j in p._pool]
-
             for k in dataset.keys():
                 r.append(p.starmap_async(self.run_case_save,
                                          ((join(output_directory, k), dataset[k]['images'], dataset[k]['label'],
