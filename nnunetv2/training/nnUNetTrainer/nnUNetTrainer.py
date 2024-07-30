@@ -619,12 +619,13 @@ class nnUNetTrainer(object):
             mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
         else:
             mt_gen_train = LimitedLenWrapper(self.num_iterations_per_epoch, data_loader=dl_tr, transform=tr_transforms,
-                                             num_processes=allowed_num_processes, num_cached=6, seeds=None,
+                                             num_processes=allowed_num_processes, num_cached=100, seeds=None,
                                              pin_memory=self.device.type == 'cuda', wait_time=0.02)
             mt_gen_val = LimitedLenWrapper(self.num_val_iterations_per_epoch, data_loader=dl_val,
                                            transform=val_transforms, num_processes=max(1, allowed_num_processes // 2),
-                                           num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
+                                           num_cached=50, seeds=None, pin_memory=self.device.type == 'cuda',
                                            wait_time=0.02)
+        print("Using HIGH num cache")
         return mt_gen_train, mt_gen_val
 
     def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
