@@ -94,17 +94,17 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
 
 if __name__ == '__main__':
     use_these_trainers = {
-        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetPlans', 'nnUNetResEncUNet2Plans', 'nnUNetResBottleneckEncUNetPlans', 'nnUNetResUNetPlans', 'nnUNetResUNet2Plans', 'nnUNetResUNet3Plans', 'nnUNetDeeperResBottleneckEncUNetPlans'),
+        'nnUNetTrainer_noDummy2DDA': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
     }
-    all_results_file= join(paths.nnUNet_results, 'customDecResults.csv')
-    datasets = [2, 3, 4, 17, 20, 24, 27, 38, 55, 64, 82, 217]
-
+    all_results_file= join(nnUNet_results, 'customDecResults.csv')
+    datasets = [3, 4, 5, 8, 10, 17, 27, 55, 220, 223]
     collect_results(use_these_trainers, datasets, all_results_file)
 
-    folds = (0, 1, 2, 3, 4)
-    configs = ("3d_fullres", )
-    output_file = join(paths.nnUNet_results, 'customDecResults_summary5fold.csv')
-    summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
+    # folds = (0, 1, 2, 3, 4)
+    # configs = ("3d_fullres", )
+    # output_file = join(nnUNet_results, 'customDecResults_summary5fold.csv')
+    # summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
 
     folds = (0, )
     configs = ("3d_fullres", )

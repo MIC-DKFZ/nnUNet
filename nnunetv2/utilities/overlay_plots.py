@@ -22,7 +22,9 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
 import nnunetv2.paths as paths
+from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class, nnUNetBaseDataset
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager
 from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
     get_filenames_of_train_images_and_targets
 
@@ -117,7 +119,7 @@ def select_slice_to_plot2(image: np.ndarray, segmentation: np.ndarray) -> int:
 
     we give image so that we can easily replace this function if needed
     """
-    classes = [i for i in np.sort(pd.unique(segmentation.ravel())) if i != 0]
+    classes = [i for i in np.sort(pd.unique(segmentation.ravel())) if i > 0]
     fg_per_slice = np.zeros((image.shape[0], len(classes)))
     for i, c in enumerate(classes):
         fg_mask = segmentation == c
@@ -149,21 +151,21 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
     plt.imsave(output_file, overlay)
 
 
-def plot_overlay_preprocessed(case_file: str, output_file: str, overlay_intensity: float = 0.6, channel_idx=0):
+def plot_overlay_preprocessed(dataset: nnUNetBaseDataset, k: str, output_folder: str, overlay_intensity: float = 0.6, channel_idx=0):
     import matplotlib.pyplot as plt
-    data = np.load(case_file)['data']
-    seg = np.load(case_file)['seg'][0]
+    data, seg, _, properties = dataset.load_case(k)
 
     assert channel_idx < (data.shape[0]), 'This dataset only supports channel index up to %d' % (data.shape[0] - 1)
 
     image = data[channel_idx]
-    seg[seg < 0] = 0
-
+    seg = seg[0]
     selected_slice = select_slice_to_plot2(image, seg)
 
-    overlay = generate_overlay(image[selected_slice], seg[selected_slice], overlay_intensity=overlay_intensity)
+    seg = np.copy(seg[selected_slice])
+    seg[seg < 0] = 0
+    overlay = generate_overlay(image[selected_slice], seg, overlay_intensity=overlay_intensity)
 
-    plt.imsave(output_file, overlay)
+    plt.imsave(join(output_folder, k + '.png'), overlay)
 
 
 def multiprocessing_plot_overlay(list_of_image_files, list_of_seg_files, image_reader_writer,
@@ -177,14 +179,18 @@ def multiprocessing_plot_overlay(list_of_image_files, list_of_seg_files, image_r
         r.get()
 
 
-def multiprocessing_plot_overlay_preprocessed(list_of_case_files, list_of_output_files, overlay_intensity,
+def multiprocessing_plot_overlay_preprocessed(dataset: nnUNetBaseDataset, output_folder, overlay_intensity,
                                               num_processes=8, channel_idx=0):
     with multiprocessing.get_context("spawn").Pool(num_processes) as p:
-        r = p.starmap_async(plot_overlay_preprocessed, zip(
-            list_of_case_files, list_of_output_files, [overlay_intensity] * len(list_of_output_files),
-                                                      [channel_idx] * len(list_of_output_files)
-        ))
-        r.get()
+        r = []
+        for k in dataset.identifiers:
+            r.append(
+                p.starmap_async(plot_overlay_preprocessed,
+                                ((
+                                    dataset, k, output_folder, overlay_intensity, channel_idx
+                                 ),))
+            )
+        _ = [i.get() for i in r]
 
 
 def generate_overlays_from_raw(dataset_name_or_id: Union[int, str], output_folder: str,
@@ -213,7 +219,7 @@ def generate_overlays_from_preprocessed(dataset_name_or_id: Union[int, str], out
                                         plans_identifier: str = 'nnUNetPlans',
                                         overlay_intensity: float = 0.6):
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
-    folder = join(nnUNet_preprocessed, dataset_name)
+    folder = join(paths.nnUNet_preprocessed, dataset_name)
     if not isdir(folder): raise RuntimeError("run preprocessing for that task first")
 
     plans = load_json(join(folder, plans_identifier + '.json'))
@@ -222,21 +228,19 @@ def generate_overlays_from_preprocessed(dataset_name_or_id: Union[int, str], out
             configuration = '3d_fullres'
         else:
             configuration = '2d'
-    data_identifier = plans['configurations'][configuration]["data_identifier"]
-    preprocessed_folder = join(folder, data_identifier)
+    cm = ConfigurationManager(plans['configurations'][configuration])
+    preprocessed_folder = join(folder, cm.data_identifier)
 
     if not isdir(preprocessed_folder):
         raise RuntimeError(f"Preprocessed data folder for configuration {configuration} of plans identifier "
                            f"{plans_identifier} ({dataset_name}) does not exist. Run preprocessing for this "
                            f"configuration first!")
 
-    identifiers = [i[:-4] for i in subfiles(preprocessed_folder, suffix='.npz', join=False)]
-
-    output_files = [join(output_folder, i + '.png') for i in identifiers]
-    image_files = [join(preprocessed_folder, i + ".npz") for i in identifiers]
+    dc = infer_dataset_class(preprocessed_folder)
+    dataset = dc(preprocessed_folder)
 
     maybe_mkdir_p(output_folder)
-    multiprocessing_plot_overlay_preprocessed(image_files, output_files, overlay_intensity=overlay_intensity,
+    multiprocessing_plot_overlay_preprocessed(dataset, output_folder, overlay_intensity=overlay_intensity,
                                               num_processes=num_processes, channel_idx=channel_idx)
 
 
