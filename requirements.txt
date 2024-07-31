@@ -1,0 +1,8 @@
+nibabel==5.2.1
+SimpleITK==2.3.1
+acvl-utils==0.2
+dynamic-network-architectures==0.3.1 
+pandas==1.5.2 
+torch==2.3.0
+batchgeneratorsv2==0.1.1
+seaborn==0.13.2
