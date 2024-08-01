@@ -27,6 +27,7 @@ from blib.logging import logger
 from line_profiler import LineProfiler
 from structlog.contextvars import bound_contextvars
 from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import _MultiProcessingDataLoaderIter
 
 from nnunetv2 import paths as nnunet_paths
 from nnunetv2.run import run_training as run_utils
@@ -194,6 +195,7 @@ class MiniNNUNetDDPTrainer:
     ) -> None:
         self.on_train_start()
         profiler = LineProfiler()
+        profiler.add_function(_MultiProcessingDataLoaderIter._next_data)
         get_profiled_batch = profiler(self.get_batch)
         for epoch in range(num_epochs):
             for batch_id in range(num_iterations_per_epoch):
