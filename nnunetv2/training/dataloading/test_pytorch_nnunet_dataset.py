@@ -18,13 +18,13 @@ import os.path as osp
 from typing import Dict, List
 
 import numpy as np
-import psutil
 import torch
 import torch.cuda
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from batchgenerators.utilities import file_and_folder_operations as nnunet_file_utils
 from blib.logging import logger
+from structlog.contextvars import bound_contextvars
 from torch.utils.data import DataLoader
 
 from nnunetv2 import paths as nnunet_paths
@@ -33,7 +33,10 @@ from nnunetv2.training.data_augmentation import (
     compute_initial_patch_size as patch_utils,
 )
 from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import (
+    get_current_cpu_id,
+    nnUNetTrainer,
+)
 from nnunetv2.utilities import dataset_name_id_conversion as nnunet_dataset_id_utils
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import (
@@ -42,13 +45,6 @@ from nnunetv2.utilities.plans_handling.plans_handler import (
 )
 
 log = logger.get_logger(__name__)
-
-
-def get_current_cpu_id() -> str:
-    process = psutil.Process(os.getpid())
-    cpu_affinity = process.cpu_affinity()
-    current_cpu_id = os.sched_getaffinity(0)
-    return current_cpu_id
 
 
 class MiniNNUNetDDPTrainer:
@@ -201,22 +197,16 @@ class MiniNNUNetDDPTrainer:
         self.on_train_start()
         for epoch in range(num_epochs):
             for batch_id in range(num_iterations_per_epoch):
-                log.info(
-                    "Loading batch",
+                with bound_contextvars(
                     epoch=epoch,
                     batch_id=batch_id,
                     rank=self.local_rank,
-                    cpu_id=get_current_cpu_id()
-                )
-                batch = next(iter(self.train_dataloader))
-                log.info(
-                    "Loaded batch",
-                    epoch=epoch,
-                    batch_id=batch_id,
-                    rank=self.local_rank,
-                    cpu_id=get_current_cpu_id()
-                )
-                self.train_step(batch)
+                    cpu_id=get_current_cpu_id(),
+                ):
+                    log.info("Loading batch")
+                    batch = next(iter(self.train_dataloader))
+                    log.info("Loaded batch")
+                    self.train_step(batch)
 
     def on_train_start(self) -> None:
         self.train_dataloader = self.get_train_dataloader()

@@ -6,14 +6,14 @@ import shutil
 from typing import List, Tuple, Union
 
 import numpy as np
+import psutil
 import torch.distributed as dist
 from blib.logging import logger
+from structlog.contextvars import bound_contextvars
 from torch.utils.data import Dataset, get_worker_info
 
 from nnunetv2.training.dataloading.utils import get_case_identifiers
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
-
-from .test_pytorch_nnunet_dataset import get_current_cpu_id
 
 log = logger.get_logger(__name__)
 
@@ -22,6 +22,13 @@ def load_pickle(file: str, mode: str = "rb"):
     with open(file, mode) as f:
         a = pickle.load(f)
     return a
+
+
+def get_current_cpu_id() -> str:
+    process = psutil.Process(os.getpid())
+    cpu_affinity = process.cpu_affinity()
+    current_cpu_id = os.sched_getaffinity(0)
+    return current_cpu_id
 
 
 class nnUNetPytorchDataset(Dataset):
@@ -138,75 +145,63 @@ class nnUNetPytorchDataset(Dataset):
         - need to pad (which is) - self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
 
         """
-        log.info(
-            "Started __getitem__",
+        with bound_contextvars(
             rank=self.local_rank,
             worker_id=get_worker_info().id,
             cpu_id=get_current_cpu_id(),
-        )
-        # Read in ENTIRE CT and Segmentation from Disk and the properties
-        data, seg, properties = self.load_case(idx)
-        log.info(
-            "Loaded case",
-            rank=self.local_rank,
-            worker_id=get_worker_info().id,
-            cpu_id=get_current_cpu_id()
-        )
+        ):
+            log.info("Started __getitem__")
+            # Read in ENTIRE CT and Segmentation from Disk and the properties
+            data, seg, properties = self.load_case(idx)
+            log.info("Loaded case")
 
-        shape = data.shape[1:]
-        dim = len(shape)
+            shape = data.shape[1:]
+            dim = len(shape)
 
-        # Randomly choose oversample - This is different from what nnUNet defaults to
-        if np.random.uniform() < self.oversample_foreground_percent:
-            force_fg = True
-        else:
-            force_fg = False
+            # Randomly choose oversample - This is different from what nnUNet defaults to
+            if np.random.uniform() < self.oversample_foreground_percent:
+                force_fg = True
+            else:
+                force_fg = False
 
-        # This step gets the bounding box for the patch - and uses the force_fg to determine if we need to oversample
-        bbox_lbs, bbox_ubs = self.get_bbox(
-            shape, force_fg, properties["class_locations"]
-        )
+            # This step gets the bounding box for the patch - and uses the force_fg to determine if we need to oversample
+            bbox_lbs, bbox_ubs = self.get_bbox(
+                shape, force_fg, properties["class_locations"]
+            )
 
-        valid_bbox_lbs = [max(0, bbox_lbs[i]) for i in range(dim)]
-        valid_bbox_ubs = [min(shape[i], bbox_ubs[i]) for i in range(dim)]
+            valid_bbox_lbs = [max(0, bbox_lbs[i]) for i in range(dim)]
+            valid_bbox_ubs = [min(shape[i], bbox_ubs[i]) for i in range(dim)]
 
-        this_slice = tuple(
-            [slice(0, data.shape[0])]
-            + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
-        )
-        data = data[this_slice]
+            this_slice = tuple(
+                [slice(0, data.shape[0])]
+                + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
+            )
+            data = data[this_slice]
 
-        this_slice = tuple(
-            [slice(0, seg.shape[0])]
-            + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
-        )
-        seg = seg[this_slice]
+            this_slice = tuple(
+                [slice(0, seg.shape[0])]
+                + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
+            )
+            seg = seg[this_slice]
 
-        padding = [
-            (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)
-        ]
+            padding = [
+                (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
+                for i in range(dim)
+            ]
 
-        data_padded = np.pad(data, ((0, 0), *padding), "constant", constant_values=0)
-        seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
+            data_padded = np.pad(
+                data, ((0, 0), *padding), "constant", constant_values=0
+            )
+            seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
 
-        log.info(
-            "Applying transforms",
-            rank=self.local_rank,
-            worker_id=get_worker_info().id,
-            cpu_id=get_current_cpu_id(),
-        )
-        # Apply transforms here !! - The transforms are also responsible for going from
-        # initial patch size -> final patch size (as in plans file)
-        data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
-        data_dict_ = self.transform(**data_dict_)
-        log.info(
-            "Applied transforms",
-            rank=self.local_rank,
-            worker_id=get_worker_info().id,
-            cpu_id=get_current_cpu_id(),
-        )
+            log.info("Applying transforms")
+            # Apply transforms here !! - The transforms are also responsible for going from
+            # initial patch size -> final patch size (as in plans file)
+            data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
+            data_dict_ = self.transform(**data_dict_)
+            log.info("Applied transforms")
 
-        return data_dict_["data"][0], [target[0] for target in data_dict_["target"]]
+            return data_dict_["data"][0], [target[0] for target in data_dict_["target"]]
 
     def get_bbox(
         self,
