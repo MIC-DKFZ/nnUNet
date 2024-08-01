@@ -89,7 +89,6 @@ from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from nnunetv2.training.dataloading.pytorch_nnunet_dataset import (
-    get_current_cpu_id,
     nnUNetPytorchDataset,
 )
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset

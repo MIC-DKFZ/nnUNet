@@ -24,6 +24,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from batchgenerators.utilities import file_and_folder_operations as nnunet_file_utils
 from blib.logging import logger
+from line_profiler import LineProfiler
 from structlog.contextvars import bound_contextvars
 from torch.utils.data import DataLoader
 
@@ -34,7 +35,6 @@ from nnunetv2.training.data_augmentation import (
 )
 from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import (
-    get_current_cpu_id,
     nnUNetTrainer,
 )
 from nnunetv2.utilities import dataset_name_id_conversion as nnunet_dataset_id_utils
@@ -195,18 +195,24 @@ class MiniNNUNetDDPTrainer:
         num_iterations_per_epoch: int,
     ) -> None:
         self.on_train_start()
+        profiler = LineProfiler()
+        profiler_wrapper = profiler(self.get_batch)
         for epoch in range(num_epochs):
             for batch_id in range(num_iterations_per_epoch):
                 with bound_contextvars(
                     epoch=epoch,
                     batch_id=batch_id,
                     rank=self.local_rank,
-                    cpu_id=get_current_cpu_id(),
                 ):
+                    
                     log.info("Loading batch")
-                    batch = next(iter(self.train_dataloader))
+                    batch = profiler_wrapper()
                     log.info("Loaded batch")
                     self.train_step(batch)
+        profiler.print_stats()
+
+    def get_batch(self):
+        return next(iter(self.train_dataloader))
 
     def on_train_start(self) -> None:
         self.train_dataloader = self.get_train_dataloader()

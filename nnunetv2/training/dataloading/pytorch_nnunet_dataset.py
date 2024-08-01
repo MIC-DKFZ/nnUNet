@@ -6,7 +6,6 @@ import shutil
 from typing import List, Tuple, Union
 
 import numpy as np
-import psutil
 import torch.distributed as dist
 from blib.logging import logger
 from structlog.contextvars import bound_contextvars
@@ -22,13 +21,6 @@ def load_pickle(file: str, mode: str = "rb"):
     with open(file, mode) as f:
         a = pickle.load(f)
     return a
-
-
-def get_current_cpu_id() -> str:
-    process = psutil.Process(os.getpid())
-    cpu_affinity = process.cpu_affinity()
-    current_cpu_id = os.sched_getaffinity(0)
-    return current_cpu_id
 
 
 class nnUNetPytorchDataset(Dataset):
@@ -148,7 +140,6 @@ class nnUNetPytorchDataset(Dataset):
         with bound_contextvars(
             rank=self.local_rank,
             worker_id=get_worker_info().id,
-            cpu_id=get_current_cpu_id(),
         ):
             log.info("Started __getitem__")
             # Read in ENTIRE CT and Segmentation from Disk and the properties
