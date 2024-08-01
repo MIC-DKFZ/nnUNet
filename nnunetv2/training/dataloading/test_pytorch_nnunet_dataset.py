@@ -1,33 +1,18 @@
 """
-Assumptions:
-* nnunet_paths.nnUNet_preprocessed is set as an environment variable
-* DDP is enabled
-* Unpacking the dataset (the original implementation uses `--use_compressed`)
-
-Less configurable:
-* Splits + datasets + dataloaders
-  * Original: Pass `fold`, which indexes into "splits_final.json" to get both train and validation
-    splits. Splits are used to construct respective dataloaders, which may be 2D or 3D.
-  * Here: Pass `fold`, which indexes into "splits_final.json` to only get the train split. The
-    split is used to construct a 3D train dataloader.
-* DDP
-  * Original: DDP or non-DDP
-  * Here: only DDP
-* Batch size and oversampling
-  * Original: `nnUNetTrainer._set_batch_size_and_oversample` determines batch size for the current
-    worker (handles when global_batch_size % num_gpus_available_to_ddp > 0) and whether this
-    worker's batch needs to be exchanged to support oversampling
-  * Here: enforces num GPUs available to DDP evenly divides global batch size
-* Cascade
-  * Original: allows for cascading, and sets `nnUNetTrainer.folder_with_segs_from_previous_stage`
-  * Here: assumes no cascading, and sets it to None
-* Data augmentation
-  * Original: `nnUNetTrainer.configure_rotation_dummyDA_mirroring_and_inital_patch_size` sets
-    rotation, whether to rotate around x+y+z or only x, which axes to mirror.
-  * Here: assumes rotation in x+y+z, and mirroring in all axes
+python nnUNet/nnunetv2/training/dataloading/test_pytorch_nnunet_dataset.py \
+    --dataset_id=58 \
+    --configuration=3d_fullres \
+    --fold=2 \
+    --num_gpus_available_to_ddp=4 \
+    --global_batch_size=16 \
+    --global_oversample_foreground_percent=0.33 \
+    --num_epochs=100 \
+    --num_iterations_per_epoch=250 \
+    --num_dataloader_workers=4
 """
 
 import argparse
+import os
 import os.path as osp
 from typing import Dict, List
 
@@ -41,6 +26,7 @@ from blib.logging import logger
 from torch.utils.data import DataLoader
 
 from nnunetv2 import paths as nnunet_paths
+from nnunetv2.run import run_training as run_utils
 from nnunetv2.training.data_augmentation import (
     compute_initial_patch_size as patch_utils,
 )
@@ -357,6 +343,9 @@ def run_ddp(
 
 def main(args: argparse.Namespace) -> None:
     assert args.global_batch_size % args.num_gpus_available_to_ddp == 0
+    # For DDP, set the MASTER_ADDR and MASTER_PORT environment variables
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = str(run_utils.find_free_network_port())
     mp.spawn(
         run_ddp,
         args=(
