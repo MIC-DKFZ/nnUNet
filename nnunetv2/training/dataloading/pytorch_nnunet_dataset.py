@@ -13,6 +13,8 @@ from torch.utils.data import Dataset, get_worker_info
 from nnunetv2.training.dataloading.utils import get_case_identifiers
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
+from .test_pytorch_nnunet_dataset import get_current_cpu_id
+
 log = logger.get_logger(__name__)
 
 
@@ -137,12 +139,19 @@ class nnUNetPytorchDataset(Dataset):
 
         """
         log.info(
-            "__getitem__",
+            "Started __getitem__",
             rank=self.local_rank,
             worker_id=get_worker_info().id,
+            cpu_id=get_current_cpu_id(),
         )
         # Read in ENTIRE CT and Segmentation from Disk and the properties
         data, seg, properties = self.load_case(idx)
+        log.info(
+            "Loaded case",
+            rank=self.local_rank,
+            worker_id=get_worker_info().id,
+            cpu_id=get_current_cpu_id()
+        )
 
         shape = data.shape[1:]
         dim = len(shape)
@@ -180,10 +189,22 @@ class nnUNetPytorchDataset(Dataset):
         data_padded = np.pad(data, ((0, 0), *padding), "constant", constant_values=0)
         seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
 
+        log.info(
+            "Applying transforms",
+            rank=self.local_rank,
+            worker_id=get_worker_info().id,
+            cpu_id=get_current_cpu_id(),
+        )
         # Apply transforms here !! - The transforms are also responsible for going from
         # initial patch size -> final patch size (as in plans file)
         data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
         data_dict_ = self.transform(**data_dict_)
+        log.info(
+            "Applied transforms",
+            rank=self.local_rank,
+            worker_id=get_worker_info().id,
+            cpu_id=get_current_cpu_id(),
+        )
 
         return data_dict_["data"][0], [target[0] for target in data_dict_["target"]]
 

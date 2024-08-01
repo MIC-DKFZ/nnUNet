@@ -18,6 +18,7 @@ import os.path as osp
 from typing import Dict, List
 
 import numpy as np
+import psutil
 import torch
 import torch.cuda
 import torch.distributed as dist
@@ -41,6 +42,13 @@ from nnunetv2.utilities.plans_handling.plans_handler import (
 )
 
 log = logger.get_logger(__name__)
+
+
+def get_current_cpu_id() -> str:
+    process = psutil.Process(os.getpid())
+    cpu_affinity = process.cpu_affinity()
+    current_cpu_id = os.sched_getaffinity(0)
+    return current_cpu_id
 
 
 class MiniNNUNetDDPTrainer:
@@ -194,12 +202,21 @@ class MiniNNUNetDDPTrainer:
         for epoch in range(num_epochs):
             for batch_id in range(num_iterations_per_epoch):
                 log.info(
-                    "Training step",
+                    "Loading batch",
                     epoch=epoch,
                     batch_id=batch_id,
                     rank=self.local_rank,
+                    cpu_id=get_current_cpu_id()
                 )
-                self.train_step(next(iter(self.train_dataloader)))
+                batch = next(iter(self.train_dataloader))
+                log.info(
+                    "Loaded batch",
+                    epoch=epoch,
+                    batch_id=batch_id,
+                    rank=self.local_rank,
+                    cpu_id=get_current_cpu_id()
+                )
+                self.train_step(batch)
 
     def on_train_start(self) -> None:
         self.train_dataloader = self.get_train_dataloader()
