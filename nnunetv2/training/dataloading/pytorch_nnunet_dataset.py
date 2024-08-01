@@ -6,6 +6,7 @@ import shutil
 from typing import List, Tuple, Union
 
 import numpy as np
+import torch.distributed as dist
 from blib.logging import logger
 from torch.utils.data import Dataset, get_worker_info
 
