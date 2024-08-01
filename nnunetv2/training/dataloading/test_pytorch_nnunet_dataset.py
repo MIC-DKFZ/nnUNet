@@ -31,6 +31,7 @@ from nnunetv2.training.data_augmentation import (
     compute_initial_patch_size as patch_utils,
 )
 from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities import dataset_name_id_conversion as nnunet_dataset_id_utils
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import (
@@ -188,7 +189,13 @@ class MiniNNUNetDDPTrainer:
         self.on_train_start()
         for epoch in range(num_epochs):
             for batch_id in range(num_iterations_per_epoch):
-                self.train_step(next(self.train_dataloader))
+                log.info(
+                    "Training step",
+                    epoch=epoch,
+                    batch_id=batch_id,
+                    rank=self.local_rank,
+                )
+                self.train_step(next(iter(self.train_dataloader)))
 
     def on_train_start(self) -> None:
         self.train_dataloader = self.get_train_dataloader()
@@ -227,7 +234,7 @@ class MiniNNUNetDDPTrainer:
         scales_arr = 1 / np.cumprod(np.vstack(pool_op_kernel_sizes), axis=0)
         deep_supervision_scales = list(list(i) for i in scales_arr)[:-1]
 
-        train_transforms = self.get_training_transforms(
+        train_transforms = nnUNetTrainer.get_training_transforms(
             patch_size,
             rotation_for_DA,
             deep_supervision_scales,
