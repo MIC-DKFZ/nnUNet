@@ -56,3 +56,6 @@ pip install "pyyaml==5.4.1" --no-build-isolation
 # Install blib
 git clone https://github.com/bunkerhillhealth/bunkerhill
 python -m pip install conan==1.59 --editable bunkerhill/blib
+
+pip install line_profiler
+

@@ -15,7 +15,7 @@ python nnUNet/nnunetv2/training/dataloading/test_pytorch_nnunet_dataset.py \
 import argparse
 import os
 import os.path as osp
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -34,9 +34,7 @@ from nnunetv2.training.data_augmentation import (
     compute_initial_patch_size as patch_utils,
 )
 from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import (
-    nnUNetTrainer,
-)
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities import dataset_name_id_conversion as nnunet_dataset_id_utils
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import (
@@ -196,7 +194,7 @@ class MiniNNUNetDDPTrainer:
     ) -> None:
         self.on_train_start()
         profiler = LineProfiler()
-        profiler_wrapper = profiler(self.get_batch)
+        get_profiled_batch = profiler(self.get_batch)
         for epoch in range(num_epochs):
             for batch_id in range(num_iterations_per_epoch):
                 with bound_contextvars(
@@ -204,14 +202,14 @@ class MiniNNUNetDDPTrainer:
                     batch_id=batch_id,
                     rank=self.local_rank,
                 ):
-                    
                     log.info("Loading batch")
-                    batch = profiler_wrapper()
+                    self.train_step(get_profiled_batch())
+                    dist.barrier()
                     log.info("Loaded batch")
-                    self.train_step(batch)
+
         profiler.print_stats()
 
-    def get_batch(self):
+    def get_batch(self) -> Any:
         return next(iter(self.train_dataloader))
 
     def on_train_start(self) -> None:
