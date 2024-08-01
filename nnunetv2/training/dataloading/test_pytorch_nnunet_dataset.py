@@ -61,6 +61,7 @@ class MiniNNUNetDDPTrainer:
     # Train split
     train_split: List[str]
     batch_size: int
+    prefetch_factor: int
     oversample_foreground_percent: float
     num_dataloader_workers: int
     # Path to the preprocessed dataset folder containing .npy, .npz, .pkl, and _seg.npy files
@@ -75,6 +76,7 @@ class MiniNNUNetDDPTrainer:
         dataset: Dict,
         train_split_keys: List[str],
         batch_size: int,
+        prefetch_factor: int,
         oversample_foreground_percent: float,
         num_dataloader_workers: int,
         preprocessed_dataset_folder: str,
@@ -174,6 +176,7 @@ class MiniNNUNetDDPTrainer:
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
         self.train_split_keys = train_split_keys
         self.batch_size = int(batch_size)
+        self.prefetch_factor = int(prefetch_factor)
         self.oversample_foreground_percent = float(oversample_foreground_percent)
         self.num_dataloader_workers = num_dataloader_workers
         self.preprocessed_dataset_data_folder = osp.join(
@@ -211,7 +214,7 @@ class MiniNNUNetDDPTrainer:
             num_workers=self.num_dataloader_workers,
             persistent_workers=True,
             pin_memory=True,
-            prefetch_factor=200,
+            prefetch_factor=self.prefetch_factor,
         )
 
     def get_train_dataset(self) -> torch.utils.data.Dataset:
@@ -265,7 +268,6 @@ class MiniNNUNetDDPTrainer:
 
 
 def compute_oversample_foreground_percent(
-    global_batch_size: int,
     global_oversample_foreground_percent: float,
     rank: int,
     num_gpus_available_to_ddp: int,
@@ -288,6 +290,7 @@ def get_trainer(
     configuration: str,
     fold: int,
     batch_size: int,
+    prefetch_factor: int,
     oversample_foreground_percent: float,
     num_dataloader_workers: int,
 ) -> MiniNNUNetDDPTrainer:
@@ -311,6 +314,7 @@ def get_trainer(
         dataset=dataset,
         train_split_keys=splits[fold]["train"],
         batch_size=batch_size,
+        prefetch_factor=prefetch_factor,
         oversample_foreground_percent=oversample_foreground_percent,
         num_dataloader_workers=num_dataloader_workers,
         preprocessed_dataset_folder=preprocessed_dataset_folder,
@@ -324,6 +328,7 @@ def run_ddp(
     fold: int,
     num_gpus_available_to_ddp: int,
     global_batch_size: int,
+    prefetch_factor: int,
     global_oversample_foreground_percent: float,
     num_dataloader_workers: int,
     num_epochs: int,  # hardcoded to 1000 in nnUNetTrainer
@@ -332,7 +337,6 @@ def run_ddp(
     dist.init_process_group("nccl", rank=rank, world_size=num_gpus_available_to_ddp)
     torch.cuda.set_device(torch.device("cuda", dist.get_rank()))
     oversample_foreground_percent = compute_oversample_foreground_percent(
-        global_batch_size,
         global_oversample_foreground_percent,
         rank,
         num_gpus_available_to_ddp,
@@ -342,6 +346,7 @@ def run_ddp(
         configuration,
         fold,
         global_batch_size // num_gpus_available_to_ddp,
+        prefetch_factor,
         oversample_foreground_percent,
         num_dataloader_workers,
     )
@@ -361,6 +366,7 @@ def main(args: argparse.Namespace) -> None:
             args.fold,
             args.num_gpus_available_to_ddp,
             args.global_batch_size,
+            args.prefetch_factor,
             args.global_oversample_foreground_percent,
             args.num_dataloader_workers,
             args.num_epochs,
@@ -387,6 +393,7 @@ if __name__ == "__main__":
     # parser.add_argument("--pretrained_weights", type=str, required=False, default=None)
 
     parser.add_argument("--global_batch_size", type=int, required=True, default=16)
+    parser.add_argument("--prefetch_factor", type=int, required=True, default=10)
     parser.add_argument(
         "--global_oversample_foreground_percent",
         type=float,
