@@ -5,6 +5,7 @@ python nnUNet/nnunetv2/training/dataloading/test_pytorch_nnunet_dataset.py \
     --fold=2 \
     --num_gpus_available_to_ddp=4 \
     --global_batch_size=16 \
+    --prefetch_factor=2 \
     --global_oversample_foreground_percent=0.33 \
     --num_epochs=100 \
     --num_iterations_per_epoch=250 \
@@ -163,7 +164,7 @@ class MiniNNUNetDDPTrainer:
         self.is_ddp = dist.is_available() and dist.is_initialized()
         if not self.is_ddp:
             raise NotImplementedError("Only DDP is supported")
-        self.local_rank = 0 if not self.is_ddp else dist.get_rank()
+        self.local_rank = dist.get_rank()
         self.device = torch.device(type="cuda", index=self.local_rank)
         log.info(
             "Using DDP",
@@ -253,7 +254,6 @@ class MiniNNUNetDDPTrainer:
             else None,
             ignore_label=self.label_manager.ignore_label,
         )
-
         return nnUNetPytorchDataset(
             self.preprocessed_dataset_data_folder,
             initial_patch_size,
@@ -393,7 +393,7 @@ if __name__ == "__main__":
     # parser.add_argument("--pretrained_weights", type=str, required=False, default=None)
 
     parser.add_argument("--global_batch_size", type=int, required=True, default=16)
-    parser.add_argument("--prefetch_factor", type=int, required=True, default=10)
+    parser.add_argument("--prefetch_factor", type=int, required=True, default=2)
     parser.add_argument(
         "--global_oversample_foreground_percent",
         type=float,
