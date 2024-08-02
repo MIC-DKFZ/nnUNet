@@ -223,7 +223,7 @@ def run_training_entry():
     parser.add_argument('configuration', type=str,
                         help="Configuration that should be trained")
     parser.add_argument('fold', type=str,
-                        help='Fold of the 5-fold cross-validation. Should be an int between 0 and 4.')
+                        help='Fold of the 5-fold cross-validation. Should be an int between 0 and 4 or "all".')
     parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainer',
                         help='[OPTIONAL] Use this flag to specify a custom trainer. Default: nnUNetTrainer')
     parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
