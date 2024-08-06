@@ -323,11 +323,9 @@ class nnUNetTrainerDA5(nnUNetTrainer):
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-
         deep_supervision_scales = self._get_deep_supervision_scales()
 
         (

@@ -55,11 +55,11 @@ if __name__ == "__main__":
     }
 
     num_gpus = 1
-    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\" -R \"select[hname!='lsf22-gpu02']\" -R \"select[hname!='lsf22-gpu06']\" -R \"select[hname!='e230-dgx1-1']\""
+    exclude_hosts = "-R \"select[hname!='e230-dgx2-2']\" -R \"select[hname!='e230-dgx2-1']\""
     resources = ""
-    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=33G"#gmodel=NVIDIAA100_PCIE_40GB"
-    queue = "-q gpu-lowprio"
-    preamble = "\"source ~/load_env_torch221.sh && " # -L /bin/bash
+    gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=1G"#gmodel=NVIDIAA100_PCIE_40GB"
+    queue = "-q gpu"
+    preamble = "\". ~/load_env_torch224.sh && " # -L /bin/bash
     train_command = 'nnUNetv2_train'
 
     folds = (0, )
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     use_this = configurations_3d_fr_only
     # use_this = merge(use_this, configurations_3d_c_only)
 
-    datasets = [3, 4, 5, 8, 10, 27, 55, 220, 223]
+    datasets = [3, 4, 5, 8, 10, 17, 27, 55, 220, 223]
     use_this = {i: use_this[i] for i in datasets}
 
     use_these_modules = {
@@ -85,7 +85,10 @@ if __name__ == "__main__":
         # 'nnUNetTrainerUMambaBot': ('nnUNetPlans',),
         # 'nnUNetTrainerUMambaEnc': ('nnUNetPlans',),
         # 'nnUNetTrainer_fasterDA': ('nnUNetPlans', 'nnUNetResEncUNetLPlans'),
-        'nnUNetTrainer_fasterDA_bg_style_seg_sampling': ('nnUNetResEncUNetLPlans', ),
+        # 'nnUNetTrainer_noDummy2DDA': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetResEncUNetMPlans',),
         # BN
     }
 

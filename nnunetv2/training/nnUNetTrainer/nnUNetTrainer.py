@@ -187,10 +187,6 @@ class nnUNetTrainer(object):
         self.save_every = 50
         self.disable_checkpointing = False
 
-        ## DDP batch size and oversampling can differ between workers and needs adaptation
-        # we need to change the batch size in DDP because we don't use any of those distributed samplers
-        self._set_batch_size_and_oversample()
-
         self.was_initialized = False
 
         self.print_to_log_file("\n#######################################################################\n"
@@ -203,6 +199,10 @@ class nnUNetTrainer(object):
 
     def initialize(self):
         if not self.was_initialized:
+            ## DDP batch size and oversampling can differ between workers and needs adaptation
+            # we need to change the batch size in DDP because we don't use any of those distributed samplers
+            self._set_batch_size_and_oversample()
+
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
 
@@ -618,11 +618,9 @@ class nnUNetTrainer(object):
 
     def get_dataloaders(self):
         patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-
         deep_supervision_scales = self._get_deep_supervision_scales()
 
         (
@@ -883,12 +881,12 @@ class nnUNetTrainer(object):
         mod.decoder.deep_supervision = enabled
 
     def on_train_start(self):
+        if not self.was_initialized:
+            self.initialize()
+
         # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
         # which may not be present  when doing inference
         self.dataloader_train, self.dataloader_val = self.get_dataloaders()
-
-        if not self.was_initialized:
-            self.initialize()
 
         maybe_mkdir_p(self.output_folder)
 

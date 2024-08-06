@@ -191,7 +191,6 @@ class nnUNetTrainer_DASegOrd0_NoMirroring(nnUNetTrainer_DASegOrd0):
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?

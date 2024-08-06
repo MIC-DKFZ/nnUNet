@@ -6,6 +6,7 @@ import torch
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import numpy as np
+from torch import distributed as dist
 
 
 class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
@@ -45,11 +46,29 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
         return dl_tr, dl_val
 
     def _set_batch_size_and_oversample(self):
-        old_oversample = deepcopy(self.oversample_foreground_percent)
-        super()._set_batch_size_and_oversample()
-        self.oversample_foreground_percent = old_oversample
-        self.print_to_log_file(f"Ignore previous message about oversample_foreground_percent. "
-                               f"oversample_foreground_percent overwritten to {self.oversample_foreground_percent}")
+        if not self.is_ddp:
+            # set batch size to what the plan says, leave oversample untouched
+            self.batch_size = self.configuration_manager.batch_size
+        else:
+            # batch size is distributed over DDP workers and we need to change oversample_percent for each worker
+
+            world_size = dist.get_world_size()
+            my_rank = dist.get_rank()
+
+            global_batch_size = self.configuration_manager.batch_size
+            assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
+                                                    'GPUs... Duh.'
+
+            batch_size_per_GPU = [global_batch_size // world_size] * world_size
+            batch_size_per_GPU = [batch_size_per_GPU[i] + 1
+                                  if (batch_size_per_GPU[i] * world_size + i) < global_batch_size
+                                  else batch_size_per_GPU[i]
+                                  for i in range(len(batch_size_per_GPU))]
+            assert sum(batch_size_per_GPU) == global_batch_size
+            print("worker", my_rank, "batch_size", batch_size_per_GPU[my_rank])
+            print("worker", my_rank, "oversample", self.oversample_foreground_percent)
+
+            self.batch_size = batch_size_per_GPU[my_rank]
 
 
 class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
@@ -57,6 +76,8 @@ class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOve
                  device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
         self.oversample_foreground_percent = 0.33
+    
+    
 
 
 class nnUNetTrainer_probabilisticOversampling_010(nnUNetTrainer_probabilisticOversampling):
