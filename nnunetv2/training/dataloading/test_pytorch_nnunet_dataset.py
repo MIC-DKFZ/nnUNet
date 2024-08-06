@@ -198,6 +198,7 @@ class MiniNNUNetDDPTrainer:
         profiler.add_function(_MultiProcessingDataLoaderIter._next_data)
         get_profiled_batch = profiler(self.get_batch)
         for epoch in range(num_epochs):
+            self.on_epoch_start()
             for batch_id in range(num_iterations_per_epoch):
                 with bound_contextvars(
                     epoch=epoch,
@@ -206,18 +207,21 @@ class MiniNNUNetDDPTrainer:
                 ):
                     log.info("Loading batch")
                     self.train_step(get_profiled_batch())
-                    dist.barrier()
                     log.info("Loaded batch")
 
         profiler.print_stats()
 
     def get_batch(self) -> Any:
-        return next(iter(self.train_dataloader))
+        return next(self.train_dataloader_iterator)
 
     def on_train_start(self) -> None:
         self.train_dataloader = self.get_train_dataloader()
 
+    def on_epoch_start(self) -> None:
+        self.train_dataloader_iterator = iter(self.train_dataloader)
+
     def train_step(self, batch: Dict[str, torch.Tensor]) -> None:
+        log.info(batch[2])
         pass  # no-op
 
     def get_train_dataloader(self) -> torch.utils.data.DataLoader:
