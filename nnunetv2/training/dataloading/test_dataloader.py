@@ -153,7 +153,7 @@ def run_dataloader_test_entry():
         device = torch.device('mps')
 
     run_dataloader_test(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p,
-                 args.num_gpus, args.use_compressed, device=device)
+                 num_gpus=args.num_gpus, use_compressed_data=args.use_compressed, device=device)
 
 
 if __name__ == '__main__':

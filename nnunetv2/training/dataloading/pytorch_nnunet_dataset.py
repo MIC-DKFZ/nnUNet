@@ -141,10 +141,8 @@ class nnUNetPytorchDataset(Dataset):
             rank=self.local_rank,
             worker_id=get_worker_info().id,
         ):
-            log.info("Started __getitem__")
             # Read in ENTIRE CT and Segmentation from Disk and the properties
             data, seg, properties = self.load_case(idx)
-            log.info("Loaded case")
 
             shape = data.shape[1:]
             dim = len(shape)
@@ -185,14 +183,13 @@ class nnUNetPytorchDataset(Dataset):
             )
             seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
 
-            log.info("Applying transforms")
             # Apply transforms here !! - The transforms are also responsible for going from
             # initial patch size -> final patch size (as in plans file)
             data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
             data_dict_ = self.transform(**data_dict_)
-            log.info("Applied transforms")
+            # log.info("Applied transforms", idx=idx)
 
-            return data_dict_["data"][0], [target[0] for target in data_dict_["target"]]
+            return (data_dict_["data"][0], [target[0] for target in data_dict_["target"]], idx)
 
     def get_bbox(
         self,

@@ -1780,7 +1780,7 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
                 num_workers=allowed_num_processes,
                 persistent_workers=True,
                 pin_memory=True,
-                prefetch_factor=50,
+                prefetch_factor=200,
             )
         else:
             dl_tr = DataLoader(
@@ -1889,6 +1889,7 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
             self.on_train_epoch_start()
             train_outputs = []
             iterator = iter(self.dataloader_train)
+            print(self.num_iterations_per_epoch)
             for batch_id in range(self.num_iterations_per_epoch):
                 time1 = time.time()
                 try:
@@ -1902,9 +1903,11 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
                 }
                 train_outputs.append(self.train_step(train_batch))
                 time2 = time.time()
+                print(train_batch_tuple[2])
                 print(f"Current batch_id: {batch_id} - Time: {time2 - time1}")
             self.on_train_epoch_end(train_outputs)
 
+            """
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
@@ -1922,7 +1925,7 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
                     }
                     val_outputs.append(self.validation_step(val_batch))
                 self.on_validation_epoch_end(val_outputs)
-
+            """
             self.on_epoch_end()
 
         self.on_train_end()

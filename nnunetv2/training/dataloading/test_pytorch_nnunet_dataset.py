@@ -18,6 +18,7 @@ import os.path as osp
 from typing import Any, Dict, List
 
 import numpy as np
+import time
 import torch
 import torch.cuda
 import torch.distributed as dist
@@ -27,7 +28,7 @@ from blib.logging import logger
 from line_profiler import LineProfiler
 from structlog.contextvars import bound_contextvars
 from torch.utils.data import DataLoader
-from torch.utils.data.dataloader import _MultiProcessingDataLoaderIter
+from torch.utils.data.dataloader import _MultiProcessingDataLoaderIter, _utils
 
 from nnunetv2 import paths as nnunet_paths
 from nnunetv2.run import run_training as run_utils
@@ -169,12 +170,14 @@ class MiniNNUNetDDPTrainer:
             raise NotImplementedError("Only DDP is supported")
         self.local_rank = dist.get_rank()
         self.device = torch.device(type="cuda", index=self.local_rank)
+        """
         log.info(
             "Using DDP",
             local_rank=self.local_rank,
             device_count=torch.cuda.device_count(),  # number of GPUs
             world_size=dist.get_world_size(),  # number of GPUs in this process group
         )
+        """
         self.plans_manager = PlansManager(plans)
         self.label_manager = self.plans_manager.get_label_manager(dataset)
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
@@ -195,7 +198,7 @@ class MiniNNUNetDDPTrainer:
     ) -> None:
         self.on_train_start()
         profiler = LineProfiler()
-        profiler.add_function(_MultiProcessingDataLoaderIter._next_data)
+        profiler.add_function(_MultiProcessingDataLoaderIter._try_get_data)
         get_profiled_batch = profiler(self.get_batch)
         for epoch in range(num_epochs):
             self.on_epoch_start()
@@ -205,11 +208,14 @@ class MiniNNUNetDDPTrainer:
                     batch_id=batch_id,
                     rank=self.local_rank,
                 ):
-                    log.info("Loading batch")
+                    start_time = time.time()
                     self.train_step(get_profiled_batch())
-                    log.info("Loaded batch")
+                    end_time = time.time()
+                    log.info("Loaded batch", step_time=end_time - start_time)
+                    dist.barrier()
 
-        profiler.print_stats()
+        # profiler.print_stats()
+        pass
 
     def get_batch(self) -> Any:
         return next(self.train_dataloader_iterator)
@@ -221,8 +227,8 @@ class MiniNNUNetDDPTrainer:
         self.train_dataloader_iterator = iter(self.train_dataloader)
 
     def train_step(self, batch: Dict[str, torch.Tensor]) -> None:
-        log.info(batch[2])
-        pass  # no-op
+        # log.info(batch[2])
+        pass
 
     def get_train_dataloader(self) -> torch.utils.data.DataLoader:
         return DataLoader(
