@@ -40,6 +40,7 @@ class NibabelIO(BaseReaderWriter):
         spacings_for_nnunet = []
         for f in image_fnames:
             nib_image = nibabel.load(f)
+
             assert nib_image.ndim == 3, 'only 3d images are supported by NibabelIO'
             original_affine = nib_image.affine
 
@@ -83,7 +84,8 @@ class NibabelIO(BaseReaderWriter):
             },
             'spacing': spacings_for_nnunet[0]
         }
-        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
+        #return np.vstack(images, dtype=np.float32, casting='unsafe'), dict PREVIOS
+        return np.vstack(images).astype(np.float32, casting='unsafe'), dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname, ))

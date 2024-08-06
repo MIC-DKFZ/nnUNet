@@ -71,7 +71,7 @@ nnUNetv2_train DATASET_NAME_OR_ID UNET_CONFIGURATION FOLD [additional options, s
 
 UNET_CONFIGURATION is a string that identifies the requested U-Net configuration (defaults: 2d, 3d_fullres, 3d_lowres, 
 3d_cascade_lowres). DATASET_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of 
-the 5-fold-cross-validation is trained.
+the 5-fold-cross-validation is trained. You can use in `FOLD` an integer value to select the specific fold (from 0 to 4) or use "all" to train using all the data available in the training set. 
 
 nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `--c` to the
 training command.
