@@ -1,12 +1,8 @@
-from copy import deepcopy
-from typing import Tuple
-
-import torch
-
-from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import numpy as np
+import torch
 from torch import distributed as dist
+
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
 
 class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
@@ -25,25 +21,6 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
             [not sample_idx < round(self.configuration_manager.batch_size * (1 - self.oversample_foreground_percent))
              for sample_idx in range(self.configuration_manager.batch_size)]))
         self.print_to_log_file(f"self.oversample_foreground_percent {self.oversample_foreground_percent}")
-
-    def get_plain_dataloaders(self, initial_patch_size: Tuple[int, ...], dim: int):
-        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
-        dl_tr = nnUNetDataLoader(dataset_tr,
-                                 self.batch_size,
-                                 initial_patch_size,
-                                 self.configuration_manager.patch_size,
-                                 self.label_manager,
-                                 oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
-        dl_val = nnUNetDataLoader(dataset_val,
-                                  self.batch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.label_manager,
-                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, probabilistic_oversampling=True)
-        return dl_tr, dl_val
 
     def _set_batch_size_and_oversample(self):
         if not self.is_ddp:
@@ -78,8 +55,6 @@ class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOve
         self.oversample_foreground_percent = 0.33
     
     
-
-
 class nnUNetTrainer_probabilisticOversampling_010(nnUNetTrainer_probabilisticOversampling):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
                  device: torch.device = torch.device('cuda')):

@@ -227,13 +227,15 @@ class nnUNetTrainer_DASegOrd0_NoMirroring(nnUNetTrainer_DASegOrd0):
                                  self.configuration_manager.patch_size,
                                  self.label_manager,
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=None)
+                                 sampling_probabilities=None, pad_sides=None, transforms=None,
+                                 probabilistic_oversampling=self.probabilistic_oversampling)
         dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
                                   self.configuration_manager.patch_size,
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=None)
+                                  sampling_probabilities=None, pad_sides=None, transforms=None,
+                                  probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:

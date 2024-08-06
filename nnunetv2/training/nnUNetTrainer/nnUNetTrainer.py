@@ -146,6 +146,7 @@ class nnUNetTrainer(object):
         self.initial_lr = 1e-2
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
+        self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
@@ -653,13 +654,15 @@ class nnUNetTrainer(object):
                                  self.configuration_manager.patch_size,
                                  self.label_manager,
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms)
+                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                 probabilistic_oversampling=self.probabilistic_oversampling)
         dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
                                   self.configuration_manager.patch_size,
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
+                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                  probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
