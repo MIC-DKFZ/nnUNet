@@ -1,12 +1,39 @@
+from typing import Union, List, Tuple
+
 import numpy as np
 import torch
 from threadpoolctl import threadpool_limits
 
 from nnunetv2.training.dataloading.base_data_loader import nnUNetDataLoaderBase
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 
-class nnUNetDataLoader3D(nnUNetDataLoaderBase):
+class nnUNetDataLoader(nnUNetDataLoaderBase):
+    def __init__(self,
+                 data: nnUNetDataset,
+                 batch_size: int,
+                 patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 label_manager: LabelManager,
+                 oversample_foreground_percent: float = 0.0,
+                 sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
+                 pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
+                 probabilistic_oversampling: bool = False,
+                 transforms=None):
+        """
+        If we get a 2D patch size, make it pseudo 3D and remember to remove the singleton dimension before
+        returning the batch
+        """
+        if len(patch_size) == 2:
+            final_patch_size = (1, *patch_size)
+            patch_size = (1, *patch_size)
+            self.patch_size_was_2d = True
+        else:
+            self.patch_size_was_2d = False
+        super().__init__(data, batch_size, patch_size, final_patch_size, label_manager, oversample_foreground_percent,
+                         sampling_probabilities, pad_sides, probabilistic_oversampling, transforms)
+        
     def generate_train_batch(self):
         selected_keys = self.get_indices()
         # preallocate memory for data and seg
@@ -50,6 +77,10 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
             data_all[j] = np.pad(data, padding, 'constant', constant_values=0)
             seg_all[j] = np.pad(seg, padding, 'constant', constant_values=-1)
 
+        if self.patch_size_was_2d:
+            data_all = data_all[:, :, 0]
+            seg_all = seg_all[:, :, 0]
+
         if self.transforms is not None:
             with torch.no_grad():
                 with threadpool_limits(limits=1, user_api=None):
@@ -67,7 +98,6 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
                     else:
                         seg_all = torch.stack(segs)
                     del segs, images
-
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
@@ -76,5 +106,5 @@ class nnUNetDataLoader3D(nnUNetDataLoaderBase):
 if __name__ == '__main__':
     folder = '/media/fabian/data/nnUNet_preprocessed/Dataset002_Heart/3d_fullres'
     ds = nnUNetDataset(folder, 0)  # this should not load the properties!
-    dl = nnUNetDataLoader3D(ds, 5, (16, 16, 16), (16, 16, 16), 0.33, None, None)
+    dl = nnUNetDataLoader(ds, 5, (16, 16, 16), (16, 16, 16), 0.33, None, None)
     a = next(dl)

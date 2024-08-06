@@ -50,8 +50,7 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
-from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
-from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
+from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
@@ -651,32 +650,18 @@ class nnUNetTrainer(object):
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
-        if dim == 2:
-            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
-                                       initial_patch_size,
-                                       self.configuration_manager.patch_size,
-                                       self.label_manager,
-                                       oversample_foreground_percent=self.oversample_foreground_percent,
-                                       sampling_probabilities=None, pad_sides=None, transforms=tr_transforms)
-            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.label_manager,
-                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                        sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
-        else:
-            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
-                                       initial_patch_size,
-                                       self.configuration_manager.patch_size,
-                                       self.label_manager,
-                                       oversample_foreground_percent=self.oversample_foreground_percent,
-                                       sampling_probabilities=None, pad_sides=None, transforms=tr_transforms)
-            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.label_manager,
-                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                        sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
+        dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
+                                 initial_patch_size,
+                                 self.configuration_manager.patch_size,
+                                 self.label_manager,
+                                 oversample_foreground_percent=self.oversample_foreground_percent,
+                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms)
+        dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
+                                  self.configuration_manager.patch_size,
+                                  self.configuration_manager.patch_size,
+                                  self.label_manager,
+                                  oversample_foreground_percent=self.oversample_foreground_percent,
+                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
