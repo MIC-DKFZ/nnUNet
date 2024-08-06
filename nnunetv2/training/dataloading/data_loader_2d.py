@@ -24,7 +24,8 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # select a class/region first, then a slice where this class is present, then crop to that area
             if not force_fg:
                 if self.has_ignore:
-                    selected_class_or_region = self.annotated_classes_key
+                    selected_class_or_region = self.annotated_classes_key if (
+                            len(properties['class_locations'][self.annotated_classes_key]) > 0) else None
                 else:
                     selected_class_or_region = None
             else:
@@ -41,6 +42,7 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
 
                 selected_class_or_region = eligible_classes_or_regions[np.random.choice(len(eligible_classes_or_regions))] if \
                     len(eligible_classes_or_regions) > 0 else None
+
             if selected_class_or_region is not None:
                 selected_slice = np.random.choice(properties['class_locations'][selected_class_or_region][:, 1])
             else:
@@ -63,8 +65,9 @@ class nnUNetDataLoader2D(nnUNetDataLoaderBase):
             # print(properties)
             shape = data.shape[1:]
             dim = len(shape)
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg if selected_class_or_region is not None else None,
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg if selected_class_or_region is not None else False,
                                                class_locations, overwrite_class=selected_class_or_region)
+
 
             # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
             # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.

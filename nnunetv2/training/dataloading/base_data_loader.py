@@ -88,9 +88,9 @@ class nnUNetDataLoaderBase(DataLoader):
         else:
             if not force_fg and self.has_ignore:
                 selected_class = self.annotated_classes_key
-                if len(class_locations[selected_class]) == 0:
+                if class_locations is None or len(class_locations[selected_class]) == 0:
                     # no annotated pixels in this case. Not good. But we can hardly skip it here
-                    print('Warning! No annotated pixels in image!')
+                    # print('Warning! No annotated pixels in image!')
                     selected_class = None
                 # print(f'I have ignore labels and want to pick a labeled area. annotated_classes_key: {self.annotated_classes_key}')
             elif force_fg:
