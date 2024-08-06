@@ -13,8 +13,10 @@ python nnUNet/nnunetv2/training/dataloading/test_pytorch_nnunet_dataset.py \
 """
 
 import argparse
+import logging
 import os
 import os.path as osp
+import structlog
 from typing import Any, Dict, List
 
 import numpy as np
@@ -44,7 +46,37 @@ from nnunetv2.utilities.plans_handling.plans_handler import (
     PlansManager,
 )
 
-log = logger.get_logger(__name__)
+
+# Step 1: Configure Python's logging module to log to a file
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),  # Log to a file
+        # logging.StreamHandler()  # Uncomment if you also want to log to stdout
+    ]
+)
+
+# Step 2: Configure structlog to use Python's logging
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer()  # JSONRenderer should be the last processor
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+# Step 3: Get the logger with a specific name
+log = structlog.get_logger(__name__)
+
 
 
 class MiniNNUNetDDPTrainer:
@@ -227,8 +259,7 @@ class MiniNNUNetDDPTrainer:
         self.train_dataloader_iterator = iter(self.train_dataloader)
 
     def train_step(self, batch: Dict[str, torch.Tensor]) -> None:
-        # log.info(batch[2])
-        pass
+        log.info(batch[2])
 
     def get_train_dataloader(self) -> torch.utils.data.DataLoader:
         return DataLoader(
