@@ -41,6 +41,46 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
     We inherit from nnUNetTrainerDA5 now because that trainer still uses the old DA and we can piggyback on the
     compatibility that it has built in
     """
+    @staticmethod
+    def _get_mult_brightness()->float:
+        return np.random.uniform(0.2, 0.6) if np.random.uniform() < 0.8 else np.random.uniform(0.7, 1.2)
+    
+    @staticmethod
+    def _get_brightness_gradient_scale(x, y)->float:
+        return np.random.uniform(x[y] // 8, x[y] // 2)
+    
+    @staticmethod
+    def _get_brightness_gradient_strength(*args, **kwargs)->float:
+        return np.random.uniform(-3, -1) if np.random.uniform() < 0.5 else np.random.uniform(1, 3)
+    
+    @staticmethod
+    def _get_low_contrast_contrast()->float:
+        return np.random.uniform(1e-2, 1.5) ** 2
+    
+    @staticmethod
+    def _get_local_contrast_scale(x, y)->float:
+        return np.random.uniform(x[y] // 8, x[y] // 2)
+    
+    @staticmethod
+    def _get_local_gamma_scale(x, y)->float:
+        return np.random.uniform(x[y] // 8, x[y] // 2)
+    
+    @staticmethod
+    def _get_local_gamma_loc(x, y)->float:
+        return np.random.uniform(-0.5, 0.5) if np.random.uniform() < 0.5 else np.random.uniform(0.5, 1.5)
+    
+    @staticmethod
+    def _get_local_gamma_gamma()->float:
+        return np.random.uniform(0.01, 0.8) if np.random.uniform() < 0.5 else np.random.uniform(1.5, 4)
+    
+    @staticmethod
+    def _get_local_smoothing_scale(x, y)->float:
+        return np.random.uniform(x[y] // 8, x[y] // 2)
+    
+    @staticmethod
+    def _get_blank_rectanglevalue(x)->float:
+        return np.mean(x)
+
 
     @staticmethod
     def get_training_transforms(patch_size: Union[np.ndarray, Tuple[int]],
@@ -60,7 +100,13 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
             raise NotImplementedError('Region based training is not yet implemented for the cascade!')
 
         tr_transforms = []
-        tr_transforms.append(RenameTransform('target', 'seg', True))
+        label_in = 'target'
+        label_middle = 'seg'
+        data_in = "data"
+        data_middle = "data"
+        if data_in != data_middle:
+            tr_transforms.append(RenameTransform(data_in, data_middle, True))
+        tr_transforms.append(RenameTransform(label_in, label_middle, True))
 
         # don't do color augmentations while in 2d mode with 3d data because the color channel is overloaded!!
         if do_dummy_2d_data_aug:  # todo
@@ -93,13 +139,13 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
             InhomogeneousSliceIlluminationTransform(
                 (1, 5),
                 (2, 8),
-                lambda: np.random.uniform(0.2, 0.6) if np.random.uniform() < 0.8 else np.random.uniform(0.7, 1.2),
+                nnUNetTrainer_airwayAug_new._get_mult_brightness,
                 (0, 0.3),
                 (0.25, 2),
                 0.3,
                 False,
                 1,
-                'data'
+                data_middle
             )
         )
 
@@ -110,7 +156,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
             valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
             tmp.append(
                 Rot90Transform(
-                    (0, 1, 2, 3), axes=valid_axes, data_key='data', label_key='seg', p_per_sample=0.25
+                    (0, 1, 2, 3), axes=valid_axes, data_key=data_middle, label_key=label_middle, p_per_sample=0.25
                 ),
             )
 
@@ -118,10 +164,10 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
         if np.any(matching_axes > 1):
             valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
             tmp.append(
-                TransposeAxesTransform(valid_axes, data_key='data', label_key='seg', p_per_sample=0.25)
+                TransposeAxesTransform(valid_axes, data_key=data_middle, label_key=label_middle, p_per_sample=0.25)
             )
 
-        tr_transforms.append(OneOfTransformPerSample(tmp, ['data', 'seg']))
+        tr_transforms.append(OneOfTransformPerSample(tmp, [data_middle, label_middle]))
 
         ######### Noise or sharpening #######################
         # the don't like each other, so separate them
@@ -135,7 +181,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
             )
         )
         tmp.append(GaussianNoiseTransform(p_per_sample=0.3, noise_variance=(0.1, 2.5)))
-        tr_transforms.append(OneOfTransformPerSample(tmp, ['data', 'seg']))
+        tr_transforms.append(OneOfTransformPerSample(tmp, [data_middle, label_middle]))
 
         ######### Brightness #################
         tmp = []
@@ -146,33 +192,31 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
                                        p_per_channel=0.1))
         tmp.append(
             BrightnessGradientAdditiveTransform(
-                lambda x, y: np.random.uniform(x[y] // 8, x[y] // 2),
+                nnUNetTrainer_airwayAug_new._get_brightness_gradient_scale,
                 (-0.5, 1.5),
-                max_strength=lambda x, y: np.random.uniform(-3, -1) if np.random.uniform() < 0.5 else np.random.uniform(
-                    1,
-                    3),
+                max_strength= nnUNetTrainer_airwayAug_new._get_brightness_gradient_strength,
                 same_for_all_channels=False,
                 p_per_sample=0.25,
                 p_per_channel=1
             )
         )
-        tr_transforms.append(OneOfTransformPerSample(tmp, ['data', 'seg']))
+        tr_transforms.append(OneOfTransformPerSample(tmp, [data_middle, label_middle]))
 
         ######## Contrast ####################
         tmp = []
         tmp.append(
-            LowContrastTransform(lambda: np.random.uniform(1e-2, 1.5) ** 2, True, 0.25, 1, 'data')
+            LowContrastTransform(nnUNetTrainer_airwayAug_new._get_low_contrast_contrast, True, 0.25, 1, data_middle)
         )
         tmp.append(ContrastAugmentationTransform(p_per_sample=0.25, contrast_range=(1e-2, 1.5)))
         tmp.append(LocalContrastTransform(
-            lambda x, y: np.random.uniform(x[y] // 8, x[y] // 2),
+            nnUNetTrainer_airwayAug_new._get_local_contrast_scale,
             (-0.5, 1.5),
             new_contrast=(1e-5, 2),
             same_for_all_channels=False,
             p_per_sample=0.25,
             p_per_channel=1
         ))
-        tr_transforms.append(OneOfTransformPerSample(tmp, ['data', 'seg']))
+        tr_transforms.append(OneOfTransformPerSample(tmp, [data_middle, label_middle]))
 
         ###### Gamma #################
         tmp = []
@@ -180,15 +224,15 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
         tmp.append(GammaTransform((0.7, 1.5), False, True, retain_stats=True, p_per_sample=0.3))
         tmp.append(
             LocalGammaTransform(
-                lambda x, y: np.random.uniform(x[y] // 8, x[y] // 2),
-                lambda x, y: np.random.uniform(-0.5, 0.5) if np.random.uniform() < 0.5 else np.random.uniform(0.5, 1.5),
-                lambda: np.random.uniform(0.01, 0.8) if np.random.uniform() < 0.5 else np.random.uniform(1.5, 4),
+                nnUNetTrainer_airwayAug_new._get_local_gamma_scale,
+                nnUNetTrainer_airwayAug_new._get_local_gamma_loc,
+                nnUNetTrainer_airwayAug_new._get_local_gamma_gamma,
                 same_for_all_channels=False,
                 p_per_sample=0.15,
                 p_per_channel=1
             )
         )
-        tr_transforms.append(OneOfTransformPerSample(tmp, ['data', 'seg']))
+        tr_transforms.append(OneOfTransformPerSample(tmp, [data_middle, label_middle]))
 
         ###### Blur / low res ########
         tmp = []
@@ -207,7 +251,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
             )
         )
         tmp.append(LocalSmoothingTransform(
-            lambda x, y: np.random.uniform(x[y] // 8, x[y] // 2),
+            nnUNetTrainer_airwayAug_new._get_local_smoothing_scale,
             (-0.5, 1.5),
             smoothing_strength=(0.5, 1),
             kernel_size=(0.3, 5),
@@ -215,13 +259,13 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
             p_per_sample=0.25,
             p_per_channel=1
         ))
-        tr_transforms.append(OneOfTransformPerSample(tmp, ['data', 'seg']))
+        tr_transforms.append(OneOfTransformPerSample(tmp, [data_middle, label_middle]))
 
         tr_transforms.append(MirrorTransform(mirror_axes))
 
         tr_transforms.append(
             BlankRectangleTransform([[max(1, p // 10), p // 3] for p in patch_size],
-                                    rectangle_value=np.mean,
+                                    rectangle_value=nnUNetTrainer_airwayAug_new._get_blank_rectanglevalue,
                                     num_rectangles=(1, 5),
                                     force_square=False,
                                     p_per_sample=0.3,
@@ -239,7 +283,7 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
                 raise NotImplementedError('ignore label not yet supported in cascade')
             assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
             use_labels = [i for i in foreground_labels if i != 0]
-            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
+            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, label_middle, data_middle))
             tr_transforms.append(ApplyRandomBinaryOperatorTransform(
                 channel_idx=list(range(-len(use_labels), 0)),
                 p_per_sample=0.4,
@@ -254,19 +298,26 @@ class nnUNetTrainer_airwayAug_new(nnUNetTrainerDA5):
                     fill_with_other_class_p=0,
                     dont_do_if_covers_more_than_x_percent=0.15))
 
-        tr_transforms.append(RenameTransform('seg', 'target', True))
+        label_temp = 'target'
+        tr_transforms.append(RenameTransform(label_middle, label_in, True))
+        if data_in != data_middle:
+            tr_transforms.append(RenameTransform(data_middle, data_in, True))
 
         if regions is not None:
             # the ignore label must also be converted
             tr_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
                                                                        if ignore_label is not None else regions,
-                                                                       'target', 'target'))
+                                                                       label_in, label_in))
 
         if deep_supervision_scales is not None:
-            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
-                                                              output_key='target'))
-        tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
+            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key=label_in,
+                                                              output_key=label_in))
+        # tr_transforms.append(RenameTransform(label_temp, label_in, True))
+        tr_transforms.append(NumpyToTensor([data_in, label_in], 'float'))
         tr_transforms = Compose(tr_transforms)
+
+        data_dict = {'data': np.random.random((1,1, *patch_size)), 'target': np.ones((1,1, *patch_size))}
+        out_dict = tr_transforms(**data_dict)
         return tr_transforms
 
 
@@ -339,14 +390,14 @@ class nnUNetTrainer_airwayAug_new_noSmooth_betterIgnSampling(nnUNetTrainer_airwa
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                                         sampling_probabilities=None, pad_sides=None,
-                                                        transforms=tr_transforms)
+                                                        transforms=None)
             dl_val = nnUNetDataLoader2DBetterIgnSampling(dataset_val, self.batch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
                                                          sampling_probabilities=None, pad_sides=None,
-                                                         transforms=val_transforms)
+                                                         transforms=None)
         else:
             dl_tr = nnUNetDataLoader3DBetterIgnSampling(dataset_tr, self.batch_size,
                                                         initial_patch_size,
@@ -354,26 +405,26 @@ class nnUNetTrainer_airwayAug_new_noSmooth_betterIgnSampling(nnUNetTrainer_airwa
                                                         self.label_manager,
                                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                                         sampling_probabilities=None, pad_sides=None,
-                                                        transforms=tr_transforms)
+                                                        transforms=None)
             dl_val = nnUNetDataLoader3DBetterIgnSampling(dataset_val, self.batch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.configuration_manager.patch_size,
                                                          self.label_manager,
                                                          oversample_foreground_percent=self.oversample_foreground_percent,
                                                          sampling_probabilities=None, pad_sides=None,
-                                                         transforms=val_transforms)
+                                                         transforms=None)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
         else:
-            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
+            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=tr_transforms,
                                                         num_processes=allowed_num_processes,
                                                         num_cached=max(6, allowed_num_processes // 2), seeds=None,
                                                         pin_memory=self.device.type == 'cuda', wait_time=0.002)
             mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
-                                                      transform=None, num_processes=max(1, allowed_num_processes // 2),
+                                                      transform=val_transforms, num_processes=max(1, allowed_num_processes // 2),
                                                       num_cached=max(3, allowed_num_processes // 4), seeds=None,
                                                       pin_memory=self.device.type == 'cuda',
                                                       wait_time=0.002)
