@@ -250,20 +250,9 @@ class MiniNNUNetDDPTrainer:
                     step_time = end_time - start_time
                     if step_time > 5:
                         batch_ts = batch[3]
-                        load_case_t = torch.mean(batch_ts[:, 1] - batch_ts[:, 0]).item()
-                        get_bbox_t = torch.mean(batch_ts[:, 2] - batch_ts[:, 1]).item()
-                        data_read_t = torch.mean(batch_ts[:, 3] - batch_ts[:, 2]).item()
-                        seg_read_t = torch.mean(batch_ts[:, 4] - batch_ts[:, 3]).item()
-                        pad_t = torch.mean(batch_ts[:, 5] - batch_ts[:, 4]).item()
-                        transform_t = torch.mean(batch_ts[:, 6] - batch_ts[:, 5]).item()
                         log.info(
                             "__getitem__ times",
-                            load_case_t=load_case_t,
-                            get_bbox_t=get_bbox_t,
-                            data_read_t=data_read_t,
-                            seg_read_t=seg_read_t,
-                            pad_t=pad_t,
-                            transform_t=transform_t,
+                            batch_ts=batch_ts.cpu().numpy().tolist(),
                         )
                     log.info("Loaded batch", step_time=step_time)
                     dist.barrier()
