@@ -254,12 +254,12 @@ class MiniNNUNetDDPTrainer:
                         log.info(
                             "__getitem__ times",
                             batch_ts=torch.max(batch_ts, dim=0)[0].numpy().tolist(),
-                            padding=torch.max(padding, dim=0)[0].numpy().tolist(),
+                            # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
                         )
                     log.info(
                         "Loaded batch",
                         step_time=step_time,
-                        padding=torch.max(padding, dim=0)[0].numpy().tolist(),
+                        # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
                     )
                     dist.barrier()
 
