@@ -13,20 +13,17 @@ python nnUNet/nnunetv2/training/dataloading/test_pytorch_nnunet_dataset.py \
 """
 
 import argparse
-import logging
 import os
 import os.path as osp
 import time
 from typing import Any, Dict, List
 
 import numpy as np
-import structlog
 import torch
 import torch.cuda
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from batchgenerators.utilities import file_and_folder_operations as nnunet_file_utils
-from blib.logging import logger
 from line_profiler import LineProfiler
 from structlog.contextvars import bound_contextvars
 from torch.utils.data import DataLoader
@@ -50,6 +47,10 @@ log = None
 
 
 def configure_logging(log_filename: str) -> None:
+    import logging
+
+    import structlog
+
     global log
     # Step 1: Configure Python's logging module to log to a file
     logging.basicConfig(
