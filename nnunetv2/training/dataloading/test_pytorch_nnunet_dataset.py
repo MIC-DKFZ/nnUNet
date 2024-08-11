@@ -470,6 +470,5 @@ if __name__ == "__main__":
         "--num_iterations_per_epoch", type=int, required=True, default=10
     )
     parser.add_argument("--num_dataloader_workers", type=int, required=True, default=4)
-    parser.add_argument("--log_filename", type=str, required=True)
 
     main(parser.parse_args())
