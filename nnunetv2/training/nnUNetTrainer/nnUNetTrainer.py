@@ -88,9 +88,7 @@ from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.training.dataloading.pytorch_nnunet_dataset import (
-    nnUNetPytorchDataset,
-)
+from nnunetv2.training.dataloading.pytorch_nnunet_dataset import nnUNetPytorchDataset
 from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
@@ -1935,7 +1933,7 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
         import time
 
         # Set number of epochs and iterations to use for test
-        self.num_epochs = 5
+        self.num_epochs = 1
         self.num_iterations_per_epoch = 10
 
         print(f"Running with just {self.num_epochs} epochs")
@@ -1954,6 +1952,8 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
                     iterator = iter(self.dataloader_train)
                     train_batch = next(iterator)
                 t2 = time.time()
-                print(f"Current batch_id: {batch_id} - Time: {t2 - t1}")
+                print(
+                    f"rank: {self.local_rank}, epoch: {epoch}, batch_id: {batch_id}, step_time: {t2 - t1}"
+                )
                 # Wait for 291629.4ms - To simulate train step
                 del train_batch
