@@ -244,9 +244,12 @@ class MiniNNUNetDDPTrainer:
                     rank=self.local_rank,
                 ):
                     start_time = time.time()
-                    self.train_step(get_profiled_batch())
+                    batch = get_profiled_batch()
+                    self.train_step(batch)
                     end_time = time.time()
                     step_time = end_time - start_time
+                    if step_time > 5:
+                        log.info(batch[3])
                     log.info("Loaded batch", step_time=step_time)
                     dist.barrier()
 
