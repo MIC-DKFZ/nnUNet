@@ -1957,3 +1957,4 @@ class nnUNetTrainerPyTorchDataloader(nnUNetTrainer):
                 )
                 # Wait for 291629.4ms - To simulate train step
                 del train_batch
+                dist.barrier()
