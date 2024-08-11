@@ -248,8 +248,6 @@ class MiniNNUNetDDPTrainer:
                     end_time = time.time()
                     step_time = end_time - start_time
                     log.info("Loaded batch", step_time=step_time)
-                    if step_time > 5:
-                        profiler.print_stats()
                     dist.barrier()
 
     def get_batch(self) -> Any:
@@ -262,7 +260,8 @@ class MiniNNUNetDDPTrainer:
         self.train_dataloader_iterator = iter(self.train_dataloader)
 
     def train_step(self, batch: Dict[str, torch.Tensor]) -> None:
-        log.info(batch[2])
+        # log.info(batch[2])
+        pass
 
     def get_train_dataloader(self) -> torch.utils.data.DataLoader:
         return DataLoader(
