@@ -223,6 +223,8 @@ class nnUNetPytorchDataset(Dataset):
             data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
             if not self.mock_transforms:
                 data_dict_ = self.transform(**data_dict_)
+            else:
+                data_dict_["target"] = data_dict_.pop("seg")
 
             end_time = time.time()
             times.append(end_time - start_time)
