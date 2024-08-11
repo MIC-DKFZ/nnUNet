@@ -211,7 +211,7 @@ class nnUNetPytorchDataset(Dataset):
                 data_dict_["data"][0],
                 [target[0] for target in data_dict_["target"]],
                 idx,
-                times,
+                torch.tensor(times),
             )
 
     def get_bbox(
