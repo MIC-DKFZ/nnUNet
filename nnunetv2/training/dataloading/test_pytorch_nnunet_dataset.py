@@ -59,6 +59,7 @@ logging.basicConfig(
 # Step 2: Configure structlog to use Python's logging
 structlog.configure(
     processors=[
+        structlog.contextvars.merge_contextvars,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
