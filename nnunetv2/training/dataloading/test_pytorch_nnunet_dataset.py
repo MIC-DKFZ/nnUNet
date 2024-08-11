@@ -424,6 +424,7 @@ def main(args: argparse.Namespace) -> None:
         prefetch_factor=args.prefetch_factor,
         global_oversample_foreground_percent=args.global_oversample_foreground_percent,
         num_dataloader_workers=args.num_dataloader_workers,
+        mock_all_dataset_reads=args.mock_all_dataset_reads,
         num_epochs=args.num_epochs,
         num_iterations_per_epoch=args.num_iterations_per_epoch,
     )
