@@ -231,7 +231,7 @@ class MiniNNUNetDDPTrainer:
     ) -> None:
         self.on_train_start()
         profiler = LineProfiler()
-        profiler.add_function(_MultiProcessingDataLoaderIter._try_get_data)
+        profiler.add_function(nnUNetPytorchDataset.__getitem__)
         get_profiled_batch = profiler(self.get_batch)
         for epoch in range(num_epochs):
             self.on_epoch_start()
@@ -244,11 +244,11 @@ class MiniNNUNetDDPTrainer:
                     start_time = time.time()
                     self.train_step(get_profiled_batch())
                     end_time = time.time()
-                    log.info("Loaded batch", step_time=end_time - start_time)
+                    step_time = end_time - start_time
+                    log.info("Loaded batch", step_time=step_time)
+                    if step_time > 5:
+                        profiler.print_stats()
                     dist.barrier()
-
-        # profiler.print_stats()
-        pass
 
     def get_batch(self) -> Any:
         return next(self.train_dataloader_iterator)

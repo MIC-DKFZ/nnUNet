@@ -197,7 +197,7 @@ class nnUNetPytorchDataset(Dataset):
             # initial patch size -> final patch size (as in plans file)
             data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
             data_dict_ = self.transform(**data_dict_)
-            log.info("Applied transforms", idx=idx)
+            # log.info("Applied transforms", idx=idx)
 
             return (
                 data_dict_["data"][0],
