@@ -6,6 +6,7 @@ import shutil
 from typing import List, Tuple, Union
 
 import numpy as np
+import torch
 import torch.distributed as dist
 from blib.logging import logger
 from structlog.contextvars import bound_contextvars
@@ -47,6 +48,7 @@ class nnUNetPytorchDataset(Dataset):
         oversample_foreground_percent: float = 0.0,
         num_images_properties_loading_threshold: int = 2000,
         folder_with_segs_from_previous_stage: str = None,
+        mock_all_dataset_reads: bool = False,
     ):
         self.local_rank = dist.get_rank()
 
@@ -62,6 +64,7 @@ class nnUNetPytorchDataset(Dataset):
         self.annotated_classes_key = tuple(label_manager.all_labels)
         self.oversample_foreground_percent = oversample_foreground_percent
         self.transform = transform
+        self.mock_all_dataset_reads = mock_all_dataset_reads
 
         if case_identifiers is None:
             case_identifiers = get_case_identifiers(folder)
@@ -141,6 +144,13 @@ class nnUNetPytorchDataset(Dataset):
             rank=self.local_rank,
             worker_id=get_worker_info().id,
         ):
+            if self.mock_all_dataset_reads:
+                return (
+                    torch.zeros(1, *self.final_patch_size),
+                    torch.zeros(1, *self.final_patch_size),
+                    idx,
+                )
+
             # Read in ENTIRE CT and Segmentation from Disk and the properties
             data, seg, properties = self.load_case(idx)
 
@@ -189,7 +199,11 @@ class nnUNetPytorchDataset(Dataset):
             data_dict_ = self.transform(**data_dict_)
             log.info("Applied transforms", idx=idx)
 
-            return (data_dict_["data"][0], [target[0] for target in data_dict_["target"]], idx)
+            return (
+                data_dict_["data"][0],
+                [target[0] for target in data_dict_["target"]],
+                idx,
+            )
 
     def get_bbox(
         self,
