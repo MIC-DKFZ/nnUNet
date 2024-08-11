@@ -49,6 +49,7 @@ class nnUNetPytorchDataset(Dataset):
         num_images_properties_loading_threshold: int = 2000,
         folder_with_segs_from_previous_stage: str = None,
         mock_all_dataset_reads: bool = False,
+        mock_transforms: bool = False,
     ):
         self.local_rank = dist.get_rank()
 
@@ -65,6 +66,7 @@ class nnUNetPytorchDataset(Dataset):
         self.oversample_foreground_percent = oversample_foreground_percent
         self.transform = transform
         self.mock_all_dataset_reads = mock_all_dataset_reads
+        self.mock_transforms = mock_transforms
 
         if case_identifiers is None:
             case_identifiers = get_case_identifiers(folder)
@@ -196,7 +198,8 @@ class nnUNetPytorchDataset(Dataset):
             # Apply transforms here !! - The transforms are also responsible for going from
             # initial patch size -> final patch size (as in plans file)
             data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
-            data_dict_ = self.transform(**data_dict_)
+            if self.mock_transforms:
+                data_dict_ = self.transform(**data_dict_)
             # log.info("Applied transforms", idx=idx)
 
             return (
