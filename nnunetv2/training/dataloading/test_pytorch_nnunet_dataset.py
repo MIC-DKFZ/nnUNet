@@ -248,16 +248,19 @@ class MiniNNUNetDDPTrainer:
                     self.train_step(batch)
                     end_time = time.time()
                     step_time = end_time - start_time
+                    padding = batch[4]
                     if step_time > 5:
                         batch_ts = batch[3]
                         log.info(
                             "__getitem__ times",
-                            batch_ts=torch.max(batch_ts, dim=0)[0]
-                            .cpu()
-                            .numpy()
-                            .tolist(),
+                            batch_ts=torch.max(batch_ts, dim=0)[0].numpy().tolist(),
+                            padding=torch.max(padding, dim=0)[0].numpy().tolist(),
                         )
-                    log.info("Loaded batch", step_time=step_time)
+                    log.info(
+                        "Loaded batch",
+                        step_time=step_time,
+                        padding=torch.max(padding, dim=0)[0].numpy().tolist(),
+                    )
                     dist.barrier()
 
     def get_batch(self) -> Any:

@@ -246,6 +246,7 @@ class nnUNetPytorchDataset(Dataset):
                 [target[0] for target in data_dict_["target"]],
                 idx,
                 torch.tensor(times),
+                torch.tensor(padding),
             )
 
     def get_bbox(
