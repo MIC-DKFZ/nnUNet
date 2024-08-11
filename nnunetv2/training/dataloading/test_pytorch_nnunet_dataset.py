@@ -260,8 +260,7 @@ class MiniNNUNetDDPTrainer:
         self.train_dataloader_iterator = iter(self.train_dataloader)
 
     def train_step(self, batch: Dict[str, torch.Tensor]) -> None:
-        # log.info(batch[2])
-        pass
+        log.info(batch[3])
 
     def get_train_dataloader(self) -> torch.utils.data.DataLoader:
         return DataLoader(

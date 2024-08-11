@@ -3,6 +3,7 @@ import os
 # This has to be moved to an appropriate utils functions folder
 import pickle
 import shutil
+import time
 from typing import List, Tuple, Union
 
 import numpy as np
@@ -142,6 +143,7 @@ class nnUNetPytorchDataset(Dataset):
         - need to pad (which is) - self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
 
         """
+        times = [time.time()]
         with bound_contextvars(
             rank=self.local_rank,
             worker_id=get_worker_info().id,
@@ -155,6 +157,7 @@ class nnUNetPytorchDataset(Dataset):
 
             # Read in ENTIRE CT and Segmentation from Disk and the properties
             data, seg, properties = self.load_case(idx)
+            times.append(time.time())
 
             shape = data.shape[1:]
             dim = len(shape)
@@ -169,6 +172,7 @@ class nnUNetPytorchDataset(Dataset):
             bbox_lbs, bbox_ubs = self.get_bbox(
                 shape, force_fg, properties["class_locations"]
             )
+            times.append(time.time())
 
             valid_bbox_lbs = [max(0, bbox_lbs[i]) for i in range(dim)]
             valid_bbox_ubs = [min(shape[i], bbox_ubs[i]) for i in range(dim)]
@@ -178,13 +182,13 @@ class nnUNetPytorchDataset(Dataset):
                 + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
             )
             data = data[this_slice]
-
+            times.append(time.time())
             this_slice = tuple(
                 [slice(0, seg.shape[0])]
                 + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)]
             )
             seg = seg[this_slice]
-
+            times.append(time.time())
             padding = [
                 (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
                 for i in range(dim)
@@ -194,18 +198,20 @@ class nnUNetPytorchDataset(Dataset):
                 data, ((0, 0), *padding), "constant", constant_values=0
             )
             seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
-
+            times.append(time.time())
             # Apply transforms here !! - The transforms are also responsible for going from
             # initial patch size -> final patch size (as in plans file)
             data_dict_ = {"data": data_padded[None, ...], "seg": seg_padded[None, ...]}
             if self.mock_transforms:
                 data_dict_ = self.transform(**data_dict_)
+            times.append(time.time())
             # log.info("Applied transforms", idx=idx)
 
             return (
                 data_dict_["data"][0],
                 [target[0] for target in data_dict_["target"]],
                 idx,
+                times,
             )
 
     def get_bbox(
