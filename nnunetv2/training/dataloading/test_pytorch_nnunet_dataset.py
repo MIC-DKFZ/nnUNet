@@ -16,11 +16,11 @@ import argparse
 import logging
 import os
 import os.path as osp
-import structlog
+import time
 from typing import Any, Dict, List
 
 import numpy as np
-import time
+import structlog
 import torch
 import torch.cuda
 import torch.distributed as dist
@@ -46,37 +46,40 @@ from nnunetv2.utilities.plans_handling.plans_handler import (
     PlansManager,
 )
 
+log = None
 
-# Step 1: Configure Python's logging module to log to a file
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(message)s",
-    handlers=[
-        logging.FileHandler("app.log"),  # Log to a file
-        # logging.StreamHandler()  # Uncomment if you also want to log to stdout
-    ]
-)
 
-# Step 2: Configure structlog to use Python's logging
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()  # JSONRenderer should be the last processor
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+def configure_logging(log_filename: str) -> None:
+    global log
+    # Step 1: Configure Python's logging module to log to a file
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(message)s",
+        handlers=[
+            logging.FileHandler(log_filename),  # Log to a file
+            # logging.StreamHandler()  # Uncomment if you also want to log to stdout
+        ],
+    )
 
-# Step 3: Get the logger with a specific name
-log = structlog.get_logger(__name__)
+    # Step 2: Configure structlog to use Python's logging
+    structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.processors.JSONRenderer(),  # JSONRenderer should be the last processor
+        ],
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
 
+    # Step 3: Get the logger with a specific name
+    log = structlog.get_logger(__name__)
 
 
 class MiniNNUNetDDPTrainer:
@@ -408,6 +411,8 @@ def run_ddp(
 
 
 def main(args: argparse.Namespace) -> None:
+    configure_logging(args.log_filename)
+
     assert args.global_batch_size % args.num_gpus_available_to_ddp == 0
     # For DDP, set the MASTER_ADDR and MASTER_PORT environment variables
     os.environ["MASTER_ADDR"] = "localhost"
@@ -459,5 +464,6 @@ if __name__ == "__main__":
         "--num_iterations_per_epoch", type=int, required=True, default=10
     )
     parser.add_argument("--num_dataloader_workers", type=int, required=True, default=4)
+    parser.add_argument("--log_filename", type=str, required=True)
 
     main(parser.parse_args())
