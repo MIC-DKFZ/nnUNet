@@ -209,9 +209,18 @@ class nnUNetPytorchDataset(Dataset):
                 for i in range(dim)
             ]
 
+            end_time = time.time()
+            times.append(end_time - start_time)
+            start_time = end_time
+
             data_padded = np.pad(
                 data, ((0, 0), *padding), "constant", constant_values=0
             )
+
+            end_time = time.time()
+            times.append(end_time - start_time)
+            start_time = end_time
+
             seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
 
             end_time = time.time()
