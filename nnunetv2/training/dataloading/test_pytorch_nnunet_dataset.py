@@ -381,6 +381,7 @@ def get_trainer(
 
 def run_ddp(
     rank: int,
+    log_filename: str,
     dataset_id: int,
     configuration: str,
     fold: int,
@@ -392,6 +393,7 @@ def run_ddp(
     num_epochs: int,  # hardcoded to 1000 in nnUNetTrainer
     num_iterations_per_epoch: int,  # hardcoded to 250 in nnUNetTrainer
 ) -> None:
+    configure_logging(log_filename)
     dist.init_process_group("nccl", rank=rank, world_size=num_gpus_available_to_ddp)
     torch.cuda.set_device(torch.device("cuda", dist.get_rank()))
     oversample_foreground_percent = compute_oversample_foreground_percent(
@@ -412,8 +414,6 @@ def run_ddp(
 
 
 def main(args: argparse.Namespace) -> None:
-    configure_logging(args.log_filename)
-
     assert args.global_batch_size % args.num_gpus_available_to_ddp == 0
     # For DDP, set the MASTER_ADDR and MASTER_PORT environment variables
     os.environ["MASTER_ADDR"] = "localhost"
@@ -421,6 +421,7 @@ def main(args: argparse.Namespace) -> None:
     mp.spawn(
         run_ddp,
         args=(
+            args.log_filename,
             args.dataset_id,
             args.configuration,
             args.fold,
