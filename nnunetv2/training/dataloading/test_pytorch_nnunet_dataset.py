@@ -13,17 +13,20 @@ python nnUNet/nnunetv2/training/dataloading/test_pytorch_nnunet_dataset.py \
 """
 
 import argparse
+import logging
 import os
 import os.path as osp
 import time
 from typing import Any, Dict, List
 
 import numpy as np
+import structlog
 import torch
 import torch.cuda
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from batchgenerators.utilities import file_and_folder_operations as nnunet_file_utils
+from blib.logging import logger
 from line_profiler import LineProfiler
 from structlog.contextvars import bound_contextvars
 from torch.utils.data import DataLoader
@@ -43,44 +46,35 @@ from nnunetv2.utilities.plans_handling.plans_handler import (
     PlansManager,
 )
 
-log = None
+# Step 1: Configure Python's logging module to log to a file
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),  # Log to a file
+        # logging.StreamHandler()  # Uncomment if you also want to log to stdout
+    ],
+)
 
+# Step 2: Configure structlog to use Python's logging
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer(),  # JSONRenderer should be the last processor
+    ],
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
 
-def configure_logging(log_filename: str) -> None:
-    import logging
-
-    import structlog
-
-    global log
-    # Step 1: Configure Python's logging module to log to a file
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(message)s",
-        handlers=[
-            logging.FileHandler(log_filename),  # Log to a file
-            # logging.StreamHandler()  # Uncomment if you also want to log to stdout
-        ],
-    )
-
-    # Step 2: Configure structlog to use Python's logging
-    structlog.configure(
-        processors=[
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer(),  # JSONRenderer should be the last processor
-        ],
-        context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
-
-    # Step 3: Get the logger with a specific name
-    log = structlog.get_logger(__name__)
+# Step 3: Get the logger with a specific name
+log = structlog.get_logger(__name__)
 
 
 class MiniNNUNetDDPTrainer:
@@ -381,7 +375,6 @@ def get_trainer(
 
 def run_ddp(
     rank: int,
-    log_filename: str,
     dataset_id: int,
     configuration: str,
     fold: int,
@@ -393,7 +386,6 @@ def run_ddp(
     num_epochs: int,  # hardcoded to 1000 in nnUNetTrainer
     num_iterations_per_epoch: int,  # hardcoded to 250 in nnUNetTrainer
 ) -> None:
-    configure_logging(log_filename)
     dist.init_process_group("nccl", rank=rank, world_size=num_gpus_available_to_ddp)
     torch.cuda.set_device(torch.device("cuda", dist.get_rank()))
     oversample_foreground_percent = compute_oversample_foreground_percent(
@@ -414,6 +406,19 @@ def run_ddp(
 
 
 def main(args: argparse.Namespace) -> None:
+    log.info(
+        "Starting DDP benchmark",
+        dataset_id=args.dataset_id,
+        configuration=args.configuration,
+        fold=args.fold,
+        num_gpus_available_to_ddp=args.num_gpus_available_to_ddp,
+        global_batch_size=args.global_batch_size,
+        prefetch_factor=args.prefetch_factor,
+        global_oversample_foreground_percent=args.global_oversample_foreground_percent,
+        num_dataloader_workers=args.num_dataloader_workers,
+        num_epochs=args.num_epochs,
+        num_iterations_per_epoch=args.num_iterations_per_epoch,
+    )
     assert args.global_batch_size % args.num_gpus_available_to_ddp == 0
     # For DDP, set the MASTER_ADDR and MASTER_PORT environment variables
     os.environ["MASTER_ADDR"] = "localhost"
@@ -421,7 +426,6 @@ def main(args: argparse.Namespace) -> None:
     mp.spawn(
         run_ddp,
         args=(
-            args.log_filename,
             args.dataset_id,
             args.configuration,
             args.fold,
