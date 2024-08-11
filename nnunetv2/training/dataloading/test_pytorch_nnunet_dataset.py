@@ -115,7 +115,7 @@ class MiniNNUNetDDPTrainer:
         prefetch_factor: int,
         oversample_foreground_percent: float,
         num_dataloader_workers: int,
-        mock_dataset_reads: bool,
+        mock_all_dataset_reads: bool,
         preprocessed_dataset_folder: str,
     ) -> None:
         """Initializes `MiniNNUNetTrainer`.
@@ -218,7 +218,7 @@ class MiniNNUNetDDPTrainer:
         self.prefetch_factor = int(prefetch_factor)
         self.oversample_foreground_percent = float(oversample_foreground_percent)
         self.num_dataloader_workers = num_dataloader_workers
-        self.mock_dataset_reads = mock_dataset_reads
+        self.mock_all_dataset_reads = mock_all_dataset_reads
         self.preprocessed_dataset_data_folder = osp.join(
             preprocessed_dataset_folder,
             self.configuration_manager.data_identifier,
@@ -319,7 +319,7 @@ class MiniNNUNetDDPTrainer:
             oversample_foreground_percent=self.oversample_foreground_percent,
             folder_with_segs_from_previous_stage=None,
             num_images_properties_loading_threshold=0,
-            mock_dataset_reads=self.mock_dataset_reads,
+            mock_all_dataset_reads=self.mock_all_dataset_reads,
         )
 
 
@@ -349,7 +349,7 @@ def get_trainer(
     prefetch_factor: int,
     oversample_foreground_percent: float,
     num_dataloader_workers: int,
-    mock_dataset_reads: bool,
+    mock_all_dataset_reads: bool,
 ) -> MiniNNUNetDDPTrainer:
     ...
     preprocessed_dataset_folder = osp.join(
@@ -374,7 +374,7 @@ def get_trainer(
         prefetch_factor=prefetch_factor,
         oversample_foreground_percent=oversample_foreground_percent,
         num_dataloader_workers=num_dataloader_workers,
-        mock_dataset_reads=mock_dataset_reads,
+        mock_all_dataset_reads=mock_all_dataset_reads,
         preprocessed_dataset_folder=preprocessed_dataset_folder,
     )
 
@@ -389,7 +389,7 @@ def run_ddp(
     prefetch_factor: int,
     global_oversample_foreground_percent: float,
     num_dataloader_workers: int,
-    mock_dataset_reads: bool,
+    mock_all_dataset_reads: bool,
     num_epochs: int,  # hardcoded to 1000 in nnUNetTrainer
     num_iterations_per_epoch: int,  # hardcoded to 250 in nnUNetTrainer
 ) -> None:
@@ -408,7 +408,7 @@ def run_ddp(
         prefetch_factor,
         oversample_foreground_percent,
         num_dataloader_workers,
-        mock_dataset_reads,
+        mock_all_dataset_reads,
     )
     trainer.run_training(num_epochs, num_iterations_per_epoch)
 
@@ -442,7 +442,7 @@ def main(args: argparse.Namespace) -> None:
             args.prefetch_factor,
             args.global_oversample_foreground_percent,
             args.num_dataloader_workers,
-            args.mock_dataset_reads,
+            args.mock_all_dataset_reads,
             args.num_epochs,
             args.num_iterations_per_epoch,
         ),
@@ -475,7 +475,7 @@ if __name__ == "__main__":
         default=0.33,
     )
     parser.add_argument("--num_dataloader_workers", type=int, required=True, default=4)
-    parser.add_argument("--mock_dataset_reads", action="store_true", default=False)
+    parser.add_argument("--mock_all_dataset_reads", action="store_true", default=False)
     parser.add_argument("--num_epochs", type=int, required=True, default=1)
     parser.add_argument(
         "--num_iterations_per_epoch", type=int, required=True, default=10
