@@ -50,6 +50,7 @@ class nnUNetPytorchDataset(Dataset):
         num_images_properties_loading_threshold: int = 2000,
         folder_with_segs_from_previous_stage: str = None,
         mock_all_dataset_reads: bool = False,
+        mock_padding: bool = False,
         mock_transforms: bool = False,
     ):
         self.local_rank = dist.get_rank()
@@ -67,6 +68,7 @@ class nnUNetPytorchDataset(Dataset):
         self.oversample_foreground_percent = oversample_foreground_percent
         self.transform = transform
         self.mock_all_dataset_reads = mock_all_dataset_reads
+        self.mock_padding = mock_padding
         self.mock_transforms = mock_transforms
 
         if case_identifiers is None:
@@ -204,28 +206,34 @@ class nnUNetPytorchDataset(Dataset):
             times.append(end_time - start_time)
             start_time = end_time
 
-            padding = [
-                (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
-                for i in range(dim)
-            ]
+            if self.mock_padding:
+                data_padded = data
+                seg_padded = seg
+            else:
+                padding = [
+                    (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
+                    for i in range(dim)
+                ]
 
-            end_time = time.time()
-            times.append(end_time - start_time)
-            start_time = end_time
+                end_time = time.time()
+                times.append(end_time - start_time)
+                start_time = end_time
 
-            data_padded = np.pad(
-                data, ((0, 0), *padding), "constant", constant_values=0
-            )
+                data_padded = np.pad(
+                    data, ((0, 0), *padding), "constant", constant_values=0
+                )
 
-            end_time = time.time()
-            times.append(end_time - start_time)
-            start_time = end_time
+                end_time = time.time()
+                times.append(end_time - start_time)
+                start_time = end_time
 
-            seg_padded = np.pad(seg, ((0, 0), *padding), "constant", constant_values=-1)
+                seg_padded = np.pad(
+                    seg, ((0, 0), *padding), "constant", constant_values=-1
+                )
 
-            end_time = time.time()
-            times.append(end_time - start_time)
-            start_time = end_time
+                end_time = time.time()
+                times.append(end_time - start_time)
+                start_time = end_time
 
             # Apply transforms here !! - The transforms are also responsible for going from
             # initial patch size -> final patch size (as in plans file)
