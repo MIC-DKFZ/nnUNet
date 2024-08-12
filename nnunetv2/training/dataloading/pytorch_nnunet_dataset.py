@@ -53,7 +53,15 @@ class nnUNetPytorchDataset(Dataset):
         mock_padding: bool = False,
         mock_transforms: bool = False,
     ):
-        self.local_rank = dist.get_rank()
+        try:
+            self.local_rank = dist.get_rank()
+        except Exception:
+            self.local_rank = None
+
+        try:
+            self.worker_id = get_worker_info().id
+        except Exception:
+            self.worker_id = None
 
         # Initialize
         super().__init__()
@@ -149,7 +157,7 @@ class nnUNetPytorchDataset(Dataset):
         times = []
         with bound_contextvars(
             rank=self.local_rank,
-            worker_id=get_worker_info().id,
+            worker_id=self.worker_id,
         ):
             if self.mock_all_dataset_reads:
                 return (
