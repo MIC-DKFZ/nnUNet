@@ -394,6 +394,7 @@ def get_trainer(
         oversample_foreground_percent=oversample_foreground_percent,
         num_dataloader_workers=num_dataloader_workers,
         mock_all_dataset_reads=mock_all_dataset_reads,
+        mock_padding=mock_padding,
         mock_transforms=mock_transforms,
         preprocessed_dataset_folder=preprocessed_dataset_folder,
     )
