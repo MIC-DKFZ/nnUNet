@@ -487,7 +487,7 @@ def main(args: argparse.Namespace) -> None:
             args.fold,
             args.global_batch_size,
             args.prefetch_factor,
-            args.oversample_foreground_percent,
+            args.global_oversample_foreground_percent,
             args.num_dataloader_workers,
             args.mock_all_dataset_reads,
             args.mock_padding,
