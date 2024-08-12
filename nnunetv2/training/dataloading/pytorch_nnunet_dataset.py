@@ -206,19 +206,19 @@ class nnUNetPytorchDataset(Dataset):
             times.append(end_time - start_time)
             start_time = end_time
 
+            padding = [
+                (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
+                for i in range(dim)
+            ]
+
+            end_time = time.time()
+            times.append(end_time - start_time)
+            start_time = end_time
+
             if self.mock_padding:
                 data_padded = data
                 seg_padded = seg
             else:
-                padding = [
-                    (-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0))
-                    for i in range(dim)
-                ]
-
-                end_time = time.time()
-                times.append(end_time - start_time)
-                start_time = end_time
-
                 data_padded = np.pad(
                     data, ((0, 0), *padding), "constant", constant_values=0
                 )
