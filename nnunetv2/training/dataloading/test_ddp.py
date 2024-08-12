@@ -200,18 +200,19 @@ class MiniNNUNetDDPTrainer:
                 {preprocessed_dataset_folder_base}/{data_identifier}.
         """
         self.is_ddp = dist.is_available() and dist.is_initialized()
-        if not self.is_ddp:
-            raise NotImplementedError("Only DDP is supported")
-        self.local_rank = dist.get_rank()
-        self.device = torch.device(type="cuda", index=self.local_rank)
-        """
-        log.info(
-            "Using DDP",
-            local_rank=self.local_rank,
-            device_count=torch.cuda.device_count(),  # number of GPUs
-            world_size=dist.get_world_size(),  # number of GPUs in this process group
-        )
-        """
+        if self.is_ddp:
+            self.local_rank = dist.get_rank()
+            self.device = torch.device(type="cuda", index=self.local_rank)
+            """
+            log.info(
+                "Using DDP",
+                local_rank=self.local_rank,
+                device_count=torch.cuda.device_count(),  # number of GPUs
+                world_size=dist.get_world_size(),  # number of GPUs in this process group
+            )
+            """
+        else:
+            self.local_rank = None
         self.plans_manager = PlansManager(plans)
         self.label_manager = self.plans_manager.get_label_manager(dataset)
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
@@ -370,7 +371,6 @@ def get_trainer(
     mock_padding: bool,
     mock_transforms: bool,
 ) -> MiniNNUNetDDPTrainer:
-    ...
     preprocessed_dataset_folder = osp.join(
         nnunet_paths.nnUNet_preprocessed,
         nnunet_dataset_id_utils.maybe_convert_to_dataset_name(dataset_id),
@@ -439,46 +439,62 @@ def run_ddp(
 
 
 def main(args: argparse.Namespace) -> None:
-    log.info(
-        "Starting DDP benchmark",
-        dataset_id=args.dataset_id,
-        configuration=args.configuration,
-        fold=args.fold,
-        num_gpus_available_to_ddp=args.num_gpus_available_to_ddp,
-        global_batch_size=args.global_batch_size,
-        prefetch_factor=args.prefetch_factor,
-        global_oversample_foreground_percent=args.global_oversample_foreground_percent,
-        num_dataloader_workers=args.num_dataloader_workers,
-        mock_all_dataset_reads=args.mock_all_dataset_reads,
-        mock_padding=args.mock_padding,
-        mock_transforms=args.mock_transforms,
-        num_epochs=args.num_epochs,
-        num_iterations_per_epoch=args.num_iterations_per_epoch,
-    )
-    assert args.global_batch_size % args.num_gpus_available_to_ddp == 0
-    # For DDP, set the MASTER_ADDR and MASTER_PORT environment variables
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = str(run_utils.find_free_network_port())
-    mp.spawn(
-        run_ddp,
-        args=(
+    if args.ddp_benchmark:
+        log.info(
+            "Starting DDP benchmark",
+            dataset_id=args.dataset_id,
+            configuration=args.configuration,
+            fold=args.fold,
+            num_gpus_available_to_ddp=args.num_gpus_available_to_ddp,
+            global_batch_size=args.global_batch_size,
+            prefetch_factor=args.prefetch_factor,
+            global_oversample_foreground_percent=args.global_oversample_foreground_percent,
+            num_dataloader_workers=args.num_dataloader_workers,
+            mock_all_dataset_reads=args.mock_all_dataset_reads,
+            mock_padding=args.mock_padding,
+            mock_transforms=args.mock_transforms,
+            num_epochs=args.num_epochs,
+            num_iterations_per_epoch=args.num_iterations_per_epoch,
+        )
+        assert args.global_batch_size % args.num_gpus_available_to_ddp == 0
+        # For DDP, set the MASTER_ADDR and MASTER_PORT environment variables
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = str(run_utils.find_free_network_port())
+        mp.spawn(
+            run_ddp,
+            args=(
+                args.dataset_id,
+                args.configuration,
+                args.fold,
+                args.num_gpus_available_to_ddp,
+                args.global_batch_size,
+                args.prefetch_factor,
+                args.global_oversample_foreground_percent,
+                args.num_dataloader_workers,
+                args.mock_all_dataset_reads,
+                args.mock_padding,
+                args.mock_transforms,
+                args.num_epochs,
+                args.num_iterations_per_epoch,
+            ),
+            nprocs=args.num_gpus_available_to_ddp,
+            join=True,
+        )
+    elif args.dataset_trace:
+        trainer = get_trainer(
             args.dataset_id,
             args.configuration,
             args.fold,
-            args.num_gpus_available_to_ddp,
             args.global_batch_size,
             args.prefetch_factor,
-            args.global_oversample_foreground_percent,
+            args.oversample_foreground_percent,
             args.num_dataloader_workers,
             args.mock_all_dataset_reads,
             args.mock_padding,
             args.mock_transforms,
-            args.num_epochs,
-            args.num_iterations_per_epoch,
-        ),
-        nprocs=args.num_gpus_available_to_ddp,
-        join=True,
-    )
+        )
+        dataset = trainer.get_train_dataset()
+        data = next(iter(dataset))
 
 
 if __name__ == "__main__":
@@ -512,5 +528,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_iterations_per_epoch", type=int, required=True, default=10
     )
+    parser.add_argument("--ddp_benchmark", action="store_true", default=False)
+    parser.add_argument("--dataset_trace", action="store_true", default=False)
 
     main(parser.parse_args())
