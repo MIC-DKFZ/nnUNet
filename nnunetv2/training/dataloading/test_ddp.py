@@ -493,6 +493,33 @@ def main(args: argparse.Namespace) -> None:
             args.mock_padding,
             args.mock_transforms,
         )
+        trainer.on_train_start()
+        for epoch in range(args.num_epochs):
+            trainer.on_epoch_start()
+            for batch_id in range(args.num_iterations_per_epoch):
+                with bound_contextvars(
+                    epoch=epoch,
+                    batch_id=batch_id,
+                ):
+                    start_time = time.time()
+                    batch = trainer.get_batch()
+                    trainer.train_step(batch)
+                    end_time = time.time()
+                    step_time = end_time - start_time
+                    padding = batch[4]
+                    if step_time >= 0:
+                        batch_ts = batch[3]
+                        log.info(
+                            "__getitem__ times",
+                            batch_ts=torch.max(batch_ts, dim=0)[0].numpy().tolist(),
+                            # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
+                        )
+                    log.info(
+                        "Loaded batch",
+                        step_time=step_time,
+                        # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
+                    )
+
         dataset = trainer.get_train_dataset()
         data = next(iter(dataset))
 
@@ -529,6 +556,6 @@ if __name__ == "__main__":
         "--num_iterations_per_epoch", type=int, required=True, default=10
     )
     parser.add_argument("--ddp_benchmark", action="store_true", default=False)
-    parser.add_argument("--dataset_trace", action="store_true", default=False)
+    parser.add_argument("--dataset_benchmark", action="store_true", default=False)
 
     main(parser.parse_args())
