@@ -235,9 +235,6 @@ class MiniNNUNetDDPTrainer:
         num_iterations_per_epoch: int,
     ) -> None:
         self.on_train_start()
-        profiler = LineProfiler()
-        profiler.add_function(nnUNetPytorchDataset.__getitem__)
-        get_profiled_batch = profiler(self.get_batch)
         for epoch in range(num_epochs):
             self.on_epoch_start()
             for batch_id in range(num_iterations_per_epoch):
@@ -247,12 +244,12 @@ class MiniNNUNetDDPTrainer:
                     rank=self.local_rank,
                 ):
                     start_time = time.time()
-                    batch = get_profiled_batch()
+                    batch = self.get_batch()
                     self.train_step(batch)
                     end_time = time.time()
                     step_time = end_time - start_time
                     padding = batch[4]
-                    if step_time > 5:
+                    if step_time >= 0:
                         batch_ts = batch[3]
                         log.info(
                             "__getitem__ times",
@@ -481,6 +478,22 @@ def main(args: argparse.Namespace) -> None:
             join=True,
         )
     elif args.dataset_benchmark:
+        log.info(
+            "Starting dataset benchmark",
+            dataset_id=args.dataset_id,
+            configuration=args.configuration,
+            fold=args.fold,
+            num_gpus_available_to_ddp=args.num_gpus_available_to_ddp,
+            global_batch_size=args.global_batch_size,
+            prefetch_factor=args.prefetch_factor,
+            global_oversample_foreground_percent=args.global_oversample_foreground_percent,
+            num_dataloader_workers=args.num_dataloader_workers,
+            mock_all_dataset_reads=args.mock_all_dataset_reads,
+            mock_padding=args.mock_padding,
+            mock_transforms=args.mock_transforms,
+            num_epochs=args.num_epochs,
+            num_iterations_per_epoch=args.num_iterations_per_epoch,
+        )
         trainer = get_trainer(
             args.dataset_id,
             args.configuration,
@@ -493,35 +506,7 @@ def main(args: argparse.Namespace) -> None:
             args.mock_padding,
             args.mock_transforms,
         )
-        trainer.on_train_start()
-        for epoch in range(args.num_epochs):
-            trainer.on_epoch_start()
-            for batch_id in range(args.num_iterations_per_epoch):
-                with bound_contextvars(
-                    epoch=epoch,
-                    batch_id=batch_id,
-                ):
-                    start_time = time.time()
-                    batch = trainer.get_batch()
-                    trainer.train_step(batch)
-                    end_time = time.time()
-                    step_time = end_time - start_time
-                    padding = batch[4]
-                    if step_time >= 0:
-                        batch_ts = batch[3]
-                        log.info(
-                            "__getitem__ times",
-                            batch_ts=torch.max(batch_ts, dim=0)[0].numpy().tolist(),
-                            # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
-                        )
-                    log.info(
-                        "Loaded batch",
-                        step_time=step_time,
-                        # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
-                    )
-
-        dataset = trainer.get_train_dataset()
-        data = next(iter(dataset))
+        trainer.run_training(args.num_epochs, args.num_iterations_per_epoch)
 
 
 if __name__ == "__main__":
