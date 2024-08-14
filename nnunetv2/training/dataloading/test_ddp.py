@@ -261,7 +261,8 @@ class MiniNNUNetDDPTrainer:
                         step_time=step_time,
                         # padding=torch.max(padding, dim=0)[0].numpy().tolist(),
                     )
-                    dist.barrier()
+                    if self.is_ddp:
+                        dist.barrier()
 
     def get_batch(self) -> Any:
         return next(self.train_dataloader_iterator)
