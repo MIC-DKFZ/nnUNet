@@ -480,7 +480,7 @@ def main(args: argparse.Namespace) -> None:
             nprocs=args.num_gpus_available_to_ddp,
             join=True,
         )
-    elif args.dataset_trace:
+    elif args.dataset_benchmark:
         trainer = get_trainer(
             args.dataset_id,
             args.configuration,
