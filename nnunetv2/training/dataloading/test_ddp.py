@@ -244,7 +244,12 @@ class MiniNNUNetDDPTrainer:
                     rank=self.local_rank,
                 ):
                     start_time = time.time()
-                    batch = self.get_batch()
+                    try:
+                        batch = self.get_batch()
+                    except StopIteration:
+                        # restart the iterator
+                        self.on_epoch_start()
+                        batch = self.get_batch()
                     self.train_step(batch)
                     end_time = time.time()
                     step_time = end_time - start_time
