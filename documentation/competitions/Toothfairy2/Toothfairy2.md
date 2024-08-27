@@ -1,3 +1,12 @@
+Authors: \
+Fabian Isensee*, Yannick Kirchhoff*, Lars Kraemer, Max Rokuss, Constantin Ulrich, Klaus H. Maier-Hein 
+
+*: equal contribution
+
+Author Affiliations:\
+Division of Medical Image Computing, German Cancer Research Center (DKFZ), Heidelberg \
+Helmholtz Imaging
+
 # Introduction
 
 This document describes our submission to the [Toothfairy2 Challenge](https://toothfairy2.grand-challenge.org/toothfairy2/). 
@@ -7,6 +16,8 @@ mirroring and train for 1500 instead of the standard 1000 epochs. Training was e
 # Dataset Conversion
 
 # Experiment Planning and Preprocessing
+Adapt and run the [dataset conversion script](../../../nnunetv2/dataset_conversion/Dataset119_ToothFairy2_All.py). 
+This script just converts the mhs files to nifti (smaller file size) and removes the unused label ids.
 
 ## Extract fingerprint:
 `nnUNetv2_extract_fingerprint -d 119 -np 48`
@@ -160,6 +171,9 @@ Add the following configuration to the generated plans file:
 Aside from changing the patch size this makes the architecture one stage deeper (one more pooling + res blocks), enabling
 it to make effective use of the larger input
 
+# Preprocessing
+`nnUNetv2_preprocess -d 119 -c 3d_fullres_torchres_ps160x320x320_bs2 -plans_name nnUNetResEncUNetLPlans -np 48`
+
 # Training
 We train two models on all training cases:
 
@@ -167,6 +181,8 @@ We train two models on all training cases:
 nnUNetv2_train 119 3d_fullres_torchres_ps160x320x320_bs2 all -p nnUNetResEncUNetLPlans -tr nnUNetTrainer_onlyMirror01_1500ep
 nnUNet_results=${nnUNet_results}_2 nnUNetv2_train 119 3d_fullres_torchres_ps160x320x320_bs2 all -p nnUNetResEncUNetLPlans -tr nnUNetTrainer_onlyMirror01_1500ep
 ```
+Models are trained from scratch.
+
 Note how in the second line we overwrite the nnUNet_results variable in order to be able to train the same model twice without overwriting the results
 
 # Inference
@@ -174,4 +190,12 @@ We ensemble the two models from above. On a technical level we copy the two fold
 directory and rename them to fold_0 and fold_1. This lets us use nnU-Net's cross-validation ensembling strategy which 
 is more computationally efficient (needed for time limit on grand-challenge.org).
 
-Run inference with the inference script
+Run inference with the [inference script](inference_script_semseg_only_customInf2.py)
+
+# Postprocessing
+If the prediction of a class on some test case is smaller than the corresponding cutoff size then it is removed 
+(replaced with background).
+
+Cutoff values were optimized using a five-fold cross-validation on the Toothfairy2 training data. We optimize HD95 and Dice separately. 
+The final cutoff for each class is then the smaller value between the two metrics. You can find our volume cutoffs in the inference 
+script as part of our `postprocess` function.    
