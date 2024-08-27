@@ -1,6 +1,7 @@
 from typing import Union, Tuple, List
 
 import numpy as np
+import torch
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
 from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
 from batchgeneratorsv2.transforms.intensity.brightness import MultiplicativeBrightnessTransform
@@ -49,6 +50,13 @@ class nnUNetTrainer_onlyMirror01(nnUNetTrainer):
             mirror_axes = (0, 1)
         self.inference_allowed_mirroring_axes = mirror_axes
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
+
+
+class nnUNetTrainer_onlyMirror01_1500ep(nnUNetTrainer_onlyMirror01):
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+                 device: torch.device = torch.device('cuda')):
+        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        self.num_epochs = 1500
 
 
 class nnUNetTrainer_onlyMirror01_DASegOrd0(nnUNetTrainer_onlyMirror01):
