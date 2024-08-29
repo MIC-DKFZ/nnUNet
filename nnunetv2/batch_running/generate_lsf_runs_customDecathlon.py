@@ -62,9 +62,10 @@ if __name__ == "__main__":
     preamble = "\". ~/load_env_torch224.sh && " # -L /bin/bash
     train_command = 'nnUNetv2_train'
 
+
     folds = (0, )
     # use_this = configurations_2d_only
-    use_this = configurations_3d_fr_only
+    use_this = configurations_2d_only
     # use_this = merge(use_this, configurations_3d_c_only)
 
     datasets = [3, 4, 5, 8, 10, 17, 27, 55, 220, 223]
@@ -85,8 +86,10 @@ if __name__ == "__main__":
         # 'nnUNetTrainerUMambaBot': ('nnUNetPlans',),
         # 'nnUNetTrainerUMambaEnc': ('nnUNetPlans',),
         # 'nnUNetTrainer_fasterDA': ('nnUNetPlans', 'nnUNetResEncUNetLPlans'),
-        'nnUNetTrainer_noDummy2DDA': ('nnUNetResEncUNetMPlans', ),
+        # 'nnUNetTrainer_noDummy2DDA': ('nnUNetResEncUNetMPlans', ),
         'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
+        # 'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetResEncUNetMPlans', ),
+        # 'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetResEncUNetMPlans',),
         # BN
     }
 

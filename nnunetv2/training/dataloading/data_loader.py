@@ -1,15 +1,23 @@
-from typing import Union, Tuple
+import os
+import warnings
+from typing import Union, Tuple, List
 
-from batchgenerators.dataloading.data_loader import DataLoader
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import *
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetNumpy
+import torch
+from batchgenerators.dataloading.data_loader import DataLoader
+from batchgenerators.utilities.file_and_folder_operations import join, load_json
+from threadpoolctl import threadpool_limits
+
+from nnunetv2.paths import nnUNet_preprocessed
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
-class nnUNetDataLoaderBase(DataLoader):
+class nnUNetDataLoader(DataLoader):
     def __init__(self,
-                 data: nnUNetDatasetNumpy,
+                 data: nnUNetBaseDataset,
                  batch_size: int,
                  patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
                  final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
@@ -19,7 +27,19 @@ class nnUNetDataLoaderBase(DataLoader):
                  pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  probabilistic_oversampling: bool = False,
                  transforms=None):
-        super().__init__(data, batch_size, 1, None, True, False, True, sampling_probabilities)
+        """
+        If we get a 2D patch size, make it pseudo 3D and remember to remove the singleton dimension before
+        returning the batch
+        """
+        super().__init__(data, batch_size, 1, None, True,
+                         False, True, sampling_probabilities)
+
+        if len(patch_size) == 2:
+            final_patch_size = (1, *patch_size)
+            patch_size = (1, *patch_size)
+            self.patch_size_was_2d = True
+        else:
+            self.patch_size_was_2d = False
 
         # this is used by DataLoader for sampling train cases!
         self.indices = data.identifiers
@@ -94,9 +114,8 @@ class nnUNetDataLoaderBase(DataLoader):
                 selected_class = self.annotated_classes_key
                 if len(class_locations[selected_class]) == 0:
                     # no annotated pixels in this case. Not good. But we can hardly skip it here
-                    print('Warning! No annotated pixels in image!')
+                    warnings.warn('Warning! No annotated pixels in image!')
                     selected_class = None
-                # print(f'I have ignore labels and want to pick a labeled area. annotated_classes_key: {self.annotated_classes_key}')
             elif force_fg:
                 assert class_locations is not None, 'if force_fg is set class_locations cannot be None'
                 if overwrite_class is not None:
@@ -127,9 +146,9 @@ class nnUNetDataLoaderBase(DataLoader):
                 # print(f'I want to have foreground, selected class: {selected_class}')
             else:
                 raise RuntimeError('lol what!?')
-            voxels_of_that_class = class_locations[selected_class] if selected_class is not None else None
 
-            if voxels_of_that_class is not None and len(voxels_of_that_class) > 0:
+            if selected_class is not None:
+                voxels_of_that_class = class_locations[selected_class]
                 selected_voxel = voxels_of_that_class[np.random.choice(len(voxels_of_that_class))]
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
                 # Make sure it is within the bounds of lb and ub
@@ -142,3 +161,83 @@ class nnUNetDataLoaderBase(DataLoader):
         bbox_ubs = [bbox_lbs[i] + self.patch_size[i] for i in range(dim)]
 
         return bbox_lbs, bbox_ubs
+
+    def generate_train_batch(self):
+        selected_keys = self.get_indices()
+        # preallocate memory for data and seg
+        data_all = np.zeros(self.data_shape, dtype=np.float32)
+        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+
+        for j, i in enumerate(selected_keys):
+            # oversampling foreground will improve stability of model training, especially if many patches are empty
+            # (Lung for example)
+            force_fg = self.get_do_oversample(j)
+
+            data, seg, seg_prev, properties = self._data.load_case(i)
+
+            # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
+            # self._data.load_case(i) (see nnUNetDataset.load_case)
+            shape = data.shape[1:]
+            dim = len(shape)
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
+
+            # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
+            # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
+            # valid_bbox is just the coord that lied within the data cube. It will be padded to match the patch size
+            # later
+            valid_bbox_lbs = np.clip(bbox_lbs, a_min=0, a_max=None)
+            valid_bbox_ubs = np.minimum(shape, bbox_ubs)
+
+            # At this point you might ask yourself why we would treat seg differently from seg_from_previous_stage.
+            # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
+            # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
+            # remove label -1 in the data augmentation but this way it is less error prone)
+            this_slice = tuple([slice(0, data.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            data = data[this_slice]
+
+            this_slice = tuple([slice(0, seg.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+            seg = seg[this_slice]
+            if seg_prev is not None:
+                this_slice = tuple([slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
+                seg_prev = seg_prev[this_slice]
+                seg = np.vstack((seg, seg_prev[None]))
+
+            padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
+            padding = ((0, 0), *padding)
+            data_all[j] = np.pad(data, padding, 'constant', constant_values=0)
+            seg_all[j] = np.pad(seg, padding, 'constant', constant_values=-1)
+
+        if self.patch_size_was_2d:
+            data_all = data_all[:, :, 0]
+            seg_all = seg_all[:, :, 0]
+
+        if self.transforms is not None:
+            with torch.no_grad():
+                with threadpool_limits(limits=1, user_api=None):
+                    data_all = torch.from_numpy(data_all).float()
+                    seg_all = torch.from_numpy(seg_all).to(torch.int16)
+                    images = []
+                    segs = []
+                    for b in range(self.batch_size):
+                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
+                        images.append(tmp['image'])
+                        segs.append(tmp['segmentation'])
+                    data_all = torch.stack(images)
+                    if isinstance(segs[0], list):
+                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    else:
+                        seg_all = torch.stack(segs)
+                    del segs, images
+            return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+
+        return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+
+
+if __name__ == '__main__':
+    folder = join(nnUNet_preprocessed, 'Dataset002_Heart', 'nnUNetPlans_3d_fullres')
+    ds = nnUNetDatasetBlosc2(folder)  # this should not load the properties!
+    pm = PlansManager(join(folder, os.pardir, 'nnUNetPlans.json'))
+    lm = pm.get_label_manager(load_json(join(folder, os.pardir, 'dataset.json')))
+    dl = nnUNetDataLoader(ds, 5, (16, 16, 16), (16, 16, 16), lm,
+                          0.33, None, None)
+    a = next(dl)
