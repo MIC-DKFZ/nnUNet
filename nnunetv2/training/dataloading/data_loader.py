@@ -24,7 +24,7 @@ class nnUNetDataLoader(DataLoader):
                  label_manager: LabelManager,
                  oversample_foreground_percent: float = 0.0,
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
-                 pad_sides: Union[List[int], Tuple[int, ...], np.ndarray] = None,
+                 pad_sides: Union[List[int], Tuple[int, ...]] = None,
                  probabilistic_oversampling: bool = False,
                  transforms=None):
         """
@@ -51,9 +51,10 @@ class nnUNetDataLoader(DataLoader):
         # (which is what the network will get) these patches will also cover the border of the images
         self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
         if pad_sides is not None:
-            if not isinstance(pad_sides, np.ndarray):
-                pad_sides = np.array(pad_sides)
-            self.need_to_pad += pad_sides
+            if self.patch_size_was_2d:
+                pad_sides = (0, *pad_sides)
+            for d in range(len(self.need_to_pad)):
+                self.need_to_pad[d] += pad_sides[d]
         self.num_channels = None
         self.pad_sides = pad_sides
         self.data_shape, self.seg_shape = self.determine_shapes()
