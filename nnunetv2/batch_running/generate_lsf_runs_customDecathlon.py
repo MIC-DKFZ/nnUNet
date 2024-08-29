@@ -60,7 +60,7 @@ if __name__ == "__main__":
     gpu_requirements = f"-gpu num={num_gpus}:j_exclusive=yes:gmem=1G"#gmodel=NVIDIAA100_PCIE_40GB"
     queue = "-q gpu"
     preamble = "\". ~/load_env_torch224.sh && " # -L /bin/bash
-    train_command = 'nnUNet_results=${nnUNet_results}_baseline2d nnUNetv2_train'
+    train_command = 'nnUNet_results=${nnUNet_results}_unifiedDL_baseline2d nnUNetv2_train'
 
     folds = (0, )
     # use_this = configurations_2d_only
