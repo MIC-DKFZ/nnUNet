@@ -28,8 +28,8 @@ def get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import,
         else:
             raise ImportError('Network class could not be found, please check/correct your plans file')
 
-    if deep_supervision is not None and 'deep_supervision' not in arch_kwargs.keys():
-        arch_kwargs['deep_supervision'] = deep_supervision
+    if deep_supervision is not None:
+        architecture_kwargs['deep_supervision'] = deep_supervision
 
     network = nw_class(
         input_channels=input_channels,
