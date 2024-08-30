@@ -185,6 +185,9 @@ Models are trained from scratch.
 
 Note how in the second line we overwrite the nnUNet_results variable in order to be able to train the same model twice without overwriting the results
 
+We recommend to increase the number of processes used for data augmentation. Otherwise you can run into CPU bottlenecks.
+Use `export nnUNet_n_proc_DA=32` or higher (if your system permits!).
+
 # Inference
 We ensemble the two models from above. On a technical level we copy the two fold_all folders into one training output 
 directory and rename them to fold_0 and fold_1. This lets us use nnU-Net's cross-validation ensembling strategy which 
