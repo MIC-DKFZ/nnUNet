@@ -63,12 +63,12 @@ class nnUNetTrainer_200epochs(nnUNetTrainer):
         self.num_epochs = 200
 
 
-class nnUNetTrainer_betterIgnoreSampling_noSmooth_50epochs(nnUNetTrainer_betterIgnoreSampling_noSmooth):
-    """used for debugging plans etc"""
+# class nnUNetTrainer_betterIgnoreSampling_noSmooth_50epochs(nnUNetTrainer_betterIgnoreSampling_noSmooth):
+#     """used for debugging plans etc"""
 
-    def __post_init__(self):
-        super().__post_init__()
-        self.num_epochs = 50
+#     def __post_init__(self):
+#         super().__post_init__()
+#         self.num_epochs = 50
 
 
 class nnUNetTrainer_250epochs(nnUNetTrainer):
