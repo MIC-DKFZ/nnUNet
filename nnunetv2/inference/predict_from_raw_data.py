@@ -626,7 +626,7 @@ class nnUNetPredictor(object):
             queue.join()
 
             # predicted_logits /= n_predictions
-            torch.div(predicted_logits, n_predictions)
+            torch.div(predicted_logits, n_predictions, out=predicted_logits)
             # check for infs
             if torch.any(torch.isinf(predicted_logits)):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
