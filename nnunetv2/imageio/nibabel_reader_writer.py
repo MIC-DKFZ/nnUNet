@@ -15,10 +15,12 @@
 import warnings
 from typing import Tuple, Union, List
 import numpy as np
-from nibabel import io_orientation
+from nibabel.orientations import io_orientation, axcodes2ornt, ornt_transform
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 import nibabel
+
+from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 
 
 class NibabelIO(BaseReaderWriter):
@@ -47,7 +49,7 @@ class NibabelIO(BaseReaderWriter):
 
             # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
             spacings_for_nnunet.append(
-                    [float(i) for i in nib_image.header.get_zooms()[::-1]]
+                [float(i) for i in nib_image.header.get_zooms()[::-1]]
             )
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
@@ -66,8 +68,9 @@ class NibabelIO(BaseReaderWriter):
             print(original_affines)
             print('Image files:')
             print(image_fnames)
-            print('It is up to you to decide whether that\'s a problem. You should run nnUNetv2_plot_overlay_pngs to verify '
-                  'that segmentations and data overlap.')
+            print(
+                'It is up to you to decide whether that\'s a problem. You should run nnUNetv2_plot_overlay_pngs to verify '
+                'that segmentations and data overlap.')
         if not self._check_all_same(spacings_for_nnunet):
             print('ERROR! Not all input images have the same spacing_for_nnunet! This might be caused by them not '
                   'having the same affine')
@@ -86,7 +89,7 @@ class NibabelIO(BaseReaderWriter):
         return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
-        return self.read_images((seg_fname, ))
+        return self.read_images((seg_fname,))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # revert transpose
@@ -127,7 +130,7 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
             # spacing is taken in reverse order to be consistent with SimpleITK axis ordering (confusing, I know...)
             spacings_for_nnunet.append(
-                    [float(i) for i in reoriented_image.header.get_zooms()[::-1]]
+                [float(i) for i in reoriented_image.header.get_zooms()[::-1]]
             )
 
             # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
@@ -146,8 +149,9 @@ class NibabelIOWithReorient(BaseReaderWriter):
             print(reoriented_affines)
             print('Image files:')
             print(image_fnames)
-            print('It is up to you to decide whether that\'s a problem. You should run nnUNetv2_plot_overlay_pngs to verify '
-                  'that segmentations and data overlap.')
+            print(
+                'It is up to you to decide whether that\'s a problem. You should run nnUNetv2_plot_overlay_pngs to verify '
+                'that segmentations and data overlap.')
         if not self._check_all_same(spacings_for_nnunet):
             print('ERROR! Not all input images have the same spacing_for_nnunet! This might be caused by them not '
                   'having the same affine')
@@ -167,14 +171,18 @@ class NibabelIOWithReorient(BaseReaderWriter):
         return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
-        return self.read_images((seg_fname, ))
+        return self.read_images((seg_fname,))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # revert transpose
         seg = seg.transpose((2, 1, 0)).astype(np.uint8, copy=False)
 
         seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['reoriented_affine'])
-        seg_nib_reoriented = seg_nib.as_reoriented(io_orientation(properties['nibabel_stuff']['original_affine']))
+        # Solution from https://github.com/nipy/nibabel/issues/1063#issuecomment-967124057
+        img_ornt = io_orientation(properties['nibabel_stuff']['original_affine'])
+        ras_ornt = axcodes2ornt("RAS")
+        from_canonical = ornt_transform(ras_ornt, img_ornt)
+        seg_nib_reoriented = seg_nib.as_reoriented(from_canonical)
         if not np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine):
             print(f'WARNING: Restored affine does not match original affine. File: {output_fname}')
             print(f'Original affine\n', properties['nibabel_stuff']['original_affine'])
@@ -183,20 +191,33 @@ class NibabelIOWithReorient(BaseReaderWriter):
 
 
 if __name__ == '__main__':
-    img_file = 'patient028_frame01_0000.nii.gz'
-    seg_file = 'patient028_frame01.nii.gz'
+    img_file = '/media/isensee/raw_data/nnUNet_raw/Dataset220_KiTS2023/imagesTr/case_00004_0000.nii.gz'
+    seg_file = '/media/isensee/raw_data/nnUNet_raw/Dataset220_KiTS2023/labelsTr/case_00004.nii.gz'
 
     nibio = NibabelIO()
-    images, dct = nibio.read_images([img_file])
+    # images, dct = nibio.read_images([img_file])
     seg, dctseg = nibio.read_seg(seg_file)
 
     nibio_r = NibabelIOWithReorient()
-    images_r, dct_r = nibio_r.read_images([img_file])
+    # images_r, dct_r = nibio_r.read_images([img_file])
     seg_r, dctseg_r = nibio_r.read_seg(seg_file)
 
+    sitkio = SimpleITKIO()
+    # images_sitk, dct_sitk = sitkio.read_images([img_file])
+    seg_sitk, dctseg_sitk = sitkio.read_seg(seg_file)
+
+    # write reoriented and original segmentation
     nibio.write_seg(seg[0], '/home/isensee/seg_nibio.nii.gz', dctseg)
     nibio_r.write_seg(seg_r[0], '/home/isensee/seg_nibio_r.nii.gz', dctseg_r)
+    sitkio.write_seg(seg_sitk[0], '/home/isensee/seg_nibio_sitk.nii.gz', dctseg_sitk)
 
-    s_orig = nibabel.load(seg_file).get_fdata()
-    s_nibio = nibabel.load('/home/isensee/seg_nibio.nii.gz').get_fdata()
-    s_nibio_r = nibabel.load('/home/isensee/seg_nibio_r.nii.gz').get_fdata()
+    # now load all with sitk to make sure no shaped got f'd up
+    a, d1 = sitkio.read_seg('/home/isensee/seg_nibio.nii.gz')
+    b, d2 = sitkio.read_seg('/home/isensee/seg_nibio_r.nii.gz')
+    c, d3 = sitkio.read_seg('/home/isensee/seg_nibio_sitk.nii.gz')
+
+    assert a.shape == b.shape
+    assert b.shape == c.shape
+
+    assert np.all(a == b)
+    assert np.all(b == c)
