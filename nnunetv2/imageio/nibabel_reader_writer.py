@@ -15,7 +15,7 @@
 import warnings
 from typing import Tuple, Union, List
 import numpy as np
-from nibabel import io_orientation
+from nibabel.orientations import io_orientation, axcodes2ornt, ornt_transform
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 import nibabel
@@ -174,7 +174,11 @@ class NibabelIOWithReorient(BaseReaderWriter):
         seg = seg.transpose((2, 1, 0)).astype(np.uint8, copy=False)
 
         seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['reoriented_affine'])
-        seg_nib_reoriented = seg_nib.as_reoriented(io_orientation(properties['nibabel_stuff']['original_affine']))
+        # Solution from https://github.com/nipy/nibabel/issues/1063#issuecomment-967124057
+        img_ornt = io_orientation(properties['nibabel_stuff']['original_affine'])
+        ras_ornt = axcodes2ornt("RAS")
+        from_canonical = ornt_transform(ras_ornt, img_ornt)
+        seg_nib_reoriented = seg_nib.as_reoriented(from_canonical)
         if not np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine):
             print(f'WARNING: Restored affine does not match original affine. File: {output_fname}')
             print(f'Original affine\n', properties['nibabel_stuff']['original_affine'])
