@@ -75,4 +75,4 @@ Printing in Windows works differently depending on the environment you are in:
 
 PowerShell: `echo $Env:[variable_name]`
 
-Command Prompt: `echo %[variable_name]%`
+Command Prompt: `echo %variable_name%`
