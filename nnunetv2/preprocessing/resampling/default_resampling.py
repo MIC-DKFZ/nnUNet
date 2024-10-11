@@ -4,7 +4,6 @@ from typing import Union, Tuple, List
 
 import numpy as np
 import pandas as pd
-import sklearn
 import torch
 from batchgenerators.augmentations.utils import resize_segmentation
 from scipy.ndimage import map_coordinates
@@ -143,7 +142,6 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
     if np.any(shape != new_shape):
         data = data.astype(float, copy=False)
         if do_separate_z:
-            # print("separate z, order in z is", order_z, "order inplane is", order)
             assert axis is not None, 'If do_separate_z, we need to know what axis is anisotropic'
             if axis == 0:
                 new_shape_2d = new_shape[1:]
@@ -191,13 +189,27 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                 else:
                     reshaped_final[c] = reshaped_here
         else:
-            # print("no separate z, order", order)
             for c in range(data.shape[0]):
                 reshaped_final[c] = resize_fn(data[c], new_shape, order, **kwargs)
         return reshaped_final
     else:
         # print("no resampling necessary")
         return data
+    
+
+def no_resampling_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
+                                       new_shape: Union[Tuple[int, ...], List[int], np.ndarray],
+                                       current_spacing: Union[Tuple[float, ...], List[float], np.ndarray],
+                                       new_spacing: Union[Tuple[float, ...], List[float], np.ndarray],
+                                       is_seg: bool = False,
+                                       order: int = 3, order_z: int = 0,
+                                       force_separate_z: Union[bool, None] = False,
+                                       separate_z_anisotropy_threshold: float = ANISO_THRESHOLD):
+    """
+    A simplified resampling function that bypasses actual resampling. 
+    This approach makes it much easier to implement no-resampling training and inference.
+    """
+    return data
 
 
 if __name__ == '__main__':

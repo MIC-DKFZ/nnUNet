@@ -1,5 +1,3 @@
-import os
-from copy import deepcopy
 from typing import Union, List
 
 import numpy as np
@@ -74,13 +72,6 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
                                   plans_manager: PlansManager,
                                   dataset_json_dict_or_file: Union[dict, str], output_file_truncated: str,
                                   save_probabilities: bool = False):
-    # if isinstance(predicted_array_or_file, str):
-    #     tmp = deepcopy(predicted_array_or_file)
-    #     if predicted_array_or_file.endswith('.npy'):
-    #         predicted_array_or_file = np.load(predicted_array_or_file)
-    #     elif predicted_array_or_file.endswith('.npz'):
-    #         predicted_array_or_file = np.load(predicted_array_or_file)['softmax']
-    #     os.remove(tmp)
 
     if isinstance(dataset_json_dict_or_file, str):
         dataset_json_dict_or_file = load_json(dataset_json_dict_or_file)
@@ -111,13 +102,7 @@ def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: 
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager, properties_dict: dict,
                       dataset_json_dict_or_file: Union[dict, str], num_threads_torch: int = default_num_processes) \
         -> None:
-    # # needed for cascade
-    # if isinstance(predicted, str):
-    #     assert isfile(predicted), "If isinstance(segmentation_softmax, str) then " \
-    #                               "isfile(segmentation_softmax) must be True"
-    #     del_file = deepcopy(predicted)
-    #     predicted = np.load(predicted)
-    #     os.remove(del_file)
+
     old_threads = torch.get_num_threads()
     torch.set_num_threads(num_threads_torch)
 
