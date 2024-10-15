@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 
 def mapping_DS119() -> Dict[int, int]:
-    """Remove all NA Classes and make Class IDs continious"""
+    """Remove all NA Classes and make Class IDs continuous"""
     mapping = {}
     mapping.update({i: i for i in range(1, 19)})  # [1-10]->[1-10] | [11-18]->[11-18]
     mapping.update({i: i - 2 for i in range(21, 29)})  # [21-28]->[19-26]
