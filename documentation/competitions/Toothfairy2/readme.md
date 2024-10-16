@@ -172,7 +172,7 @@ Aside from changing the patch size this makes the architecture one stage deeper 
 it to make effective use of the larger input
 
 # Preprocessing
-`nnUNetv2_preprocess -d 119 -c 3d_fullres_torchres_ps160x320x320_bs2 -plans_name nnUNetResEncUNetLPlans -np 48`
+`nnUNetv2_preprocess -d 119 -c 3d_fullres_torchres_ps160x320x320_bs2 -plans_name nnUNetResEncUNetLPlans_torchres -np 48`
 
 # Training
 We train two models on all training cases:
