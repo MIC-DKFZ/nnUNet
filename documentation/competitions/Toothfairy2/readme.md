@@ -36,10 +36,14 @@ Add the following configuration to the generated plans file:
 ```json
         "3d_fullres_torchres_ps160x320x320_bs2": {
             "inherits_from": "3d_fullres",
+            "data_identifier": "nnUNetPlans_3d_fullres_torchres_ctnorm",
             "patch_size": [
                 160,
                 320,
                 320
+            ],
+            "normalization_schemes": [
+                "CTNormalization"
             ],
             "architecture": {
                 "network_class_name": "dynamic_network_architectures.architectures.unet.ResidualEncoderUNet",
