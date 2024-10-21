@@ -168,7 +168,6 @@ class DatasetFingerprintExtractor(object):
             # we drop this so that the json file is somewhat human readable
             # foreground_intensity_stats_by_case_and_modality = [r[3] for r in results]
             median_relative_size_after_cropping = np.median([r[4] for r in results], 0)
-            import IPython;IPython.embed()
             num_channels = len(self.dataset_json['channel_names'].keys()
                                  if 'channel_names' in self.dataset_json.keys()
                                  else self.dataset_json['modality'].keys())
