@@ -212,6 +212,8 @@ class nnUNetPredictor(object):
         This is nnU-Net's default function for making predictions. It works best for batch predictions
         (predicting many images at once).
         """
+        assert part_id <= num_parts, ("Part ID must be smaller than num_parts. Remember that we start counting with 0. "
+                                      "So if there are 3 parts then valid part IDs are 0, 1, 2")
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
             output_folder = output_folder_or_list_of_truncated_output_files
         elif isinstance(output_folder_or_list_of_truncated_output_files, list):
