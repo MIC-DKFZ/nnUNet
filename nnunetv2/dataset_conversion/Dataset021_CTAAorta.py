@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     generate_dataset_json(
         join(nnUNet_raw, target_dataset_name),
-        {0: 'CT'},
+        {0: 'CTA'},
         labels,
         len(cases),
         '.nii.gz',
