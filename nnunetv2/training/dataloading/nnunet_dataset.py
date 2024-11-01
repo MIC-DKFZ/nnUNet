@@ -270,6 +270,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         chunk_size = deepcopy(block_size)
         estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
         while estimated_nbytes_chunk < (l3_cache_size_per_core_in_bytes * safety_factor):
+            if all([i == j for i, j in zip(chunk_size, image_size)]):
+                break
             # find axis that deviates from block_size the most
             axis_order = np.argsort(chunk_size[1:] / block_size[1:])
             idx = 0
@@ -283,8 +285,6 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             if patch_size[0] == 1:
                 if all([i == j for i, j in zip(chunk_size[2:], image_size[2:])]):
                     break
-            if all([i == j for i, j in zip(chunk_size, image_size)]):
-                break
         # print(image_size, chunk_size, block_size)
         return tuple(block_size), tuple(chunk_size)
 
