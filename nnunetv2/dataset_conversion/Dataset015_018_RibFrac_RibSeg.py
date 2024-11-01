@@ -116,7 +116,14 @@ if __name__ == '__main__':
         if c in skip_identifiers:
             continue
         print(c)
-        img_file = join('$nnUNet_raw', target_dataset_name_ribfrac, 'imagesTr', c + '_0000.nii.gz')
+        tr_file = join('$nnUNet_raw', target_dataset_name_ribfrac, 'imagesTr', c + '_0000.nii.gz')
+        ts_file = join('$nnUNet_raw', target_dataset_name_ribfrac, 'imagesTs', c + '_0000.nii.gz')
+        if isfile(os.path.expandvars(tr_file)):
+            img_file = tr_file
+        elif isfile(os.path.expandvars(ts_file)):
+            img_file = ts_file
+        else:
+            raise RuntimeError(f'Missing image file for identifier {identifiers}')
         seg_file = join(base, c + '-rib-seg.nii.gz')
         n_tr += 1
         shutil.copy(seg_file, join(labelsTr, c + '.nii.gz'))
