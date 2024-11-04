@@ -111,7 +111,7 @@ class DefaultPreprocessor(object):
             seg = seg.astype(np.int16)
         else:
             seg = seg.astype(np.int8)
-        return data, seg
+        return data, seg, properties
 
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
                  configuration_manager: ConfigurationManager,
@@ -139,7 +139,7 @@ class DefaultPreprocessor(object):
 
         if self.verbose:
             print(seg_file)
-        data, seg = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
+        data, seg, data_properties = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
                                       dataset_json)
         return data, seg, data_properties
 

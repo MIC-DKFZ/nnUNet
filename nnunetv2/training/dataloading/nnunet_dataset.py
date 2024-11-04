@@ -245,7 +245,7 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         if len(patch_size) == 2:
             patch_size = [1, *patch_size]
         patch_size = np.array(patch_size)
-        block_size = np.array((num_channels, *[2 ** (max(0, math.floor(math.log2(i / 2)))) for i in patch_size]))
+        block_size = np.array((num_channels, *[2 ** (max(0, math.ceil(math.log2(i)))) for i in patch_size]))
 
         # shrink the block size until it fits in L1
         estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
@@ -254,15 +254,15 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             axis_order = np.argsort(block_size[1:] / patch_size)[::-1]
             idx = 0
             picked_axis = axis_order[idx]
-            while block_size[picked_axis + 1] == 1 or block_size[picked_axis + 1] == image_size[picked_axis + 1]:
+            while block_size[picked_axis + 1] == 1 or block_size[picked_axis + 1] == 1:
                 idx += 1
                 picked_axis = axis_order[idx]
             # now reduce that axis to the next lowest power of 2
             block_size[picked_axis + 1] = 2 ** (max(0, math.floor(math.log2(block_size[picked_axis + 1] - 1))))
             block_size[picked_axis + 1] = min(block_size[picked_axis + 1], image_size[picked_axis + 1])
             estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
-            if all([i == j for i, j in zip(block_size, image_size)]):
-                break
+
+        block_size = np.array([min(i, j) for i, j in zip(image_size, block_size)])
 
         # note: there is no use extending the chunk size to 3d when we have a 2d patch size! This would unnecessarily
         # load data into L3
@@ -270,6 +270,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         chunk_size = deepcopy(block_size)
         estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
         while estimated_nbytes_chunk < (l3_cache_size_per_core_in_bytes * safety_factor):
+            if patch_size[0] == 1 and all([i == j for i, j in zip(chunk_size[2:], image_size[2:])]):
+                break
             if all([i == j for i, j in zip(chunk_size, image_size)]):
                 break
             # find axis that deviates from block_size the most
@@ -282,9 +284,13 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             chunk_size[picked_axis + 1] += block_size[picked_axis + 1]
             chunk_size[picked_axis + 1] = min(chunk_size[picked_axis + 1], image_size[picked_axis + 1])
             estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
-            if patch_size[0] == 1:
-                if all([i == j for i, j in zip(chunk_size[2:], image_size[2:])]):
-                    break
+            if np.mean([i / j for i, j in zip(chunk_size[1:], patch_size)]) > 1.5:
+                # chunk size should not exceed patch size * 1.5 on average
+                chunk_size[picked_axis + 1] -= block_size[picked_axis + 1]
+                break
+        # better safe than sorry
+        chunk_size = [min(i, j) for i, j in zip(image_size, chunk_size)]
+
         # print(image_size, chunk_size, block_size)
         return tuple(block_size), tuple(chunk_size)
 
