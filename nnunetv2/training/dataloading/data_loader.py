@@ -13,6 +13,7 @@ from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
 
 class nnUNetDataLoader(DataLoader):
@@ -182,31 +183,10 @@ class nnUNetDataLoader(DataLoader):
             dim = len(shape)
             bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
 
-            # whoever wrote this knew what he was doing (hint: it was me). We first crop the data to the region of the
-            # bbox that actually lies within the data. This will result in a smaller array which is then faster to pad.
-            # valid_bbox is just the coord that lied within the data cube. It will be padded to match the patch size
-            # later
-            valid_bbox_lbs = np.clip(bbox_lbs, a_min=0, a_max=None)
-            valid_bbox_ubs = np.minimum(shape, bbox_ubs)
-
-            # At this point you might ask yourself why we would treat seg differently from seg_from_previous_stage.
-            # Why not just concatenate them here and forget about the if statements? Well that's because segneeds to
-            # be padded with -1 constant whereas seg_from_previous_stage needs to be padded with 0s (we could also
-            # remove label -1 in the data augmentation but this way it is less error prone)
-            this_slice = tuple([slice(0, data.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
-            data = data[this_slice]
-
-            this_slice = tuple([slice(0, seg.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
-            seg = seg[this_slice]
-            if seg_prev is not None:
-                this_slice = tuple([slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
-                seg_prev = seg_prev[this_slice]
-                seg = np.vstack((seg, seg_prev[None]))
-
-            padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
-            padding = ((0, 0), *padding)
-            data_all[j] = np.pad(data, padding, 'constant', constant_values=0)
-            seg_all[j] = np.pad(seg, padding, 'constant', constant_values=-1)
+            # use ACVL utils for that. Cleaner.
+            bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
+            data_all[j] = crop_and_pad_nd(data, bbox, 0)
+            seg_all[j] = crop_and_pad_nd(seg, bbox, -1)
 
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]

@@ -4,7 +4,7 @@ from typing import Union, List, Tuple, Type
 
 import numpy as np
 import torch
-from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
+from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, insert_crop_into_image
 from batchgenerators.utilities.file_and_folder_operations import join
 
 import nnunetv2
@@ -216,8 +216,7 @@ class LabelManager(object):
         if not self.has_regions:
             probs_reverted_cropping[0] = 1
 
-        slicer = bounding_box_to_slice(bbox)
-        probs_reverted_cropping[tuple([slice(None)] + list(slicer))] = predicted_probabilities
+        probs_reverted_cropping = insert_crop_into_image(probs_reverted_cropping, predicted_probabilities, bbox)
         return probs_reverted_cropping
 
     @staticmethod
