@@ -180,13 +180,17 @@ class nnUNetDataLoader(DataLoader):
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
             # self._data.load_case(i) (see nnUNetDataset.load_case)
             shape = data.shape[1:]
-            dim = len(shape)
+
             bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
+            bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
             # use ACVL utils for that. Cleaner.
-            bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
             data_all[j] = crop_and_pad_nd(data, bbox, 0)
-            seg_all[j] = crop_and_pad_nd(seg, bbox, -1)
+
+            seg_cropped = crop_and_pad_nd(seg, bbox, -1)
+            if seg_prev is not None:
+                seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev[None], bbox, -1)))
+            seg_all[j] = seg_cropped
 
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]
