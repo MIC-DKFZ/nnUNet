@@ -63,7 +63,7 @@ class nnUNetPredictor(object):
         self.perform_everything_on_device = perform_everything_on_device
 
     def initialize_from_trained_model_folder(self, model_training_output_dir: str,
-                                             use_folds: Union[Tuple[Union[int, str]], None],
+                                             use_folds: Union[Tuple[Union[int, str], ...], None],
                                              checkpoint_name: str = 'checkpoint_final.pth'):
         """
         This is used when making predictions with a trained model
