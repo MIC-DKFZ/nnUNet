@@ -73,6 +73,7 @@ def preprocess_fromfiles_noqueue(list_of_lists: List[List[str]],
         output_file = output_filenames_truncated[i] if output_filenames_truncated is not None else None
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         data, seg, data_properties = preprocessor.run_case(input_files, seg_file, plans_manager, configuration_manager, dataset_json)
+        data = torch.from_numpy(data).to(dtype=torch.float32, memory_format=torch.contiguous_format)
         preprocessed_data = {
             'data': data,
             'data_properties': data_properties,
