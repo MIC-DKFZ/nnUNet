@@ -58,6 +58,29 @@ def preprocess_fromfiles_save_to_queue(list_of_lists: List[List[str]],
         raise e
 
 
+def preprocess_fromfiles_noqueue(list_of_lists: List[List[str]],
+                                list_of_segs_from_prev_stage_files: Union[None, List[str]],
+                                output_filenames_truncated: Union[None, List[str]],
+                                plans_manager: PlansManager,
+                                dataset_json: dict,
+                                configuration_manager: ConfigurationManager,
+                                verbose: bool = False):
+    print("Running preprocessing in non-multiprocessing mode")
+    data_iterator = []
+    for i in range(len(list_of_lists)):
+        input_files = list_of_lists[i]
+        seg_file = list_of_segs_from_prev_stage_files[i] if list_of_segs_from_prev_stage_files is not None else None
+        output_file = output_filenames_truncated[i] if output_filenames_truncated is not None else None
+        preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+        data, seg, data_properties = preprocessor.run_case(input_files, seg_file, plans_manager, configuration_manager, dataset_json)
+        preprocessed_data = {
+            'data': data,
+            'data_properties': data_properties,
+            'ofile': output_file
+        }
+        data_iterator.append(preprocessed_data)
+    return data_iterator
+
 def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
                                      list_of_segs_from_prev_stage_files: Union[None, List[str]],
                                      output_filenames_truncated: Union[None, List[str]],
@@ -67,56 +90,63 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
                                      num_processes: int,
                                      pin_memory: bool = False,
                                      verbose: bool = False):
-    context = multiprocessing.get_context('spawn')
-    manager = Manager()
-    num_processes = min(len(list_of_lists), num_processes)
-    assert num_processes >= 1
-    processes = []
-    done_events = []
-    target_queues = []
-    abort_event = manager.Event()
-    for i in range(num_processes):
-        event = manager.Event()
-        queue = Manager().Queue(maxsize=1)
-        pr = context.Process(target=preprocess_fromfiles_save_to_queue,
-                     args=(
-                         list_of_lists[i::num_processes],
-                         list_of_segs_from_prev_stage_files[
-                         i::num_processes] if list_of_segs_from_prev_stage_files is not None else None,
-                         output_filenames_truncated[
-                         i::num_processes] if output_filenames_truncated is not None else None,
-                         plans_manager,
-                         dataset_json,
-                         configuration_manager,
-                         queue,
-                         event,
-                         abort_event,
-                         verbose
-                     ), daemon=True)
-        pr.start()
-        target_queues.append(queue)
-        done_events.append(event)
-        processes.append(pr)
+    if num_processes > 1:
+        context = multiprocessing.get_context('spawn')
+        manager = Manager()
+        num_processes = min(len(list_of_lists), num_processes)
+        assert num_processes >= 1
+        processes = []
+        done_events = []
+        target_queues = []
+        abort_event = manager.Event()
+        for i in range(num_processes):
+            event = manager.Event()
+            queue = Manager().Queue(maxsize=1)
+            pr = context.Process(target=preprocess_fromfiles_save_to_queue,
+                         args=(
+                             list_of_lists[i::num_processes],
+                             list_of_segs_from_prev_stage_files[
+                             i::num_processes] if list_of_segs_from_prev_stage_files is not None else None,
+                             output_filenames_truncated[
+                             i::num_processes] if output_filenames_truncated is not None else None,
+                             plans_manager,
+                             dataset_json,
+                             configuration_manager,
+                             queue,
+                             event,
+                             abort_event,
+                             verbose
+                         ), daemon=True)
+            pr.start()
+            target_queues.append(queue)
+            done_events.append(event)
+            processes.append(pr)
 
-    worker_ctr = 0
-    while (not done_events[worker_ctr].is_set()) or (not target_queues[worker_ctr].empty()):
-        # import IPython;IPython.embed()
-        if not target_queues[worker_ctr].empty():
-            item = target_queues[worker_ctr].get()
-            worker_ctr = (worker_ctr + 1) % num_processes
-        else:
-            all_ok = all(
-                [i.is_alive() or j.is_set() for i, j in zip(processes, done_events)]) and not abort_event.is_set()
-            if not all_ok:
-                raise RuntimeError('Background workers died. Look for the error message further up! If there is '
-                                   'none then your RAM was full and the worker was killed by the OS. Use fewer '
-                                   'workers or get more RAM in that case!')
-            sleep(0.01)
-            continue
-        if pin_memory:
-            [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
-        yield item
-    [p.join() for p in processes]
+        worker_ctr = 0
+        while (not done_events[worker_ctr].is_set()) or (not target_queues[worker_ctr].empty()):
+            if not target_queues[worker_ctr].empty():
+                item = target_queues[worker_ctr].get()
+                worker_ctr = (worker_ctr + 1) % num_processes
+            else:
+                all_ok = all(
+                    [i.is_alive() or j.is_set() for i, j in zip(processes, done_events)]) and not abort_event.is_set()
+                if not all_ok:
+                    raise RuntimeError('Background workers died. Look for the error message further up! If there is '
+                                       'none then your RAM was full and the worker was killed by the OS. Use fewer '
+                                       'workers or get more RAM in that case!')
+                sleep(0.01)
+                continue
+            if pin_memory:
+                [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
+            yield item
+        [p.join() for p in processes]
+    else:
+        print("Running preprocessing in non-multiprocessing mode")
+        data_iterator = preprocess_fromfiles_noqueue(list_of_lists, list_of_segs_from_prev_stage_files, output_filenames_truncated, plans_manager, dataset_json, configuration_manager, verbose=verbose)
+        for item in data_iterator:
+            if pin_memory:
+                [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
+            yield item
 
 
 class PreprocessAdapter(DataLoader):
@@ -253,6 +283,35 @@ def preprocess_fromnpy_save_to_queue(list_of_images: List[np.ndarray],
         raise e
 
 
+def preprocess_fromnpy_noqueue(list_of_images: List[np.ndarray],
+                               list_of_segs_from_prev_stage: Union[List[np.ndarray], None],
+                               list_of_image_properties: List[dict],
+                               truncated_ofnames: Union[List[str], None],
+                               plans_manager: PlansManager,
+                               dataset_json: dict,
+                               configuration_manager: ConfigurationManager,
+                               verbose: bool = False):
+    print("Running preprocessing in non-multiprocessing mode")
+    data_iterator = []
+    for i in range(len(list_of_images)):
+        image = list_of_images[i]
+        seg_prev_stage = list_of_segs_from_prev_stage[i] if list_of_segs_from_prev_stage is not None else None
+        props = list_of_image_properties[i]
+        ofname = truncated_ofnames[i] if truncated_ofnames is not None else None
+        preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+        data, seg = preprocessor.run_case_npy(image, seg_prev_stage, props, plans_manager, configuration_manager, dataset_json)
+        if seg_prev_stage is not None:
+            seg_onehot = convert_labelmap_to_one_hot(seg[0], plans_manager.get_label_manager(dataset_json).foreground_labels, data.dtype)
+            data = np.vstack((data, seg_onehot))
+        preprocessed_data = {
+            'data': data,
+            'data_properties': props,
+            'ofile': ofname if ofname is not None else None
+        }
+        data_iterator.append(preprocessed_data)
+    return data_iterator
+
+
 def preprocessing_iterator_fromnpy(list_of_images: List[np.ndarray],
                                    list_of_segs_from_prev_stage: Union[List[np.ndarray], None],
                                    list_of_image_properties: List[dict],
@@ -263,52 +322,60 @@ def preprocessing_iterator_fromnpy(list_of_images: List[np.ndarray],
                                    num_processes: int,
                                    pin_memory: bool = False,
                                    verbose: bool = False):
-    context = multiprocessing.get_context('spawn')
-    manager = Manager()
-    num_processes = min(len(list_of_images), num_processes)
-    assert num_processes >= 1
-    target_queues = []
-    processes = []
-    done_events = []
-    abort_event = manager.Event()
-    for i in range(num_processes):
-        event = manager.Event()
-        queue = manager.Queue(maxsize=1)
-        pr = context.Process(target=preprocess_fromnpy_save_to_queue,
-                     args=(
-                         list_of_images[i::num_processes],
-                         list_of_segs_from_prev_stage[
-                         i::num_processes] if list_of_segs_from_prev_stage is not None else None,
-                         list_of_image_properties[i::num_processes],
-                         truncated_ofnames[i::num_processes] if truncated_ofnames is not None else None,
-                         plans_manager,
-                         dataset_json,
-                         configuration_manager,
-                         queue,
-                         event,
-                         abort_event,
-                         verbose
-                     ), daemon=True)
-        pr.start()
-        done_events.append(event)
-        processes.append(pr)
-        target_queues.append(queue)
+    if num_processes > 1:
+        context = multiprocessing.get_context('spawn')
+        manager = Manager()
+        num_processes = min(len(list_of_images), num_processes)
+        assert num_processes >= 1
+        target_queues = []
+        processes = []
+        done_events = []
+        abort_event = manager.Event()
+        for i in range(num_processes):
+            event = manager.Event()
+            queue = manager.Queue(maxsize=1)
+            pr = context.Process(target=preprocess_fromnpy_save_to_queue,
+                         args=(
+                             list_of_images[i::num_processes],
+                             list_of_segs_from_prev_stage[
+                             i::num_processes] if list_of_segs_from_prev_stage is not None else None,
+                             list_of_image_properties[i::num_processes],
+                             truncated_ofnames[i::num_processes] if truncated_ofnames is not None else None,
+                             plans_manager,
+                             dataset_json,
+                             configuration_manager,
+                             queue,
+                             event,
+                             abort_event,
+                             verbose
+                         ), daemon=True)
+            pr.start()
+            done_events.append(event)
+            processes.append(pr)
+            target_queues.append(queue)
 
-    worker_ctr = 0
-    while (not done_events[worker_ctr].is_set()) or (not target_queues[worker_ctr].empty()):
-        if not target_queues[worker_ctr].empty():
-            item = target_queues[worker_ctr].get()
-            worker_ctr = (worker_ctr + 1) % num_processes
-        else:
-            all_ok = all(
-                [i.is_alive() or j.is_set() for i, j in zip(processes, done_events)]) and not abort_event.is_set()
-            if not all_ok:
-                raise RuntimeError('Background workers died. Look for the error message further up! If there is '
-                                   'none then your RAM was full and the worker was killed by the OS. Use fewer '
-                                   'workers or get more RAM in that case!')
-            sleep(0.01)
-            continue
-        if pin_memory:
-            [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
-        yield item
-    [p.join() for p in processes]
+        worker_ctr = 0
+        while (not done_events[worker_ctr].is_set()) or (not target_queues[worker_ctr].empty()):
+            if not target_queues[worker_ctr].empty():
+                item = target_queues[worker_ctr].get()
+                worker_ctr = (worker_ctr + 1) % num_processes
+            else:
+                all_ok = all(
+                    [i.is_alive() or j.is_set() for i, j in zip(processes, done_events)]) and not abort_event.is_set()
+                if not all_ok:
+                    raise RuntimeError('Background workers died. Look for the error message further up! If there is '
+                                       'none then your RAM was full and the worker was killed by the OS. Use fewer '
+                                       'workers or get more RAM in that case!')
+                sleep(0.01)
+                continue
+            if pin_memory:
+                [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
+            yield item
+        [p.join() for p in processes]
+    else:
+        print("Running preprocessing in non-multiprocessing mode")
+        data_iterator = preprocess_fromnpy_noqueue(list_of_images, list_of_segs_from_prev_stage, list_of_image_properties, truncated_ofnames, plans_manager, dataset_json, configuration_manager, verbose=verbose)
+        for item in data_iterator:
+            if pin_memory:
+                [i.pin_memory() for i in item.values() if isinstance(i, torch.Tensor)]
+            yield item
