@@ -105,9 +105,7 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
                                      num_processes: int,
                                      pin_memory: bool = False,
                                      verbose: bool = False):
-    
-    num_processes = 1
-    
+      
     if num_processes > 1:
         context = multiprocessing.get_context('spawn')
         manager = Manager()
