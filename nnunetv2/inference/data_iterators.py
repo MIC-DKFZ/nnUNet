@@ -65,21 +65,35 @@ def preprocess_fromfiles_noqueue(list_of_lists: List[List[str]],
                                 dataset_json: dict,
                                 configuration_manager: ConfigurationManager,
                                 verbose: bool = False):
+    
     print("Running preprocessing in non-multiprocessing mode")
+    
     data_iterator = []
-    for i in range(len(list_of_lists)):
-        input_files = list_of_lists[i]
-        seg_file = list_of_segs_from_prev_stage_files[i] if list_of_segs_from_prev_stage_files is not None else None
-        output_file = output_filenames_truncated[i] if output_filenames_truncated is not None else None
+    label_manager = plans_manager.get_label_manager(dataset_json)
+    
+    for idx in range(len(list_of_lists)):
+        
+        input_files = list_of_lists[idx]
+        seg_file = list_of_segs_from_prev_stage_files[idx] if list_of_segs_from_prev_stage_files is not None else None
+        output_file = output_filenames_truncated[idx] if output_filenames_truncated is not None else None
+        
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         data, seg, data_properties = preprocessor.run_case(input_files, seg_file, plans_manager, configuration_manager, dataset_json)
+        
+        if list_of_segs_from_prev_stage_files is not None and list_of_segs_from_prev_stage_files[idx] is not None:
+                seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
+                data = np.vstack((data, seg_onehot))
+        
         data = torch.from_numpy(data).to(dtype=torch.float32, memory_format=torch.contiguous_format)
+        
         preprocessed_data = {
             'data': data,
             'data_properties': data_properties,
             'ofile': output_file
         }
+        
         data_iterator.append(preprocessed_data)
+    
     return data_iterator
 
 def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
@@ -91,6 +105,9 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
                                      num_processes: int,
                                      pin_memory: bool = False,
                                      verbose: bool = False):
+    
+    num_processes = 1
+    
     if num_processes > 1:
         context = multiprocessing.get_context('spawn')
         manager = Manager()
