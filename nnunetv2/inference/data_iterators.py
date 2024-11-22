@@ -70,6 +70,7 @@ def preprocess_fromfiles_noqueue(list_of_lists: List[List[str]],
     
     data_iterator = []
     label_manager = plans_manager.get_label_manager(dataset_json)
+    preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
     
     for idx in range(len(list_of_lists)):
         
@@ -77,7 +78,6 @@ def preprocess_fromfiles_noqueue(list_of_lists: List[List[str]],
         seg_file = list_of_segs_from_prev_stage_files[idx] if list_of_segs_from_prev_stage_files is not None else None
         output_file = output_filenames_truncated[idx] if output_filenames_truncated is not None else None
         
-        preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         data, seg, data_properties = preprocessor.run_case(input_files, seg_file, plans_manager, configuration_manager, dataset_json)
         
         if list_of_segs_from_prev_stage_files is not None and list_of_segs_from_prev_stage_files[idx] is not None:
@@ -309,15 +309,17 @@ def preprocess_fromnpy_noqueue(list_of_images: List[np.ndarray],
                                verbose: bool = False):
     print("Running preprocessing in non-multiprocessing mode")
     data_iterator = []
+    label_manager = plans_manager.get_label_manager(dataset_json)
+    preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+
     for i in range(len(list_of_images)):
         image = list_of_images[i]
         seg_prev_stage = list_of_segs_from_prev_stage[i] if list_of_segs_from_prev_stage is not None else None
         props = list_of_image_properties[i]
         ofname = truncated_ofnames[i] if truncated_ofnames is not None else None
-        preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         data, seg = preprocessor.run_case_npy(image, seg_prev_stage, props, plans_manager, configuration_manager, dataset_json)
         if seg_prev_stage is not None:
-            seg_onehot = convert_labelmap_to_one_hot(seg[0], plans_manager.get_label_manager(dataset_json).foreground_labels, data.dtype)
+            seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
             data = np.vstack((data, seg_onehot))
         preprocessed_data = {
             'data': data,
