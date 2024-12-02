@@ -251,12 +251,13 @@ def evaluate_simple_entry_point():
 
 
 if __name__ == '__main__':
-    folder_ref = '/media/fabian/data/nnUNet_raw/Dataset004_Hippocampus/labelsTr'
-    folder_pred = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetModule__nnUNetPlans__3d_fullres/fold_0/validation'
-    output_file = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetModule__nnUNetPlans__3d_fullres/fold_0/validation/summary.json'
+    folder_ref = '/home/andyding/tbone-seg-nnunetv2/00_nnUNetv2_baseline_retrain/nnUNet_raw/Dataset101_TemporalBone/labelsTs'
+    folder_pred = '/home/andyding/tbone-seg-nnunetv2/00_nnUNetv2_baseline_retrain/nnUNet_trained_models/Dataset101_TemporalBone/nnUNetTrainer_300epochs__nnUNetPlans__3d_fullres/test_results/postprocessed'
+    output_file = '/home/andyding/tbone-seg-nnunetv2/00_nnUNetv2_baseline_retrain/nnUNet_trained_models/Dataset101_TemporalBone/nnUNetTrainer_300epochs__nnUNetPlans__3d_fullres/test_results/postprocessed/summary.json'
+
     image_reader_writer = SimpleITKIO()
     file_ending = '.nii.gz'
-    regions = labels_to_list_of_regions([1, 2])
+    regions = labels_to_list_of_regions(list(range(17)))
     ignore_label = None
     num_processes = 12
     compute_metrics_on_folder(folder_ref, folder_pred, output_file, image_reader_writer, file_ending, regions, ignore_label,
