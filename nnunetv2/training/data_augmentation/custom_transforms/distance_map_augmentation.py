@@ -67,7 +67,7 @@ class Convert2DTo3DDistTransform(Convert2DTo3DTransform):
 
 class SpatialDistTransform(SpatialTransform):
     def _apply_to_dist_map(self, dist_map, **params) -> torch.Tensor:
-        return self._apply_to_image(dist_map, **params)
+        return self._apply_to_image(dist_map.type(torch.float32), **params)
 
 class MirrorDistTransform(MirrorTransform):
     def _apply_to_dist_map(self, dist_map: torch.Tensor, **params) -> torch.Tensor:
@@ -77,6 +77,11 @@ class MirrorDistTransform(MirrorTransform):
         return torch.flip(dist_map, axes)
 
 class DownsampleSegForDSDistTransform(DownsampleSegForDSTransform):
+    def apply(self, data_dict: dict, **params) -> dict:
+        if data_dict.get('dist_map') is not None:
+            data_dict['dist_map'] = self._apply_to_dist_map(data_dict['dist_map'], **params)
+        return super().apply(data_dict, **params)
+        
     def _apply_to_dist_map(self, dist_map: torch.Tensor, **params) -> List[torch.Tensor]:
         results = []
         for s in self.ds_scales:
@@ -91,7 +96,7 @@ class DownsampleSegForDSDistTransform(DownsampleSegForDSTransform):
                 new_shape = [round(i * j) for i, j in zip(dist_map.shape[1:], s)]
                 dtype = dist_map.dtype
                 # interpolate is not defined for short etc
-                results.append(interpolate(dist_map[None].float(), new_shape, mode='bilinear')[0].to(dtype))
+                results.append(interpolate(dist_map[None].float(), new_shape, mode='area')[0].to(dtype))
         return results
 
 if __name__ == '__main__':

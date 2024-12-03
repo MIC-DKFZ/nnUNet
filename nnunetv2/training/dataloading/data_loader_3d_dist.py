@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from threadpoolctl import threadpool_limits
 from typing import Union, Tuple
+from time import time
+from datetime import datetime
 
 from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -155,9 +157,6 @@ class nnUNetDataLoader3DDist(DataLoader):
             force_fg = self.get_do_oversample(j)
             data, seg, distance_map, properties = self._data.load_case(i)
             # Assume using distance transform dataset class
-            # print(f"Data shape: {data.shape}")
-            # print(f"Seg shape: {seg.shape}")
-            # print(f"Distance map shape: {distance_map.shape}")
             case_properties.append(properties)
 
             shape = data.shape[1:]
@@ -177,6 +176,7 @@ class nnUNetDataLoader3DDist(DataLoader):
             # Crop distance map with an additional axis for classes
             this_slice = tuple([slice(0, distance_map.shape[0])] + [slice(i, j) for i, j in zip(valid_bbox_lbs, valid_bbox_ubs)])
             distance_map = distance_map[this_slice]
+
             # Pad data, seg, and distance map
             padding = [(-min(0, bbox_lbs[i]), max(bbox_ubs[i] - shape[i], 0)) for i in range(dim)]
             padding = ((0, 0), *padding)
@@ -194,11 +194,10 @@ class nnUNetDataLoader3DDist(DataLoader):
                     segs = []
                     dist_maps = []
                     for b in range(self.batch_size):
-                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
-                        tmp_dist = self.transforms(**{'image': data_all[b], 'segmentation': dist_map_all[b]})
+                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b], 'dist_map': dist_map_all[b]})
                         images.append(tmp['image'])
                         segs.append(tmp['segmentation'])
-                        dist_maps.append(tmp_dist['segmentation'])
+                        dist_maps.append(tmp['dist_map'])
                     data_all = torch.stack(images)
                     if isinstance(segs[0], list):
                         seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]

@@ -105,7 +105,6 @@ class DC_and_BCE_loss(nn.Module):
         result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
         return result
 
-
 class DC_and_topk_loss(nn.Module):
     def __init__(self, soft_dice_kwargs, ce_kwargs, weight_ce=1, weight_dice=1, ignore_label=None):
         """

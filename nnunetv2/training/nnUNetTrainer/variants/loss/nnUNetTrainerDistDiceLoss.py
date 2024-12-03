@@ -6,7 +6,6 @@ import sys
 import warnings
 from copy import deepcopy
 from datetime import datetime
-from time import time, sleep
 from typing import Tuple, Union, List
 
 import numpy as np
@@ -14,7 +13,6 @@ import torch
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
-from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
 from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
 from batchgeneratorsv2.transforms.intensity.brightness import MultiplicativeBrightnessTransform
@@ -38,9 +36,6 @@ from batchgeneratorsv2.transforms.utils.remove_label import RemoveLabelTansform
 from batchgeneratorsv2.transforms.utils.seg_to_regions import ConvertSegmentationToRegionsTransform
 from torch import autocast, nn
 from torch import distributed as dist
-from torch._dynamo import OptimizedModule
-from torch.cuda import device_count
-from torch.cuda.amp import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
@@ -49,21 +44,17 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
 from nnunetv2.training.dataloading.data_loader_3d_dist import nnUNetDataLoader3DDist
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
-from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
+from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.loss.dist_losses import MemoryEfficientDistDiceLoss
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
-from nnunetv2.training.loss.compound_losses import DC_and_BCE_loss, DC_and_CE_loss
+from nnunetv2.training.loss.dist_losses import DistDC_and_BCE_loss, DistDC_and_CE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 from nnunetv2.training.dataloading.distance_transform_dataset import DistanceTransformDataset
 from nnunetv2.training.data_augmentation.custom_transforms.distance_map_augmentation import *
-
-
 
 class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
@@ -172,8 +163,7 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
                                         oversample_foreground_percent=self.oversample_foreground_percent,
                                         sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
 
-        # allowed_num_processes = get_allowed_n_proc_DA()
-        allowed_num_processes = 0
+        allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
@@ -194,7 +184,6 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
 
 
     @staticmethod
-    # TODO: Distance map transforms
     def get_training_transforms(
             patch_size: Union[np.ndarray, Tuple[int]],
             rotation_for_DA: RandomScalar,
@@ -377,7 +366,7 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
             )
 
         if deep_supervision_scales is not None:
-            transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
+            transforms.append(DownsampleSegForDSDistTransform(ds_scales=deep_supervision_scales))
         return ComposeTransforms(transforms)
 
 
@@ -405,7 +394,6 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
             output = self.network(data)
             # del data
             l = self.loss(output, target, dist_map)
-
         if self.grad_scaler is not None:
             self.grad_scaler.scale(l).backward()
             self.grad_scaler.unscale_(self.optimizer)
@@ -418,21 +406,90 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
             self.optimizer.step()
         return {'loss': l.detach().cpu().numpy()}
 
+    def validation_step(self, batch: dict) -> dict:
+        data = batch['data']
+        target = batch['target']
+        dist_map = batch['distance_map']
 
-class nnUNetTrainerDistDiceCELoss(nnUNetTrainer):
-    def _build_loss(self):
-        # TODO: DistDC_and_BCE_loss, DistDC_and_CE_loss
-        if self.label_manager.has_regions:
-            loss = DC_and_BCE_loss({},
-                                   {'batch_dice': self.configuration_manager.batch_dice,
-                                    'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
-                                   use_ignore_label=self.label_manager.ignore_label is not None,
-                                   dice_class=MemoryEfficientSoftDiceLoss)
+        data = data.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.label_manager.ignore_label,
-                                  dice_class=MemoryEfficientSoftDiceLoss)
+            target = target.to(self.device, non_blocking=True)
+        if isinstance(dist_map, list):
+            dist_map = [i.to(self.device, non_blocking=True) for i in dist_map]
+        else:
+            dist_map = dist_map.to(self.device, non_blocking=True)
+
+        # Autocast can be annoying
+        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
+        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
+        # So autocast will only be active if we have a cuda device.
+        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            output = self.network(data)
+            del data
+            l = self.loss(output, target, dist_map)
+
+        # we only need the output with the highest output resolution (if DS enabled)
+        if self.enable_deep_supervision:
+            output = output[0]
+            target = target[0]
+
+        # the following is needed for online evaluation. Fake dice (green line)
+        axes = [0] + list(range(2, output.ndim))
+
+        if self.label_manager.has_regions:
+            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
+        else:
+            # no need for softmax
+            output_seg = output.argmax(1)[:, None]
+            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
+            predicted_segmentation_onehot.scatter_(1, output_seg, 1)
+            del output_seg
+
+        if self.label_manager.has_ignore_label:
+            if not self.label_manager.has_regions:
+                mask = (target != self.label_manager.ignore_label).float()
+                # CAREFUL that you don't rely on target after this line!
+                target[target == self.label_manager.ignore_label] = 0
+            else:
+                if target.dtype == torch.bool:
+                    mask = ~target[:, -1:]
+                else:
+                    mask = 1 - target[:, -1:]
+                # CAREFUL that you don't rely on target after this line!
+                target = target[:, :-1]
+        else:
+            mask = None
+
+        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
+
+        tp_hard = tp.detach().cpu().numpy()
+        fp_hard = fp.detach().cpu().numpy()
+        fn_hard = fn.detach().cpu().numpy()
+        if not self.label_manager.has_regions:
+            # if we train with regions all segmentation heads predict some kind of foreground. In conventional
+            # (softmax training) there needs tobe one output for the background. We are not interested in the
+            # background Dice
+            # [1:] in order to remove background
+            tp_hard = tp_hard[1:]
+            fp_hard = fp_hard[1:]
+            fn_hard = fn_hard[1:]
+
+        return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
+class nnUNetTrainerDistDiceCELoss(nnUNetTrainerDistDiceLoss):
+    def _build_loss(self):
+        if self.label_manager.has_regions:
+            loss = DistDC_and_BCE_loss({},
+                                       {'batch_dice': self.configuration_manager.batch_dice,
+                                        'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
+                                        use_ignore_label=self.label_manager.ignore_label is not None,
+                                        dice_class=MemoryEfficientDistDiceLoss)
+        else:
+            loss = DistDC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                       'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                      ignore_label=self.label_manager.ignore_label,
+                                      dice_class=MemoryEfficientDistDiceLoss)
 
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
