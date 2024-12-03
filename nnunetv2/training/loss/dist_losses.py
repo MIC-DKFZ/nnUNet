@@ -71,7 +71,7 @@ class MemoryEfficientDistDiceLoss(MemoryEfficientSoftDiceLoss):
 
         dc = dc.mean()
         return -dc
-class DistDC_and_CE_loss(DC_and_CE_loss):
+class DistDC_and_CE_loss(nn.Module):
     def __init__(self, dist_dice_kwargs, ce_kwargs, weight_ce=1, weight_dice=1, ignore_label=None,
                  dice_class=MemoryEfficientDistDiceLoss):
         """
@@ -84,6 +84,14 @@ class DistDC_and_CE_loss(DC_and_CE_loss):
         :param weight_dice:
         """
         super(DistDC_and_CE_loss, self).__init__()
+        if ignore_label is not None:
+            ce_kwargs['ignore_index'] = ignore_label
+
+        self.weight_dice = weight_dice
+        self.weight_ce = weight_ce
+        self.ignore_label = ignore_label
+
+        self.ce = RobustCrossEntropyLoss(**ce_kwargs)
         self.dist_dc = dice_class(apply_nonlin=softmax_helper_dim1, **dist_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor, dist_map: torch.Tensor):
@@ -113,7 +121,7 @@ class DistDC_and_CE_loss(DC_and_CE_loss):
         result = self.weight_ce * ce_loss + self.weight_dice * dist_dc_loss
         return result
 
-class DistDC_and_BCE_loss(DC_and_BCE_loss):
+class DistDC_and_BCE_loss(nn.Module):
     def __init__(self, bce_kwargs, dist_dice_kwargs, weight_ce=1, weight_dice=1, use_ignore_label: bool = False,
                  dice_class=MemoryEfficientDistDiceLoss):
         """
@@ -127,6 +135,14 @@ class DistDC_and_BCE_loss(DC_and_BCE_loss):
         :param aggregate:
         """
         super(DistDC_and_BCE_loss, self).__init__()
+        if use_ignore_label:
+            bce_kwargs['reduction'] = 'none'
+
+        self.weight_dice = weight_dice
+        self.weight_ce = weight_ce
+        self.use_ignore_label = use_ignore_label
+
+        self.ce = nn.BCEWithLogitsLoss(**bce_kwargs)
         self.dist_dc = dice_class(apply_nonlin=softmax_helper_dim1, **dist_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
