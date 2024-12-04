@@ -145,7 +145,7 @@ class DistDC_and_BCE_loss(nn.Module):
         self.ce = nn.BCEWithLogitsLoss(**bce_kwargs)
         self.dist_dc = dice_class(apply_nonlin=softmax_helper_dim1, **dist_dice_kwargs)
 
-    def forward(self, net_output: torch.Tensor, target: torch.Tensor):
+    def forward(self, net_output: torch.Tensor, target: torch.Tensor, dist_map: torch.Tensor):
         if self.use_ignore_label:
             # target is one hot encoded here. invert it so that it is True wherever we can compute the loss
             if target.dtype == torch.bool:
@@ -160,7 +160,7 @@ class DistDC_and_BCE_loss(nn.Module):
             target_regions = target
             mask = None
 
-        dist_dc_loss = self.dist_dc(net_output, target_dice, dist_map, loss_mask=mask) \
+        dist_dc_loss = self.dist_dc(net_output, target, dist_map, loss_mask=mask) \
             if self.weight_dice != 0 else 0
         target_regions = target_regions.float()
         if mask is not None:
