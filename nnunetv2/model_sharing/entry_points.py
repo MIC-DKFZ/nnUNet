@@ -1,5 +1,5 @@
 from nnunetv2.model_sharing.model_download import download_and_install_from_url
-from nnunetv2.model_sharing.model_export import export_pretrained_model
+from nnunetv2.model_sharing.model_export import export_pretrained_model, export_model_checkpoint
 from nnunetv2.model_sharing.model_import import install_model_from_zip_file
 
 
@@ -59,3 +59,19 @@ def export_pretrained_model_entry():
     export_pretrained_model(dataset_name_or_id=args.d, output_file=args.o, configurations=args.c, trainer=args.tr,
                             plans_identifier=args.p, folds=args.f, strict=not args.not_strict, save_checkpoints=args.chk,
                             export_crossval_predictions=args.exp_cv_preds)
+
+
+def export_model_to_checkpoint():
+    import argparse
+    parser = argparse.ArgumentParser(description="Export nnunet model checkpoint as a single .pth file")
+    parser.add_argument("--path", type=str, help="path to nnunet model directory")
+    parser.add_argument("--checkpoint_path", type=str, help="path to save the checkpoint", required=False, default=None)
+    parser.add_argument("--checkpoint_name", type=str, help="name of the checkpoint", required=False, default="model_checkpoint.pth",)
+
+    args = parser.parse_args()
+
+    export_model_checkpoint(
+        path=args.path,
+        checkpoint_path=args.checkpoint_path,
+        checkpoint_name=args.checkpoint_name,
+    )
