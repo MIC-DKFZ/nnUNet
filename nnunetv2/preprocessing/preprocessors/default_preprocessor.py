@@ -16,11 +16,14 @@ import shutil
 from time import sleep
 from typing import Tuple, Union
 
+import SimpleITK
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
+from prompt_toolkit.formatted_text import fragment_list_len
 from tqdm import tqdm
 
 import nnunetv2
+from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
@@ -171,15 +174,28 @@ class DefaultPreprocessor(object):
         # sparse
         rndst = np.random.RandomState(seed)
         class_locs = {}
+        foreground_mask = seg != 0
+        foreground_coords = np.argwhere(foreground_mask)
+        seg = seg[foreground_mask]
+        del foreground_mask
+
+        if len(foreground_coords) > 1e7 and len(classes_or_regions) > 200:
+            # keep computation time reasonable
+            if verbose:
+                print('Subsampling foreground pixels 1:10 for computational reasons')
+            foreground_coords = foreground_coords[::10]
+            seg = seg[::10]
+
         for c in classes_or_regions:
             k = c if not isinstance(c, list) else tuple(c)
             if isinstance(c, (tuple, list)):
                 mask = seg == c[0]
                 for cc in c[1:]:
                     mask = mask | (seg == cc)
-                all_locs = np.argwhere(mask)
+                all_locs = foreground_coords[mask]
             else:
-                all_locs = np.argwhere(seg == c)
+                mask = seg == c
+                all_locs = foreground_coords[mask]
             if len(all_locs) == 0:
                 class_locs[k] = []
                 continue
@@ -190,6 +206,8 @@ class DefaultPreprocessor(object):
             class_locs[k] = selected
             if verbose:
                 print(c, target_num_samples)
+            seg = seg[~mask]
+            foreground_coords = foreground_coords[~mask]
         return class_locs
 
     def _normalize(self, data: np.ndarray, seg: np.ndarray, configuration_manager: ConfigurationManager,
@@ -306,10 +324,12 @@ def example_test_case_preprocessing():
 
 
 if __name__ == '__main__':
-    example_test_case_preprocessing()
+    # example_test_case_preprocessing()
     # pp = DefaultPreprocessor()
     # pp.run(2, '2d', 'nnUNetPlans', 8)
 
     ###########################################################################################################
     # how to process a test cases? This is an example:
     # example_test_case_preprocessing()
+    seg = SimpleITK.GetArrayFromImage(SimpleITK.ReadImage('/home/isensee/temp/H-mito-val-v2.nii.gz'))[None]
+    DefaultPreprocessor._sample_foreground_locations2(seg, np.arange(1, np.max(seg) + 1))
