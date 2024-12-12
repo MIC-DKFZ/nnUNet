@@ -14,16 +14,14 @@
 import multiprocessing
 import shutil
 from time import sleep
-from typing import Tuple, Union
+from typing import Tuple
 
 import SimpleITK
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
-from prompt_toolkit.formatted_text import fragment_list_len
 from tqdm import tqdm
 
 import nnunetv2
-from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
