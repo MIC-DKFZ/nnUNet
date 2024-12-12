@@ -178,6 +178,7 @@ class DefaultPreprocessor(object):
         foreground_coords = np.argwhere(foreground_mask)
         seg = seg[foreground_mask]
         del foreground_mask
+        unique_labels = pd.unique(seg.ravel())
 
         if len(foreground_coords) > 1e7 and len(classes_or_regions) > 200:
             # keep computation time reasonable
@@ -188,6 +189,17 @@ class DefaultPreprocessor(object):
 
         for c in classes_or_regions:
             k = c if not isinstance(c, list) else tuple(c)
+
+            # check if any of the labels are in seg, if not skip c
+            if isinstance(c, (tuple, list)):
+                if not any([ci in unique_labels for ci in c]):
+                    class_locs[k] = []
+                    continue
+            else:
+                if c not in unique_labels:
+                    class_locs[k] = []
+                    continue
+
             if isinstance(c, (tuple, list)):
                 mask = seg == c[0]
                 for cc in c[1:]:
@@ -332,4 +344,4 @@ if __name__ == '__main__':
     # how to process a test cases? This is an example:
     # example_test_case_preprocessing()
     seg = SimpleITK.GetArrayFromImage(SimpleITK.ReadImage('/home/isensee/temp/H-mito-val-v2.nii.gz'))[None]
-    DefaultPreprocessor._sample_foreground_locations2(seg, np.arange(1, np.max(seg) + 1))
+    DefaultPreprocessor._sample_foreground_locations(seg, np.arange(1, np.max(seg) + 1))
