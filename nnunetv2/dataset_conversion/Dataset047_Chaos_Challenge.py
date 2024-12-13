@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
     generate_dataset_json(
         join(nnUNet_raw, 'Dataset047_CHAOS_Task_3_5_Variant2_new'),
-        {0: 'MR/CT'},
+        {0: 'MR'},
         {'background': 0, 'liver': 1, 'right kidney': 2, 'left kidney': 3, 'spleen': 4},
         len(patient_ids),
         '.nii.gz',
