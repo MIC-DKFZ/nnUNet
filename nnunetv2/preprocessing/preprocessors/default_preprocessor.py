@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import math
 import multiprocessing
 import shutil
 from time import sleep
@@ -18,6 +19,7 @@ from typing import Tuple
 
 import SimpleITK
 import numpy as np
+import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 from tqdm import tqdm
 
@@ -178,12 +180,14 @@ class DefaultPreprocessor(object):
         del foreground_mask
         unique_labels = pd.unique(seg.ravel())
 
-        if len(foreground_coords) > 1e7 and len(classes_or_regions) > 200:
+        # We don't need more than 1e7 foreground samples. That's insanity. Cap here
+        if len(foreground_coords) > 1e7:
+            take_every = math.floor(len(foreground_coords) / 1e7)
             # keep computation time reasonable
             if verbose:
-                print('Subsampling foreground pixels 1:10 for computational reasons')
-            foreground_coords = foreground_coords[::10]
-            seg = seg[::10]
+                print(f'Subsampling foreground pixels 1:{take_every} for computational reasons')
+            foreground_coords = foreground_coords[::take_every]
+            seg = seg[::take_every]
 
         for c in classes_or_regions:
             k = c if not isinstance(c, list) else tuple(c)
