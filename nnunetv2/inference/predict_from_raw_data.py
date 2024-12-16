@@ -694,6 +694,8 @@ class nnUNetPredictor(object):
             output_folder = output_folder_or_list_of_truncated_output_files
         elif isinstance(output_folder_or_list_of_truncated_output_files, list):
             output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
+            if len(output_folder) == 0:  # just a file was given without a folder
+                output_folder = os.path.curdir
         else:
             output_folder = None
 
@@ -706,7 +708,6 @@ class nnUNetPredictor(object):
             my_init_kwargs = deepcopy(
                 my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
             recursive_fix_for_json_export(my_init_kwargs)
-            maybe_mkdir_p(output_folder)
             save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
 
             # we need these two if we want to do things with the predictions like for example apply postprocessing
