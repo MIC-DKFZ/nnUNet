@@ -16,7 +16,7 @@ def generate_dataset_json(output_folder: str,
                           description: str = None,
                           overwrite_image_reader_writer: str = None,
                           license: str = 'Whoever converted this dataset was lazy and didn\'t look it up!',
-                          converted_by: str = "Please enter your name, especially when shared datasets with others in a common infrastructure!",
+                          converted_by: str = "Please enter your name, especially when sharing datasets with others in a common infrastructure!",
                           **kwargs):
     """
     Generates a dataset.json file in the output folder
