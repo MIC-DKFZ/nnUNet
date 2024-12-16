@@ -25,6 +25,7 @@ if __name__ == '__main__':
     label_fnames = nifti_files(join(base, cases[0], 'segmentations'), join=False)
     label_dict = {i[:-7]: j + 1 for j, i in enumerate(label_fnames)}
     labelnames = list(label_dict.keys())
+    label_dict['background'] = 0
 
     for case in cases:
         img = nibabel.load(join(base, case, 'mri.nii.gz'))
