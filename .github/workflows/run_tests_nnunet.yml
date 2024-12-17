@@ -1,0 +1,51 @@
+name: Run nnunet tests on all OS
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+jobs:
+
+  run-tests:
+    strategy:
+      matrix:
+        # os: [ubuntu-latest, windows-latest, macos-latest]  # fails on windows until https://github.com/MIC-DKFZ/nnUNet/issues/2396 is resolved
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10"]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Download and extract weights and download example file
+      # use python instead of curl to avoid the need to install curl (more difficult for macos)
+      run: |
+        mkdir -p $HOME/github_actions_nnunet/results
+        python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset300_body_6mm_1559subj.zip', '$HOME/github_actions_nnunet/results/tmp_download_file.zip')"
+        unzip -o $HOME/github_actions_nnunet/results/tmp_download_file.zip -d $HOME/github_actions_nnunet/results
+        rm $HOME/github_actions_nnunet/results/tmp_download_file.zip
+
+        python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/wasserth/TotalSegmentator/raw/refs/tags/v2.4.0/tests/reference_files/example_ct_sm.nii.gz', '$HOME/github_actions_nnunet/example_ct_sm.nii.gz')"
+
+    - name: Install dependencies on Ubuntu
+      if: runner.os == 'Linux'
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest Cython
+        pip install torch==2.4.0 -f https://download.pytorch.org/whl/cpu
+        pip install .
+
+    - name: Install dependencies on Windows / MacOS
+      if: runner.os == 'Windows' || runner.os == 'macOS'
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest Cython
+        pip install torch==2.4.0
+        pip install .
+
+    - name: Run test script
+      run: python tests/integration_tests/run_nnunet_inference.py
