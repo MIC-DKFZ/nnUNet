@@ -29,8 +29,6 @@ jobs:
         unzip -o $HOME/github_actions_nnunet/results/tmp_download_file.zip -d $HOME/github_actions_nnunet/results
         rm $HOME/github_actions_nnunet/results/tmp_download_file.zip
 
-        python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/wasserth/TotalSegmentator/raw/refs/tags/v2.4.0/tests/reference_files/example_ct_sm.nii.gz', '$HOME/github_actions_nnunet/example_ct_sm.nii.gz')"
-
     - name: Install dependencies on Ubuntu
       if: runner.os == 'Linux'
       run: |
