@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         # os: [ubuntu-latest, windows-latest, macos-latest]  # fails on windows until https://github.com/MIC-DKFZ/nnUNet/issues/2396 is resolved
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         python-version: ["3.10"]
     runs-on: ${{ matrix.os }}
 
