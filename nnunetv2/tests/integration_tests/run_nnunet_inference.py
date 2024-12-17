@@ -34,7 +34,7 @@ def run_tests_and_exit_on_failure():
     img_gt = nib.load(f"nnunetv2/tests/example_data/example_ct_sm_T300_output.nii.gz").get_fdata()
     img_pred = nib.load(f"nnunetv2/tests/github_actions_output/example_ct_sm.nii.gz").get_fdata()
     dice = dice_score(img_gt, img_pred)
-    images_equal = dice > 0.99
+    images_equal = dice > 0.99  # allow for a small difference in the segmentation, otherwise the test will fail often
     assert images_equal, f"The nnunet segmentation is not correct (dice: {dice:.5f})."
 
     # Clean up
