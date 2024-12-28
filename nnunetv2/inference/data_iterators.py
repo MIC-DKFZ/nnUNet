@@ -1,6 +1,6 @@
 import multiprocessing
 import queue
-from torch.multiprocessing import Event, Process, Queue, Manager
+from torch.multiprocessing import Event, Queue, Manager
 
 from time import sleep
 from typing import Union, List
