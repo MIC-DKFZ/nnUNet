@@ -113,6 +113,10 @@ class nnUNetPredictor(object):
         self.plans_manager = plans_manager
         self.configuration_manager = configuration_manager
         self.list_of_parameters = parameters
+
+        # initialize network with first set of parameters, also see https://github.com/MIC-DKFZ/nnUNet/issues/2520
+        network.load_state_dict(parameters[0])
+
         self.network = network
         self.dataset_json = dataset_json
         self.trainer_name = trainer_name
