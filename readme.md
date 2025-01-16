@@ -1,3 +1,6 @@
+# Haider-Lab Custom Fork of nnU-Net
+This custom fork of nnU-Net is meant to centralize our custom trainer classes. The custom trainer subclasses are required in order to modify things such as the loss function, training time, etc. We will try our best to keep this up to date with the newest nnUNet version. Currently this fork was taken from the master branch post update 2.5.1
+
 # Welcome to the new nnU-Net!
 
 Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looking for the old one instead.
