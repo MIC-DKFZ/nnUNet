@@ -2,8 +2,11 @@ import os
 import numpy as np
 import pydicom
 import nibabel as nib
+import dicom2nifti
+import shutil
 
-def dcm_to_nii(input_folder, output_folder, base_name):
+
+def dcm_to_nii_old(input_folder, output_folder, base_name):
     """
     Converts a series of DICOM (.dcm) files representing a 3D CT scan to a single NIfTI (.nii.gz) file.
 
@@ -16,27 +19,27 @@ def dcm_to_nii(input_folder, output_folder, base_name):
     - str: The name of the saved .nii.gz file.
     """
     # Find all .dcm files in the input folder
-    # dcm_files = [f for f in os.listdir(input_folder) if f.lower().endswith('.dcm')]
+    dcm_files = [f for f in os.listdir(input_folder) if f.lower().endswith('.dcm')]
 
-    # if not dcm_files:
-    #     raise FileNotFoundError("No .dcm files found in the input folder.")
+    if not dcm_files:
+        raise FileNotFoundError("No .dcm files found in the input folder.")
 
-    # # Load all DICOM files and sort them by slice location
-    # dicom_slices = []
-    # for dcm_file in dcm_files:
-    #     dcm_path = os.path.join(input_folder, dcm_file)
-    #     dicom_data = pydicom.dcmread(dcm_path)
-    #     dicom_slices.append(dicom_data)
+    # Load all DICOM files and sort them by slice location
+    dicom_slices = []
+    for dcm_file in dcm_files:
+        dcm_path = os.path.join(input_folder, dcm_file)
+        dicom_data = pydicom.dcmread(dcm_path)
+        dicom_slices.append(dicom_data)
 
-    # # Sort slices by ImagePositionPatient (or SliceLocation as fallback)
-    # dicom_slices.sort(key=lambda x: getattr(x, 'ImagePositionPatient', [0])[2] if hasattr(x, 'ImagePositionPatient') else getattr(x, 'SliceLocation', 0))
+    # Sort slices by ImagePositionPatient (or SliceLocation as fallback)
+    dicom_slices.sort(key=lambda x: getattr(x, 'ImagePositionPatient', [0])[2] if hasattr(x, 'ImagePositionPatient') else getattr(x, 'SliceLocation', 0))
 
-    # # Stack pixel arrays to create a 3D volume
-    # pixel_arrays = [s.pixel_array for s in dicom_slices]
-    # volume = np.stack(pixel_arrays, axis=-1)
+    # Stack pixel arrays to create a 3D volume
+    pixel_arrays = [s.pixel_array for s in dicom_slices]
+    volume = np.stack(pixel_arrays, axis=-1)
 
-    # # Create an affine matrix (identity matrix as a placeholder)
-    # affine = np.eye(4)
+    # Create an affine matrix (identity matrix as a placeholder)
+    affine = np.eye(4)
 
     # Ensure the output folder exists
     os.makedirs(output_folder, exist_ok=True)
@@ -49,16 +52,20 @@ def dcm_to_nii(input_folder, output_folder, base_name):
     # Create output file name
     output_file_name = f"{base_name.replace('{XXX}', formatted_index)}"
     output_file_path = os.path.join(output_folder, output_file_name)
+    
+    # Create NIfTI image
+    nifti_img = nib.Nifti1Image(volume, affine)
 
-    # # Create NIfTI image
-    # nifti_img = nib.Nifti1Image(volume, affine)
-
-    # # Save the NIfTI file
-    # nib.save(nifti_img, output_file_path)
+    # Save the NIfTI file
+    nib.save(nifti_img, output_file_path)
 
     # print(f"NIfTI file saved to: {output_file_path}")
 
     return output_file_name
+
+def dcm_to_nii(input_folder, output_folder):
+
+    dicom2nifti.convert_directory(input_folder, output_folder)
 
 def move_and_rename_masks(mask_folder, output_mapping, destination_folder):
     """
@@ -83,6 +90,37 @@ def move_and_rename_masks(mask_folder, output_mapping, destination_folder):
             print(f"Moved and renamed mask: {mask_path} -> {new_mask_path}")
         else:
             print(f"Mask not found for folder: {folder_name}")
+
+def rename_files(directory):
+    """
+    Renames files in a directory to the format 'MEDLN_{XXX}.nii.gz'.
+
+    Parameters:
+        - directory (str): The path to the directory containing the files to rename.
+
+    Returns:
+        - None
+    """
+    try:
+        # Get a sorted list of all files in the directory
+        files = sorted(f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f)))
+
+        # Iterate through the files and rename them
+        for idx, file in enumerate(files):
+            # Generate the new filename with the correct format
+            new_name = f"0MEDLN_{idx:03d}_0000.nii.gz"
+            
+            # Full path to the current and new file names
+            current_path = os.path.join(directory, file)
+            new_path = os.path.join(directory, new_name)
+
+            # Rename the file
+            os.rename(current_path, new_path)
+            print(f"Renamed: {file} -> {new_name}")
+
+        print("Renaming complete.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 def preprocessing(input_path, output_path, dataset_name, mask_folder):
     """
@@ -113,14 +151,18 @@ def preprocessing(input_path, output_path, dataset_name, mask_folder):
         folder_path3 = os.path.join(folder_path2, folder_names3[1])
 
         # Create NIfTI file
-        base_name = f"MEDLN_{{XXX}}_0000.nii.gz"
-        file_name = dcm_to_nii(folder_path3, images_output, base_name)
+        # base_name = f"MEDLN_{{XXX}}_0000.nii.gz"
+
+        dicom2nifti.convert_directory(folder_path3, images_output)
+        rename_files(images_output)
+
+
 
         # Store the output file name in the mapping
-        output_mapping[folder_name] = file_name
+        # output_mapping[folder_name] = file_name
 
     # Move and rename mask files
-    move_and_rename_masks(mask_folder, output_mapping, labels_output)
+    # move_and_rename_masks(mask_folder, output_mapping, labels_output)
 
 def output_folder(output_path, folder_name):
     """
@@ -145,7 +187,7 @@ def output_folder(output_path, folder_name):
 
 
 input_path = r"C:\Users\Test\Desktop\Bart\Data\Dataset CT Lymph Nodes\CT Lymph Nodes"
-output_path = r"C:\Users\Test\Desktop\Bart\Data\Dataset CT Lymph Nodes"
+output_path = r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\test"
 dataset_name = "Dataset250_LymphNodes"
 masks_path = r"C:\Users\Test\Desktop\Bart\Data\Dataset CT Lymph Nodes\MED_ABD_LYMPH_MASKS\MED_ABD_LYMPH_MASKS"
 

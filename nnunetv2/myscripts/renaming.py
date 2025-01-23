@@ -32,4 +32,4 @@ def rename_files(directory):
         print(f"An error occurred: {e}")
 
 # Example usage
-rename_files(r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\imagesTr")
+rename_files(r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\test\Dataset250_LymphNodes\images")
