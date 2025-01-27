@@ -1,4 +1,4 @@
-from bottleneck_predictor import BottleneckEnsemblePredictor
+from nnunetv2.inference.bottleneck_predictor import BottleneckEnsemblePredictor
 
 def main():
     predictor = BottleneckEnsemblePredictor()
