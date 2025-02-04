@@ -118,6 +118,10 @@ class nnUNetPredictor(object):
         network.load_state_dict(parameters[0])
 
         self.network = network
+
+        # initialize network with first set of parameters, also see https://github.com/MIC-DKFZ/nnUNet/issues/2520
+        network.load_state_dict(parameters[0])
+
         self.dataset_json = dataset_json
         self.trainer_name = trainer_name
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
