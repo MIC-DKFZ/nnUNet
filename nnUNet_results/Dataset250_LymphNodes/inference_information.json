@@ -1,0 +1,34 @@
+{
+    "all_results": {
+        "nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres": 0.02984353757400187
+    },
+    "best_model_or_ensemble": {
+        "postprocessing_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\postprocessing.pkl",
+        "result_on_crossval_post_pp": 0.02984353757400187,
+        "result_on_crossval_pre_pp": 0.02984353757400187,
+        "selected_model_or_models": [
+            {
+                "configuration": "3d_fullres",
+                "plans_identifier": "nnUNetResEncUNetLPlans",
+                "trainer": "nnUNetTrainer_100epochs"
+            }
+        ],
+        "some_plans_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\plans.json"
+    },
+    "considered_models": [
+        {
+            "configuration": "3d_fullres",
+            "plans": "nnUNetResEncUNetLPlans",
+            "trainer": "nnUNetTrainer_100epochs"
+        }
+    ],
+    "dataset_name_or_id": "Dataset250_LymphNodes",
+    "ensembling_allowed": true,
+    "folds": [
+        0,
+        1,
+        2,
+        3,
+        4
+    ]
+}
