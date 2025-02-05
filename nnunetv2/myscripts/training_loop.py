@@ -24,8 +24,10 @@ def train_nnunet(dataset_id, unet_config, folds):
             str(dataset_id),
             unet_config,
             str(fold),
-            "-device",
-            "cuda"
+            "-p",
+            planner,
+            "-t",
+            trainer
         ]
         
         try:
@@ -41,5 +43,7 @@ if __name__ == "__main__":
     dataset_id = 250
     unet_config = "3d_fullres"
     folds = [0, 1, 2, 3, 4]
+    planner = "nnUnetResEncUNetLPlans"
+    trainer = "nnUNetTrainer_100epochs"
 
     train_nnunet(dataset_id, unet_config, folds)

@@ -17,7 +17,7 @@ def rename_files(directory):
         # Iterate through the files and rename them
         for idx, file in enumerate(files):
             # Generate the new filename with the correct format
-            new_name = f"MEDLN_{idx:03d}_0000.nii.gz"
+            new_name = f"MEDLNU_{idx:03d}_0000.nii.gz"
             
             # Full path to the current and new file names
             current_path = os.path.join(directory, file)
@@ -32,4 +32,4 @@ def rename_files(directory):
         print(f"An error occurred: {e}")
 
 # Example usage
-rename_files(r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\test\Dataset250_LymphNodes\images")
+rename_files(r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\imagesTr")
