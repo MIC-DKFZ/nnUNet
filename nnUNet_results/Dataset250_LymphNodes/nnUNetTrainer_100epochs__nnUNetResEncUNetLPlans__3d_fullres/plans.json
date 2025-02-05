@@ -1,6 +1,6 @@
 {
     "dataset_name": "Dataset250_LymphNodes",
-    "plans_name": "nnUNetPlans",
+    "plans_name": "nnUNetResEncUNetLPlans",
     "original_median_spacing_after_transp": [
         1.0,
         0.80859375,
@@ -26,7 +26,7 @@
         "2d": {
             "data_identifier": "nnUNetPlans_2d",
             "preprocessor_name": "DefaultPreprocessor",
-            "batch_size": 11,
+            "batch_size": 35,
             "patch_size": [
                 512,
                 512
@@ -67,7 +67,7 @@
                 "force_separate_z": null
             },
             "architecture": {
-                "network_class_name": "dynamic_network_architectures.architectures.unet.PlainConvUNet",
+                "network_class_name": "dynamic_network_architectures.architectures.unet.ResidualEncoderUNet",
                 "arch_kwargs": {
                     "n_stages": 8,
                     "features_per_stage": [
@@ -149,24 +149,24 @@
                             2
                         ]
                     ],
-                    "n_conv_per_stage": [
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        2
+                    "n_blocks_per_stage": [
+                        1,
+                        3,
+                        4,
+                        6,
+                        6,
+                        6,
+                        6,
+                        6
                     ],
                     "n_conv_per_stage_decoder": [
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        2
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1
                     ],
                     "conv_bias": true,
                     "norm_op": "torch.nn.modules.instancenorm.InstanceNorm2d",
@@ -191,23 +191,23 @@
             "batch_dice": true
         },
         "3d_lowres": {
-            "data_identifier": "nnUNetPlans_3d_lowres",
+            "data_identifier": "nnUNetResEncUNetLPlans_3d_lowres",
             "preprocessor_name": "DefaultPreprocessor",
             "batch_size": 2,
             "patch_size": [
-                160,
-                112,
-                112
+                224,
+                192,
+                160
             ],
             "median_image_size_in_voxels": [
-                235,
-                182,
-                182
+                355,
+                275,
+                275
             ],
             "spacing": [
-                2.8138624543715265,
-                2.275271593964477,
-                2.275271593964477
+                1.8602945717094976,
+                1.5042225638432265,
+                1.5042225638432265
             ],
             "normalization_schemes": [
                 "CTNormalization"
@@ -237,18 +237,24 @@
                 "force_separate_z": null
             },
             "architecture": {
-                "network_class_name": "dynamic_network_architectures.architectures.unet.PlainConvUNet",
+                "network_class_name": "dynamic_network_architectures.architectures.unet.ResidualEncoderUNet",
                 "arch_kwargs": {
-                    "n_stages": 5,
+                    "n_stages": 6,
                     "features_per_stage": [
                         32,
                         64,
                         128,
                         256,
+                        320,
                         320
                     ],
                     "conv_op": "torch.nn.modules.conv.Conv3d",
                     "kernel_sizes": [
+                        [
+                            3,
+                            3,
+                            3
+                        ],
                         [
                             3,
                             3,
@@ -300,20 +306,27 @@
                             2,
                             2,
                             2
+                        ],
+                        [
+                            2,
+                            2,
+                            2
                         ]
                     ],
-                    "n_conv_per_stage": [
-                        2,
-                        2,
-                        2,
-                        2,
-                        2
+                    "n_blocks_per_stage": [
+                        1,
+                        3,
+                        4,
+                        6,
+                        6,
+                        6
                     ],
                     "n_conv_per_stage_decoder": [
-                        2,
-                        2,
-                        2,
-                        2
+                        1,
+                        1,
+                        1,
+                        1,
+                        1
                     ],
                     "conv_bias": true,
                     "norm_op": "torch.nn.modules.instancenorm.InstanceNorm3d",
@@ -343,9 +356,9 @@
             "preprocessor_name": "DefaultPreprocessor",
             "batch_size": 2,
             "patch_size": [
-                160,
-                112,
-                112
+                224,
+                192,
+                160
             ],
             "median_image_size_in_voxels": [
                 661.0,
@@ -385,18 +398,24 @@
                 "force_separate_z": null
             },
             "architecture": {
-                "network_class_name": "dynamic_network_architectures.architectures.unet.PlainConvUNet",
+                "network_class_name": "dynamic_network_architectures.architectures.unet.ResidualEncoderUNet",
                 "arch_kwargs": {
-                    "n_stages": 5,
+                    "n_stages": 6,
                     "features_per_stage": [
                         32,
                         64,
                         128,
                         256,
+                        320,
                         320
                     ],
                     "conv_op": "torch.nn.modules.conv.Conv3d",
                     "kernel_sizes": [
+                        [
+                            3,
+                            3,
+                            3
+                        ],
                         [
                             3,
                             3,
@@ -448,20 +467,27 @@
                             2,
                             2,
                             2
+                        ],
+                        [
+                            2,
+                            2,
+                            2
                         ]
                     ],
-                    "n_conv_per_stage": [
-                        2,
-                        2,
-                        2,
-                        2,
-                        2
+                    "n_blocks_per_stage": [
+                        1,
+                        3,
+                        4,
+                        6,
+                        6,
+                        6
                     ],
                     "n_conv_per_stage_decoder": [
-                        2,
-                        2,
-                        2,
-                        2
+                        1,
+                        1,
+                        1,
+                        1,
+                        1
                     ],
                     "conv_bias": true,
                     "norm_op": "torch.nn.modules.instancenorm.InstanceNorm3d",
@@ -490,7 +516,7 @@
             "previous_stage": "3d_lowres"
         }
     },
-    "experiment_planner_used": "ExperimentPlanner",
+    "experiment_planner_used": "nnUNetPlannerResEncL",
     "label_manager": "LabelManager",
     "foreground_intensity_properties_per_channel": {
         "0": {
