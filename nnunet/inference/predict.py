@@ -641,6 +641,7 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
 
     assert isfile(join(model, "plans.pkl")), "Folder with saved model weights must contain a plans.pkl file"
     expected_num_modalities = load_pickle(join(model, "plans.pkl"))['num_modalities']
+    expected_num_modalities = 1
 
     # check input folder integrity
     case_ids = check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities)

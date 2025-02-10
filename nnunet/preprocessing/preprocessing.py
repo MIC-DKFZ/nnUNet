@@ -266,7 +266,7 @@ class GenericPreprocessor(object):
 
         assert len(self.normalization_scheme_per_modality) == len(data), "self.normalization_scheme_per_modality " \
                                                                          "must have as many entries as data has " \
-                                                                         "modalities"
+                                                                         "modalities" + f"{len(self.normalization_scheme_per_modality)}:{len(data)}"
         assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
@@ -644,10 +644,10 @@ class PreprocessorFor2D(GenericPreprocessor):
         properties["spacing_after_resampling"] = target_spacing
         use_nonzero_mask = self.use_nonzero_mask
 
-        assert len(self.normalization_scheme_per_modality) == len(data), "self.normalization_scheme_per_modality " \
+        assert len(self.normalization_scheme_per_modality) >= len(data), "self.normalization_scheme_per_modality " \
                                                                          "must have as many entries as data has " \
                                                                          "modalities"
-        assert len(self.use_nonzero_mask) == len(data), "self.use_nonzero_mask must have as many entries as data" \
+        assert len(self.use_nonzero_mask) >= len(data), "self.use_nonzero_mask must have as many entries as data" \
                                                         " has modalities"
 
         print("normalization...")
