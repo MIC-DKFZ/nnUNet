@@ -18,16 +18,19 @@ def rename_and_copy_files(input_directory, output_directory):
         os.makedirs(output_directory, exist_ok=True)
 
         # Get a sorted list of all files in the input directory
-        files = sorted(f for f in os.listdir(input_directory) if os.path.isfile(os.path.join(input_directory, f)))
+        files = sorted(f for f in os.listdir(input_directory) if os.path.isdir(os.path.join(input_directory, f)))
 
         # Iterate through the files and rename them
         for idx, file in enumerate(files):
             # Generate the new filename with the correct format
-            new_name = f"MEDLN_{idx:03d}_0000.nii.gz"
+            new_name = f"MEDLNU_{idx:03d}.nii.gz"
             
+            folder_path = os.path.join(input_directory, file)
+            file_name = os.listdir(folder_path)
+            input_path = os.path.join(folder_path, file_name[0])
+
             # Full paths for the input file, temporary file in output directory, and renamed file
-            input_path = os.path.join(input_directory, file)
-            temp_output_path = os.path.join(output_directory, file)
+            temp_output_path = os.path.join(output_directory, file_name[0])
             renamed_output_path = os.path.join(output_directory, new_name)
 
             # Copy the file to the output directory
@@ -42,8 +45,8 @@ def rename_and_copy_files(input_directory, output_directory):
     except Exception as e:
         print(f"An error occurred: {e}")
 
-# # Example usage
-# rename_and_copy_files(
-#     r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\imagesTr",
-#     r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\imagesTr2"
-# )
+if __name__ == "__main__":
+    rename_and_copy_files(
+    r"C:\Users\Test\Downloads\MED_ABD_LYMPH_MASKS\MED_ABD_LYMPH_MASKS",
+    r"E:\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\labelsTr"
+    )

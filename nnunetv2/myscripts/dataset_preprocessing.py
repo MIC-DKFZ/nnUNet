@@ -108,7 +108,7 @@ def rename_files(directory):
         # Iterate through the files and rename them
         for idx, file in enumerate(files):
             # Generate the new filename with the correct format
-            new_name = f"0MEDLN_{idx:03d}_0000.nii.gz"
+            new_name = f"MEDLNU_{idx:03d}_0000.nii.gz"
             
             # Full path to the current and new file names
             current_path = os.path.join(directory, file)
@@ -147,9 +147,10 @@ def preprocessing(input_path, output_path, dataset_name, mask_folder):
         folder_path1 = os.path.join(input_path, folder_name)
         folder_path2 = os.path.join(folder_path1, os.listdir(folder_path1)[0])
 
+
         folder_names3 = [name for name in os.listdir(folder_path2) if os.path.isdir(os.path.join(folder_path2, name))]
         folder_path3 = os.path.join(folder_path2, folder_names3[1])
-
+        
         # Create NIfTI file
         # base_name = f"MEDLN_{{XXX}}_0000.nii.gz"
 
@@ -186,10 +187,10 @@ def output_folder(output_path, folder_name):
     return images_output, labels_output
 
 
-input_path = r"C:\Users\Test\Desktop\Bart\Data\Dataset CT Lymph Nodes\CT Lymph Nodes"
-output_path = r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\test"
+input_path = r"E:\Bart\nnUNet\Raw data\manifest-1680277513580\CT Lymph Nodes"
+output_path = r"E:\Bart\nnUNet\Raw data"
 dataset_name = "Dataset250_LymphNodes"
 masks_path = r"C:\Users\Test\Desktop\Bart\Data\Dataset CT Lymph Nodes\MED_ABD_LYMPH_MASKS\MED_ABD_LYMPH_MASKS"
 
-
-preprocessing(input_path, output_path, dataset_name, masks_path)
+if __name__ == "__main__":
+    preprocessing(input_path, output_path, dataset_name, masks_path)
