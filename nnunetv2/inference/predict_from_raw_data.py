@@ -82,7 +82,7 @@ class nnUNetPredictor(object):
         for i, f in enumerate(use_folds):
             f = int(f) if f != 'all' else f
             checkpoint = torch.load(join(model_training_output_dir, f'fold_{f}', checkpoint_name),
-                                    map_location=torch.device('cpu'))
+                                    map_location=torch.device('cpu'), weights_only=False)
             if i == 0:
                 trainer_name = checkpoint['trainer_name']
                 configuration_name = checkpoint['init_args']['configuration']
@@ -112,6 +112,10 @@ class nnUNetPredictor(object):
         self.configuration_manager = configuration_manager
         self.list_of_parameters = parameters
         self.network = network
+
+        # initialize network with first set of parameters, also see https://github.com/MIC-DKFZ/nnUNet/issues/2520
+        network.load_state_dict(parameters[0])
+
         self.dataset_json = dataset_json
         self.trainer_name = trainer_name
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
