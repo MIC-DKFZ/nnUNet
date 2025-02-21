@@ -101,3 +101,13 @@ def generate_dataset_json(output_folder: str,
     dataset_json.update(kwargs)
 
     save_json(dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
+
+generate_dataset_json(
+    output_folder=r'C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes',
+    channel_names={0: 'CT'}, 
+    labels={'background': 0, 'LymphNode': 1}, 
+    num_training_cases=90, 
+    file_ending='.nii.gz', 
+    regions_class_order=None, 
+    dataset_name='Dataset250_LymphNodes'
+    )
