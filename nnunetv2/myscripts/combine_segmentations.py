@@ -39,5 +39,5 @@ def unify_dataset(input_path):
 
 
 if __name__ == "__main__":
-    input_path = r"C:\Users\Test\Desktop\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\labelsTr"
+    input_path = r"E:\Bart\nnUNet\nnUNet_raw\Dataset250_LymphNodes\extra"
     unify_dataset(input_path)

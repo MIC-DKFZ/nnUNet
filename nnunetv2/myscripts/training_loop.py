@@ -1,6 +1,27 @@
 import subprocess
 
-def train_nnunet(dataset_id, unet_config, folds):
+
+
+def preprocess_dataset(dataset_id, unet_config, processor):
+
+    command = [
+        "nnUNetv2_plan_and_preprocess",
+        "-d",
+        str(dataset_id),
+        "-c",
+        unet_config,
+        "-pl",
+        processor,
+        "--verbose"]
+
+    try:
+        # Execute the command
+        subprocess.run(command, check=True)
+        print(f"Preprocessing completed successfully.")
+    except subprocess.CalledProcessError as e:
+        print(f"Preprocessing failed with error: {e}")
+
+def train_nnunet(dataset_id, unet_config, folds, planner, trainer):
     """
     Automates the training process for nnU-Net by looping through folds.
 
@@ -40,10 +61,12 @@ def train_nnunet(dataset_id, unet_config, folds):
 
 # Example usage
 if __name__ == "__main__":
-    dataset_id = 250
+    dataset_id = 350
     unet_config = "3d_fullres"
-    folds = [0, 1, 2, 3, 4]
+    folds = [1, 2, 3, 4]
+    processor = "nnUNetPlannerResEncL"
     planner = "nnUnetResEncUNetLPlans"
     trainer = "nnUNetTrainer_100epochs"
 
-    train_nnunet(dataset_id, unet_config, folds)
+    # preprocess_dataset(dataset_id, unet_config, processor)
+    train_nnunet(dataset_id, unet_config, folds, planner, trainer)
