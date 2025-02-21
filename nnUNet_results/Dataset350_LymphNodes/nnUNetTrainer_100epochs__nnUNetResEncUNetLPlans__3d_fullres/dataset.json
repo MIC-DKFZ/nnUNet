@@ -1,0 +1,12 @@
+{
+    "channel_names": {
+        "0": "CT"
+    },
+    "labels": {
+        "background": 0,
+        "LymphNode_1": 1
+    },
+    "numTraining": 80,
+    "file_ending": ".nii.gz",
+    "name": "Dataset350_LymphNodes"
+}
