@@ -189,7 +189,7 @@ class nnUNetDataLoader(DataLoader):
 
             seg_cropped = crop_and_pad_nd(seg, bbox, -1)
             if seg_prev is not None:
-                seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev[None], bbox, -1)))
+                seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
             seg_all[j] = seg_cropped
 
         if self.patch_size_was_2d:

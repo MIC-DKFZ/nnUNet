@@ -1267,7 +1267,8 @@ class nnUNetTrainer(object):
                 data, seg, seg_prev, properties = dataset_val.load_case(k)
 
                 if self.is_cascaded:
-                    data = np.vstack((data, convert_labelmap_to_one_hot(seg_prev, self.label_manager.foreground_labels,
+                    # we do [:] to convert blosc2 seg_prev to numpy
+                    data = np.vstack((data, convert_labelmap_to_one_hot(seg_prev[:], self.label_manager.foreground_labels,
                                                                         output_dtype=data.dtype)))
                 with warnings.catch_warnings():
                     # ignore 'The given NumPy array is not writable' warning
