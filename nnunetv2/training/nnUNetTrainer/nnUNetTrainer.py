@@ -1264,16 +1264,19 @@ class nnUNetTrainer(object):
                                                                allowed_num_queued=2)
 
                 self.print_to_log_file(f"predicting {k}")
-                data, seg, seg_prev, properties = dataset_val.load_case(k)
+                data, _, seg_prev, properties = dataset_val.load_case(k)
+
+                # we do [:] to convert blosc2 to numpy
+                data = data[:]
 
                 if self.is_cascaded:
-                    # we do [:] to convert blosc2 seg_prev to numpy
-                    data = np.vstack((data, convert_labelmap_to_one_hot(seg_prev[:], self.label_manager.foreground_labels,
+                    seg_prev = seg_prev[:]
+                    data = np.vstack((data, convert_labelmap_to_one_hot(seg_prev, self.label_manager.foreground_labels,
                                                                         output_dtype=data.dtype)))
                 with warnings.catch_warnings():
                     # ignore 'The given NumPy array is not writable' warning
                     warnings.simplefilter("ignore")
-                    data = torch.from_numpy(data[:])
+                    data = torch.from_numpy(data)
 
                 self.print_to_log_file(f'{k}, shape {data.shape}, rank {self.local_rank}')
                 output_filename_truncated = join(validation_output_folder, k)
