@@ -69,7 +69,29 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'), **kwargs):
+
+        # ---- Added as of improved argument passing requirement ----
+        # Define default values
+        default_values = {
+            'initial_lr': 1e-2,
+            'weight_decay': 3e-5,
+            'oversample_foreground_percent': 0.33,
+            'probabilistic_oversampling': False,
+            'num_iterations_per_epoch': 250,
+            'num_val_iterations_per_epoch': 50,
+            'num_epochs': 1000,
+            'current_epoch': 0,
+            'enable_deep_supervision': True
+        }
+
+        # Set attributes using kwargs if provided, otherwise use default values
+        for attr, default_value in default_values.items():
+            setattr(self, attr, kwargs.get(attr, default_value))
+
+        # -----------------------------------------------------------
+
+
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
@@ -141,16 +163,16 @@ class nnUNetTrainer(object):
                  self.configuration_manager.previous_stage_name, 'predicted_next_stage', self.configuration_name) \
                 if self.is_cascaded else None
 
-        ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2
-        self.weight_decay = 3e-5
-        self.oversample_foreground_percent = 0.33
-        self.probabilistic_oversampling = False
-        self.num_iterations_per_epoch = 250
-        self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
-        self.current_epoch = 0
-        self.enable_deep_supervision = True
+        # ### Some hyperparameters for you to fiddle with
+        # self.initial_lr = 1e-2
+        # self.weight_decay = 3e-5
+        # self.oversample_foreground_percent = 0.33
+        # self.probabilistic_oversampling = False
+        # self.num_iterations_per_epoch = 250
+        # self.num_val_iterations_per_epoch = 50
+        # self.num_epochs = 1000
+        # self.current_epoch = 0
+        # self.enable_deep_supervision = True
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)

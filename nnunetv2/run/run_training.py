@@ -2,6 +2,8 @@ import multiprocessing
 import os
 import socket
 from typing import Union, Optional
+import yaml
+import logging
 
 import nnunetv2
 import torch.cuda
@@ -34,7 +36,8 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           fold: int,
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
-                          device: torch.device = torch.device('cuda')):
+                          device: torch.device = torch.device('cuda'),
+                          **kwargs):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -63,7 +66,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     plans = load_json(plans_file)
     dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
     nnunet_trainer = nnunet_trainer(plans=plans, configuration=configuration, fold=fold,
-                                    dataset_json=dataset_json, device=device)
+                                    dataset_json=dataset_json, device=device, **kwargs)
     return nnunet_trainer
 
 
@@ -145,7 +148,8 @@ def run_training(dataset_name_or_id: Union[str, int],
                  only_run_validation: bool = False,
                  disable_checkpointing: bool = False,
                  val_with_best: bool = False,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'),
+                 **kwargs):
     if plans_identifier == 'nnUNetPlans':
         print("\n############################\n"
               "INFO: You are using the old nnU-Net default plans. We have updated our recommendations. "
@@ -190,7 +194,7 @@ def run_training(dataset_name_or_id: Union[str, int],
                  join=True)
     else:
         nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
-                                               plans_identifier, device=device)
+                                               plans_identifier, device=device, **kwargs)
 
         if disable_checkpointing:
             nnunet_trainer.disable_checkpointing = disable_checkpointing
@@ -211,9 +215,36 @@ def run_training(dataset_name_or_id: Union[str, int],
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
 
-def run_training_entry():
+# ---- Added as of improved argument passing requirement ----
+def load_config(config_file):
+    with open(config_file, 'r') as f:
+        return yaml.safe_load(f)
+
+
+def get_type(type_str):
+    if type_str == 'int':
+        return int
+    elif type_str == 'float':
+        return float
+    elif type_str == 'bool':
+        return bool
+    elif type_str == 'str':
+        return str
+    else:
+        raise ValueError(f"Unsupported type: {type_str}")
+
+# -----------------------------------------------------------
+
+
+def run_training_entry(testing: bool = False):
+    # Set up logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+
     import argparse
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="nnUNet training script")
+    parser.add_argument('--config', type=str,
+                        help='Path to the configuration file')
     parser.add_argument('dataset_name_or_id', type=str,
                         help="Dataset name or ID to train with")
     parser.add_argument('configuration', type=str,
@@ -248,7 +279,49 @@ def run_training_entry():
                     help="Use this to set the device the training should run with. Available options are 'cuda' "
                          "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                          "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
+
+    # ---- Added as of improved argument passing requirement ----
+    # Parse known args first to check for config file
+    args, _ = parser.parse_known_args()
+
+    # If config file is provided, add those arguments
+    config = {}  # Initialize config as an empty dictionary
+    if args.config:
+        config = load_config(args.config)
+        for arg_name, arg_data in config.items():
+            if f'--{arg_name}' not in parser._option_string_actions:
+                arg_type = get_type(arg_data['type'])
+                try:
+                    default_value = arg_type(arg_data['value'])
+                except ValueError as e:
+                    raise ValueError(
+                        f"Invalid value for {arg_name}: {arg_data['value']}. Expected type: {arg_data['type']}") from e
+
+                parser.add_argument(f'--{arg_name}',
+                                    type=arg_type,
+                                    default=default_value,
+                                    help=arg_data['description'])
+
     args = parser.parse_args()
+
+    # Type checking
+    logger.info("Performing type checks:")
+    for arg_name, arg_data in config.items():
+        if hasattr(args, arg_name):
+            expected_type = get_type(arg_data['type'])
+            actual_value = getattr(args, arg_name)
+            if not isinstance(actual_value, expected_type):
+                logger.warning(
+                    f"  Type mismatch for {arg_name}: expected {expected_type.__name__}, got {type(actual_value).__name__}")
+            else:
+                logger.info(f"  {arg_name}: type check passed ({expected_type.__name__})")
+
+    # Log all parameters and their values
+    logger.info("Script parameters:")
+    for arg, value in vars(args).items():
+        logger.info(f"  {arg}: {value}")
+
+    # -----------------------------------------------------------
 
     assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
     if args.device == 'cpu':
@@ -258,15 +331,40 @@ def run_training_entry():
         device = torch.device('cpu')
     elif args.device == 'cuda':
         # multithreading in torch doesn't help nnU-Net if run on GPU
-        torch.set_num_threads(1)
-        torch.set_num_interop_threads(1)
+        if not testing:
+            torch.set_num_threads(1)
+            torch.set_num_interop_threads(1)
         device = torch.device('cuda')
     else:
         device = torch.device('mps')
 
-    run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
-                 args.num_gpus, args.npz, args.c, args.val, args.disable_checkpointing, args.val_best,
-                 device=device)
+    # ---- Added as of improved argument passing requirement ----
+    # Convert args to a dictionary
+    args_dict = vars(args)
+
+    # Remove the 'config' key from args_dict
+    args_dict.pop('config', None)
+
+    # Rename some keys to match the function parameters
+    args_dict['trainer_class_name'] = args_dict.pop('tr', False)
+    args_dict['plans_identifier'] = args_dict.pop('p', False)
+    args_dict['export_validation_probabilities'] = args_dict.pop('npz', False)
+    args_dict['continue_training'] = args_dict.pop('c', False)
+    args_dict['only_run_validation'] = args_dict.pop('val', False)
+    args_dict['val_with_best'] = args_dict.pop('val_best', False)
+
+    # Convert device string to torch.device
+    args_dict['device'] = torch.device(device)
+
+    # run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
+    #              args.num_gpus, args.npz, args.c, args.val, args.disable_checkpointing, args.val_best,
+    #              device=device)
+
+    # Call run_training with unpacked dictionary
+    if not testing:
+        run_training(**args_dict)
+
+    # -----------------------------------------------------------
 
 
 if __name__ == '__main__':
@@ -274,6 +372,6 @@ if __name__ == '__main__':
     os.environ['MKL_NUM_THREADS'] = '1'
     os.environ['OPENBLAS_NUM_THREADS'] = '1'
     # reduces the number of threads used for compiling. More threads don't help and can cause problems
-    os.environ['TORCHINDUCTOR_COMPILE_THREADS'] = 1
+    os.environ['TORCHINDUCTOR_COMPILE_THREADS'] = '1'
     # multiprocessing.set_start_method("spawn")
     run_training_entry()
