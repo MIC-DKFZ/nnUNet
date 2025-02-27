@@ -1,0 +1,37 @@
+initial_lr:
+  value: 1e-2
+  type: float
+  description: "Initial learning rate"
+weight_decay:
+  value: 3e-5
+  type: float
+  description: "Weight decay for optimizer"
+oversample_foreground_percent:
+  value: 0.33
+  type: float
+  description: "Percent of batch to be filled with foreground patches"
+probabilistic_oversampling:
+  value: false
+  type: bool
+  description: "Whether to use probabilistic oversampling"
+num_iterations_per_epoch:
+  value: 250
+  type: int
+  description: "Number of iterations per epoch"
+num_val_iterations_per_epoch:
+  value: 50
+  type: int
+  description: "Number of validation iterations per epoch"
+num_epochs:
+  value: 150
+  type: int
+  description: "Total number of epochs"
+current_epoch:
+  value: 0
+  type: int
+  description: "Current epoch (used for resuming training)"
+enable_deep_supervision:
+  value: true
+  type: bool
+  description: "Whether to enable deep supervision"
+
