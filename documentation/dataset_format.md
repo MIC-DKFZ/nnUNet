@@ -169,18 +169,18 @@ fields since version 1!
 Here is what the dataset.json should look like at the example of the Dataset005_Prostate from the MSD:
 
     { 
-     "channel_names": {  # formerly modalities
-       "0": "T2", 
+     "channel_names": {
+       "0": "T2",
        "1": "ADC"
-     }, 
-     "labels": {  # THIS IS DIFFERENT NOW!
+     },
+     "labels": {
        "background": 0,
        "PZ": 1,
        "TZ": 2
-     }, 
-     "numTraining": 32, 
-     "file_ending": ".nii.gz"
-     "overwrite_image_reader_writer": "SimpleITKIO"  # optional! If not provided nnU-Net will automatically determine the ReaderWriter
+     },
+     "numTraining": 32,
+     "file_ending": ".nii.gz",
+     "overwrite_image_reader_writer": "SimpleITKIO"
      }
 
 The channel_names determine the normalization used by nnU-Net. If a channel is marked as 'CT', then a global 
