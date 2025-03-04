@@ -385,7 +385,7 @@ class nnUNetPredictor(object):
                     proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
 
                 # convert to numpy to prevent uncatchable memory alignment errors from multiprocessing serialization of torch tensors
-                prediction = self.predict_logits_from_preprocessed_data(data).cpu().detach().numpy().copy()
+                prediction = self.predict_logits_from_preprocessed_data(data).cpu().detach().numpy()
 
                 if ofile is not None:
                     print('sending off prediction to background worker for resampling and export')
