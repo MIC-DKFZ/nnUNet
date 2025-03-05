@@ -158,18 +158,7 @@ class DC_and_topk_loss(nn.Module):
 class DC_and_Focal_loss(nn.Module):
     def __init__(self, soft_dice_kwargs, focal_kwargs, weight_focal=1, weight_dice=1, ignore_label=None,
                  dice_class=SoftDiceLoss):
-        """
-        Weights for Focal and Dice do not need to sum to one. You can set whatever you want.
-        :param soft_dice_kwargs:
-        :param ce_kwargs:
-        :param aggregate:
-        :param square_dice:
-        :param weight_focal:
-        :param weight_dice:
-        """
         super(DC_and_Focal_loss, self).__init__()
-        # if ignore_label is not None:
-        #     focal_kwargs['ignore_index'] = ignore_label
 
         self.weight_dice = weight_dice
         self.weight_focal = weight_focal
@@ -202,8 +191,6 @@ class DC_and_Focal_loss(nn.Module):
         focal_loss = self.focal(net_output, target[:, 0]) \
             if self.weight_focal != 0 and (self.ignore_label is None or num_fg > 0) else 0
 
-        # print(f"Dice loss: {dc_loss}")
-        # print(f"Focal loss: {focal_loss}")
 
         result = self.weight_focal * focal_loss + self.weight_dice * dc_loss
         return result

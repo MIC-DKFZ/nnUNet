@@ -46,10 +46,9 @@ from nnunetv2.training.dataloading.data_loader_3d_dist import nnUNetDataLoader3D
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
-from nnunetv2.training.loss.dist_losses import MemoryEfficientDistDiceLoss
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
-from nnunetv2.training.loss.dist_losses import DistDC_and_BCE_loss, DistDC_and_CE_loss
+from nnunetv2.training.loss.dist_losses import *
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.helpers import softmax_helper_dim1
@@ -64,8 +63,10 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
         
     def _build_loss(self):
         loss = MemoryEfficientDistDiceLoss(**{'batch_dice': self.configuration_manager.batch_dice,
-                                              'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp},
-                                           apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1)
+                                              'do_bg': self.label_manager.has_regions, 'smooth': 1e-5, 'ddp': self.is_ddp,
+                                              'dist_weight_func': lambda x: torch.exp(-x)},
+                                           apply_nonlin=torch.sigmoid if self.label_manager.has_regions else softmax_helper_dim1,
+                                           dist_weight_func=lambda x: torch.exp(-x))
 
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
@@ -480,14 +481,16 @@ class nnUNetTrainerDistDiceLoss(nnUNetTrainer):
 class nnUNetTrainerDistDiceCELoss(nnUNetTrainerDistDiceLoss):
     def _build_loss(self):
         if self.label_manager.has_regions:
-            loss = DistDC_and_BCE_loss({},
+            loss = DistDSC_and_BCE_loss({},
                                        {'batch_dice': self.configuration_manager.batch_dice,
-                                        'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
+                                        'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp,
+                                        'dist_weight_func': lambda x: torch.exp(-x)},
                                         use_ignore_label=self.label_manager.ignore_label is not None,
                                         dice_class=MemoryEfficientDistDiceLoss)
         else:
-            loss = DistDC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                       'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+            loss = DistDSC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                       'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp,
+                                       'dist_weight_func': lambda x: torch.exp(-x)}, {}, weight_ce=1, weight_dice=1,
                                       ignore_label=self.label_manager.ignore_label,
                                       dice_class=MemoryEfficientDistDiceLoss)
 
@@ -505,3 +508,113 @@ class nnUNetTrainerDistDiceCELoss(nnUNetTrainerDistDiceLoss):
             loss = DeepSupervisionWrapper(loss, weights)
         return loss
 
+class nnUNetTrainerSoftDistDiceCELoss(nnUNetTrainerDistDiceLoss):
+    def _build_loss(self):
+        if self.label_manager.has_regions:
+            loss = DistDSC_and_BCE_loss({},
+                                       {'batch_dice': self.configuration_manager.batch_dice,
+                                        'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp,
+                                        'dist_weight_func': lambda x: torch.exp(-x)},
+                                        use_ignore_label=self.label_manager.ignore_label is not None,
+                                        dice_class=SoftDistDiceLoss)
+        else:
+            loss = DistDSC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                       'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp,
+                                       'dist_weight_func': lambda x: torch.exp(-x)}, {}, weight_ce=1, weight_dice=1,
+                                      ignore_label=self.label_manager.ignore_label,
+                                      dice_class=SoftDistDiceLoss)
+
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+
+            # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+            # this gives higher resolution outputs more weight in the loss
+            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+            weights[-1] = 0
+
+            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+            weights = weights / weights.sum()
+            # now wrap the loss
+            loss = DeepSupervisionWrapper(loss, weights)
+        return loss
+
+class nnUNetTrainerDistPlusOneDiceCELoss(nnUNetTrainerDistDiceLoss):
+    def _build_loss(self):
+        if self.label_manager.has_regions:
+            loss = DistDSC_and_BCE_loss({},
+                                       {'batch_dice': self.configuration_manager.batch_dice,
+                                        'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp,
+                                        'dist_weight_func': lambda x: x+1},
+                                        use_ignore_label=self.label_manager.ignore_label is not None,
+                                        dice_class=MemoryEfficientDistDiceLoss)
+        else:
+            loss = DistDSC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                       'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp,
+                                       'dist_weight_func': lambda x: x+1}, {}, weight_ce=1, weight_dice=1,
+                                      ignore_label=self.label_manager.ignore_label,
+                                      dice_class=MemoryEfficientDistDiceLoss)
+
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+
+            # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+            # this gives higher resolution outputs more weight in the loss
+            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+            weights[-1] = 0
+
+            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+            weights = weights / weights.sum()
+            # now wrap the loss
+            loss = DeepSupervisionWrapper(loss, weights)
+        return loss
+
+class nnUNetTrainerDistTverskyCELoss(nnUNetTrainerDistDiceLoss):
+    def _build_loss(self):
+        if self.label_manager.has_regions:
+            loss = DistTversky_and_BCE_loss({},
+                                       {'batch_tversky': self.configuration_manager.batch_dice,
+                                        'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp,
+                                        'dist_weight_func': lambda x: x+1},
+                                        use_ignore_label=self.label_manager.ignore_label is not None)
+        else:
+            loss = DistTversky_and_CE_loss({'batch_tversky': self.configuration_manager.batch_dice,
+                                       'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp,
+                                       'dist_weight_func': lambda x: x+1}, {}, weight_ce=1, weight_dice=1,
+                                      ignore_label=self.label_manager.ignore_label)
+
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+
+            # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+            # this gives higher resolution outputs more weight in the loss
+            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+            weights[-1] = 0
+
+            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+            weights = weights / weights.sum()
+            # now wrap the loss
+            loss = DeepSupervisionWrapper(loss, weights)
+        return loss
+
+class nnUNetTrainerDistDiceFocalLoss(nnUNetTrainerDistDiceLoss):
+    def _build_loss(self):
+        assert not self.label_manager.has_regions, "regions not supported by this trainer"
+        loss = DistDSC_and_Focal_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                      'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp,
+                                      'dist_weight_func': lambda x: torch.exp(-x)},
+                                     {'alpha': 1, 'gamma': 2, 'reduction': 'mean'},
+                                     weight_focal=1, weight_dice=1,
+                                     ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientDistDiceLoss)
+        # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
+        # this gives higher resolution outputs more weight in the loss
+        if self.enable_deep_supervision:
+            deep_supervision_scales = self._get_deep_supervision_scales()
+            weights = np.array([1 / (2**i) for i in range(len(deep_supervision_scales))])
+            weights[-1] = 0
+
+            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
+            weights = weights / weights.sum()
+            # now wrap the loss
+            loss = DeepSupervisionWrapper(loss, weights)
+
+        return loss

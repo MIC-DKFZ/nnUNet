@@ -8,6 +8,7 @@ from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
 from typing import Tuple, Union, List
+import gc
 
 import numpy as np
 import torch
@@ -204,8 +205,7 @@ class nnUNetTrainer(object):
 
     def initialize(self):
         if not self.was_initialized:
-            self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
-                                                                   self.dataset_json)
+            self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager, self.dataset_json)
 
             self.network = self.build_network_architecture(
                 self.configuration_manager.network_arch_class_name,
@@ -1286,20 +1286,24 @@ class nnUNetTrainer(object):
                 prediction = predictor.predict_sliding_window_return_logits(data)
                 prediction = prediction.cpu()
 
+                # For asynchronous exporting (may have memory issues)
                 # this needs to go into background processes
-                results.append(
-                    segmentation_export_pool.starmap_async(
-                        export_prediction_from_logits, (
-                            (prediction, properties, self.configuration_manager, self.plans_manager,
-                             self.dataset_json, output_filename_truncated, save_probabilities),
-                        )
-                    )
-                )
-                # for debug purposes
-                # export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-                #              output_filename_truncated, save_probabilities)
+                # results.append(
+                #     segmentation_export_pool.starmap_async(
+                #         export_prediction_from_logits, (
+                #             (prediction, properties, self.configuration_manager, self.plans_manager,
+                #              self.dataset_json, output_filename_truncated, save_probabilities),
+                #         )
+                #     )
+                # )
+
+                export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager, self.dataset_json,
+                                            output_filename_truncated, save_probabilities)
 
                 # if needed, export the softmax prediction for the next stage
+                # export_prediction(prediction, properties, self.configuration_manager, self.plans_manager, self.dataset_json,
+                #                   output_filename_truncated, save_probabilities)
+
                 if next_stages is not None:
                     for n in next_stages:
                         next_stage_config_manager = self.plans_manager.get_configuration(n)
@@ -1321,21 +1325,25 @@ class nnUNetTrainer(object):
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file = join(output_folder, k + '.npz')
 
-                        # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
-                        #                   self.dataset_json)
-                        results.append(segmentation_export_pool.starmap_async(
-                            resample_and_save, (
-                                (prediction, target_shape, output_file, self.plans_manager,
-                                 self.configuration_manager,
-                                 properties,
-                                 self.dataset_json),
-                            )
-                        ))
+                        resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
+                                          self.dataset_json)
+                        
+                        # For asynchronous saving (may have memory issues)
+                        # results.append(segmentation_export_pool.starmap_async(
+                        #     resample_and_save, (
+                        #         (prediction, target_shape, output_file, self.plans_manager,
+                        #          self.configuration_manager,
+                        #          properties,
+                        #          self.dataset_json),
+                        #     )
+                        # ))
+
                 # if we don't barrier from time to time we will get nccl timeouts for large datasets. Yuck.
                 if self.is_ddp and i < last_barrier_at_idx and (i + 1) % 20 == 0:
                     dist.barrier()
 
-            _ = [r.get() for r in results]
+            # For asynchronous exporting (may have memory issues)
+            # _ = [r.get() for r in results]
 
         if self.is_ddp:
             dist.barrier()

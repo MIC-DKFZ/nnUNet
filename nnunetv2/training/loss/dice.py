@@ -118,6 +118,56 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         dc = dc.mean()
         return -dc
 
+class TverskyLoss(nn.Module):
+    def __init__(self, apply_nonlin: Callable = None, batch_tversky: bool = False, do_bg: bool = True, smooth: float = 1.,
+                 ddp: bool = True, clip_tp: float = None, alpha: float = 0.3, beta: float = 0.7):
+        """
+        """
+        super(TverskyLoss, self).__init__()
+
+        self.do_bg = do_bg
+        self.batch_tversky = batch_tversky
+        self.apply_nonlin = apply_nonlin
+        self.smooth = smooth
+        self.clip_tp = clip_tp
+        self.ddp = ddp
+        self.alpha = alpha
+        self.beta = beta
+
+    def forward(self, x, y, loss_mask=None):
+        shp_x = x.shape
+
+        if self.batch_tversky:
+            axes = [0] + list(range(2, len(shp_x)))
+        else:
+            axes = list(range(2, len(shp_x)))
+
+        if self.apply_nonlin is not None:
+            x = self.apply_nonlin(x)
+
+        tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
+
+        if self.ddp and self.batch_tversky:
+            tp = AllGatherGrad.apply(tp).sum(0)
+            fp = AllGatherGrad.apply(fp).sum(0)
+            fn = AllGatherGrad.apply(fn).sum(0)
+
+        if self.clip_tp is not None:
+            tp = torch.clip(tp, min=self.clip_tp , max=None)
+
+        nominator = 2 * tp
+        denominator = 2 * tp + fp * self.alpha + fn * self.beta
+
+        tversky = (nominator + self.smooth) / (torch.clip(denominator + self.smooth, 1e-8))
+
+        if not self.do_bg:
+            if self.batch_tversky:
+                tversky = tversky[1:]
+            else:
+                tversky = tversky[:, 1:]
+        tversky = tversky.mean()
+
+        return -tversky
 
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """
