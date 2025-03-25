@@ -1217,6 +1217,7 @@ class nnUNetTrainer(object):
                 # Log metrics
                 mlflow.log_metric('train_loss', self.logger.my_fantastic_logging['train_losses'][-1], step=self.current_epoch)
                 mlflow.log_metric('val_loss',self.logger.my_fantastic_logging['val_losses'][-1], step=self.current_epoch)
+                mlflow.log_metric('ema_fg_dice', self.logger.my_fantastic_logging['ema_fg_dice'][-1], step=self.current_epoch)
 
                 # Log Pseudo dice for each class/region
                 dice_values = self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]

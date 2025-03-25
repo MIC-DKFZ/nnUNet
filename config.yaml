@@ -40,3 +40,5 @@ experiment_name:
   description: "Name of the MLFlow experiment name."
 tracking_uri:
   value: "https://mlflow.spectomedical.com"
+  type: str
+  description: "Address of the MLFlow server"
