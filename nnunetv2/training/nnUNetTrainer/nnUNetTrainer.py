@@ -43,6 +43,10 @@ from torch.cuda import device_count
 from torch import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+import mlflow
+from mlflow.exceptions import MlflowException
+import traceback
+
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, resample_and_save
@@ -193,6 +197,7 @@ class nnUNetTrainer(object):
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
+        print(f"Log is also written to {self.log_file}")
         self.logger = nnUNetLogger()
 
         ### placeholders
@@ -488,6 +493,32 @@ class nnUNetTrainer(object):
         self.inference_allowed_mirroring_axes = mirror_axes
 
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
+
+    @staticmethod
+    def log_message_to_mlflow(message, filename):
+        """
+        Log a general message to MLflow and associate it with the current run.
+
+        Args:
+        message (str): The message to log.
+
+        Returns:
+        bool: True if logging was successful, False otherwise.
+        """
+        try:
+            # Check if there's an active run
+            if not mlflow.active_run() is None:
+                # Log the message
+                mlflow.log_text(message, filename)
+        except MlflowException as e:
+            print(f"MLflow error occurred: {str(e)}")
+            print(traceback.format_exc())
+            return False
+
+        except Exception as e:
+            print(f"An unexpected error occurred: {str(e)}")
+            print(traceback.format_exc())
+            return False
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
         if self.local_rank == 0:
@@ -1166,7 +1197,43 @@ class nnUNetTrainer(object):
         if self.local_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
 
+        # MLFlow logging of training metrics
+        self.log_epoch_metrics_to_mlflow()
+
+        # Read the log file and log it with mlflow
+        with open(self.log_file, 'r') as file:
+            log_contents = file.read()
+        self.log_message_to_mlflow(log_contents, f"epoch_log.txt")
+
         self.current_epoch += 1
+
+    def log_epoch_metrics_to_mlflow(self):
+        """
+        Log epoch metrics to MLflow if there's an active run.
+        """
+        try:
+            # Check if there's an active MLflow run
+            if not mlflow.active_run() is None:
+                # Log metrics
+                mlflow.log_metric('train_loss', self.logger.my_fantastic_logging['train_losses'][-1], step=self.current_epoch)
+                mlflow.log_metric('val_loss',self.logger.my_fantastic_logging['val_losses'][-1], step=self.current_epoch)
+
+                # Log Pseudo dice for each class/region
+                dice_values = self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]
+                for i, dice in enumerate(dice_values):
+                    mlflow.log_metric(f'pseudo_dice_class_{i}',dice, step=self.current_epoch)
+
+                # Log epoch time
+                epoch_time = np.round(
+                    self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] -
+                    self.logger.my_fantastic_logging['epoch_start_timestamps'][-1],
+                    decimals=2
+                )
+                mlflow.log_metric('epoch_time', epoch_time, step=self.current_epoch)
+        except MlflowException as e:
+            print(f"MLflow error occurred: {str(e)}")
+        except Exception as e:
+            print(f"An unexpected error occurred while logging metrics: {str(e)}")
 
     def save_checkpoint(self, filename: str) -> None:
         if self.local_rank == 0:

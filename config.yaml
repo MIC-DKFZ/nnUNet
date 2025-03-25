@@ -34,4 +34,9 @@ enable_deep_supervision:
   value: true
   type: bool
   description: "Whether to enable deep supervision"
-
+experiment_name:
+  value: "nnUnet-default"
+  type: str
+  description: "Name of the MLFlow experiment name."
+tracking_uri:
+  value: "https://mlflow.spectomedical.com"

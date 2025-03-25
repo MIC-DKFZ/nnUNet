@@ -53,7 +53,8 @@ dependencies = [
     "batchgeneratorsv2>=0.2",
     "einops",
     "blosc2>=3.0.0b1",
-    "pyyaml"
+    "pyyaml",
+    "mlflow"
 ]
 
 [project.urls]

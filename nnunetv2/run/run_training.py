@@ -17,6 +17,8 @@ from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_datas
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
 
+import mlflow
+
 
 def find_free_network_port() -> int:
     """Finds a free port on localhost.
@@ -362,7 +364,42 @@ def run_training_entry(testing: bool = False):
 
     # Call run_training with unpacked dictionary
     if not testing:
-        run_training(**args_dict)
+        if 'TRACKING_URI' in os.environ and 'SECRET_KEY' in os.environ:
+            # Try to config MLFlow client with JWT authentication
+            try:
+                from mlflow_jwt_auth import configure_mlflow
+                configure_mlflow()
+                print(f"Successfully configured JWT aut for MLFlow")
+            except Exception as e:
+                print(f"Failed to configure MLflow JWT auth: {e}")
+        else:
+            # Try to config MLFlow client with directly tracking_uri
+            try:
+                mlflow.set_tracking_uri(args_dict['tracking_uri'])
+                print(f"Successfully configured MLFlow tracking uri: {args_dict['tracking_uri']}")
+            except Exception as e:
+                print(f"Failed to configure MLFlow tracking uri: {e}")
+
+        # Setting up experiments if it does not exist already
+        try:
+            experiment_name = args_dict['experiment_name']
+            experiment = mlflow.get_experiment_by_name(experiment_name)
+            if experiment is None:
+                experiment_id = mlflow.create_experiment(experiment_name)
+                print(f"Created new experiment '{experiment_name}' with ID: {experiment_id}")
+            else:
+                print(f"Experiment '{experiment_name}' already exists with ID: {experiment.experiment_id}")
+                print(experiment)
+            mlflow.set_experiment(experiment_name)
+        except Exception as e:
+            print(f"Failed to setup MLFlow experiment: {e}")
+
+        # Start training either with or without the mlflow tracking
+        if not mlflow.get_experiment_by_name(experiment_name) is None:
+            with mlflow.start_run():
+                run_training(**args_dict)
+        else:
+            run_training(**args_dict)
 
     # -----------------------------------------------------------
 
