@@ -15,6 +15,7 @@ from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from nnunetv2.utilities.checkpointing import check_object_exists
 from torch.backends import cudnn
 
 import mlflow
@@ -72,12 +73,52 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     return nnunet_trainer
 
 
-def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
-                          pretrained_weights_file: str = None):
+def load_checkpoint_from_s3(nnunet_trainer: nnUNetTrainer, final: bool = False):
+    if not nnunet_trainer.mlflow_run_id is None:
+        if not nnunet_trainer.checkpointing_bucket is None:
+            object_name = f"checkpoints/run_{nnunet_trainer.mlflow_run_id}/checkpoint_final.pth"
+            if check_object_exists(nnunet_trainer.checkpointing_bucket, object_name):
+                nnunet_trainer.load_checkpoint(
+                    join(nnunet_trainer.output_folder, 'checkpoint_final.pth'),
+                    nnunet_trainer.mlflow_run_id
+                )
+                return True
+            # If other checkpoints should be loaded than the final one, try to load them
+            if not final:
+                object_name = f"checkpoints/run_{nnunet_trainer.mlflow_run_id}/checkpoint_latest.pth"
+                if check_object_exists(nnunet_trainer.checkpointing_bucket, object_name):
+                    nnunet_trainer.load_checkpoint(
+                        join(nnunet_trainer.output_folder, 'checkpoint_latest.pth'),
+                        nnunet_trainer.mlflow_run_id
+                    )
+                    return True
+                object_name = f"checkpoints/run_{nnunet_trainer.mlflow_run_id}/checkpoint_best.pth"
+                if check_object_exists(nnunet_trainer.checkpointing_bucket, object_name):
+                    nnunet_trainer.load_checkpoint(
+                        join(nnunet_trainer.output_folder, 'checkpoint_best.pth'),
+                        nnunet_trainer.mlflow_run_id
+                    )
+                    return True
+            nnunet_trainer.print_to_log_file(f"WARNING: could not find the checkpoint associated with"
+                                             f"mlflow_run_id: {nnunet_trainer.mlflow_run_id} on"
+                                             f"bucket: {nnunet_trainer.checkpointing_bucket} with"
+                                             f"object name: {object_name}.")
+    return False
+
+
+def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer,
+                          continue_training: bool,
+                          validation_only: bool,
+                          pretrained_weights_file: str = None
+                          ):
     if continue_training and pretrained_weights_file is not None:
         raise RuntimeError('Cannot both continue a training AND load pretrained weights. Pretrained weights can only '
                            'be used at the beginning of the training.')
     if continue_training:
+        # Try to load from S3
+        if load_checkpoint_from_s3(nnunet_trainer):
+            return
+
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
             expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
@@ -89,6 +130,9 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
                                f"continue from. Starting a new training...")
             expected_checkpoint_file = None
     elif validation_only:
+        # Try to load from S3
+        if load_checkpoint_from_s3(nnunet_trainer, final=True):
+            return
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
             raise RuntimeError(f"Cannot run validation because the training is not finished yet!")
@@ -396,7 +440,9 @@ def run_training_entry(testing: bool = False):
 
         # Start training either with or without the mlflow tracking
         if not mlflow.get_experiment_by_name(experiment_name) is None:
-            with mlflow.start_run():
+            with mlflow.start_run(
+                args_dict['mlflow_run_id'] if len(args_dict['mlflow_run_id']) > 0 else None
+            ):
                 run_training(**args_dict)
         else:
             run_training(**args_dict)

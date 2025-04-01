@@ -30,7 +30,7 @@ def get_aws_account_id():
         return None
 
 
-def save_checkpoint_s3(state_dict, object_name, bucket_name, mlflow_run_id, aws_region="eu-central-1"):
+def save_checkpoint_s3(state_dict, object_name, bucket_name, mlflow_run_id="default-run-id", aws_region="eu-central-1"):
     """
     Save a PyTorch model's state_dict as a checkpoint to an S3 bucket.
 
@@ -43,7 +43,7 @@ def save_checkpoint_s3(state_dict, object_name, bucket_name, mlflow_run_id, aws_
         state_dict (dict): The PyTorch model's state_dict to be saved.
         object_name (str): Name of the checkpoint to be saved.
         bucket_name (str): The name of the S3 bucket where the checkpoint will be stored.
-        mlflow_run_id (str): The MLflow run ID associated with the checkpoint for traceability.
+        mlflow_run_id (str): The MLflow run ID associated with the checkpoint for traceability. Defaults to "default-run-id"
         aws_region (str): The AWS region where the S3 bucket is located. Defaults to "eu-central-1".
 
     Returns:
@@ -104,7 +104,7 @@ def save_checkpoint_s3(state_dict, object_name, bucket_name, mlflow_run_id, aws_
         raise RuntimeError(f"An unexpected error occurred while saving the checkpoint: {e}")
 
 
-def load_checkpoint_s3(object_name, bucket_name, mlflow_run_id, aws_region="eu-central-1"):
+def load_checkpoint_s3(object_name, bucket_name, mlflow_run_id="default-run-id", aws_region="eu-central-1"):
     """
     Load a PyTorch model's state_dict from a checkpoint stored in an S3 bucket.
 
@@ -116,7 +116,7 @@ def load_checkpoint_s3(object_name, bucket_name, mlflow_run_id, aws_region="eu-c
     Args:
         object_name (str): Name of the checkpoint to be loaded.
         bucket_name (str): The name of the S3 bucket containing the checkpoint.
-        mlflow_run_id (str): The MLflow run ID associated with the checkpoint.
+        mlflow_run_id (str): The MLflow run ID associated with the checkpoint. Defaults to "default-run-id"
         aws_region (str): The AWS region where the S3 bucket is located. Defaults to "eu-central-1".
 
     Returns:
@@ -152,8 +152,8 @@ def load_checkpoint_s3(object_name, bucket_name, mlflow_run_id, aws_region="eu-c
         buffer.seek(0)
 
         # Load and return the state_dict from the buffer
-        state_dict = torch.load(buffer)
-        return state_dict
+        state_dict = torch.load(buffer, weights_only=False)
+        return state_dict, checkpoint_path
 
     except ClientError as e:
         error_code = e.response['Error']['Code']
@@ -166,8 +166,14 @@ def load_checkpoint_s3(object_name, bucket_name, mlflow_run_id, aws_region="eu-c
         raise RuntimeError(f"An unexpected error occurred while loading the checkpoint: {e}")
 
 
-# def find_latest_checkpoint(run_id):
-#     client = mlflow.tracking.MlflowClient()
-#     artifacts = client.list_artifacts(run_id, "checkpoints")
-#     s3_paths = [f"s3://your-bucket/{a.path}" for a in artifacts]
-#     return sorted(s3_paths)[-1] if s3_paths else None
+def check_object_exists(bucket_name, key):
+    s3_client = boto3.client('s3')
+    try:
+        s3_client.head_object(Bucket=bucket_name, Key=key)
+        return True
+    except ClientError as e:
+        if e.response['Error']['Code'] == "404":
+            return False
+        else:
+            print(f"Unexpected error: {e}")
+            raise

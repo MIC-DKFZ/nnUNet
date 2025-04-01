@@ -71,7 +71,7 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
-from nnunetv2.utilities.checkpointing import save_checkpoint_s3, convert_path_to_underscores
+from nnunetv2.utilities.checkpointing import save_checkpoint_s3, load_checkpoint_s3
 
 
 class nnUNetTrainer(object):
@@ -91,6 +91,7 @@ class nnUNetTrainer(object):
             'current_epoch': 0,
             'enable_deep_supervision': True,
             'checkpointing_bucket': None,
+            'mlflow_run_id': None,
             'aws_region': "eu-central-1"
         }
 
@@ -1305,8 +1306,8 @@ class nnUNetTrainer(object):
                     temp_dir = tempfile.gettempdir()  # Gets the system's temp directory
 
                     # Define a specific filename
-                    specific_filename = "checkpoint_best.txt"
-                    file_path = os.path.join(temp_dir, specific_filename)
+                    checkpoint_name = os.path.splitext(os.path.split(filename)[-1])[0]
+                    file_path = os.path.join(temp_dir, checkpoint_name)
 
                     # Create and write to the file
                     with open(file_path, "w") as f:
@@ -1325,14 +1326,35 @@ class nnUNetTrainer(object):
             else:
                 self.print_to_log_file('No checkpoint written, checkpointing is disabled')
 
-
-
-    def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
+    def load_checkpoint(self, filename_or_checkpoint: Union[dict, str], mlflow_run_id: str = None) -> None:
         if not self.was_initialized:
             self.initialize()
 
-        if isinstance(filename_or_checkpoint, str):
+        if isinstance(filename_or_checkpoint, str) and mlflow_run_id is None:
             checkpoint = torch.load(filename_or_checkpoint, map_location=self.device, weights_only=False)
+
+        if isinstance(filename_or_checkpoint, str) and not mlflow_run_id is None:
+            if self.checkpointing_bucket is None:
+                raise Exception(f"No checkpointing bucket specified. Specify 'checkpointing_bucket' in the config file.")
+
+            # Derive checkpoint name
+            checkpoint_name = os.path.split(filename_or_checkpoint)[-1]
+
+            # Start time
+            start_time = time()
+
+            checkpoint, checkpoint_path = load_checkpoint_s3(
+                object_name=checkpoint_name,
+                bucket_name=self.checkpointing_bucket,
+                mlflow_run_id=mlflow_run_id,
+                aws_region=self.aws_region
+            )
+
+            # Calculate elapsed time
+            elapsed_time = time() - start_time
+
+            self.print_to_log_file(f'Checkpoint loaded from S3: {self.checkpointing_bucket}/{checkpoint_path} in {elapsed_time:.4f} seconds')
+
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
