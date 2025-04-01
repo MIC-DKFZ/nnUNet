@@ -42,3 +42,11 @@ tracking_uri:
   value: "https://mlflow.spectomedical.com"
   type: str
   description: "Address of the MLFlow server"
+checkpointing_bucket:
+  value: "specto-ai-ts-checkpoints"
+  type: str
+  description: "S3 bucket name where the checkpoints are being written to."
+aws_region:
+  value: "eu-central-1"
+  type: str
+  description: "AWS region to select the respective S3 endpoint."

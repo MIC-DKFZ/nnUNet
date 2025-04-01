@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import shutil
 import sys
+import tempfile
 import warnings
 from copy import deepcopy
 from datetime import datetime
@@ -70,6 +71,8 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
+from nnunetv2.utilities.checkpointing import save_checkpoint_s3, convert_path_to_underscores
+
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
@@ -86,7 +89,9 @@ class nnUNetTrainer(object):
             'num_val_iterations_per_epoch': 50,
             'num_epochs': 1000,
             'current_epoch': 0,
-            'enable_deep_supervision': True
+            'enable_deep_supervision': True,
+            'checkpointing_bucket': None,
+            'aws_region': "eu-central-1"
         }
 
         # Set attributes using kwargs if provided, otherwise use default values
@@ -1258,8 +1263,69 @@ class nnUNetTrainer(object):
                     'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
                 }
                 torch.save(checkpoint, filename)
+
+                # Check if there is an active MLFlow run
+                active_run = mlflow.active_run()
+
+                checkpoint_path = ""
+                try:
+                    # Check if checkpointing bucket is specified
+                    if self.checkpointing_bucket is None:
+                        raise Exception(f"No checkpointing bucket specified. Specify 'checkpointing_bucket' in the config file.")
+
+                    # Derive object name for checkpoint
+                    object_name = os.path.split(filename)[-1]
+
+                    # Start timing
+                    start_time = time()
+
+                    # Save checkpoint to s3
+                    checkpoint_path = save_checkpoint_s3(
+                        state_dict=checkpoint,
+                        object_name=object_name,
+                        bucket_name=self.checkpointing_bucket,
+                        mlflow_run_id=active_run.info.run_id if active_run else "default-run-id",
+                        aws_region=self.aws_region
+                    )
+
+                    # Calculate elapsed time
+                    elapsed_time = time() - start_time
+
+                    self.print_to_log_file(f'Checkpoint uploaded to {checkpoint_path}')
+                    self.print_to_log_file(f'Time elapsed for checkpointing: {elapsed_time:.4f} seconds')
+
+                except Exception as e:
+                    self.print_to_log_file(f"Failed to upload checkpoint to S3: {str(e)} - "
+                                           f"Check if the environment variables are specified correctly "
+                                           f"'AWS_ACCESS_KEY_ID' and 'AWS_SECRET_ACCESS_KEY', and"
+                                           f"that the credentials are correct.")
+
+                if active_run:
+                    # Create a temporary directory
+                    temp_dir = tempfile.gettempdir()  # Gets the system's temp directory
+
+                    # Define a specific filename
+                    specific_filename = "checkpoint_best.txt"
+                    file_path = os.path.join(temp_dir, specific_filename)
+
+                    # Create and write to the file
+                    with open(file_path, "w") as f:
+                        f.write(f"S3 Path: {checkpoint_path}\n")
+                        f.write(f"Local Path: {filename}\n")
+                        f.write(f"Epoch: {self.current_epoch + 1}\n")
+                        f.write(f"Timestamp: {time()}\n")
+                        f.write("This file serves as a reference to the checkpoint stored in S3.\n")
+
+                    # Log the temporary file as an artifact
+                    mlflow.log_artifact(file_path, artifact_path="checkpoints")
+                    mlflow.set_tag("checkpoints", checkpoint_path)
+
+                    os.remove(file_path)
+
             else:
                 self.print_to_log_file('No checkpoint written, checkpointing is disabled')
+
+
 
     def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
         if not self.was_initialized:

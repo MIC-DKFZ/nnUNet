@@ -6,11 +6,7 @@ import yaml
 from io import StringIO
 import sys
 
-# Move up three levels
-parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, parent_dir)
-
-from run.run_training import run_training_entry  # Import the function from your actual script
+from nnunetv2.run.run_training import run_training_entry  # Import the function from your actual script
 
 
 class TestRunTrainingEntry(unittest.TestCase):

@@ -6,12 +6,8 @@ import os
 import sys
 import torch
 
-# Move up three levels
-parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, parent_dir)
-
 # Import the function to be tested
-from utilities.checkpointing import save_checkpoint_s3, load_checkpoint_s3
+from nnunetv2.utilities.checkpointing import save_checkpoint_s3, load_checkpoint_s3
 
 
 class TestSaveCheckpointS3RealConnection(unittest.TestCase):
