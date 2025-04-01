@@ -374,19 +374,17 @@ class nnUNetPredictor(object):
 
                 properties = preprocessed['data_properties']
 
-                # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
+                # let's not get into a runaway situation where the GPU predicts so fast that the disk has to be swamped with
                 # npy files
                 proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
                 while not proceed:
                     sleep(0.1)
                     proceed = not check_workers_alive_and_busy(export_pool, worker_list, r, allowed_num_queued=2)
 
-                prediction = self.predict_logits_from_preprocessed_data(data).cpu()
+                # convert to numpy to prevent uncatchable memory alignment errors from multiprocessing serialization of torch tensors
+                prediction = self.predict_logits_from_preprocessed_data(data).cpu().detach().numpy()
 
                 if ofile is not None:
-                    # this needs to go into background processes
-                    # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
-                    #                               self.dataset_json, ofile, save_probabilities)
                     print('sending off prediction to background worker for resampling and export')
                     r.append(
                         export_pool.starmap_async(
@@ -396,12 +394,6 @@ class nnUNetPredictor(object):
                         )
                     )
                 else:
-                    # convert_predicted_logits_to_segmentation_with_correct_shape(
-                    #             prediction, self.plans_manager,
-                    #              self.configuration_manager, self.label_manager,
-                    #              properties,
-                    #              save_probabilities)
-
                     print('sending off prediction to background worker for resampling')
                     r.append(
                         export_pool.starmap_async(
