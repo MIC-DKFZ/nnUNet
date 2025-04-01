@@ -71,7 +71,7 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
-from nnunetv2.utilities.checkpointing import save_checkpoint_s3, load_checkpoint_s3
+from nnunetv2.utilities.checkpointing import save_checkpoint_s3, load_checkpoint_s3, delete_all_but_latest_n_versions
 
 
 class nnUNetTrainer(object):
@@ -1209,7 +1209,7 @@ class nnUNetTrainer(object):
         # Read the log file and log it with mlflow
         with open(self.log_file, 'r') as file:
             log_contents = file.read()
-        self.log_message_to_mlflow(log_contents, f"epoch_log.txt")
+        self.log_message_to_mlflow(log_contents, os.path.split(self.log_file)[-1])
 
         self.current_epoch += 1
 
@@ -1292,7 +1292,7 @@ class nnUNetTrainer(object):
                     # Calculate elapsed time
                     elapsed_time = time() - start_time
 
-                    self.print_to_log_file(f'Checkpoint uploaded to {checkpoint_path}')
+                    self.print_to_log_file(f'Checkpoint uploaded to {self.checkpointing_bucket}/{checkpoint_path}')
                     self.print_to_log_file(f'Time elapsed for checkpointing: {elapsed_time:.4f} seconds')
 
                 except Exception as e:
@@ -1301,17 +1301,26 @@ class nnUNetTrainer(object):
                                            f"'AWS_ACCESS_KEY_ID' and 'AWS_SECRET_ACCESS_KEY', and"
                                            f"that the credentials are correct.")
 
+                # Clean-up old versions
+                if self.checkpointing_bucket is not None and len(checkpoint_path) > 0:
+                    deleted_versions = delete_all_but_latest_n_versions(
+                        bucket_name=self.checkpointing_bucket,
+                        object_key=checkpoint_path.split(":")[0],
+                        n=3
+                    )
+                    self.print_to_log_file(f'Deleted versions: {deleted_versions}')
+
                 if active_run:
                     # Create a temporary directory
                     temp_dir = tempfile.gettempdir()  # Gets the system's temp directory
 
                     # Define a specific filename
-                    checkpoint_name = os.path.splitext(os.path.split(filename)[-1])[0]
+                    checkpoint_name = f"{os.path.splitext(os.path.split(filename)[-1])[0]}.txt"
                     file_path = os.path.join(temp_dir, checkpoint_name)
 
                     # Create and write to the file
                     with open(file_path, "w") as f:
-                        f.write(f"S3 Path: {checkpoint_path}\n")
+                        f.write(f"S3 Path: {self.checkpointing_bucket}/{checkpoint_path}\n")
                         f.write(f"Local Path: {filename}\n")
                         f.write(f"Epoch: {self.current_epoch + 1}\n")
                         f.write(f"Timestamp: {time()}\n")
@@ -1533,6 +1542,11 @@ class nnUNetTrainer(object):
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
                                    also_print_to_console=True)
+
+         # Read the log file and log it with mlflow
+        with open(self.log_file, 'r') as file:
+            log_contents = file.read()
+        self.log_message_to_mlflow(log_contents, os.path.split(self.log_file)[-1])
 
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()

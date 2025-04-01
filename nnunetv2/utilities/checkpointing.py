@@ -91,7 +91,7 @@ def save_checkpoint_s3(state_dict, object_name, bucket_name, mlflow_run_id="defa
         # Upload the buffer directly to S3
         responses = bucket.put_object(Key=checkpoint_path, Body=buffer)
 
-        return f"{bucket_name}/{checkpoint_path}:{responses.version_id}"
+        return f"{checkpoint_path}:{responses.version_id}"
 
     except ClientError as e:
         error_code = e.response['Error']['Code']
@@ -177,3 +177,37 @@ def check_object_exists(bucket_name, key):
         else:
             print(f"Unexpected error: {e}")
             raise
+
+
+def delete_all_but_latest_n_versions(bucket_name: str, object_key: str, n: int = 1):
+    """
+    Deletes all versions of an object in an S3 bucket except the latest N versions.
+
+    Args:
+        bucket_name (str): The name of the S3 bucket.
+        object_key (str): The key of the object to clean up.
+        n (int): The number of latest versions to keep.
+    """
+    s3_client = boto3.client("s3")
+
+    try:
+        # List all versions of the specified object
+        response = s3_client.list_object_versions(Bucket=bucket_name, Prefix=object_key)
+
+        # Get all versions for the specified object key
+        versions = response.get("Versions", [])
+
+        # Sort versions by LastModified timestamp (newest first)
+        sorted_versions = sorted(versions, key=lambda v: v["LastModified"], reverse=True)
+
+        # Keep the latest N versions and delete the rest
+        for version in sorted_versions[n:]:
+            if version["Key"] == object_key:
+                version_id = version["VersionId"]
+                s3_client.delete_object(Bucket=bucket_name, Key=object_key, VersionId=version_id)
+
+        return sorted_versions[n:]
+
+    except ClientError as e:
+        print(f"Error: {e}")
+

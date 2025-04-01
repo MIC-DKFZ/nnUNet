@@ -23,7 +23,7 @@ num_val_iterations_per_epoch:
   type: int
   description: "Number of validation iterations per epoch"
 num_epochs:
-  value: 150
+  value: 5
   type: int
   description: "Total number of epochs"
 current_epoch:
@@ -47,7 +47,7 @@ checkpointing_bucket:
   type: str
   description: "S3 bucket name where the checkpoints are being written to."
 mlflow_run_id:
-  value: "e0074c4a92b349948e222f32cb5ab77d"
+  value: "9632cc50bc7b47e68cdd10e89d338506"
   type: str
   description: "Run id of MLFlow to identify the checkpoint to resume from."
 aws_region:

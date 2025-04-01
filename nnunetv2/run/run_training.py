@@ -257,7 +257,17 @@ def run_training(dataset_name_or_id: Union[str, int],
             nnunet_trainer.run_training()
 
         if val_with_best:
-            nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
+            object_name = f"checkpoints/run_{nnunet_trainer.mlflow_run_id}/checkpoint_best.pth"
+            if (not nnunet_trainer.checkpointing_bucket is None
+                    and len(nnunet_trainer.mlflow_run_id) > 0
+                    and check_object_exists(nnunet_trainer.checkpointing_bucket, object_name)
+            ):
+                nnunet_trainer.load_checkpoint(
+                    join(nnunet_trainer.output_folder, 'checkpoint_best.pth'),
+                    nnunet_trainer.mlflow_run_id
+                )
+            else:
+                nnunet_trainer.load_checkpoint(filename_or_checkpoint=join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
 
@@ -325,6 +335,8 @@ def run_training_entry(testing: bool = False):
                     help="Use this to set the device the training should run with. Available options are 'cuda' "
                          "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                          "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
+    parser.add_argument('--mlflow_run_id', type=str, required=False, default="",
+                        help='Run ID of MLFlow experiment to resume training or validate only.')
 
     # ---- Added as of improved argument passing requirement ----
     # Parse known args first to check for config file
