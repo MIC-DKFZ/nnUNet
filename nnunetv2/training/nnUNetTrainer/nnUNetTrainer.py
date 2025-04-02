@@ -1523,6 +1523,11 @@ class nnUNetTrainer(object):
                 if self.is_ddp and i < last_barrier_at_idx and (i + 1) % 20 == 0:
                     dist.barrier()
 
+                # Read the log file and log it with mlflow
+                with open(self.log_file, 'r') as file:
+                    log_contents = file.read()
+                self.log_message_to_mlflow(log_contents, os.path.split(self.log_file)[-1])
+
             _ = [r.get() for r in results]
 
         if self.is_ddp:

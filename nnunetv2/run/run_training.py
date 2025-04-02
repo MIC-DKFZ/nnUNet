@@ -99,9 +99,9 @@ def load_checkpoint_from_s3(nnunet_trainer: nnUNetTrainer, final: bool = False):
                         nnunet_trainer.mlflow_run_id
                     )
                     return True
-            nnunet_trainer.print_to_log_file(f"WARNING: could not find the checkpoint associated with"
-                                             f"mlflow_run_id: {nnunet_trainer.mlflow_run_id} on"
-                                             f"bucket: {nnunet_trainer.checkpointing_bucket} with"
+            nnunet_trainer.print_to_log_file(f"WARNING: could not find the checkpoint associated with "
+                                             f"mlflow_run_id: {nnunet_trainer.mlflow_run_id} on "
+                                             f"bucket: {nnunet_trainer.checkpointing_bucket} with "
                                              f"object name: {object_name}.")
     return False
 
@@ -335,8 +335,8 @@ def run_training_entry(testing: bool = False):
                     help="Use this to set the device the training should run with. Available options are 'cuda' "
                          "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                          "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
-    parser.add_argument('--mlflow_run_id', type=str, required=False, default="",
-                        help='Run ID of MLFlow experiment to resume training or validate only.')
+    #parser.add_argument('--mlflow_run_id', type=str, required=False, default="",
+    #                    help='Run ID of MLFlow experiment to resume training or validate only.')
 
     # ---- Added as of improved argument passing requirement ----
     # Parse known args first to check for config file

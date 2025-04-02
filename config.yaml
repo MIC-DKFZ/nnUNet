@@ -47,7 +47,7 @@ checkpointing_bucket:
   type: str
   description: "S3 bucket name where the checkpoints are being written to."
 mlflow_run_id:
-  value: "9632cc50bc7b47e68cdd10e89d338506"
+  value: ""
   type: str
   description: "Run id of MLFlow to identify the checkpoint to resume from."
 aws_region:
