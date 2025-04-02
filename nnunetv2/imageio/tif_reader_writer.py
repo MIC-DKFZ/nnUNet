@@ -70,7 +70,7 @@ class Tiff3DIO(BaseReaderWriter):
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         # not ideal but I really have no clue how to set spacing/resolution information properly in tif files haha
-        tifffile.imwrite(output_fname, data=seg.astype(np.uint8, copy=False), compression='zlib')
+        tifffile.imwrite(output_fname, data=seg.astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False), compression='zlib')
         file = os.path.basename(output_fname)
         out_dir = os.path.dirname(output_fname)
         ending = file.split('.')[-1]
