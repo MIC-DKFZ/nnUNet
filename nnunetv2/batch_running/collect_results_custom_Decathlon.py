@@ -94,19 +94,21 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
 
 if __name__ == '__main__':
     use_these_trainers = {
-        'nnUNetTrainer': ('nnUNetPlans', 'nnUNetResEncUNetPlans', 'nnUNetResEncUNet2Plans', 'nnUNetResBottleneckEncUNetPlans', 'nnUNetResUNetPlans', 'nnUNetResUNet2Plans', 'nnUNetResUNet3Plans', 'nnUNetDeeperResBottleneckEncUNetPlans'),
-     }
+        'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetResEncUNetMPlans',),
+    }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
-    datasets = [2, 3, 4, 17, 24, 27, 38, 55, 137, 217, 220, 221, 223] # amos post challenge, kits2023
+    datasets = [3, 4, 5, 8, 10, 17, 27, 55, 220, 223]
     collect_results(use_these_trainers, datasets, all_results_file)
 
     folds = (0, 1, 2, 3, 4)
-    configs = ("3d_fullres", )
+    configs = ("2d", )
     output_file = join(nnUNet_results, 'customDecResults_summary5fold.csv')
     summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
 
     folds = (0, )
-    configs = ("3d_fullres", )
+    configs = ("2d", )
     output_file = join(nnUNet_results, 'customDecResults_summaryfold0.csv')
     summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
 

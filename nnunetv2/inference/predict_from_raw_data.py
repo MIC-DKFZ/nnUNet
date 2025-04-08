@@ -3,6 +3,8 @@ import itertools
 import multiprocessing
 import os
 from copy import deepcopy
+from queue import Queue
+from threading import Thread
 from time import sleep
 from typing import Tuple, Union, List, Optional
 
@@ -111,10 +113,11 @@ class nnUNetPredictor(object):
         self.plans_manager = plans_manager
         self.configuration_manager = configuration_manager
         self.list_of_parameters = parameters
-        self.network = network
 
         # initialize network with first set of parameters, also see https://github.com/MIC-DKFZ/nnUNet/issues/2520
         network.load_state_dict(parameters[0])
+
+        self.network = network
 
         self.dataset_json = dataset_json
         self.trainer_name = trainer_name
@@ -181,11 +184,11 @@ class nnUNetPredictor(object):
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
             output_filename_truncated = [join(output_folder_or_list_of_truncated_output_files, i) for i in caseids]
         else:
-            output_filename_truncated = output_folder_or_list_of_truncated_output_files
+            output_filename_truncated = output_folder_or_list_of_truncated_output_files[part_id::num_parts]
 
         seg_from_prev_stage_files = [join(folder_with_segs_from_prev_stage, i + self.dataset_json['file_ending']) if
                                      folder_with_segs_from_prev_stage is not None else None for i in caseids]
-        # remove already predicted files form the lists
+        # remove already predicted files from the lists
         if not overwrite and output_filename_truncated is not None:
             tmp = [isfile(i + self.dataset_json['file_ending']) for i in output_filename_truncated]
             if save_probabilities:
@@ -214,6 +217,8 @@ class nnUNetPredictor(object):
         This is nnU-Net's default function for making predictions. It works best for batch predictions
         (predicting many images at once).
         """
+        assert part_id <= num_parts, ("Part ID must be smaller than num_parts. Remember that we start counting with 0. "
+                                      "So if there are 3 parts then valid part IDs are 0, 1, 2")
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
             output_folder = output_folder_or_list_of_truncated_output_files
         elif isinstance(output_folder_or_list_of_truncated_output_files, list):
@@ -469,6 +474,7 @@ class nnUNetPredictor(object):
             else:
                 return ret
 
+    @torch.inference_mode()
     def predict_logits_from_preprocessed_data(self, data: torch.Tensor) -> torch.Tensor:
         """
         IMPORTANT! IF YOU ARE RUNNING THE CASCADE, THE SEGMENTATION FROM THE PREVIOUS STAGE MUST ALREADY BE STACKED ON
@@ -538,6 +544,7 @@ class nnUNetPredictor(object):
                                                   zip((sx, sy, sz), self.configuration_manager.patch_size)]]))
         return slicers
 
+    @torch.inference_mode()
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
         prediction = self.network(x)
@@ -556,6 +563,7 @@ class nnUNetPredictor(object):
             prediction /= (len(axes_combinations) + 1)
         return prediction
 
+    @torch.inference_mode()
     def _internal_predict_sliding_window_return_logits(self,
                                                        data: torch.Tensor,
                                                        slicers,
@@ -564,6 +572,11 @@ class nnUNetPredictor(object):
         predicted_logits = n_predictions = prediction = gaussian = workon = None
         results_device = self.device if do_on_device else torch.device('cpu')
 
+        def producer(d, slh, q):
+            for s in slh:
+                q.put((torch.clone(d[s][None], memory_format=torch.contiguous_format).to(self.device), s))
+            q.put('end')
+
         try:
             empty_cache(self.device)
 
@@ -571,6 +584,9 @@ class nnUNetPredictor(object):
             if self.verbose:
                 print(f'move image to device {results_device}')
             data = data.to(results_device)
+            queue = Queue(maxsize=2)
+            t = Thread(target=producer, args=(data, slicers, queue))
+            t.start()
 
             # preallocate arrays
             if self.verbose:
@@ -589,18 +605,26 @@ class nnUNetPredictor(object):
 
             if not self.allow_tqdm and self.verbose:
                 print(f'running prediction: {len(slicers)} steps')
-            for sl in tqdm(slicers, disable=not self.allow_tqdm):
-                workon = data[sl][None]
-                workon = workon.to(self.device)
 
-                prediction = self._internal_maybe_mirror_and_predict(workon)[0].to(results_device)
+            with tqdm(desc=None, total=len(slicers), disable=not self.allow_tqdm) as pbar:
+                while True:
+                    item = queue.get()
+                    if item == 'end':
+                        queue.task_done()
+                        break
+                    workon, sl = item
+                    prediction = self._internal_maybe_mirror_and_predict(workon)[0].to(results_device)
 
-                if self.use_gaussian:
-                    prediction *= gaussian
-                predicted_logits[sl] += prediction
-                n_predictions[sl[1:]] += gaussian
+                    if self.use_gaussian:
+                        prediction *= gaussian
+                    predicted_logits[sl] += prediction
+                    n_predictions[sl[1:]] += gaussian
+                    queue.task_done()
+                    pbar.update()
+            queue.join()
 
-            predicted_logits /= n_predictions
+            # predicted_logits /= n_predictions
+            torch.div(predicted_logits, n_predictions, out=predicted_logits)
             # check for infs
             if torch.any(torch.isinf(predicted_logits)):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
@@ -613,53 +637,53 @@ class nnUNetPredictor(object):
             raise e
         return predicted_logits
 
+    @torch.inference_mode()
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) \
             -> Union[np.ndarray, torch.Tensor]:
-        with torch.no_grad():
-            assert isinstance(input_image, torch.Tensor)
-            self.network = self.network.to(self.device)
-            self.network.eval()
+        assert isinstance(input_image, torch.Tensor)
+        self.network = self.network.to(self.device)
+        self.network.eval()
 
-            empty_cache(self.device)
+        empty_cache(self.device)
 
-            # Autocast can be annoying
-            # If the device_type is 'cpu' then it's slow as heck on some CPUs (no auto bfloat16 support detection)
-            # and needs to be disabled.
-            # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False
-            # is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-            # So autocast will only be active if we have a cuda device.
-            with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-                assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
+        # Autocast can be annoying
+        # If the device_type is 'cpu' then it's slow as heck on some CPUs (no auto bfloat16 support detection)
+        # and needs to be disabled.
+        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False
+        # is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
+        # So autocast will only be active if we have a cuda device.
+        with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
-                if self.verbose:
-                    print(f'Input shape: {input_image.shape}')
-                    print("step_size:", self.tile_step_size)
-                    print("mirror_axes:", self.allowed_mirroring_axes if self.use_mirroring else None)
+            if self.verbose:
+                print(f'Input shape: {input_image.shape}')
+                print("step_size:", self.tile_step_size)
+                print("mirror_axes:", self.allowed_mirroring_axes if self.use_mirroring else None)
 
-                # if input_image is smaller than tile_size we need to pad it to tile_size.
-                data, slicer_revert_padding = pad_nd_image(input_image, self.configuration_manager.patch_size,
-                                                           'constant', {'value': 0}, True,
-                                                           None)
+            # if input_image is smaller than tile_size we need to pad it to tile_size.
+            data, slicer_revert_padding = pad_nd_image(input_image, self.configuration_manager.patch_size,
+                                                       'constant', {'value': 0}, True,
+                                                       None)
 
-                slicers = self._internal_get_sliding_window_slicers(data.shape[1:])
+            slicers = self._internal_get_sliding_window_slicers(data.shape[1:])
 
-                if self.perform_everything_on_device and self.device != 'cpu':
-                    # we need to try except here because we can run OOM in which case we need to fall back to CPU as a results device
-                    try:
-                        predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
-                                                                                               self.perform_everything_on_device)
-                    except RuntimeError:
-                        print(
-                            'Prediction on device was unsuccessful, probably due to a lack of memory. Moving results arrays to CPU')
-                        empty_cache(self.device)
-                        predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, False)
-                else:
+            if self.perform_everything_on_device and self.device != 'cpu':
+                # we need to try except here because we can run OOM in which case we need to fall back to CPU as a results device
+                try:
                     predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
                                                                                            self.perform_everything_on_device)
+                except RuntimeError:
+                    print(
+                        'Prediction on device was unsuccessful, probably due to a lack of memory. Moving results arrays to CPU')
+                    empty_cache(self.device)
+                    predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers, False)
+            else:
+                predicted_logits = self._internal_predict_sliding_window_return_logits(data, slicers,
+                                                                                       self.perform_everything_on_device)
 
-                empty_cache(self.device)
-                # revert padding
-                predicted_logits = predicted_logits[(slice(None), *slicer_revert_padding[1:])]
+            empty_cache(self.device)
+            # revert padding
+            predicted_logits = predicted_logits[(slice(None), *slicer_revert_padding[1:])]
         return predicted_logits
 
     def predict_from_files_sequential(self,
@@ -675,6 +699,8 @@ class nnUNetPredictor(object):
             output_folder = output_folder_or_list_of_truncated_output_files
         elif isinstance(output_folder_or_list_of_truncated_output_files, list):
             output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
+            if len(output_folder) == 0:  # just a file was given without a folder
+                output_folder = os.path.curdir
         else:
             output_folder = None
 
@@ -687,7 +713,6 @@ class nnUNetPredictor(object):
             my_init_kwargs = deepcopy(
                 my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
             recursive_fix_for_json_export(my_init_kwargs)
-            maybe_mkdir_p(output_folder)
             save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
 
             # we need these two if we want to do things with the predictions like for example apply postprocessing
