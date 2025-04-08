@@ -1204,8 +1204,7 @@ class nnUNetTrainer(object):
                 self.network._orig_mod.load_state_dict(new_state_dict)
             else:
                 self.network.load_state_dict(new_state_dict)
-        if 'optimizer_state' in checkpoint.keys():
-            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         if self.grad_scaler is not None:
             if checkpoint['grad_scaler_state'] is not None:
                 self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
