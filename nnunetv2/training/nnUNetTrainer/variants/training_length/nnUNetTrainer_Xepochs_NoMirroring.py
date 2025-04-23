@@ -1,12 +1,13 @@
 import torch
 
+from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
 
 class nnUNetTrainer_200epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 200
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -19,8 +20,8 @@ class nnUNetTrainer_200epochs_NoMirroring(nnUNetTrainer):
 
 class nnUNetTrainer_250epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 250
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -33,8 +34,8 @@ class nnUNetTrainer_250epochs_NoMirroring(nnUNetTrainer):
 
 class nnUNetTrainer_500epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 500
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -47,8 +48,8 @@ class nnUNetTrainer_500epochs_NoMirroring(nnUNetTrainer):
 
 class nnUNetTrainer_1000epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 1000
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -61,8 +62,8 @@ class nnUNetTrainer_1000epochs_NoMirroring(nnUNetTrainer):
 
 class nnUNetTrainer_2000epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 2000
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -75,8 +76,8 @@ class nnUNetTrainer_2000epochs_NoMirroring(nnUNetTrainer):
     
 class nnUNetTrainer_4000epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 4000
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
@@ -89,8 +90,8 @@ class nnUNetTrainer_4000epochs_NoMirroring(nnUNetTrainer):
 
 class nnUNetTrainer_8000epochs_NoMirroring(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
-                 device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, device)
+                 device: torch.device = torch.device('cuda'), logger: nnUNetLogger | None = None):
+        super().__init__(plans, configuration, fold, dataset_json, device, logger)
         self.num_epochs = 8000
 
     def configure_rotation_dummyDA_mirroring_and_inital_patch_size(self):
