@@ -133,14 +133,17 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             'nthreads': 1
         }
         data_b2nd_file = join(self.source_folder, identifier + '.b2nd')
-        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams, mmap_mode='r')
+
+        # mmap does not work with Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
+        mmap_kwargs = {} if os.name == "nt" else {'mmap_mode': 'r'}
+        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
 
         seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
-        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, mmap_mode='r')
+        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
 
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_b2nd_file = join(self.folder_with_segs_from_previous_stage, identifier + '.b2nd')
-            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams, mmap_mode='r')
+            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
         else:
             seg_prev = None
 
