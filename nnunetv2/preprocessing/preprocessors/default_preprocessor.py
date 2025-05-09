@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 from tqdm import tqdm
+from typing import Union
 
 import nnunetv2
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
