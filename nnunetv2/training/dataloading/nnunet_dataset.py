@@ -177,9 +177,9 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         }
         # print(output_filename_truncated, data.shape, seg.shape, blocks, chunks, blocks_seg, chunks_seg, data.dtype, seg.dtype)
         blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks,
-                       blocks=blocks, cparams=cparams, mmap_mode='w+')
+                       blocks=blocks, cparams=cparams)
         blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg,
-                       blocks=blocks_seg, cparams=cparams, mmap_mode='w+')
+                       blocks=blocks_seg, cparams=cparams)
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
