@@ -15,7 +15,7 @@
 import os
 
 """
-PLEASE READ paths.md FOR INFORMATION TO HOW TO SET THIS UP
+PLEASE READ documentation/setting_up_paths.md FOR INFORMATION TO HOW TO SET THIS UP
 """
 
 nnUNet_raw = os.environ.get('nnUNet_raw')
