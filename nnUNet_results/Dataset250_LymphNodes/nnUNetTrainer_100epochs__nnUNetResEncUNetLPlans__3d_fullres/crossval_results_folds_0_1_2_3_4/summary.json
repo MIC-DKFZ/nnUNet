@@ -1,0 +1,1306 @@
+{
+    "foreground_mean": {
+        "Dice": 0.03238512893585247,
+        "FN": 28772.4125,
+        "FP": 55301.0375,
+        "IoU": 0.018081422288758774,
+        "TN": 160417482.25,
+        "TP": 2661.9,
+        "n_pred": 57962.9375,
+        "n_ref": 31434.3125
+    },
+    "mean": {
+        "1": {
+            "Dice": 0.03238512893585247,
+            "FN": 28772.4125,
+            "FP": 55301.0375,
+            "IoU": 0.018081422288758774,
+            "TN": 160417482.25,
+            "TP": 2661.9,
+            "n_pred": 57962.9375,
+            "n_ref": 31434.3125
+        }
+    },
+    "metric_per_case": [
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.007210510235258173,
+                    "FN": 4211,
+                    "FP": 77024,
+                    "IoU": 0.0036183000122654236,
+                    "TN": 174506374,
+                    "TP": 295,
+                    "n_pred": 77319,
+                    "n_ref": 4506
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_000.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_000.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 9004,
+                    "FP": 50711,
+                    "IoU": 0.0,
+                    "TN": 173217469,
+                    "TP": 0,
+                    "n_pred": 50711,
+                    "n_ref": 9004
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_001.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_001.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.3365573551574811,
+                    "FN": 19641,
+                    "FP": 49913,
+                    "IoU": 0.20232579476122758,
+                    "TN": 198093668,
+                    "TP": 17642,
+                    "n_pred": 67555,
+                    "n_ref": 37283
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_002.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_002.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 22258,
+                    "FP": 77725,
+                    "IoU": 0.0,
+                    "TN": 164264305,
+                    "TP": 0,
+                    "n_pred": 77725,
+                    "n_ref": 22258
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_004.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_004.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 1.8958064760749223e-05,
+                    "FN": 41593,
+                    "FP": 63901,
+                    "IoU": 9.479122233281199e-06,
+                    "TN": 177103849,
+                    "TP": 1,
+                    "n_pred": 63902,
+                    "n_ref": 41594
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_005.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_005.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 12709,
+                    "FP": 50581,
+                    "IoU": 0.0,
+                    "TN": 177146054,
+                    "TP": 0,
+                    "n_pred": 50581,
+                    "n_ref": 12709
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_006.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_006.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.3318663396338968,
+                    "FN": 81665,
+                    "FP": 128902,
+                    "IoU": 0.1989446934132739,
+                    "TN": 176684338,
+                    "TP": 52295,
+                    "n_pred": 181197,
+                    "n_ref": 133960
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_008.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_008.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3241,
+                    "FP": 19242,
+                    "IoU": 0.0,
+                    "TN": 171681837,
+                    "TP": 0,
+                    "n_pred": 19242,
+                    "n_ref": 3241
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_009.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_009.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0009235616884880752,
+                    "FN": 1286,
+                    "FP": 35494,
+                    "IoU": 0.00046199418430850343,
+                    "TN": 162230339,
+                    "TP": 17,
+                    "n_pred": 35511,
+                    "n_ref": 1303
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_010.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_010.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.12111365811319075,
+                    "FN": 31606,
+                    "FP": 47376,
+                    "IoU": 0.0644603430304179,
+                    "TN": 135444024,
+                    "TP": 5442,
+                    "n_pred": 52818,
+                    "n_ref": 37048
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_011.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_011.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 34732,
+                    "FP": 17893,
+                    "IoU": 0.0,
+                    "TN": 162738799,
+                    "TP": 0,
+                    "n_pred": 17893,
+                    "n_ref": 34732
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_013.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_013.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.06319432047567389,
+                    "FN": 16992,
+                    "FP": 51229,
+                    "IoU": 0.03262811604889254,
+                    "TN": 183692422,
+                    "TP": 2301,
+                    "n_pred": 53530,
+                    "n_ref": 19293
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_014.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_014.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 11167,
+                    "FP": 154740,
+                    "IoU": 0.0,
+                    "TN": 129071085,
+                    "TP": 0,
+                    "n_pred": 154740,
+                    "n_ref": 11167
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_015.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_015.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 6883,
+                    "FP": 19775,
+                    "IoU": 0.0,
+                    "TN": 138647518,
+                    "TP": 0,
+                    "n_pred": 19775,
+                    "n_ref": 6883
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_016.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_016.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 6195,
+                    "FP": 92149,
+                    "IoU": 0.0,
+                    "TN": 178421720,
+                    "TP": 0,
+                    "n_pred": 92149,
+                    "n_ref": 6195
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_017.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_017.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.049858566995303874,
+                    "FN": 43131,
+                    "FP": 95259,
+                    "IoU": 0.025566641553009768,
+                    "TN": 188863803,
+                    "TP": 3631,
+                    "n_pred": 98890,
+                    "n_ref": 46762
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_018.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_018.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3811,
+                    "FP": 61477,
+                    "IoU": 0.0,
+                    "TN": 185532664,
+                    "TP": 0,
+                    "n_pred": 61477,
+                    "n_ref": 3811
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_019.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_019.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.010419925925386927,
+                    "FN": 119494,
+                    "FP": 16503,
+                    "IoU": 0.00523724883515101,
+                    "TN": 14543351,
+                    "TP": 716,
+                    "n_pred": 17219,
+                    "n_ref": 120210
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_020.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_020.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 45733,
+                    "FP": 90328,
+                    "IoU": 0.0,
+                    "TN": 177335427,
+                    "TP": 0,
+                    "n_pred": 90328,
+                    "n_ref": 45733
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_022.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_022.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 9350,
+                    "FP": 112192,
+                    "IoU": 0.0,
+                    "TN": 166602042,
+                    "TP": 0,
+                    "n_pred": 112192,
+                    "n_ref": 9350
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_023.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_023.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.05262433052792655,
+                    "FN": 57558,
+                    "FP": 66264,
+                    "IoU": 0.027023204280965888,
+                    "TN": 194121443,
+                    "TP": 3439,
+                    "n_pred": 69703,
+                    "n_ref": 60997
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_024.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_024.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.03480346991638127,
+                    "FN": 65881,
+                    "FP": 100682,
+                    "IoU": 0.017709918261915713,
+                    "TN": 180971938,
+                    "TP": 3003,
+                    "n_pred": 103685,
+                    "n_ref": 68884
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_025.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_025.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.017475054006789423,
+                    "FN": 107349,
+                    "FP": 45469,
+                    "IoU": 0.008814544322434604,
+                    "TN": 144811455,
+                    "TP": 1359,
+                    "n_pred": 46828,
+                    "n_ref": 108708
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_026.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_026.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0060027993824042945,
+                    "FN": 11242,
+                    "FP": 57643,
+                    "IoU": 0.003010435210513366,
+                    "TN": 182383131,
+                    "TP": 208,
+                    "n_pred": 57851,
+                    "n_ref": 11450
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_027.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_027.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0035004870960817663,
+                    "FN": 33803,
+                    "FP": 26548,
+                    "IoU": 0.0017533122715318325,
+                    "TN": 188158935,
+                    "TP": 106,
+                    "n_pred": 26654,
+                    "n_ref": 33909
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_028.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_028.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 350,
+                    "FP": 22752,
+                    "IoU": 0.0,
+                    "TN": 168273346,
+                    "TP": 0,
+                    "n_pred": 22752,
+                    "n_ref": 350
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_029.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_029.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3930,
+                    "FP": 12648,
+                    "IoU": 0.0,
+                    "TN": 170377022,
+                    "TP": 0,
+                    "n_pred": 12648,
+                    "n_ref": 3930
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_030.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_030.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 15209,
+                    "FP": 32097,
+                    "IoU": 0.0,
+                    "TN": 141772598,
+                    "TP": 0,
+                    "n_pred": 32097,
+                    "n_ref": 15209
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_031.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_031.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.04386877186347736,
+                    "FN": 5096,
+                    "FP": 25243,
+                    "IoU": 0.022426292895118414,
+                    "TN": 162760389,
+                    "TP": 696,
+                    "n_pred": 25939,
+                    "n_ref": 5792
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_032.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_032.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 1722,
+                    "FP": 61045,
+                    "IoU": 0.0,
+                    "TN": 182389457,
+                    "TP": 0,
+                    "n_pred": 61045,
+                    "n_ref": 1722
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_033.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_033.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.09843285875243266,
+                    "FN": 15546,
+                    "FP": 19662,
+                    "IoU": 0.05176407217883113,
+                    "TN": 119762678,
+                    "TP": 1922,
+                    "n_pred": 21584,
+                    "n_ref": 17468
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_035.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_035.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0033032517209941464,
+                    "FN": 21290,
+                    "FP": 54143,
+                    "IoU": 0.0016543582413510152,
+                    "TN": 166648026,
+                    "TP": 125,
+                    "n_pred": 54268,
+                    "n_ref": 21415
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_036.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_036.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 4206,
+                    "FP": 53494,
+                    "IoU": 0.0,
+                    "TN": 177938076,
+                    "TP": 0,
+                    "n_pred": 53494,
+                    "n_ref": 4206
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_037.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_037.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 8184,
+                    "FP": 25509,
+                    "IoU": 0.0,
+                    "TN": 119766115,
+                    "TP": 0,
+                    "n_pred": 25509,
+                    "n_ref": 8184
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_038.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_038.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 8014,
+                    "FP": 50723,
+                    "IoU": 0.0,
+                    "TN": 159586959,
+                    "TP": 0,
+                    "n_pred": 50723,
+                    "n_ref": 8014
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_039.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_039.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 42093,
+                    "FP": 28372,
+                    "IoU": 0.0,
+                    "TN": 173206719,
+                    "TP": 0,
+                    "n_pred": 28372,
+                    "n_ref": 42093
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_040.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_040.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3442,
+                    "FP": 27984,
+                    "IoU": 0.0,
+                    "TN": 154895678,
+                    "TP": 0,
+                    "n_pred": 27984,
+                    "n_ref": 3442
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_041.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_041.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 12744,
+                    "FP": 4935,
+                    "IoU": 0.0,
+                    "TN": 137345777,
+                    "TP": 0,
+                    "n_pred": 4935,
+                    "n_ref": 12744
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_042.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_042.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 1460,
+                    "FP": 49180,
+                    "IoU": 0.0,
+                    "TN": 120797744,
+                    "TP": 0,
+                    "n_pred": 49180,
+                    "n_ref": 1460
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_043.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_043.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.007947976878612716,
+                    "FN": 453,
+                    "FP": 24261,
+                    "IoU": 0.003989844033369605,
+                    "TN": 165388051,
+                    "TP": 99,
+                    "n_pred": 24360,
+                    "n_ref": 552
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_044.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_044.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 8207,
+                    "FP": 233772,
+                    "IoU": 0.0,
+                    "TN": 185618117,
+                    "TP": 0,
+                    "n_pred": 233772,
+                    "n_ref": 8207
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_046.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_046.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 5811,
+                    "FP": 15145,
+                    "IoU": 0.0,
+                    "TN": 136556068,
+                    "TP": 0,
+                    "n_pred": 15145,
+                    "n_ref": 5811
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_047.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_047.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.010083561850884201,
+                    "FN": 21040,
+                    "FP": 70652,
+                    "IoU": 0.005067329289597327,
+                    "TN": 129144833,
+                    "TP": 467,
+                    "n_pred": 71119,
+                    "n_ref": 21507
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_048.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_048.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 891,
+                    "FP": 40270,
+                    "IoU": 0.0,
+                    "TN": 144924471,
+                    "TP": 0,
+                    "n_pred": 40270,
+                    "n_ref": 891
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_049.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_049.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.017299595648005334,
+                    "FN": 34995,
+                    "FP": 59301,
+                    "IoU": 0.008725269642369068,
+                    "TN": 133336170,
+                    "TP": 830,
+                    "n_pred": 60131,
+                    "n_ref": 35825
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_050.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_050.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 13710,
+                    "FP": 75501,
+                    "IoU": 0.0,
+                    "TN": 135439237,
+                    "TP": 0,
+                    "n_pred": 75501,
+                    "n_ref": 13710
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_051.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_051.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 25556,
+                    "FP": 30980,
+                    "IoU": 0.0,
+                    "TN": 136520488,
+                    "TP": 0,
+                    "n_pred": 30980,
+                    "n_ref": 25556
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_052.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_052.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.06500607533414338,
+                    "FN": 47910,
+                    "FP": 35196,
+                    "IoU": 0.033594976452119306,
+                    "TN": 118927381,
+                    "TP": 2889,
+                    "n_pred": 38085,
+                    "n_ref": 50799
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_053.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_053.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 16676,
+                    "FP": 33408,
+                    "IoU": 0.0,
+                    "TN": 152255580,
+                    "TP": 0,
+                    "n_pred": 33408,
+                    "n_ref": 16676
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_054.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_054.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 23094,
+                    "FP": 42046,
+                    "IoU": 0.0,
+                    "TN": 187629964,
+                    "TP": 0,
+                    "n_pred": 42046,
+                    "n_ref": 23094
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_055.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_055.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0510340729513385,
+                    "FN": 131437,
+                    "FP": 88948,
+                    "IoU": 0.02618520531481015,
+                    "TN": 174361593,
+                    "TP": 5926,
+                    "n_pred": 94874,
+                    "n_ref": 137363
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_057.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_057.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 25431,
+                    "FP": 10296,
+                    "IoU": 0.0,
+                    "TN": 169309297,
+                    "TP": 0,
+                    "n_pred": 10296,
+                    "n_ref": 25431
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_058.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_058.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 14483,
+                    "FP": 78338,
+                    "IoU": 0.0,
+                    "TN": 178427243,
+                    "TP": 0,
+                    "n_pred": 78338,
+                    "n_ref": 14483
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_059.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_059.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 61108,
+                    "FP": 30424,
+                    "IoU": 0.0,
+                    "TN": 181049972,
+                    "TP": 0,
+                    "n_pred": 30424,
+                    "n_ref": 61108
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_060.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_060.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3211,
+                    "FP": 26739,
+                    "IoU": 0.0,
+                    "TN": 192645890,
+                    "TP": 0,
+                    "n_pred": 26739,
+                    "n_ref": 3211
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_061.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_061.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3664,
+                    "FP": 36328,
+                    "IoU": 0.0,
+                    "TN": 196043720,
+                    "TP": 0,
+                    "n_pred": 36328,
+                    "n_ref": 3664
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_062.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_062.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0038060897435897435,
+                    "FN": 3472,
+                    "FP": 26366,
+                    "IoU": 0.0019066733567486202,
+                    "TN": 143887161,
+                    "TP": 57,
+                    "n_pred": 26423,
+                    "n_ref": 3529
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_063.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_063.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.10779491879232218,
+                    "FN": 37107,
+                    "FP": 50512,
+                    "IoU": 0.056967883588772174,
+                    "TN": 139629840,
+                    "TP": 5293,
+                    "n_pred": 55805,
+                    "n_ref": 42400
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_064.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_064.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.014726581129968476,
+                    "FN": 27322,
+                    "FP": 57379,
+                    "IoU": 0.007417910797571894,
+                    "TN": 156676778,
+                    "TP": 633,
+                    "n_pred": 58012,
+                    "n_ref": 27955
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_065.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_065.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 1371,
+                    "FP": 70147,
+                    "IoU": 0.0,
+                    "TN": 174516386,
+                    "TP": 0,
+                    "n_pred": 70147,
+                    "n_ref": 1371
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_066.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_066.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.04129025182666868,
+                    "FN": 109929,
+                    "FP": 29941,
+                    "IoU": 0.021080332022228133,
+                    "TN": 183882206,
+                    "TP": 3012,
+                    "n_pred": 32953,
+                    "n_ref": 112941
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_068.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_068.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 21758,
+                    "FP": 72496,
+                    "IoU": 0.0,
+                    "TN": 164007890,
+                    "TP": 0,
+                    "n_pred": 72496,
+                    "n_ref": 21758
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_069.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_069.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.2896326941294214,
+                    "FN": 159422,
+                    "FP": 106038,
+                    "IoU": 0.16933947061271618,
+                    "TN": 186064807,
+                    "TP": 54117,
+                    "n_pred": 160155,
+                    "n_ref": 213539
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_070.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_070.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3538,
+                    "FP": 88275,
+                    "IoU": 0.0,
+                    "TN": 179738971,
+                    "TP": 0,
+                    "n_pred": 88275,
+                    "n_ref": 3538
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_071.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_071.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.048663645293033034,
+                    "FN": 41799,
+                    "FP": 13408,
+                    "IoU": 0.0249386248432505,
+                    "TN": 38740693,
+                    "TP": 1412,
+                    "n_pred": 14820,
+                    "n_ref": 43211
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_072.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_072.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.000343780438893027,
+                    "FN": 25553,
+                    "FP": 26788,
+                    "IoU": 0.00017191977077363896,
+                    "TN": 131281794,
+                    "TP": 9,
+                    "n_pred": 26797,
+                    "n_ref": 25562
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_073.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_073.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 3236,
+                    "FP": 11774,
+                    "IoU": 0.0,
+                    "TN": 112444766,
+                    "TP": 0,
+                    "n_pred": 11774,
+                    "n_ref": 3236
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_074.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_074.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.3324989491778493,
+                    "FN": 32797,
+                    "FP": 73602,
+                    "IoU": 0.19939954401462764,
+                    "TN": 166328541,
+                    "TP": 26500,
+                    "n_pred": 100102,
+                    "n_ref": 59297
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_075.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_075.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 25957,
+                    "FP": 25362,
+                    "IoU": 0.0,
+                    "TN": 174798729,
+                    "TP": 0,
+                    "n_pred": 25362,
+                    "n_ref": 25957
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_076.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_076.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 46339,
+                    "FP": 67502,
+                    "IoU": 0.0,
+                    "TN": 171852623,
+                    "TP": 0,
+                    "n_pred": 67502,
+                    "n_ref": 46339
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_077.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_077.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0016612609761885928,
+                    "FN": 3736,
+                    "FP": 97224,
+                    "IoU": 0.0008313210086694906,
+                    "TN": 167933260,
+                    "TP": 84,
+                    "n_pred": 97308,
+                    "n_ref": 3820
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_079.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_079.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.014882447379566429,
+                    "FN": 88202,
+                    "FP": 111834,
+                    "IoU": 0.007497010622832392,
+                    "TN": 167832757,
+                    "TP": 1511,
+                    "n_pred": 113345,
+                    "n_ref": 89713
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_080.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_080.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.09862653419053186,
+                    "FN": 6156,
+                    "FP": 43196,
+                    "IoU": 0.051871205717359564,
+                    "TN": 166671532,
+                    "TP": 2700,
+                    "n_pred": 45896,
+                    "n_ref": 8856
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_081.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_081.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 37669,
+                    "FP": 79695,
+                    "IoU": 0.0,
+                    "TN": 188102028,
+                    "TP": 0,
+                    "n_pred": 79695,
+                    "n_ref": 37669
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_082.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_082.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 20472,
+                    "FP": 113844,
+                    "IoU": 0.0,
+                    "TN": 154792788,
+                    "TP": 0,
+                    "n_pred": 113844,
+                    "n_ref": 20472
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_083.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_083.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.018248584689141634,
+                    "FN": 81304,
+                    "FP": 111188,
+                    "IoU": 0.009208311672268519,
+                    "TN": 127994135,
+                    "TP": 1789,
+                    "n_pred": 112977,
+                    "n_ref": 83093
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_084.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_084.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.06127926047413151,
+                    "FN": 12247,
+                    "FP": 12937,
+                    "IoU": 0.031608090440667536,
+                    "TN": 172202602,
+                    "TP": 822,
+                    "n_pred": 13759,
+                    "n_ref": 13069
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_085.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_085.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.09381418092909535,
+                    "FN": 98437,
+                    "FP": 49815,
+                    "IoU": 0.049215653579261956,
+                    "TN": 188063466,
+                    "TP": 7674,
+                    "n_pred": 57489,
+                    "n_ref": 106111
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_086.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_086.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.0,
+                    "FN": 14319,
+                    "FP": 42359,
+                    "IoU": 0.0,
+                    "TN": 203367066,
+                    "TP": 0,
+                    "n_pred": 42359,
+                    "n_ref": 14319
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_087.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_087.nii.gz"
+        },
+        {
+            "metrics": {
+                "1": {
+                    "Dice": 0.13099563347888404,
+                    "FN": 18153,
+                    "FP": 33989,
+                    "IoU": 0.07008845769724639,
+                    "TN": 173221112,
+                    "TP": 3930,
+                    "n_pred": 37919,
+                    "n_ref": 22083
+                }
+            },
+            "prediction_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_results\\Dataset250_LymphNodes\\nnUNetTrainer_100epochs__nnUNetResEncUNetLPlans__3d_fullres\\crossval_results_folds_0_1_2_3_4\\MEDLNU_088.nii.gz",
+            "reference_file": "C:\\Users\\Test\\Desktop\\Bart\\nnUNet\\nnUNet_preprocessed\\Dataset250_LymphNodes\\gt_segmentations\\MEDLNU_088.nii.gz"
+        }
+    ]
+}
