@@ -183,9 +183,10 @@ class nnUNetPredictor(object):
 
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
             output_filename_truncated = [join(output_folder_or_list_of_truncated_output_files, i) for i in caseids]
-        else:
+        elif isinstance(output_folder_or_list_of_truncated_output_files, list):
             output_filename_truncated = output_folder_or_list_of_truncated_output_files[part_id::num_parts]
-
+        else:
+            output_filename_truncated = None
         seg_from_prev_stage_files = [join(folder_with_segs_from_prev_stage, i + self.dataset_json['file_ending']) if
                                      folder_with_segs_from_prev_stage is not None else None for i in caseids]
         # remove already predicted files from the lists
