@@ -4,7 +4,6 @@ from typing import Union, Tuple, List
 
 import numpy as np
 import pandas as pd
-import sklearn
 import torch
 from batchgenerators.augmentations.utils import resize_segmentation
 from scipy.ndimage import map_coordinates
@@ -29,7 +28,6 @@ def compute_new_shape(old_shape: Union[Tuple[int, ...], List[int], np.ndarray],
     assert len(old_shape) == len(new_spacing)
     new_shape = np.array([int(round(i / j * k)) for i, j, k in zip(old_spacing, new_spacing, old_shape)])
     return new_shape
-
 
 
 def determine_do_sep_z_and_axis(
@@ -143,7 +141,6 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
     if np.any(shape != new_shape):
         data = data.astype(float, copy=False)
         if do_separate_z:
-            # print("separate z, order in z is", order_z, "order inplane is", order)
             assert axis is not None, 'If do_separate_z, we need to know what axis is anisotropic'
             if axis == 0:
                 new_shape_2d = new_shape[1:]
@@ -191,14 +188,13 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                 else:
                     reshaped_final[c] = reshaped_here
         else:
-            # print("no separate z, order", order)
             for c in range(data.shape[0]):
                 reshaped_final[c] = resize_fn(data[c], new_shape, order, **kwargs)
         return reshaped_final
     else:
         # print("no resampling necessary")
         return data
-
+    
 
 if __name__ == '__main__':
     input_array = np.random.random((1, 42, 231, 142))
