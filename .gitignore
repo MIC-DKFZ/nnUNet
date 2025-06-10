@@ -113,4 +113,10 @@ ENV/
 
 *.model
 
+nnunet_data/
+raw_data/
+.venv/
+uv.lock
+.python-version
+
 !documentation/assets/scribble_example.png
