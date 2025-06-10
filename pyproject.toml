@@ -5,8 +5,8 @@ requires-python = ">=3.11.0,<3.13.0"
 dependencies = [
   "jupyter>=1.0.0",
   "ipykernel>=6.0.0",
-  "nnunetv2>=2.6.2",
   "numpy>=2.3.0",
+  "nnunetv2",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +46,7 @@ conflicts = [
 ]
 
 [tool.uv.sources]
+nnunetv2 = { path = "./nnUNet", editable = true }
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cu121", extra = "cu121" },
