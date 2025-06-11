@@ -246,15 +246,20 @@ class LabelManager(object):
 
 
 def get_labelmanager_class_from_plans(plans: dict) -> Type[LabelManager]:
-    if 'label_manager' not in plans.keys():
-        print('No label manager specified in plans. Using default: LabelManager')
-        return LabelManager
+    # if 'label_manager' not in plans.keys():
+    #     print('No label manager specified in plans. Using default: LabelManager')
+    #     return LabelManager
+    # else:
+    #     labelmanager_class = recursive_find_python_class(join(nnunetv2.__path__[0], "utilities", "label_handling", "label_handling"), plans['label_manager'], current_module="nnunetv2.utilities.label_handling")
+    #     return labelmanager_class
+    if 'label_manager' in plans.keys():
+        labelmanager_class = recursive_find_python_class(join(nnunetv2.__path__[0], "utilities", "label_handling"), plans['label_manager'], current_module="nnunetv2.utilities.label_handling")
+        if labelmanager_class is None:
+            return LabelManager
+        else:
+            return labelmanager_class
     else:
-        labelmanager_class = recursive_find_python_class(join(nnunetv2.__path__[0], "utilities", "label_handling"),
-                                                         plans['label_manager'],
-                                                         current_module="nnunetv2.utilities.label_handling")
-        return labelmanager_class
-
+        return LabelManager
 
 def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
                                 all_labels: Union[List, torch.Tensor, np.ndarray, tuple],

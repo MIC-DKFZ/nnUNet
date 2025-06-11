@@ -698,6 +698,7 @@ class TestTrainerIntegration:
             'transpose_backward': [0, 1, 2],
             'configurations': {
                 '2d': {
+                    'label_manager': 'LabelManager',
                     'data_identifier': 'nnUNetPlans_2d',
                     'preprocessor_name': 'DefaultPreprocessor',
                     'batch_size': 134,
@@ -750,6 +751,7 @@ class TestTrainerIntegration:
                     'batch_dice': True
                 },
                 '3d_fullres': {
+                    'label_manager': 'LabelManager',
                     'data_identifier': 'nnUNetPlans_3d_fullres',
                     'preprocessor_name': 'DefaultPreprocessor',
                     'batch_size': 2,
@@ -821,9 +823,9 @@ class TestTrainerIntegration:
             'name': 'Dataset001_PancreasSegClassification',
             'description': 'Test dataset',
             'labels': {
-                '0': 'background',
-                '1': 'pancreas',
-                '2': 'lesion'
+                'background': '0',
+                'pancreas': '1',
+                'lesion': '2',
             },
             'numTest': 10,
             'numTraining': 100,
