@@ -13,7 +13,7 @@ from dynamic_network_architectures.building_blocks.helper import convert_dim_to_
 from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
 from nnunetv2.experiment_planning.experiment_planners.network_topology import get_pool_and_conv_props
 
-from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet
+from nnunetv2.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet
 
 
 class MultiTaskResEncUNetPlanner(ExperimentPlanner):

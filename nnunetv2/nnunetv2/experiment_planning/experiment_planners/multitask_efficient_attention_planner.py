@@ -9,8 +9,8 @@ import numpy as np
 from copy import deepcopy
 from typing import Union, List, Tuple
 
-from src.planners.multitask_base_planner import MultiTaskResEncUNetPlanner
-from src.architectures.MultiTaskResEncUNet import MultiTaskEfficientAttentionResEncUNet
+from nnunetv2.experiment_planning.experiment_planners.multitask_base_planner import MultiTaskResEncUNetPlanner
+from nnunetv2.architectures.MultiTaskResEncUNet import MultiTaskEfficientAttentionResEncUNet
 
 
 class MultiTaskEfficientAttentionResEncUNetPlanner(MultiTaskResEncUNetPlanner):

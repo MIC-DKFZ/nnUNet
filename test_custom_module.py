@@ -68,9 +68,9 @@ def error_print(e: Exception, context: str = None, show_traceback: bool = True) 
 
 # Test imports
 try:
-    from src.losses.multitask_losses import MultiTaskLoss, UnifiedFocalLoss, TverskyLoss
+    from nnunetv2.nnunetv2.training.loss.multitask_losses import MultiTaskLoss, UnifiedFocalLoss, TverskyLoss
     from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet, MultiTaskChannelAttentionResEncUNet, MultiTaskEfficientAttentionResEncUNet
-    from src.trainers.nnUNetTrainerMultiTask import nnUNetTrainerMultiTask
+    from nnunetv2.nnunetv2.training.nnUNetTrainer.nnUNetTrainerMultiTask import nnUNetTrainerMultiTask
     from src.planners.multitask_base_planner import MultiTaskResEncUNetPlanner
     from src.planners.multitask_channel_attention_planner import MultiTaskChannelAttentionResEncUNetPlanner
     from src.planners.multitask_efficient_attention_planner import MultiTaskEfficientAttentionResEncUNetPlanner

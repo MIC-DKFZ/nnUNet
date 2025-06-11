@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 # from nnunetv2.utilities.helpers import softmax_helper_dim1
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
+from torch.nn.init import kaiming_normal_, constant_
 
 
 class EfficientAttentionBlock(nn.Module):
@@ -166,12 +167,33 @@ class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
         print(encoder_features[-1].shape, "Bottleneck features shape")
 
         # Classification with attention-enhanced features
-        cls_output = self.classification_head(encoder_features[-1])
+        # Ensure encoder features are on the same device as the classification head
+        bottleneck_features = encoder_features[-1]
+        cls_output = self.classification_head(bottleneck_features)
 
         return {
             'segmentation': seg_output,
             'classification': cls_output
         }
+
+    def initialize(self, module):
+        """
+        Custom initialization method to avoid compatibility issues with
+        dynamic_network_architectures initialization functions.
+        """
+        if isinstance(module, nn.Conv3d):
+            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if module.bias is not None:
+                constant_(module.bias, 0)
+        elif isinstance(module, (nn.BatchNorm3d, nn.InstanceNorm3d, nn.GroupNorm)):
+            if module.weight is not None:
+                constant_(module.weight, 1)
+            if module.bias is not None:
+                constant_(module.bias, 0)
+        elif isinstance(module, nn.Linear):
+            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if module.bias is not None:
+                constant_(module.bias, 0)
 
 
 # Simpler version with just channel attention
@@ -259,6 +281,26 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
             'classification': cls_output
         }
 
+    def initialize(self, module):
+        """
+        Custom initialization method to avoid compatibility issues with
+        dynamic_network_architectures initialization functions.
+        """
+        if isinstance(module, nn.Conv3d):
+            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if module.bias is not None:
+                constant_(module.bias, 0)
+        elif isinstance(module, (nn.BatchNorm3d, nn.InstanceNorm3d, nn.GroupNorm)):
+            if module.weight is not None:
+                constant_(module.weight, 1)
+            if module.bias is not None:
+                constant_(module.bias, 0)
+        elif isinstance(module, nn.Linear):
+            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if module.bias is not None:
+                constant_(module.bias, 0)
+
+
 # No attention version for comparison
 class MultiTaskResEncUNet(ResidualEncoderUNet):
     """Multi-task ResEnc U-Net with shared encoder and dual heads"""
@@ -330,6 +372,26 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             'segmentation': seg_output,
             'classification': cls_output
         }
+
+    def initialize(self, module):
+        """
+        Custom initialization method to avoid compatibility issues with
+        dynamic_network_architectures initialization functions.
+        """
+        if isinstance(module, nn.Conv3d):
+            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if module.bias is not None:
+                constant_(module.bias, 0)
+        elif isinstance(module, (nn.BatchNorm3d, nn.InstanceNorm3d, nn.GroupNorm)):
+            if module.weight is not None:
+                constant_(module.weight, 1)
+            if module.bias is not None:
+                constant_(module.bias, 0)
+        elif isinstance(module, nn.Linear):
+            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if module.bias is not None:
+                constant_(module.bias, 0)
+
 
 # Memory usage comparison:
 def estimate_memory_usage():

@@ -3,8 +3,8 @@ from torch import nn
 import numpy as np
 from typing import Union, Tuple, List
 from nnunetv2.training.nnUNetTrainer.variants.network_architecture.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
-from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet, MultiTaskChannelAttentionResEncUNet, MultiTaskEfficientAttentionResEncUNet
-from src.losses.multitask_losses import MultiTaskLoss
+from nnunetv2.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet, MultiTaskChannelAttentionResEncUNet, MultiTaskEfficientAttentionResEncUNet
+from nnunetv2.training.loss.multitask_losses import MultiTaskLoss
 # from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 # from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op
 # from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
@@ -35,62 +35,42 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         This method follows the nnUNetv2 trainer interface but builds our custom multi-task network.
         """
 
-        # Extract network configuration from arch_init_kwargs
-        n_stages = arch_init_kwargs.get('n_stages', None)
-        features_per_stage = arch_init_kwargs.get('features_per_stage', None)
-        conv_op = arch_init_kwargs.get('conv_op', 'torch.nn.Conv3d')
-        kernel_sizes = arch_init_kwargs.get('kernel_sizes', None)
-        strides = arch_init_kwargs.get('strides', None)
-        n_blocks_per_stage = arch_init_kwargs.get('n_blocks_per_stage', None)
-        n_conv_per_stage_decoder = arch_init_kwargs.get('n_conv_per_stage_decoder', None)
+        # Handle the import requirements for architecture kwargs
+        import pydoc
+        architecture_kwargs = dict(**arch_init_kwargs)
+        for ri in arch_init_kwargs_req_import:
+            if architecture_kwargs[ri] is not None:
+                architecture_kwargs[ri] = pydoc.locate(architecture_kwargs[ri])
 
-        # Import conv_op if it's a string
-        if isinstance(conv_op, str):
-            import pydoc
-            conv_op = pydoc.locate(conv_op)
+        # Map architecture class names to our custom classes
+        architecture_mapping = {
+            'nnunetv2.architectures.MultiTaskResEncUNet.MultiTaskResEncUNet': MultiTaskResEncUNet,
+            'nnunetv2.architectures.MultiTaskResEncUNet.MultiTaskChannelAttentionResEncUNet': MultiTaskChannelAttentionResEncUNet,
+            'nnunetv2.architectures.MultiTaskResEncUNet.MultiTaskEfficientAttentionResEncUNet': MultiTaskEfficientAttentionResEncUNet,
+            # Add fallback for just the class name
+            'MultiTaskResEncUNet': MultiTaskResEncUNet,
+            'MultiTaskChannelAttentionResEncUNet': MultiTaskChannelAttentionResEncUNet,
+            'MultiTaskEfficientAttentionResEncUNet': MultiTaskEfficientAttentionResEncUNet,
+        }
 
-        # Determine conv_or_blocks_per_stage for ResidualEncoderUNet
-        if 'ResidualEncoderUNet' in architecture_class_name:
-            conv_or_blocks_per_stage = {
-                'n_blocks_per_stage': n_blocks_per_stage,
-                'n_conv_per_stage_decoder': n_conv_per_stage_decoder
-            }
+        # Get the network class
+        if architecture_class_name in architecture_mapping:
+            network_class = architecture_mapping[architecture_class_name]
         else:
-            conv_or_blocks_per_stage = {
-                'n_conv_per_stage': n_blocks_per_stage,
-                'n_conv_per_stage_decoder': n_conv_per_stage_decoder
-            }
-
-        # Select the architecture class based on the plan configuration or argument
-        if architecture_class_name == "MultiTaskResEncUNet":
-            net_cls = MultiTaskResEncUNet
-        elif architecture_class_name == "MultiTaskChannelAttentionResEncUNet":
-            net_cls = MultiTaskChannelAttentionResEncUNet
-        elif architecture_class_name == "MultiTaskEfficientAttentionResEncUNet":
-            net_cls = MultiTaskEfficientAttentionResEncUNet
-        else:
+            # Fallback to default nnUNet behavior
             raise ValueError(f"Unknown architecture_class_name: {architecture_class_name}")
 
-        # Build the multi-task network
-        network = net_cls(
+        # Create the network - note the different parameter names for multi-task networks
+        network = network_class(
             input_channels=num_input_channels,
-            num_segmentation_classes=num_output_channels,
-            num_classification_classes=arch_init_kwargs.get('num_classification_classes', 3),
-            n_stages=n_stages,
-            features_per_stage=features_per_stage,
-            conv_op=conv_op,
-            kernel_sizes=kernel_sizes,
-            strides=strides,
-            **conv_or_blocks_per_stage,
-            conv_bias=arch_init_kwargs.get('conv_bias', True),
-            norm_op=arch_init_kwargs.get('norm_op', 'torch.nn.InstanceNorm3d'),
-            norm_op_kwargs=arch_init_kwargs.get('norm_op_kwargs', {"eps": 1e-05, "affine": True}),
-            dropout_op=arch_init_kwargs.get('dropout_op', None),
-            dropout_op_kwargs=arch_init_kwargs.get('dropout_op_kwargs', None),
-            nonlin=arch_init_kwargs.get('nonlin', 'torch.nn.LeakyReLU'),
-            nonlin_kwargs=arch_init_kwargs.get('nonlin_kwargs', {"inplace": True}),
-            deep_supervision=enable_deep_supervision
+            num_classes=num_output_channels,
+            # num_classification_classes=3,  # Update based on your classification classes
+            **architecture_kwargs
         )
+
+        # Initialize the network if it has an initialize method
+        if hasattr(network, 'initialize'):
+            network.apply(network.initialize)
 
         return network
 
@@ -106,9 +86,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         Custom training step for multi-task learning.
         """
-        data = batch['data']
-        target_seg = batch['target']  # Segmentation targets
-        target_cls = batch.get('classification_target', None)  # Classification targets
+        data = batch['data'].to(self.device)
+        target_seg = batch['target'].to(self.device)  # Segmentation targets
+        target_cls = batch.get('classification_target', None).to(self.device)  # Classification targets
 
         self.optimizer.zero_grad()
 
