@@ -640,8 +640,26 @@ class TestPlannerIntegration:
             num_input_channels = 1
             num_output_channels = 3
             network_class_name = 'src.architectures.MultiTaskResEncUNet.MultiTaskResEncUNet'
-            arch_kwargs = {'num_classification_classes': 3}
-            arch_kwargs_req_import = []
+            arch_kwargs = {
+                'n_stages': 6,
+                'features_per_stage': (32, 64, 128, 256, 320, 320),
+                'conv_op': 'torch.nn.modules.conv.Conv3d',
+                'kernel_sizes': ((1, 3, 3), (3, 3, 3), (3, 3, 3), (3, 3, 3), (3, 3, 3), (3, 3, 3)),
+                'strides': ((1, 1, 1), (1, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)),
+                'n_blocks_per_stage': (1, 3, 4, 6, 6, 6),
+                'n_conv_per_stage_decoder': (1, 1, 1, 1, 1),
+                'conv_bias': True,
+                'norm_op': 'torch.nn.modules.instancenorm.InstanceNorm3d',
+                'norm_op_kwargs': {'eps': 1e-05, 'affine': True},
+                'dropout_op': None,
+                'dropout_op_kwargs': None,
+                'nonlin': 'torch.nn.LeakyReLU',
+                'nonlin_kwargs': {'inplace': True},
+                'num_classification_classes': 3,
+                'classification_dropout': 0.5,
+                'use_classification_head': True
+            }
+            arch_kwargs_req_import = ('conv_op', 'norm_op', 'dropout_op', 'nonlin')
 
             # Estimate memory
             memory_estimate = planner.static_estimate_VRAM_usage(

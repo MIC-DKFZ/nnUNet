@@ -101,7 +101,7 @@ class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
         )
 
         self.num_classification_classes = num_classification_classes
-
+        self.classification_dropout = kwargs.get("classification_dropout", 0.2)
         # Add efficient attention only to the deepest few layers
         # (adding to all layers would be too memory intensive)
         self.encoder_attention = nn.ModuleDict({
@@ -114,15 +114,15 @@ class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
             LinearAttentionBlock(features_per_stage[-1], num_heads=8),
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
-            nn.Dropout(0.3),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(features_per_stage[-1], 512),
             nn.LayerNorm(512),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.3),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(512, 256),
             nn.LayerNorm(256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(256, num_classification_classes)
         )
 
@@ -192,10 +192,10 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
             strides=strides,
             n_blocks_per_stage=n_blocks_per_stage,
             n_conv_per_stage_decoder=n_conv_per_stage_decoder,
-            **kwargs
         )
 
         self.num_classification_classes = num_classification_classes
+        self.classification_dropout = kwargs.get("classification_dropout", 0.2)
 
         # Simple channel attention for classification
         self.bottleneck_attention = nn.Sequential(
@@ -210,10 +210,10 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
         self.classification_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
-            nn.Dropout(0.2),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(features_per_stage[-1], 256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(256, num_classification_classes)
         )
 
@@ -278,19 +278,18 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             strides=strides,
             n_blocks_per_stage=n_blocks_per_stage,
             n_conv_per_stage_decoder=n_conv_per_stage_decoder,
-            **kwargs
         )
 
         self.num_classification_classes = num_classification_classes
-
+        self.classification_dropout = kwargs.get("classification_dropout", 0.2)
         # Classification head using bottleneck features
         self.classification_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
-            nn.Dropout(0.2),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(features_per_stage[-1], 256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.2),
+            nn.Dropout(self.classification_dropout),
             nn.Linear(256, num_classification_classes)
         )
 

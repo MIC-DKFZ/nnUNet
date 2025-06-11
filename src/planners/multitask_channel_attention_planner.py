@@ -34,7 +34,6 @@ class MultiTaskChannelAttentionResEncUNetPlanner(MultiTaskResEncUNetPlanner):
         # Channel attention adds some overhead, adjust memory estimates
         self.UNet_reference_val_3d = int(680000000 * 1.15)  # 15% increase
         self.UNet_reference_val_2d = int(135000000 * 1.15)  # 15% increase
-        self.plans_identifier = 'nnUNetMultiTaskChannelAttentionResEncUNetPlans'
 
     def get_plans_for_configuration(self,
                                     spacing: Union[np.ndarray, Tuple[float, ...], List[float]],

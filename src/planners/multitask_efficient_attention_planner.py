@@ -35,8 +35,6 @@ class MultiTaskEfficientAttentionResEncUNetPlanner(MultiTaskResEncUNetPlanner):
         self.UNet_reference_val_3d = int(680000000 * 1.12)  # 12% increase
         self.UNet_reference_val_2d = int(135000000 * 1.12)  # 12% increase
 
-        self.plans_identifier = 'nnUNetMultiTaskEfficientAttentionResEncUNetPlans'
-
     def get_plans_for_configuration(self,
                                     spacing: Union[np.ndarray, Tuple[float, ...], List[float]],
                                     median_shape: Union[np.ndarray, Tuple[int, ...]],
