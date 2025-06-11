@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from nnunetv2.utilities.helpers import softmax_helper_dim1
+# from nnunetv2.utilities.helpers import softmax_helper_dim1
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 
 
@@ -79,7 +79,7 @@ class LinearAttentionBlock(nn.Module):
         return attn_out.permute(0, 2, 1).reshape(b, c, d, h, w)
 
 
-class MultiTaskFullAttentionResEncUNet(ResidualEncoderUNet):
+class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
     """Multi-task ResEnc U-Net with efficient attention mechanisms"""
 
     def __init__(self, input_channels, num_classes, num_classification_classes,
@@ -116,11 +116,11 @@ class MultiTaskFullAttentionResEncUNet(ResidualEncoderUNet):
             nn.Flatten(),
             nn.Dropout(0.3),
             nn.Linear(features_per_stage[-1], 512),
-            nn.BatchNorm1d(512),
+            nn.LayerNorm(512),
             nn.ReLU(inplace=True),
             nn.Dropout(0.3),
             nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
+            nn.LayerNorm(256),
             nn.ReLU(inplace=True),
             nn.Dropout(0.2),
             nn.Linear(256, num_classification_classes)
@@ -129,9 +129,9 @@ class MultiTaskFullAttentionResEncUNet(ResidualEncoderUNet):
     def forward(self, x):
         # Encoder forward pass with selective attention
         encoder_features = []
-        current = x
+        current = self.encoder.stem(x) if self.encoder.stem else x
 
-        for i, stage in enumerate(self.encoder):
+        for i, stage in enumerate(self.encoder.stages):
             current = stage(current)
 
             # Apply attention only to the deepest layers
@@ -141,14 +141,29 @@ class MultiTaskFullAttentionResEncUNet(ResidualEncoderUNet):
 
             encoder_features.append(current)
 
-        # Segmentation decoder path (unchanged)
-        seg_output = encoder_features[-1]
+        # Manual decoder iteration (matching UNetDecoder.forward logic)
+        lres_input = encoder_features[-1]  # Start with bottleneck (deepest features)
+        seg_outputs = []
 
-        for i, decoder_stage in enumerate(self.decoder):
-            seg_output = decoder_stage(seg_output, encoder_features[-(i+2)])
+        for s in range(len(self.decoder.stages)):
+            x = self.decoder.transpconvs[s](lres_input)
+            # Skip index: -(s+2) because we skip the current deepest and go to previous
+            skip_features = encoder_features[-(s+2)]
+            x = torch.cat((x, skip_features), 1)
+            x = self.decoder.stages[s](x)
+            if self.decoder.deep_supervision:
+                seg_outputs.append(self.decoder.seg_layers[s](x))
+            elif s == (len(self.decoder.stages) - 1):  # Last stage
+                seg_outputs.append(self.decoder.seg_layers[-1](x))
+            lres_input = x
 
-        # Final segmentation output
-        seg_output = self.seg_layers[-1](seg_output)
+        if self.decoder.deep_supervision:
+            # Invert outputs so largest prediction is first (matching UNetDecoder)
+            seg_output = seg_outputs[::-1]
+        else:
+            seg_output = seg_outputs[0]
+
+        print(encoder_features[-1].shape, "Bottleneck features shape")
 
         # Classification with attention-enhanced features
         cls_output = self.classification_head(encoder_features[-1])
@@ -205,17 +220,33 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
     def forward(self, x):
         # Standard encoder forward pass
         encoder_features = []
-        current = x
+        current = self.encoder.stem(x) if self.encoder.stem else x
 
-        for stage in self.encoder:
+        for stage in self.encoder.stages:
             current = stage(current)
             encoder_features.append(current)
 
-        # Segmentation decoder
-        seg_output = encoder_features[-1]
-        for i, decoder_stage in enumerate(self.decoder):
-            seg_output = decoder_stage(seg_output, encoder_features[-(i+2)])
-        seg_output = self.seg_layers[-1](seg_output)
+        # Manual decoder iteration (matching UNetDecoder.forward logic)
+        lres_input = encoder_features[-1]  # Start with bottleneck (deepest features)
+        seg_outputs = []
+
+        for s in range(len(self.decoder.stages)):
+            x = self.decoder.transpconvs[s](lres_input)
+            # Skip index: -(s+2) because we skip the current deepest and go to previous
+            skip_features = encoder_features[-(s+2)]
+            x = torch.cat((x, skip_features), 1)
+            x = self.decoder.stages[s](x)
+            if self.decoder.deep_supervision:
+                seg_outputs.append(self.decoder.seg_layers[s](x))
+            elif s == (len(self.decoder.stages) - 1):  # Last stage
+                seg_outputs.append(self.decoder.seg_layers[-1](x))
+            lres_input = x
+
+        if self.decoder.deep_supervision:
+            # Invert outputs so largest prediction is first (matching UNetDecoder)
+            seg_output = seg_outputs[::-1]
+        else:
+            seg_output = seg_outputs[0]
 
         # Classification with attention on bottleneck
         bottleneck_features = encoder_features[-1]
@@ -228,7 +259,7 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
             'classification': cls_output
         }
 
-# No attention version for comparison 
+# No attention version for comparison
 class MultiTaskResEncUNet(ResidualEncoderUNet):
     """Multi-task ResEnc U-Net with shared encoder and dual heads"""
 
@@ -266,22 +297,34 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
     def forward(self, x):
         # Encoder forward pass
         encoder_features = []
-        current = x
+        current = self.encoder.stem(x) if self.encoder.stem else x
 
-        for stage in self.encoder:
+        for stage in self.encoder.stages:
             current = stage(current)
             encoder_features.append(current)
 
-        # Segmentation decoder path
-        seg_output = encoder_features[-1]
+        # Manual decoder iteration (matching UNetDecoder.forward logic)
+        lres_input = encoder_features[-1]  # Start with bottleneck (deepest features)
+        seg_outputs = []
 
-        for i, decoder_stage in enumerate(self.decoder):
-            seg_output = decoder_stage(seg_output, encoder_features[-(i+2)])
+        for s in range(len(self.decoder.stages)):
+            x = self.decoder.transpconvs[s](lres_input)
+            # Skip index: -(s+2) because we skip the current deepest and go to previous
+            skip_features = encoder_features[-(s+2)]
+            x = torch.cat((x, skip_features), 1)
+            x = self.decoder.stages[s](x)
+            if self.decoder.deep_supervision:
+                seg_outputs.append(self.decoder.seg_layers[s](x))
+            elif s == (len(self.decoder.stages) - 1):  # Last stage
+                seg_outputs.append(self.decoder.seg_layers[-1](x))
+            lres_input = x
 
-        # Final segmentation output
-        seg_output = self.seg_layers[-1](seg_output)
+        if self.decoder.deep_supervision:
+            # Invert outputs so largest prediction is first (matching UNetDecoder)
+            seg_output = seg_outputs[::-1]
+        else:
+            seg_output = seg_outputs[0]
 
-        # Classification from encoder bottleneck
         cls_output = self.classification_head(encoder_features[-1])
 
         return {

@@ -6,7 +6,7 @@
 
 @Tuesday Jun 10th
 - Segmentation evaluation on the baseline model
-- TODO: Train new ResNetEncoder
+- Train and evaluate new ResNetEncoder
 
 ## Data
 Ignoring the test data for now.

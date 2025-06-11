@@ -5,15 +5,16 @@ from typing import Union, Tuple, List
 from nnunetv2.training.nnUNetTrainer.variants.network_architecture.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
 from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet
 from src.losses.multitask_losses import MultiTaskLoss
-from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
+# from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 
 
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     """Multi-task trainer for segmentation + classification"""
 
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
-                 unpack_dataset: bool = True, device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+                 device: torch.device = torch.device('cuda')):
+        super().__init__(plans, configuration, fold, dataset_json, device)
 
         # Multi-task specific parameters
         self.num_classification_classes = 3  # Update based on your subtypes

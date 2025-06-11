@@ -96,7 +96,7 @@ class MultiTaskLoss(nn.Module):
         cls_pred = outputs['classification']
         seg_target = targets['segmentation']
         cls_target = targets['classification']
-
+        
         # Segmentation loss
         if self.loss_type == 'dice_ce':
             seg_dice = self.dice_loss(seg_pred, seg_target)

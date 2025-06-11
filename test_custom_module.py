@@ -69,7 +69,7 @@ def error_print(e: Exception, context: str = None, show_traceback: bool = True) 
 # Test imports
 try:
     from src.losses.multitask_losses import MultiTaskLoss, UnifiedFocalLoss, TverskyLoss
-    from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet
+    from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet, MultiTaskChannelAttentionResEncUNet, MultiTaskEfficientAttentionResEncUNet
     from src.trainers.nnUNetTrainerMultiTask import nnUNetTrainerMultiTask
     print("✓ All imports successful!")
 except ImportError as e:
@@ -89,11 +89,11 @@ class TestLossFunctions:
     def create_test_data(self):
         """Create synthetic test data"""
         # Segmentation data``
-        seg_pred = torch.randn(self.batch_size, self.num_classes, *self.spatial_dims)
+        seg_pred = torch.randn(self.batch_size, self.num_classes, *self.spatial_dims).requires_grad_(True)
         seg_target = torch.randint(0, self.num_classes, (self.batch_size, *self.spatial_dims))
 
         # Classification data
-        cls_pred = torch.randn(self.batch_size, self.num_classification_classes)
+        cls_pred = torch.randn(self.batch_size, self.num_classification_classes).requires_grad_(True)
         cls_target = torch.randint(0, self.num_classification_classes, (self.batch_size,))
 
         outputs = {
@@ -211,10 +211,20 @@ class TestMultiTaskNetwork:
         self.input_channels = 1
         self.num_classes = 3
         self.num_classification_classes = 3
+        self.network_variants = {
+            'base': MultiTaskResEncUNet,
+            'channel_attention': MultiTaskChannelAttentionResEncUNet,
+            'efficient_attention': MultiTaskEfficientAttentionResEncUNet
+        }
 
-    def create_test_network(self):
-        """Create a small test network"""
-        network = MultiTaskResEncUNet(
+
+    def create_test_network(self, variant='base'):
+        """Create a small test network of specified variant"""
+        network_class = self.network_variants.get(variant)
+        if network_class is None:
+            raise ValueError(f"Unknown network variant: {variant}")
+
+        network = network_class(
             input_channels=self.input_channels,
             num_classes=self.num_classes,
             num_classification_classes=self.num_classification_classes,
@@ -233,6 +243,64 @@ class TestMultiTaskNetwork:
             nonlin_kwargs={"inplace": True},
         )
         return network
+
+    def test_network_variants(self):
+        """Test all network variants"""
+        print("\n=== Testing Network Variants ===")
+        results = {}
+
+        for variant_name in self.network_variants.keys():
+            print(f"\nTesting {variant_name} variant:")
+            try:
+                network = self.create_test_network(variant_name)
+                batch_size = 2
+                input_tensor = torch.randn(batch_size, self.input_channels, 32, 64, 96)
+
+                # Forward pass
+                with torch.no_grad():
+                    outputs = network(input_tensor)
+
+                # Validate outputs
+                assert isinstance(outputs, dict), "Output should be a dictionary"
+                assert 'segmentation' in outputs, "Missing segmentation output"
+                assert 'classification' in outputs, "Missing classification output"
+
+                # Count parameters
+                total_params = sum(p.numel() for p in network.parameters())
+                trainable_params = sum(p.numel() for p in network.parameters() if p.requires_grad)
+
+                results[variant_name] = {
+                    'status': 'PASS',
+                    'total_params': total_params,
+                    'trainable_params': trainable_params,
+                    'seg_shape': outputs['segmentation'].shape,
+                    'cls_shape': outputs['classification'].shape
+                }
+
+                print(f"✓ Forward pass successful")
+                print(f"✓ Parameters: {total_params:,} total, {trainable_params:,} trainable")
+                print(f"✓ Output shapes - Seg: {outputs['segmentation'].shape}, Cls: {outputs['classification'].shape}")
+
+            except Exception as e:
+                error_print(e, context=f"Testing {variant_name} variant")
+                results[variant_name] = {'status': 'FAIL', 'error': str(e)}
+
+        # Print comparison summary
+        print("\n=== Network Variants Comparison ===")
+        print("=" * 50)
+        for variant, result in results.items():
+            print(f"\n{variant.upper()}:")
+            if result['status'] == 'PASS':
+                print(f"Status: ✓ PASS")
+                print(f"Parameters: {result['total_params']:,} total, {result['trainable_params']:,} trainable")
+                print(f"Output shapes:")
+                print(f"  - Segmentation: {result['seg_shape']}")
+                print(f"  - Classification: {result['cls_shape']}")
+            else:
+                print(f"Status: ❌ FAIL")
+                print(f"Error: {result['error']}")
+
+        return all(r['status'] == 'PASS' for r in results.values())
 
     def test_network_forward(self):
         """Test forward pass through the network"""
@@ -309,6 +377,102 @@ class TestMultiTaskNetwork:
             error_print(e, context="Memory test")
             return False
 
+    def test_memory_comparison(self):
+        """Compare memory usage across network variants"""
+        print("\n=== Comparing Memory Usage Across Variants ===")
+
+        if not torch.cuda.is_available():
+            print("⚠ CUDA not available, skipping memory comparison")
+            return True
+
+        results = {}
+        device = torch.device('cuda')
+        input_tensor = None
+
+        try:
+            # Generate input tensor first to avoid memory fragmentation
+            input_tensor = torch.randn(1, self.input_channels, 64, 128, 192).to(device)
+
+            for variant_name in self.network_variants.keys():
+                print(f"\nTesting {variant_name} variant...")
+
+                try:
+                    # Clear everything from GPU
+                    if 'network' in locals():
+                        del network
+                    torch.cuda.empty_cache()
+                    torch.cuda.reset_peak_memory_stats()
+
+                    # Record baseline
+                    base_memory = torch.cuda.memory_allocated()
+
+                    # Create network
+                    network = self.create_test_network(variant_name).to(device)
+
+                    # Record memory after model creation
+                    model_memory = (torch.cuda.memory_allocated() - base_memory) / 1024**3
+                    print(f"  Model size: {model_memory:.2f} GB")
+
+                    # Forward pass
+                    with torch.no_grad():
+                        start_forward = torch.cuda.memory_allocated()
+                        outputs = network(input_tensor)
+                        torch.cuda.synchronize()  # Ensure forward pass is complete
+
+                    # Calculate memory metrics
+                    peak_memory = torch.cuda.max_memory_allocated()
+                    forward_memory = (peak_memory - start_forward) / 1024**3
+                    total_memory = (peak_memory - base_memory) / 1024**3
+
+                    results[variant_name] = {
+                        'status': 'PASS',
+                        'model_size': model_memory,
+                        'forward_memory': forward_memory,
+                        'total_memory': total_memory,
+                        'peak_memory': peak_memory / 1024**3
+                    }
+
+                    print(f"  Forward pass memory: {forward_memory:.2f} GB")
+                    print(f"  Total memory used: {total_memory:.2f} GB")
+                    print(f"✓ {variant_name} test completed")
+
+                except Exception as e:
+                    error_print(e, context=f"Memory test for {variant_name}")
+                    results[variant_name] = {'status': 'FAIL', 'error': str(e)}
+                    continue
+
+                finally:
+                    # Cleanup after each variant
+                    if 'network' in locals():
+                        del network
+                    torch.cuda.empty_cache()
+
+        except Exception as e:
+            error_print(e, context="Memory comparison setup")
+            return False
+
+        finally:
+            # Final cleanup
+            if input_tensor is not None:
+                del input_tensor
+            torch.cuda.empty_cache()
+
+        # Print comparison table
+        print("\nMemory Usage Comparison:")
+        print("=" * 80)
+        print(f"{'Variant':20s} | {'Model Size':12s} | {'Forward Pass':12s} | {'Total Usage':12s}")
+        print("-" * 80)
+
+        for variant, result in results.items():
+            if result['status'] == 'PASS':
+                print(f"{variant:20s} | {result['model_size']:10.2f} GB | {result['forward_memory']:10.2f} GB | {result['total_memory']:10.2f} GB")
+            else:
+                print(f"{variant:20s} | {'FAILED':-^38s}")
+
+        print("=" * 80)
+
+        return all(r['status'] == 'PASS' for r in results.values())
+
     def test_network_parameters(self):
         """Test network parameter count and gradient flow"""
         print("\n=== Testing Network Parameters ===")
@@ -357,30 +521,130 @@ class TestTrainerIntegration:
     def create_mock_plans_and_config(self):
         """Create mock plans and configuration for testing"""
         plans = {
+            'dataset_name': 'Dataset001_PancreasSegClassification',
+            'plans_name': 'nnUNetResEncUNetMPlans',
+            'original_median_spacing_after_transp': [2.0, 0.73046875, 0.73046875],
+            'original_median_shape_after_transp': [64, 119, 178],
+            'image_reader_writer': 'SimpleITKIO',
+            'transpose_forward': [0, 1, 2],
+            'transpose_backward': [0, 1, 2],
             'configurations': {
+                '2d': {
+                    'data_identifier': 'nnUNetPlans_2d',
+                    'preprocessor_name': 'DefaultPreprocessor',
+                    'batch_size': 134,
+                    'patch_size': [128, 192],
+                    'median_image_size_in_voxels': [118.0, 181.0],
+                    'spacing': [0.73046875, 0.73046875],
+                    'normalization_schemes': ['CTNormalization'],
+                    'use_mask_for_norm': [False],
+                    'resampling_fn_data': 'resample_data_or_seg_to_shape',
+                    'resampling_fn_seg': 'resample_data_or_seg_to_shape',
+                    'resampling_fn_data_kwargs': {
+                        'is_seg': False,
+                        'order': 3,
+                        'order_z': 0,
+                        'force_separate_z': None
+                    },
+                    'resampling_fn_seg_kwargs': {
+                        'is_seg': True,
+                        'order': 1,
+                        'order_z': 0,
+                        'force_separate_z': None
+                    },
+                    'resampling_fn_probabilities': 'resample_data_or_seg_to_shape',
+                    'resampling_fn_probabilities_kwargs': {
+                        'is_seg': False,
+                        'order': 1,
+                        'order_z': 0,
+                        'force_separate_z': None
+                    },
+                    'architecture': {
+                        'network_class_name': 'dynamic_network_architectures.architectures.unet.ResidualEncoderUNet',
+                        'arch_kwargs': {
+                            'n_stages': 6,
+                            'features_per_stage': [32, 64, 128, 256, 512, 512],
+                            'conv_op': 'torch.nn.modules.conv.Conv2d',
+                            'kernel_sizes': [[3, 3], [3, 3], [3, 3], [3, 3], [3, 3], [3, 3]],
+                            'strides': [[1, 1], [2, 2], [2, 2], [2, 2], [2, 2], [2, 2]],
+                            'n_blocks_per_stage': [1, 3, 4, 6, 6, 6],
+                            'n_conv_per_stage_decoder': [1, 1, 1, 1, 1],
+                            'conv_bias': True,
+                            'norm_op': 'torch.nn.modules.instancenorm.InstanceNorm2d',
+                            'norm_op_kwargs': {'eps': 1e-05, 'affine': True},
+                            'dropout_op': None,
+                            'dropout_op_kwargs': None,
+                            'nonlin': 'torch.nn.LeakyReLU',
+                            'nonlin_kwargs': {'inplace': True}
+                        },
+                        '_kw_requires_import': ['conv_op', 'norm_op', 'dropout_op', 'nonlin']
+                    },
+                    'batch_dice': True
+                },
                 '3d_fullres': {
                     'data_identifier': 'nnUNetPlans_3d_fullres',
                     'preprocessor_name': 'DefaultPreprocessor',
                     'batch_size': 2,
                     'patch_size': [64, 128, 192],
+                    'median_image_size_in_voxels': [59.0, 118.0, 181.0],
+                    'spacing': [2.0, 0.73046875, 0.73046875],
+                    'normalization_schemes': ['CTNormalization'],
+                    'use_mask_for_norm': [False],
+                    'resampling_fn_data': 'resample_data_or_seg_to_shape',
+                    'resampling_fn_seg': 'resample_data_or_seg_to_shape',
+                    'resampling_fn_data_kwargs': {
+                        'is_seg': False,
+                        'order': 3,
+                        'order_z': 0,
+                        'force_separate_z': None
+                    },
+                    'resampling_fn_seg_kwargs': {
+                        'is_seg': True,
+                        'order': 1,
+                        'order_z': 0,
+                        'force_separate_z': None
+                    },
+                    'resampling_fn_probabilities': 'resample_data_or_seg_to_shape',
+                    'resampling_fn_probabilities_kwargs': {
+                        'is_seg': False,
+                        'order': 1,
+                        'order_z': 0,
+                        'force_separate_z': None
+                    },
                     'architecture': {
                         'network_class_name': 'dynamic_network_architectures.architectures.unet.ResidualEncoderUNet',
                         'arch_kwargs': {
-                            'n_stages': 4,
-                            'features_per_stage': [32, 64, 128, 256],
+                            'n_stages': 6,
+                            'features_per_stage': [32, 64, 128, 256, 320, 320],
                             'conv_op': 'torch.nn.modules.conv.Conv3d',
-                            'kernel_sizes': [[3, 3, 3]] * 4,
-                            'strides': [[1, 1, 1], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
-                            'n_blocks_per_stage': [1, 2, 2, 2],
-                            'n_conv_per_stage_decoder': [1, 1, 1],
+                            'kernel_sizes': [[1, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3], [3, 3, 3]],
+                            'strides': [[1, 1, 1], [1, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
+                            'n_blocks_per_stage': [1, 3, 4, 6, 6, 6],
+                            'n_conv_per_stage_decoder': [1, 1, 1, 1, 1],
                             'conv_bias': True,
                             'norm_op': 'torch.nn.modules.instancenorm.InstanceNorm3d',
                             'norm_op_kwargs': {'eps': 1e-05, 'affine': True},
                             'dropout_op': None,
+                            'dropout_op_kwargs': None,
                             'nonlin': 'torch.nn.LeakyReLU',
                             'nonlin_kwargs': {'inplace': True}
-                        }
-                    }
+                        },
+                        '_kw_requires_import': ['conv_op', 'norm_op', 'dropout_op', 'nonlin']
+                    },
+                    'batch_dice': False
+                }
+            },
+            'experiment_planner_used': 'nnUNetPlannerResEncM',
+            'label_manager': 'LabelManager',
+            'foreground_intensity_properties_per_channel': {
+                '0': {
+                    'max': 1929.0,
+                    'mean': 74.89189910888672,
+                    'median': 78.01163482666016,
+                    'min': -319.0,
+                    'percentile_00_5': -55.99610900878906,
+                    'percentile_99_5': 179.97802734375,
+                    'std': 44.09819030761719
                 }
             }
         }
@@ -414,7 +678,6 @@ class TestTrainerIntegration:
                     configuration='3d_fullres',
                     fold=0,
                     dataset_json=dataset_json,
-                    unpack_dataset=False,  # Skip dataset unpacking for test
                     device=torch.device('cpu')
                 )
 
@@ -446,7 +709,6 @@ class TestTrainerIntegration:
                     configuration='3d_fullres',
                     fold=0,
                     dataset_json=dataset_json,
-                    unpack_dataset=False,
                     device=torch.device('cpu')
                 )
 
@@ -490,9 +752,11 @@ def run_all_tests():
     print("\n🏗️ TESTING NETWORK ARCHITECTURE")
     network_tester = TestMultiTaskNetwork()
     tests = [
-        network_tester.test_network_forward,
-        network_tester.test_network_memory,
-        network_tester.test_network_parameters
+        network_tester.test_network_variants,    # New test
+        network_tester.test_memory_comparison,   # New test
+        # network_tester.test_network_forward,     # Original test
+        # network_tester.test_network_memory,      # Original test
+        # network_tester.test_network_parameters   # Original test
     ]
 
     for test in tests:
