@@ -977,18 +977,18 @@ def predict_entry_point():
         args.f,
         checkpoint_name=args.chk
     )
-    
+
     run_sequential = args.nps == 0 and args.npp == 0
-    
+
     if run_sequential:
-        
+
         print("Running in non-multiprocessing mode")
         predictor.predict_from_files_sequential(args.i, args.o, save_probabilities=args.save_probabilities,
                                                 overwrite=not args.continue_prediction,
                                                 folder_with_segs_from_prev_stage=args.prev_stage_predictions)
-    
+
     else:
-        
+
         predictor.predict_from_files(args.i, args.o, save_probabilities=args.save_probabilities,
                                     overwrite=not args.continue_prediction,
                                     num_processes_preprocessing=args.npp,
@@ -996,7 +996,7 @@ def predict_entry_point():
                                     folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                                     num_parts=args.num_parts,
                                     part_id=args.part_id)
-    
+
     # r = predict_from_raw_data(args.i,
     #                           args.o,
     #                           model_folder,

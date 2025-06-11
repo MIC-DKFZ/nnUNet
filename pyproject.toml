@@ -46,7 +46,7 @@ conflicts = [
 ]
 
 [tool.uv.sources]
-nnunetv2 = { path = "./nnUNet", editable = true }
+nnunetv2 = { workspace = true }
 torch = [
   { index = "pytorch-cpu", extra = "cpu" },
   { index = "pytorch-cu121", extra = "cu121" },
@@ -59,6 +59,9 @@ torchvision = [
   { index = "pytorch-cu124", extra = "cu124" },
   { index = "pytorch-cu128", extra = "cu128" },
 ]
+
+[tool.uv.workspace]
+members = ["nnunetv2"]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
