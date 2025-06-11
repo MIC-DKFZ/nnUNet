@@ -71,6 +71,9 @@ try:
     from src.losses.multitask_losses import MultiTaskLoss, UnifiedFocalLoss, TverskyLoss
     from src.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet, MultiTaskChannelAttentionResEncUNet, MultiTaskEfficientAttentionResEncUNet
     from src.trainers.nnUNetTrainerMultiTask import nnUNetTrainerMultiTask
+    from src.planners.multitask_base_planner import MultiTaskResEncUNetPlanner
+    from src.planners.multitask_channel_attention_planner import MultiTaskChannelAttentionResEncUNetPlanner
+    from src.planners.multitask_efficient_attention_planner import MultiTaskEfficientAttentionResEncUNetPlanner
     print("✓ All imports successful!")
 except ImportError as e:
     error_print(e)
@@ -515,6 +518,153 @@ class TestMultiTaskNetwork:
             return False
 
 
+class TestPlannerIntegration:
+    """Test multi-task planner functionality"""
+
+    def create_mock_dataset_json(self):
+        """Create mock dataset JSON for testing"""
+        return {
+            'name': 'Dataset001_PancreasSegClassification',
+            'description': 'Test dataset for multi-task learning',
+            'labels': {
+                '0': 'background',
+                '1': 'pancreas',
+                '2': 'lesion'
+            },
+            'numTest': 10,
+            'numTraining': 100,
+            'file_ending': '.nii.gz',
+            'classification_labels': {
+                '0': 'subtype_0',
+                '1': 'subtype_1',
+                '2': 'subtype_2'
+            }
+        }
+
+    def test_planner_initialization(self):
+        """Test planner initialization with different variants"""
+        print("\n=== Testing Planner Initialization ===")
+
+        planners = {
+            'base': MultiTaskResEncUNetPlanner,
+            'channel_attention': MultiTaskChannelAttentionResEncUNetPlanner,
+            'efficient_attention': MultiTaskEfficientAttentionResEncUNetPlanner
+        }
+
+        dataset_json = self.create_mock_dataset_json()
+
+        for planner_name, planner_class in planners.items():
+            try:
+                print(f"\nTesting {planner_name} planner:")
+
+                # Create planner with minimal settings
+                planner = planner_class(
+                    dataset_name_or_id='Dataset001_PancreasSegClassification',
+                    gpu_memory_target_in_gb=8,
+                    preprocessor_name='DefaultPreprocessor'
+                )
+
+                # Test basic attributes
+                assert hasattr(planner, 'UNet_class'), f"{planner_name} should have UNet_class"
+                assert hasattr(planner, 'plans_identifier'), f"{planner_name} should have plans_identifier"
+
+                print(f"✓ {planner_name} planner initialized successfully")
+                print(f"✓ UNet class: {planner.UNet_class.__name__}")
+                print(f"✓ Plans identifier: {planner.plans_identifier}")
+
+            except Exception as e:
+                error_print(e, context=f"Testing {planner_name} planner initialization")
+                return False
+
+        return True
+
+    def test_plan_generation(self):
+        """Test plan generation for multi-task configurations"""
+        print("\n=== Testing Plan Generation ===")
+
+        try:
+            # Use base planner for testing
+            planner = MultiTaskResEncUNetPlanner(
+                dataset_name_or_id='Dataset001_PancreasSegClassification',
+                gpu_memory_target_in_gb=8
+            )
+
+            # Create dummy parameters for plan generation
+            spacing = [2.0, 0.73046875, 0.73046875]
+            median_shape = (64, 119, 178)
+            data_identifier = 'nnUNetMultiTaskResEncUNetPlans_3d_fullres'
+            approximate_n_voxels_dataset = 1000000.0
+            cache = {}
+
+            # Generate plan
+            plan = planner.get_plans_for_configuration(
+                spacing=spacing,
+                median_shape=median_shape,
+                data_identifier=data_identifier,
+                approximate_n_voxels_dataset=approximate_n_voxels_dataset,
+                _cache=cache
+            )
+
+            # Validate plan structure
+            assert isinstance(plan, dict), "Plan should be a dictionary"
+            assert 'architecture' in plan, "Plan should contain architecture"
+            assert 'network_class_name' in plan['architecture'], "Architecture should specify network class"
+
+            # Check multi-task specific parameters
+            arch_kwargs = plan['architecture']['arch_kwargs']
+            assert 'num_classification_classes' in arch_kwargs, "Should have classification classes parameter"
+            assert 'use_classification_head' in arch_kwargs, "Should have classification head parameter"
+
+            print("✓ Plan generated successfully")
+            print(f"✓ Network class: {plan['architecture']['network_class_name']}")
+            print(f"✓ Classification classes: {arch_kwargs['num_classification_classes']}")
+
+            return True
+
+        except Exception as e:
+            error_print(e, context="Plan generation")
+            return False
+
+    def test_memory_estimation(self):
+        """Test VRAM estimation for multi-task networks"""
+        print("\n=== Testing Memory Estimation ===")
+
+        try:
+            planner = MultiTaskResEncUNetPlanner(
+                dataset_name_or_id='Dataset001_PancreasSegClassification',
+                gpu_memory_target_in_gb=8
+            )
+
+            # Test parameters
+            patch_size = [64, 128, 192]
+            num_input_channels = 1
+            num_output_channels = 3
+            network_class_name = 'src.architectures.MultiTaskResEncUNet.MultiTaskResEncUNet'
+            arch_kwargs = {'num_classification_classes': 3}
+            arch_kwargs_req_import = []
+
+            # Estimate memory
+            memory_estimate = planner.static_estimate_VRAM_usage(
+                patch_size=patch_size,
+                num_input_channels=num_input_channels,
+                num_output_channels=num_output_channels,
+                network_class_name=network_class_name,
+                arch_kwargs=arch_kwargs,
+                arch_kwargs_req_import=arch_kwargs_req_import
+            )
+
+            assert memory_estimate > 0, "Memory estimate should be positive"
+            memory_gb = memory_estimate / (1024**3)
+
+            print(f"✓ Memory estimation successful: {memory_gb:.2f} GB")
+
+            return True
+
+        except Exception as e:
+            error_print(e, context="Memory estimation")
+            return False
+
+
 class TestTrainerIntegration:
     """Test integration with nnUNet trainer"""
 
@@ -763,7 +913,20 @@ def run_all_tests():
         if not test():
             all_passed = False
 
-    # Test 3: Trainer Integration
+    # Test 3: Planner Integration
+    print("\n📋 TESTING PLANNER INTEGRATION")
+    planner_tester = TestPlannerIntegration()
+    tests = [
+        planner_tester.test_planner_initialization,
+        planner_tester.test_plan_generation,
+        planner_tester.test_memory_estimation
+    ]
+
+    for test in tests:
+        if not test():
+            all_passed = False
+
+    # Test 4: Trainer Integration
     print("\n👩‍🏫 TESTING TRAINER INTEGRATION")
     trainer_tester = TestTrainerIntegration()
     tests = [
