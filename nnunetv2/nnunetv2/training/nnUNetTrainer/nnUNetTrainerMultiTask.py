@@ -112,11 +112,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         Custom training step for multi-task learning.
         """
-        import pdb
-        pdb.set_trace()  # Debugging breakpoint
         data = batch['data'].to(self.device)
         target_seg = batch['target'].to(self.device)  # Segmentation targets
-        target_cls = batch['classification_target'].to(self.device)  # Classification targets
+        target_cls = batch['class_target'].to(self.device)  # Classification targets
 
         self.optimizer.zero_grad()
 
@@ -124,8 +122,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         output = self.network(data)
 
         # Multi-task output: segmentation and classification
-        if isinstance(output, tuple) and len(output) == 2:
-            seg_output, cls_output = output
+        if isinstance(output, dict) and len(output) == 2:
+            seg_output, cls_output = (output['segmentation'], output['classification'])
         else:
             # Fallback if network returns only segmentation
             seg_output = output
@@ -135,7 +133,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         loss_dict = self.loss(seg_output, target_seg, cls_output, target_cls)
 
         # Backward pass
-        loss_dict['total_loss'].backward()
+        loss_dict['loss'].backward()
         self.optimizer.step()
 
         return loss_dict
@@ -146,14 +144,14 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         data = batch['data'].to(self.device)
         target_seg = batch['target'].to(self.device)  # Segmentation targets
-        target_cls = batch['classification_target'].to(self.device)  # Classification targets
+        target_cls = batch['class_target'].to(self.device)  # Classification targets
 
         with torch.no_grad():
             output = self.network(data)
 
             # Multi-task output
-            if isinstance(output, tuple) and len(output) == 2:
-                seg_output, cls_output = output
+            if isinstance(output, dict) and len(output) == 2:
+                seg_output, cls_output = (output['segmentation'], output['classification'])
             else:
                 seg_output = output
                 cls_output = None

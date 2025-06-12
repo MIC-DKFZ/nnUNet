@@ -1,5 +1,5 @@
 from typing import List
-
+import torch
 import numpy as np
 
 
@@ -16,6 +16,8 @@ def collate_outputs(outputs: List[dict]):
             collated[k] = [o[k] for o in outputs]
         elif isinstance(outputs[0][k], np.ndarray):
             collated[k] = np.vstack([o[k][None] for o in outputs])
+        elif isinstance(outputs[0][k], torch.Tensor):
+            collated[k] = torch.vstack([o[k] for o in outputs]).detach().cpu().numpy()
         elif isinstance(outputs[0][k], list):
             collated[k] = [item for o in outputs for item in o[k]]
         else:

@@ -169,6 +169,7 @@ class nnUNetDataLoader(DataLoader):
         # preallocate memory for data and seg
         data_all = np.zeros(self.data_shape, dtype=np.float32)
         seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+        class_target = np.zeros((self.batch_size, ), dtype=np.int16)
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -192,6 +193,9 @@ class nnUNetDataLoader(DataLoader):
                 seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
             seg_all[j] = seg_cropped
 
+            # store class targets
+            class_target[j] = properties['classification_label']
+
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]
             seg_all = seg_all[:, :, 0]
@@ -201,6 +205,7 @@ class nnUNetDataLoader(DataLoader):
                 with threadpool_limits(limits=1, user_api=None):
                     data_all = torch.from_numpy(data_all).float()
                     seg_all = torch.from_numpy(seg_all).to(torch.int16)
+                    class_target = torch.from_numpy(class_target).to(torch.long)
                     images = []
                     segs = []
                     for b in range(self.batch_size):
@@ -213,9 +218,9 @@ class nnUNetDataLoader(DataLoader):
                     else:
                         seg_all = torch.stack(segs)
                     del segs, images
-            return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+            return {'data': data_all, 'target': seg_all, 'keys': selected_keys, 'class_target': class_target}
 
-        return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+        return {'data': data_all, 'target': seg_all, 'keys': selected_keys, 'class_target': class_target}
 
 
 if __name__ == '__main__':

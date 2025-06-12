@@ -87,16 +87,7 @@ class MultiTaskLoss(nn.Module):
         self.cls_loss = nn.CrossEntropyLoss()
         self.loss_type = loss_type
 
-    def forward(self, outputs, targets):
-        """
-        outputs: dict with 'segmentation' and 'classification' keys
-        targets: dict with 'segmentation' and 'classification' keys
-        """
-        seg_pred = outputs['segmentation']
-        cls_pred = outputs['classification']
-        seg_target = targets['segmentation']
-        cls_target = targets['classification']
-        
+    def forward(self, seg_pred, seg_target, cls_pred, cls_target):
         # Segmentation loss
         if self.loss_type == 'dice_ce':
             seg_dice = self.dice_loss(seg_pred, seg_target)
@@ -112,7 +103,7 @@ class MultiTaskLoss(nn.Module):
         total_loss = self.seg_weight * seg_loss + self.cls_weight * cls_loss
 
         return {
-            'total_loss': total_loss,
+            'loss': total_loss,
             'segmentation_loss': seg_loss,
             'classification_loss': cls_loss
         }
