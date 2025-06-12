@@ -5,8 +5,9 @@ import numpy as np
 from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim1
+import os
 
-DEBUG=True
+DEBUG=os.environ.get("DEBUG", "False")
 
 class UnifiedFocalLoss(nn.Module):
     """Unified Focal Loss for handling class imbalance"""

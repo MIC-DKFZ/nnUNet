@@ -13,7 +13,7 @@ from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.utilities.collate_outputs import collate_outputs
 
-DEBUG=True
+DEBUG=os.environ.get("DEBUG", "False")
 
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     """Multi-task trainer for segmentation + classification"""

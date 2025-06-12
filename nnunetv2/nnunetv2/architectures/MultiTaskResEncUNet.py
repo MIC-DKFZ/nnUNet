@@ -3,8 +3,9 @@ import torch.nn as nn
 # from nnunetv2.utilities.helpers import softmax_helper_dim1
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from torch.nn.init import kaiming_normal_, constant_
+import os
 
-DEBUG=True
+DEBUG=os.environ.get("DEBUG", "False")
 
 class EfficientAttentionBlock(nn.Module):
     """Efficient attention block using channel attention instead of spatial"""

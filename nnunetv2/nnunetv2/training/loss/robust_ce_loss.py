@@ -1,8 +1,10 @@
+from tkinter import FALSE
 import torch
 from torch import nn, Tensor
 import numpy as np
+import os
 
-DEBUG = True
+DEBUG=os.environ.get("DEBUG", "False")
 
 class RobustCrossEntropyLoss(nn.CrossEntropyLoss):
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
