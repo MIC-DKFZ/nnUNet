@@ -13,7 +13,7 @@ from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.utilities.collate_outputs import collate_outputs
 
-DEBUG=os.environ.get("DEBUG", "False")
+DEBUG = os.environ.get("DEBUG", False)
 
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     """Multi-task trainer for segmentation + classification"""
@@ -27,7 +27,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.seg_weight = 3.0
         self.cls_weight = 0.5
         self.loss_type = 'dice_ce'  # Options: 'dice_ce', 'focal', 'tversky'
-
+        self.num_epochs = 150
 
     def get_tr_and_val_datasets(self):
         """Override to use dataset class with classification labels"""
@@ -117,6 +117,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         target_cls = batch['class_target'].to(self.device)  # Classification targets
 
         if DEBUG:
+            print(f"[DEBUG] === Starting training step ===")
             print("Input data is blank? ", torch.all(data == 0))
 
 
@@ -180,24 +181,80 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         Custom validation step for multi-task learning.
         Calculates both segmentation and classification metrics.
         """
+        if DEBUG:
+            print(f"[DEBUG] === Starting validation step ===")
+            print(f"[DEBUG] Batch keys: {list(batch.keys())}")
+            print(f"[DEBUG] Data shape: {batch['data'].shape}")
+            print(f"[DEBUG] Target shape: {batch['target'].shape}")
+            if 'class_target' in batch:
+                print(f"[DEBUG] Class target shape: {batch['class_target'].shape}")
+                print(f"[DEBUG] Class target values: {batch['class_target']}")
+            else:
+                print(f"[DEBUG] WARNING: No class_target in batch!")
+
         data = batch['data'].to(self.device)
         target_seg = batch['target'].to(self.device)  # Segmentation targets
-        target_cls = batch['class_target'].to(self.device)  # Classification targets
+        target_cls = batch['class_target'].to(self.device) if 'class_target' in batch else None
+
+        if DEBUG:
+            print(f"[DEBUG] Data device: {data.device}")
+            print(f"[DEBUG] Target seg device: {target_seg.device}")
+            print(f"[DEBUG] Target cls device: {target_cls.device if target_cls is not None else 'None'}")
+            print(f"[DEBUG] Network device: {next(self.network.parameters()).device}")
 
         with torch.no_grad():
+            if DEBUG:
+                print(f"[DEBUG] Running forward pass...")
+                print(f"[DEBUG] Network in training mode: {self.network.training}")
+
             output = self.network(data)
 
-            # Multi-task output
+            if DEBUG:
+                print(f"[DEBUG] Network output type: {type(output)}")
+                if isinstance(output, dict):
+                    print(f"[DEBUG] Output keys: {list(output.keys())}")
+                    for key, value in output.items():
+                        if isinstance(value, torch.Tensor):
+                            print(f"[DEBUG] {key} shape: {value.shape}")
+                            print(f"[DEBUG] {key} device: {value.device}")
+                            print(f"[DEBUG] {key} dtype: {value.dtype}")
+                            print(f"[DEBUG] {key} range: [{value.min():.4f}, {value.max():.4f}]")
+                            print(f"[DEBUG] {key} mean: {value.mean():.4f}")
+
+            # Multi-task output: segmentation and classification
             if isinstance(output, dict) and len(output) == 2:
                 seg_output, cls_output = (output['segmentation'], output['classification'])
             else:
                 seg_output = output
                 cls_output = None
 
-            # Calculate validation loss
+            if DEBUG:
+                print(f"[DEBUG] Seg output is list: {isinstance(seg_output, list)}")
+                if isinstance(seg_output, list):
+                    print(f"[DEBUG] Seg output length: {len(seg_output)}")
+                    for i, seg in enumerate(seg_output):
+                        print(f"[DEBUG] Seg output {i} shape: {seg.shape}")
+                print(f"[DEBUG] Cls output shape: {cls_output.shape if cls_output is not None else 'None'}")
+
+            # Calculate loss
+            if DEBUG:
+                print(f"[DEBUG] Calculating loss...")
+                print(f"[DEBUG] Loss function: {type(self.loss)}")
+
             loss_dict = self.loss(seg_output, target_seg, cls_output, target_cls)
 
+            if DEBUG:
+                print(f"[DEBUG] Loss dict keys: {list(loss_dict.keys())}")
+                for key, value in loss_dict.items():
+                    if isinstance(value, torch.Tensor):
+                        print(f"[DEBUG] {key}: {value.item():.6f}")
+                    else:
+                        print(f"[DEBUG] {key}: {value}")
+
             # === SEGMENTATION METRICS ===
+            if DEBUG:
+                print(f"[DEBUG] Processing segmentation metrics...")
+
             # Handle deep supervision if enabled
             if self.enable_deep_supervision:
                 seg_output_for_metrics = seg_output[0]  # Use highest resolution
@@ -205,6 +262,12 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             else:
                 seg_output_for_metrics = seg_output
                 target_seg_for_metrics = target_seg
+
+            if DEBUG:
+                print(f"[DEBUG] Seg output for metrics shape: {seg_output_for_metrics.shape}")
+                print(f"[DEBUG] Target seg for metrics shape: {target_seg_for_metrics.shape}")
+                print(f"[DEBUG] Has regions: {self.label_manager.has_regions}")
+                print(f"[DEBUG] Has ignore label: {self.label_manager.has_ignore_label}")
 
             # Generate segmentation predictions
             axes = [0] + list(range(2, seg_output_for_metrics.ndim))
@@ -222,6 +285,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 predicted_segmentation_onehot.scatter_(1, output_seg, 1)
                 del output_seg
 
+            if DEBUG:
+                print(f"[DEBUG] Predicted segmentation onehot shape: {predicted_segmentation_onehot.shape}")
+                print(f"[DEBUG] Predicted segmentation onehot sum: {predicted_segmentation_onehot.sum()}")
+
             # Handle ignore labels if present
             if self.label_manager.has_ignore_label:
                 if not self.label_manager.has_regions:
@@ -237,6 +304,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             else:
                 mask = None
 
+            if DEBUG:
+                print(f"[DEBUG] Mask shape: {mask.shape if mask is not None else 'None'}")
+                print(f"[DEBUG] Final target seg shape: {target_seg_for_metrics.shape}")
+
             # Calculate TP, FP, FN for segmentation
             tp, fp, fn, _ = get_tp_fp_fn_tn(
                 predicted_segmentation_onehot,
@@ -249,18 +320,36 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             fp_hard = fp.detach().cpu().numpy()
             fn_hard = fn.detach().cpu().numpy()
 
+            if DEBUG:
+                print(f"[DEBUG] TP shape: {tp_hard.shape}, values: {tp_hard}")
+                print(f"[DEBUG] FP shape: {fp_hard.shape}, values: {fp_hard}")
+                print(f"[DEBUG] FN shape: {fn_hard.shape}, values: {fn_hard}")
+
             # Remove background class for standard segmentation
             if not self.label_manager.has_regions:
                 tp_hard = tp_hard[1:]  # Remove background
                 fp_hard = fp_hard[1:]
                 fn_hard = fn_hard[1:]
 
+            if DEBUG:
+                print(f"[DEBUG] After removing background - TP: {tp_hard}, FP: {fp_hard}, FN: {fn_hard}")
+
             # === CLASSIFICATION METRICS ===
             cls_metrics = {}
             if cls_output is not None and target_cls is not None:
+                if DEBUG:
+                    print(f"[DEBUG] Processing classification metrics...")
+                    print(f"[DEBUG] Cls output shape: {cls_output.shape}")
+                    print(f"[DEBUG] Target cls shape: {target_cls.shape}")
+                    print(f"[DEBUG] Cls output range: [{cls_output.min():.4f}, {cls_output.max():.4f}]")
+
                 # Get predicted classes
                 cls_pred = torch.argmax(cls_output, dim=1)  # Shape: [batch_size]
                 cls_target = target_cls.long()  # Ensure target is long type
+
+                if DEBUG:
+                    print(f"[DEBUG] Cls pred: {cls_pred}")
+                    print(f"[DEBUG] Cls target: {cls_target}")
 
                 # Calculate per-class metrics
                 num_classes = cls_output.shape[1]
@@ -288,20 +377,28 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                     'cls_total': cls_target.numel()
                 }
 
+                if DEBUG:
+                    print(f"[DEBUG] Classification metrics: {cls_metrics}")
+
             # Combine all metrics
             result = {
-                'loss': loss_dict.get('total_loss', 0.0).detach().cpu().numpy() if isinstance(loss_dict.get('total_loss', 0.0), torch.Tensor) else loss_dict.get('total_loss', 0.0),
-                'seg_loss': loss_dict.get('seg_loss', 0.0).detach().cpu().numpy() if isinstance(loss_dict.get('seg_loss', 0.0), torch.Tensor) else loss_dict.get('seg_loss', 0.0),
-                'cls_loss': loss_dict.get('cls_loss', 0.0).detach().cpu().numpy() if isinstance(loss_dict.get('cls_loss', 0.0), torch.Tensor) else loss_dict.get('cls_loss', 0.0),
+                'loss': loss_dict.get('loss', 0.0).detach().cpu().numpy() if isinstance(loss_dict.get('loss', 0.0), torch.Tensor) else loss_dict.get('loss', 0.0),
+                'seg_loss': loss_dict.get('segmentation_loss', 0.0).detach().cpu().numpy() if isinstance(loss_dict.get('segmentation_loss', 0.0), torch.Tensor) else loss_dict.get('segmentation_loss', 0.0),
+                'cls_loss': loss_dict.get('classification_loss', 0.0).detach().cpu().numpy() if isinstance(loss_dict.get('classification_loss', 0.0), torch.Tensor) else loss_dict.get('classification_loss', 0.0),
                 'tp_hard': tp_hard,
                 'fp_hard': fp_hard,
                 'fn_hard': fn_hard,
                 **cls_metrics
             }
+
             if DEBUG:
-                print("Input data is blank? ", torch.all(data == 0))
-                print("Segmentation output is blank? ", torch.all(seg_output_for_metrics == 0))
-                print("Validation results: ", result)
+                print(f"[DEBUG] Final validation result:")
+                for key, value in result.items():
+                    if isinstance(value, np.ndarray):
+                        print(f"[DEBUG] {key}: shape={value.shape}, values={value}")
+                    else:
+                        print(f"[DEBUG] {key}: {value}")
+                print(f"[DEBUG] === End validation step ===\n")
 
             return result
 
@@ -310,15 +407,40 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         Custom validation epoch end for multi-task learning.
         Calculates and logs both segmentation and classification metrics.
         """
+        if DEBUG:
+            print(f"[DEBUG] === Starting validation epoch end ===")
+            print(f"[DEBUG] Number of validation outputs: {len(val_outputs)}")
+            if val_outputs:
+                print(f"[DEBUG] First output keys: {list(val_outputs[0].keys())}")
+                print(f"[DEBUG] Sample loss values from first few outputs:")
+                for i, output in enumerate(val_outputs[:3]):
+                    print(f"[DEBUG] Output {i}: loss={output.get('loss', 'missing')}, seg_loss={output.get('seg_loss', 'missing')}, cls_loss={output.get('cls_loss', 'missing')}")
+
         outputs_collated = collate_outputs(val_outputs)
+
+        if DEBUG:
+            print(f"[DEBUG] Collated outputs keys: {list(outputs_collated.keys())}")
+            for key, value in outputs_collated.items():
+                if isinstance(value, np.ndarray):
+                    print(f"[DEBUG] Collated {key}: shape={value.shape}, mean={np.mean(value):.6f}")
+                else:
+                    print(f"[DEBUG] Collated {key}: {type(value)}")
 
         # === SEGMENTATION METRICS ===
         tp = np.sum(outputs_collated['tp_hard'], 0)
         fp = np.sum(outputs_collated['fp_hard'], 0)
         fn = np.sum(outputs_collated['fn_hard'], 0)
 
+        if DEBUG:
+            print(f"[DEBUG] Aggregated TP: {tp}")
+            print(f"[DEBUG] Aggregated FP: {fp}")
+            print(f"[DEBUG] Aggregated FN: {fn}")
+
         # Handle distributed training for segmentation metrics
         if self.is_ddp:
+            if DEBUG:
+                print(f"[DEBUG] Handling distributed training...")
+
             world_size = dist.get_world_size()
 
             # Gather segmentation metrics
@@ -351,9 +473,22 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             seg_loss = np.mean(outputs_collated['seg_loss'])
             cls_loss = np.mean(outputs_collated['cls_loss'])
 
+        if DEBUG:
+            print(f"[DEBUG] Final aggregated losses:")
+            print(f"[DEBUG] Total loss: {total_loss}")
+            print(f"[DEBUG] Seg loss: {seg_loss}")
+            print(f"[DEBUG] Cls loss: {cls_loss}")
+            print(f"[DEBUG] Total loss is zero: {total_loss == 0.0}")
+            print(f"[DEBUG] Seg loss is zero: {seg_loss == 0.0}")
+            print(f"[DEBUG] Cls loss is zero: {cls_loss == 0.0}")
+
         # Calculate segmentation Dice scores
         global_dc_per_class = [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]
         mean_fg_dice = np.nanmean(global_dc_per_class)
+
+        if DEBUG:
+            print(f"[DEBUG] Dice per class: {global_dc_per_class}")
+            print(f"[DEBUG] Mean FG Dice: {mean_fg_dice}")
 
         # === CLASSIFICATION METRICS ===
         cls_metrics_summary = {}
@@ -414,6 +549,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             }
 
         # === LOGGING ===
+        if DEBUG:
+            print(f"[DEBUG] Logging metrics...")
+
         # Log segmentation metrics
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)

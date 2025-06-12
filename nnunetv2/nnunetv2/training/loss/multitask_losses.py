@@ -7,7 +7,7 @@ from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 import os
 
-DEBUG=os.environ.get("DEBUG", "False")
+DEBUG=os.environ.get("DEBUG", False)
 
 class UnifiedFocalLoss(nn.Module):
     """Unified Focal Loss for handling class imbalance"""
@@ -106,7 +106,7 @@ class MultiTaskLoss(nn.Module):
             print(f"[LOSS DEBUG] Cls target unique values: {cls_target.unique()}")
 
         # Ensure classification predictions are within a reasonable range
-        # cls_pred = torch.clamp(cls_pred, min=-10.0, max=10.0)
+        cls_pred = torch.clamp(cls_pred, min=-10.0, max=10.0)
 
         # Segmentation loss - FOLLOW BASELINE PATTERN EXACTLY
         if self.loss_type == 'dice_ce':

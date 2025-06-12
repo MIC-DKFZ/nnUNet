@@ -5,7 +5,7 @@ import torch
 from nnunetv2.utilities.ddp_allgather import AllGatherGrad
 from torch import nn
 
-DEBUG=os.environ.get("DEBUG", "False")
+DEBUG=os.environ.get("DEBUG", False)
 
 class SoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,

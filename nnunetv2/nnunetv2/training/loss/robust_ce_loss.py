@@ -4,7 +4,7 @@ from torch import nn, Tensor
 import numpy as np
 import os
 
-DEBUG=os.environ.get("DEBUG", "False")
+DEBUG=os.environ.get("DEBUG", False)
 
 class RobustCrossEntropyLoss(nn.CrossEntropyLoss):
     def forward(self, input: Tensor, target: Tensor) -> Tensor:

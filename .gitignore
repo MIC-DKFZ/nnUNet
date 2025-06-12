@@ -118,5 +118,7 @@ raw_data/
 .venv/
 uv.lock
 .python-version
+training_log.txt
+debug_output.txt
 
 !documentation/assets/scribble_example.png
