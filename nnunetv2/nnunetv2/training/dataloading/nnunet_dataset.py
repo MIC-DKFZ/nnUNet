@@ -6,9 +6,11 @@ from functools import lru_cache
 from typing import List, Union, Type, Tuple
 
 import numpy as np
+import pandas as pd
 import blosc2
 import shutil
 from blosc2 import Filter, Codec
+from threading import Lock
 
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile, write_pickle, subfiles
 from nnunetv2.configuration import default_num_processes
@@ -62,6 +64,33 @@ class nnUNetBaseDataset(ABC):
 
 
 class nnUNetDatasetNumpy(nnUNetBaseDataset):
+    def __init__(self, folder: str, identifiers: List[str] = None,
+                 folder_with_segs_from_previous_stage: str = None,
+                 load_subtype_labels: bool = False,
+                 label_path: str = None):
+        super().__init__(folder, identifiers, folder_with_segs_from_previous_stage)
+        self.load_subtype_labels = load_subtype_labels
+        self.classification_labels = None
+
+        if self.load_subtype_labels:
+            labels_csv_path = label_path
+            self.classification_labels = self._load_classification_labels(labels_csv_path)
+            # check if all the identifiers in the dataset have a classification label
+            missing_labels = [id for id in self.identifiers if id not in self.classification_labels]
+            if missing_labels:
+                warnings.warn(f"The following identifiers do not have classification labels: {missing_labels}")
+            # only keep identifiers that have classification labels
+            self.classification_labels = {id: self.classification_labels[id] for id in self.classification_labels if id in self.identifiers}
+
+    def _load_classification_labels(self, csv_path: str) -> dict:
+        """Load classification labels from CSV file"""
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"Classification labels file not found: {csv_path}")
+
+        df = pd.read_csv(csv_path)
+        df['Photo ID'] = df['Photo ID'].str.split(".").str[0].str.strip('_0000')
+        return dict(zip(df['Photo ID'], df['subtype']))
+
     def load_case(self, identifier):
         data_npy_file = join(self.source_folder, identifier + '.npy')
         if not isfile(data_npy_file):
@@ -85,6 +114,15 @@ class nnUNetDatasetNumpy(nnUNetBaseDataset):
             seg_prev = None
 
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
+
+        # Add classification label to properties if requested
+        if self.load_subtype_labels and self.classification_labels is not None:
+            if identifier in self.classification_labels:
+                properties['classification_label'] = self.classification_labels[identifier]
+            else:
+                properties['classification_label'] = None
+                warnings.warn(f"No classification label found for case {identifier}")
+
         return data, seg, seg_prev, properties
 
     @staticmethod
@@ -120,10 +158,38 @@ class nnUNetDatasetNumpy(nnUNetBaseDataset):
 
 
 class nnUNetDatasetBlosc2(nnUNetBaseDataset):
+    _classification_labels_cache = {}
+    _lock = Lock()
+
     def __init__(self, folder: str, identifiers: List[str] = None,
-                 folder_with_segs_from_previous_stage: str = None):
+                 folder_with_segs_from_previous_stage: str = None,
+                 load_subtype_labels: bool = False,
+                 label_path: str = None):
         super().__init__(folder, identifiers, folder_with_segs_from_previous_stage)
         blosc2.set_nthreads(1)
+        self.load_subtype_labels = load_subtype_labels
+        self.classification_labels = None
+
+        if self.load_subtype_labels:
+            labels_csv_path = label_path
+
+            with self._lock:
+                if labels_csv_path not in self._classification_labels_cache:
+                    self._classification_labels_cache[labels_csv_path] = self._load_classification_labels(labels_csv_path)
+            self.classification_labels = self._classification_labels_cache[labels_csv_path]
+
+    def _load_classification_labels(self, csv_path: str) -> dict:
+        """Load classification labels from CSV file"""
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"Classification labels file not found: {csv_path}")
+
+        df = pd.read_csv(csv_path)
+        df['Photo ID'] = df['Photo ID'].str.split("_").str[:2].str.join("_")
+        return_dict = df[['Photo ID', 'subtype']].set_index('Photo ID').to_dict()['subtype']
+        missing_labels = [id for id in self.identifiers if id not in return_dict]
+        if missing_labels:
+            warnings.warn(f"The following identifiers do not have classification labels: {missing_labels} in {csv_path}")
+        return return_dict
 
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -148,6 +214,15 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             seg_prev = None
 
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
+
+        # Add classification label to properties if requested
+        if self.load_subtype_labels and self.classification_labels is not None:
+            if identifier in self.classification_labels:
+                properties['classification_label'] = self.classification_labels[identifier]
+            else:
+                properties['classification_label'] = None
+                warnings.warn(f"No classification label found for case {identifier}")
+
         return data, seg, seg_prev, properties
 
     @staticmethod
@@ -296,6 +371,7 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
 
         # print(image_size, chunk_size, block_size)
         return tuple(block_size), tuple(chunk_size)
+
 
 
 file_ending_dataset_mapping = {

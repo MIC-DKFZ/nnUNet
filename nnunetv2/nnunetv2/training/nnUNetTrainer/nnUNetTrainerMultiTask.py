@@ -1,13 +1,14 @@
+from cProfile import label
 import torch
 from torch import nn
+import os
 import numpy as np
+import pandas as pd
 from typing import Union, Tuple, List
 from nnunetv2.training.nnUNetTrainer.variants.network_architecture.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
 from nnunetv2.architectures.MultiTaskResEncUNet import MultiTaskResEncUNet, MultiTaskChannelAttentionResEncUNet, MultiTaskEfficientAttentionResEncUNet
 from nnunetv2.training.loss.multitask_losses import MultiTaskLoss
-# from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-# from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op
-# from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
+from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 
 
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
@@ -22,6 +23,31 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.seg_weight = 1.0
         self.cls_weight = 0.5
         self.loss_type = 'dice_ce'  # Options: 'dice_ce', 'focal', 'tversky'
+
+
+    def get_tr_and_val_datasets(self):
+        """Override to use dataset class with classification labels"""
+        tr_keys, val_keys = self.do_split()
+        dataset_name = self.plans_manager.dataset_name
+
+        # Infer the appropriate dataset class (numpy or blosc2)
+        dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
+        # Use dataset class with classification labels enabled
+        dataset_tr = dataset_class(
+            self.preprocessed_dataset_folder, tr_keys,
+            folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+            load_subtype_labels=True,
+            label_path=os.path.join(os.environ['nnUNet_raw'], dataset_name, "labels.csv")
+        )
+        dataset_val = dataset_class(
+            self.preprocessed_dataset_folder, val_keys,
+            folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+            load_subtype_labels=True,
+            label_path=os.path.join(os.environ['nnUNet_raw'], dataset_name, "labels.csv")
+        )
+
+        return dataset_tr, dataset_val
 
     @staticmethod
     def build_network_architecture(architecture_class_name: str,
@@ -86,9 +112,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         Custom training step for multi-task learning.
         """
+        import pdb
+        pdb.set_trace()  # Debugging breakpoint
         data = batch['data'].to(self.device)
         target_seg = batch['target'].to(self.device)  # Segmentation targets
-        target_cls = batch.get('classification_target', None).to(self.device)  # Classification targets
+        target_cls = batch['classification_target'].to(self.device)  # Classification targets
 
         self.optimizer.zero_grad()
 
@@ -116,9 +144,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         Custom validation step for multi-task learning.
         """
-        data = batch['data']
-        target_seg = batch['target']
-        target_cls = batch.get('classification_target', None)
+        data = batch['data'].to(self.device)
+        target_seg = batch['target'].to(self.device)  # Segmentation targets
+        target_cls = batch['classification_target'].to(self.device)  # Classification targets
 
         with torch.no_grad():
             output = self.network(data)

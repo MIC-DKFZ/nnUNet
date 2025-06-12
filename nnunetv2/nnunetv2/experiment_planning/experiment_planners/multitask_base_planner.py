@@ -51,7 +51,7 @@ class MultiTaskResEncUNetPlanner(ExperimentPlanner):
         """
         if configuration_name == '2d' or configuration_name == '3d_fullres':
             # Reuse ResEncUNet data since preprocessing is the same
-            return 'nnUNetResEncUNetPlans' + '_' + configuration_name
+            return self.plans_identifier + '_' + configuration_name
         else:
             return self.plans_identifier + '_' + configuration_name
 
