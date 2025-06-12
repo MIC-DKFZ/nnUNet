@@ -24,8 +24,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         # Multi-task specific parameters
         self.num_classification_classes = 3
-        self.seg_weight = 3.0
-        self.cls_weight = 0.5
+        self.seg_weight = 1.0
+        self.cls_weight = 0.25
         self.loss_type = 'dice_ce'  # Options: 'dice_ce', 'focal', 'tversky'
         self.num_epochs = 150
 
