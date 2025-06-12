@@ -26,6 +26,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.num_classification_classes = 3
         self.seg_weight = 1.0
         self.cls_weight = 0.25
+        self.running_seg_loss = 1.0
+        self.running_cls_loss = 1.0
+        self.running_alpha = 0.98
         self.loss_type = 'dice_ce'  # Options: 'dice_ce', 'focal', 'tversky'
         self.num_epochs = 150
 
@@ -141,6 +144,19 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Calculate loss
         loss_dict = self.loss(seg_output, target_seg, cls_output, target_cls)
 
+        # Update running means
+        seg_loss_val = loss_dict['segmentation_loss'].item()
+        cls_loss_val = loss_dict['classification_loss'].item()
+        self.running_seg_loss = self.running_alpha * self.running_seg_loss + (1 - self.running_alpha) * seg_loss_val
+        self.running_cls_loss = self.running_alpha * self.running_cls_loss + (1 - self.running_alpha) * cls_loss_val
+
+        # Normalize losses
+        norm_seg_loss = loss_dict['segmentation_loss'] / (self.running_seg_loss + 1e-8)
+        norm_cls_loss = loss_dict['classification_loss'] / (self.running_cls_loss + 1e-8)
+        total_loss = self.seg_weight * norm_seg_loss + self.cls_weight * norm_cls_loss
+
+        loss_dict['loss'] = total_loss
+
         if DEBUG:
             print(f"Training step loss: {loss_dict['loss'].item()}")
             print(f"Segmentation loss: {loss_dict['segmentation_loss'].item()}")
@@ -171,7 +187,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             print(f"Segmentation gradient mean: {np.mean(seg_grads) if seg_grads else 0:.6f}")
             print(f"Total parameters with gradients: {len(encoder_grads) + len(cls_grads) + len(seg_grads)}")
 
-        torch.nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=0.5)
         self.optimizer.step()
 
         return loss_dict
@@ -608,10 +624,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         super().on_train_epoch_start()
 
-        # # Example: Dynamic loss weighting based on epoch
         # if hasattr(self, 'current_epoch'):
-        #     # Gradually increase classification weight
-        #     epoch_ratio = min(self.current_epoch / 100.0, 1.0)  # Reach max at epoch 100
+        #     epoch_ratio = min(self.current_epoch / self.num_epochs, 1.0)
         #     self.loss.cls_weight = self.cls_weight * epoch_ratio
 
     def run_training(self):
