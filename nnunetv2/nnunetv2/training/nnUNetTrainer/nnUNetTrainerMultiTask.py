@@ -13,6 +13,7 @@ from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.utilities.collate_outputs import collate_outputs
 
+DEBUG=True
 
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     """Multi-task trainer for segmentation + classification"""
@@ -22,8 +23,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         super().__init__(plans, configuration, fold, dataset_json, device)
 
         # Multi-task specific parameters
-        self.num_classification_classes = 3  # Update based on your subtypes
-        self.seg_weight = 1.0
+        self.num_classification_classes = 3
+        self.seg_weight = 3.0
         self.cls_weight = 0.5
         self.loss_type = 'dice_ce'  # Options: 'dice_ce', 'focal', 'tversky'
 
@@ -97,10 +98,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             **architecture_kwargs
         )
 
-        # Initialize the network if it has an initialize method
-        if hasattr(network, 'initialize'):
-            network.apply(network.initialize)
-
         return network
 
     def _build_loss(self):
@@ -119,10 +116,15 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         target_seg = batch['target'].to(self.device)  # Segmentation targets
         target_cls = batch['class_target'].to(self.device)  # Classification targets
 
+        if DEBUG:
+            print("Input data is blank? ", torch.all(data == 0))
+
+
         self.optimizer.zero_grad()
 
         # Forward pass
         output = self.network(data)
+
 
         # Multi-task output: segmentation and classification
         if isinstance(output, dict) and len(output) == 2:
@@ -131,12 +133,44 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             # Fallback if network returns only segmentation
             seg_output = output
             cls_output = None
+        if DEBUG:
+            print("Segmentation output is blank? ", torch.all(seg_output == 0))
+            print("Classification output is blank? ", torch.all(cls_output == 0))
 
         # Calculate loss
         loss_dict = self.loss(seg_output, target_seg, cls_output, target_cls)
 
+        if DEBUG:
+            print(f"Training step loss: {loss_dict['loss'].item()}")
+            print(f"Segmentation loss: {loss_dict['segmentation_loss'].item()}")
+            print(f"Classification loss: {loss_dict['classification_loss'].item()}")
+
         # Backward pass
         loss_dict['loss'].backward()
+
+        if DEBUG:
+            # Check gradients on specific parameter groups
+            encoder_grads = []
+            cls_grads = []
+            seg_grads = []
+
+            for name, param in self.network.named_parameters():
+                if param.grad is not None:
+                    grad_norm = param.grad.norm().item()
+
+                    if 'encoder' in name or 'stages' in name:
+                        encoder_grads.append(grad_norm)
+                    elif 'classification_head' in name:
+                        cls_grads.append(grad_norm)
+                    elif 'seg_layers' in name or 'decoder' in name:
+                        seg_grads.append(grad_norm)
+
+            print(f"Encoder gradient mean: {np.mean(encoder_grads) if encoder_grads else 0:.6f}")
+            print(f"Classification gradient mean: {np.mean(cls_grads) if cls_grads else 0:.6f}")
+            print(f"Segmentation gradient mean: {np.mean(seg_grads) if seg_grads else 0:.6f}")
+            print(f"Total parameters with gradients: {len(encoder_grads) + len(cls_grads) + len(seg_grads)}")
+
+        torch.nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         return loss_dict
@@ -264,8 +298,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 'fn_hard': fn_hard,
                 **cls_metrics
             }
-            import pdb
-            pdb.set_trace()
+            if DEBUG:
+                print("Input data is blank? ", torch.all(data == 0))
+                print("Segmentation output is blank? ", torch.all(seg_output_for_metrics == 0))
+                print("Validation results: ", result)
+
             return result
 
     def on_validation_epoch_end(self, val_outputs: List[dict]):
@@ -274,9 +311,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         Calculates and logs both segmentation and classification metrics.
         """
         outputs_collated = collate_outputs(val_outputs)
-
-        import pdb
-        pdb.set_trace()
 
         # === SEGMENTATION METRICS ===
         tp = np.sum(outputs_collated['tp_hard'], 0)
@@ -436,11 +470,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """
         super().on_train_epoch_start()
 
-        # Example: Dynamic loss weighting based on epoch
-        if hasattr(self, 'current_epoch'):
-            # Gradually increase classification weight
-            epoch_ratio = min(self.current_epoch / 100.0, 1.0)  # Reach max at epoch 100
-            self.loss.cls_weight = self.cls_weight * epoch_ratio
+        # # Example: Dynamic loss weighting based on epoch
+        # if hasattr(self, 'current_epoch'):
+        #     # Gradually increase classification weight
+        #     epoch_ratio = min(self.current_epoch / 100.0, 1.0)  # Reach max at epoch 100
+        #     self.loss.cls_weight = self.cls_weight * epoch_ratio
 
     def run_training(self):
         """

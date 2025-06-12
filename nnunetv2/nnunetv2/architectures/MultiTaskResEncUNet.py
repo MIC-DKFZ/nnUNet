@@ -4,6 +4,7 @@ import torch.nn as nn
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from torch.nn.init import kaiming_normal_, constant_
 
+DEBUG=True
 
 class EfficientAttentionBlock(nn.Module):
     """Efficient attention block using channel attention instead of spatial"""
@@ -102,7 +103,7 @@ class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
         )
 
         self.num_classification_classes = num_classification_classes
-        self.classification_dropout = kwargs.get("classification_dropout", 0.2)
+        self.classification_dropout = kwargs.get("classification_dropout", 0.5)
         # Add efficient attention only to the deepest few layers
         # (adding to all layers would be too memory intensive)
         self.encoder_attention = nn.ModuleDict({
@@ -126,6 +127,27 @@ class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
             nn.Dropout(self.classification_dropout),
             nn.Linear(256, num_classification_classes)
         )
+
+        self._init_encoder_attention()
+        self._init_classification_head()
+
+    def _init_encoder_attention(self):
+        """Initialize the encoder attention modules"""
+        for module in self.encoder_attention.values():
+            for submodule in module.modules():
+                if isinstance(submodule, nn.Conv3d):
+                    nn.init.xavier_uniform_(submodule.weight)
+                    if submodule.bias is not None:
+                        nn.init.constant_(submodule.bias, 0)
+
+    def _init_classification_head(self):
+        """Initialize only the classification head"""
+        for module in self.classification_head.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)  # Match dynamic_network_architectures
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+
 
     def forward(self, x):
         # Encoder forward pass with selective attention
@@ -176,25 +198,6 @@ class MultiTaskEfficientAttentionResEncUNet(ResidualEncoderUNet):
             'classification': cls_output
         }
 
-    def initialize(self, module):
-        """
-        Custom initialization method to avoid compatibility issues with
-        dynamic_network_architectures initialization functions.
-        """
-        if isinstance(module, nn.Conv3d):
-            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                constant_(module.bias, 0)
-        elif isinstance(module, (nn.BatchNorm3d, nn.InstanceNorm3d, nn.GroupNorm)):
-            if module.weight is not None:
-                constant_(module.weight, 1)
-            if module.bias is not None:
-                constant_(module.bias, 0)
-        elif isinstance(module, nn.Linear):
-            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                constant_(module.bias, 0)
-
 
 # Simpler version with just channel attention
 class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
@@ -217,7 +220,7 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
         )
 
         self.num_classification_classes = num_classification_classes
-        self.classification_dropout = kwargs.get("classification_dropout", 0.2)
+        self.classification_dropout = kwargs.get("classification_dropout", 0.5)
 
         # Simple channel attention for classification
         self.bottleneck_attention = nn.Sequential(
@@ -238,6 +241,25 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
             nn.Dropout(self.classification_dropout),
             nn.Linear(256, num_classification_classes)
         )
+        self._init_bottleneck_attention()
+        self._init_classification_head()
+
+    def _init_bottleneck_attention(self):
+        """Initialize the bottleneck attention module"""
+        for module in self.bottleneck_attention.modules():
+            if isinstance(module, nn.Conv3d):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+
+
+    def _init_classification_head(self):
+        """Initialize only the classification head"""
+        for module in self.classification_head.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)  # Match dynamic_network_architectures
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
 
     def forward(self, x):
         # Standard encoder forward pass
@@ -281,24 +303,7 @@ class MultiTaskChannelAttentionResEncUNet(ResidualEncoderUNet):
             'classification': cls_output
         }
 
-    def initialize(self, module):
-        """
-        Custom initialization method to avoid compatibility issues with
-        dynamic_network_architectures initialization functions.
-        """
-        if isinstance(module, nn.Conv3d):
-            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                constant_(module.bias, 0)
-        elif isinstance(module, (nn.BatchNorm3d, nn.InstanceNorm3d, nn.GroupNorm)):
-            if module.weight is not None:
-                constant_(module.weight, 1)
-            if module.bias is not None:
-                constant_(module.bias, 0)
-        elif isinstance(module, nn.Linear):
-            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                constant_(module.bias, 0)
+
 
 
 # No attention version for comparison
@@ -323,7 +328,7 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
         )
 
         self.num_classification_classes = num_classification_classes
-        self.classification_dropout = kwargs.get("classification_dropout", 0.2)
+        self.classification_dropout = kwargs.get("classification_dropout", 0.5)
         # Classification head using bottleneck features
         self.classification_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
@@ -334,6 +339,15 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             nn.Dropout(self.classification_dropout),
             nn.Linear(256, num_classification_classes)
         )
+        self._init_classification_head()
+
+    def _init_classification_head(self):
+        """Initialize only the classification head"""
+        for module in self.classification_head.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)  # Match dynamic_network_architectures
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
 
     def forward(self, x):
         # Encoder forward pass
@@ -373,40 +387,4 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             'classification': cls_output
         }
 
-    def initialize(self, module):
-        """
-        Custom initialization method to avoid compatibility issues with
-        dynamic_network_architectures initialization functions.
-        """
-        if isinstance(module, nn.Conv3d):
-            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                constant_(module.bias, 0)
-        elif isinstance(module, (nn.BatchNorm3d, nn.InstanceNorm3d, nn.GroupNorm)):
-            if module.weight is not None:
-                constant_(module.weight, 1)
-            if module.bias is not None:
-                constant_(module.bias, 0)
-        elif isinstance(module, nn.Linear):
-            kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
-            if module.bias is not None:
-                constant_(module.bias, 0)
 
-
-# Memory usage comparison:
-def estimate_memory_usage():
-    """
-    Memory estimates for 3D volumes (approximate):
-
-    Original approach (full spatial attention on 64x128x192):
-    - Attention matrix: (64*128*192)² = ~2.6TB per head (!!)
-
-    Channel attention:
-    - Per stage: ~1MB additional memory
-
-    Linear attention (recommended):
-    - Per stage: ~100MB additional memory
-
-    Recommendation: Start with SimpleMultiTaskAttentionResEncUNet
-    """
-    pass

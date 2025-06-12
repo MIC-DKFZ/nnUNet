@@ -167,9 +167,9 @@ class nnUNetDataLoader(DataLoader):
     def generate_train_batch(self):
         selected_keys = self.get_indices()
         # preallocate memory for data and seg
-        data_all = np.zeros(self.data_shape, dtype=np.float32)
-        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
-        class_target = np.zeros((self.batch_size, ), dtype=np.int16)
+        data_all = np.zeros(self.data_shape)
+        seg_all = np.zeros(self.seg_shape)
+        class_target = np.zeros((self.batch_size, ))
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -194,7 +194,8 @@ class nnUNetDataLoader(DataLoader):
             seg_all[j] = seg_cropped
 
             # store class targets
-            class_target[j] = properties['classification_label']
+            if 'classification_label' in properties:
+                class_target[j] = properties['classification_label']
 
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]
@@ -204,7 +205,7 @@ class nnUNetDataLoader(DataLoader):
             with torch.no_grad():
                 with threadpool_limits(limits=1, user_api=None):
                     data_all = torch.from_numpy(data_all).float()
-                    seg_all = torch.from_numpy(seg_all).to(torch.int16)
+                    seg_all = torch.from_numpy(seg_all).to(torch.long)
                     class_target = torch.from_numpy(class_target).to(torch.long)
                     images = []
                     segs = []

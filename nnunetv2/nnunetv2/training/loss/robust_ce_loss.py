@@ -2,18 +2,26 @@ import torch
 from torch import nn, Tensor
 import numpy as np
 
+DEBUG = True
 
 class RobustCrossEntropyLoss(nn.CrossEntropyLoss):
-    """
-    this is just a compatibility layer because my target tensor is float and has an extra dimension
-
-    input must be logits, not probabilities!
-    """
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        if target.ndim == input.ndim:
+        if DEBUG:
+            print(f"[CE DEBUG] Input shapes - input: {input.shape}, target: {target.shape}")
+            print(f"[CE DEBUG] Input range: [{input.min().item():.6f}, {input.max().item():.6f}]")
+            print(f"[CE DEBUG] Target unique values: {target.unique()}")
+            print(f"[CE DEBUG] Target range: [{target.min().item()}, {target.max().item()}]")
+
+        if len(target.shape) == len(input.shape):
             assert target.shape[1] == 1
             target = target[:, 0]
-        return super().forward(input, target.long())
+
+        result = super().forward(input, target)
+
+        if DEBUG:
+            print(f"[CE DEBUG] Computed CE loss: {result.item():.6f}")
+
+        return result
 
 
 class TopKLoss(RobustCrossEntropyLoss):

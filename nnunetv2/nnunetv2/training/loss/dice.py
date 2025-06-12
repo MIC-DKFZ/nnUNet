@@ -4,6 +4,7 @@ import torch
 from nnunetv2.utilities.ddp_allgather import AllGatherGrad
 from torch import nn
 
+DEBUG = True
 
 class SoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
@@ -70,6 +71,13 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         self.ddp = ddp
 
     def forward(self, x, y, loss_mask=None):
+        if DEBUG:
+            print(f"[DICE DEBUG] Input shapes - x: {x.shape}, y: {y.shape}")
+            print(f"[DICE DEBUG] x range: [{x.min().item():.6f}, {x.max().item():.6f}]")
+            print(f"[DICE DEBUG] y unique values: {y.unique()}")
+            if loss_mask is not None:
+                print(f"[DICE DEBUG] Loss mask shape: {loss_mask.shape}")
+
         if self.apply_nonlin is not None:
             x = self.apply_nonlin(x)
 
@@ -116,6 +124,10 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         dc = (2 * intersect + self.smooth) / (torch.clip(sum_gt + sum_pred + self.smooth, 1e-8))
 
         dc = dc.mean()
+
+        if DEBUG:
+            print(f"[DICE DEBUG] Computed DICE loss: {dc.item():.6f}")
+
         return -dc
 
 

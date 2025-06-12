@@ -66,6 +66,7 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
+DEBUG=True
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
@@ -980,27 +981,53 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        self.optimizer.zero_grad(set_to_none=True)
-        # Autocast can be annoying
-        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
-        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
+        if DEBUG:
+            print(f"[BASELINE DEBUG] Input data shape: {data.shape}")
+            print(f"[BASELINE DEBUG] Input data range: [{data.min().item():.6f}, {data.max().item():.6f}]")
+            print(f"[BASELINE DEBUG] Target shape: {target.shape if not isinstance(target, list) else [x.shape for x in target]}")
+            if not isinstance(target, list):
+                print(f"[BASELINE DEBUG] Target unique values: {target.unique()}")
+
+        self.optimizer.zero_grad()
+        # Autocast is there for a reason - do not remove
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
-            # del data
+
+            if DEBUG:
+                print(f"[BASELINE DEBUG] Output shape: {output.shape if not isinstance(output, list) else [x.shape for x in output]}")
+                if isinstance(output, list):
+                    print(f"[BASELINE DEBUG] Output[0] range: [{output[0].min().item():.6f}, {output[0].max().item():.6f}]")
+                else:
+                    print(f"[BASELINE DEBUG] Output range: [{output.min().item():.6f}, {output.max().item():.6f}]")
+
+            # let's toss a coin
             l = self.loss(output, target)
 
-        if self.grad_scaler is not None:
-            self.grad_scaler.scale(l).backward()
-            self.grad_scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-            self.grad_scaler.step(self.optimizer)
-            self.grad_scaler.update()
-        else:
-            l.backward()
-            torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
-            self.optimizer.step()
-        return {'loss': l.detach().cpu().numpy()}
+        if DEBUG:
+            print(f"[BASELINE DEBUG] Final loss value: {l.item():.6f}")
+
+        l.backward()
+
+        if DEBUG:
+            # Check gradients after backward
+            encoder_grads = []
+            decoder_grads = []
+
+            for name, param in self.network.named_parameters():
+                if param.grad is not None:
+                    grad_norm = param.grad.norm().item()
+
+                    if 'encoder' in name or 'stages' in name:
+                        encoder_grads.append(grad_norm)
+                    elif 'decoder' in name or 'seg_layers' in name:
+                        decoder_grads.append(grad_norm)
+
+            print(f"[BASELINE DEBUG] Encoder gradient mean: {np.mean(encoder_grads) if encoder_grads else 0:.6f}")
+            print(f"[BASELINE DEBUG] Decoder gradient mean: {np.mean(decoder_grads) if decoder_grads else 0:.6f}")
+            print(f"[BASELINE DEBUG] Total parameters with gradients: {len(encoder_grads) + len(decoder_grads)}")
+
+        self.optimizer.step()
+        return {'loss': l}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
         outputs = collate_outputs(train_outputs)
