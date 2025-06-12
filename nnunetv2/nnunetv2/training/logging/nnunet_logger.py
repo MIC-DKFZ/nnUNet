@@ -16,6 +16,7 @@ class nnUNetLogger(object):
     """
     def __init__(self, verbose: bool = False):
         self.my_fantastic_logging = {
+            # Original nnUNet keys
             'mean_fg_dice': list(),
             'ema_fg_dice': list(),
             'dice_per_class_or_region': list(),
@@ -23,7 +24,19 @@ class nnUNetLogger(object):
             'val_losses': list(),
             'lrs': list(),
             'epoch_start_timestamps': list(),
-            'epoch_end_timestamps': list()
+            'epoch_end_timestamps': list(),
+
+            # Multi-task specific keys
+            'val_total_loss': list(),
+            'val_seg_loss': list(),
+            'val_cls_loss': list(),
+            'cls_accuracy': list(),
+            'cls_f1_per_class': list(),
+            'cls_precision_per_class': list(),
+            'cls_recall_per_class': list(),
+            'cls_macro_f1': list(),
+            'cls_macro_precision': list(),
+            'cls_macro_recall': list()
         }
         self.verbose = verbose
         # shut up, this logging is great
