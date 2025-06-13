@@ -163,3 +163,109 @@ class MultiTaskLoss(nn.Module):
             'segmentation_loss': seg_loss,
             'classification_loss': cls_loss
         }
+
+
+class MultiTaskUncertaintyLoss(nn.Module):
+    """Multi-task loss with uncertainty weighting"""
+    def __init__(self, loss_type='dice_ce', ddp=False, ignore_label=None):
+        super().__init__()
+        self.log_sigma_seg = nn.Parameter(torch.zeros(1))
+        self.log_sigma_cls = nn.Parameter(torch.zeros(1))
+        self.ignore_label = ignore_label
+
+        # Segmentation losses - EXACTLY like baseline
+        if loss_type == 'dice_ce':
+            soft_dice_kwargs = {
+                'batch_dice': True,
+                'do_bg': False,  # Don't include background in dice
+                'smooth': 1e-5,
+                'ddp': ddp,
+            }
+            ce_kwargs = {}
+            if ignore_label is not None:
+                ce_kwargs['ignore_index'] = ignore_label
+
+            self.dice_loss = MemoryEfficientSoftDiceLoss(
+                apply_nonlin=softmax_helper_dim1,
+                **soft_dice_kwargs
+            )
+            self.ce_loss = RobustCrossEntropyLoss(**ce_kwargs)
+        elif loss_type == 'focal':
+            self.seg_loss = UnifiedFocalLoss()
+        elif loss_type == 'tversky':
+            self.seg_loss = TverskyLoss()
+
+        # Classification loss
+        self.cls_loss = nn.CrossEntropyLoss()
+        self.loss_type = loss_type
+
+    def forward(self, seg_pred, seg_target, cls_pred, cls_target):
+        if DEBUG:
+            print(f"[LOSS DEBUG] Input shapes - Seg pred: {seg_pred.shape if not isinstance(seg_pred, list) else [x.shape for x in seg_pred]}")
+            print(f"[LOSS DEBUG] Seg target: {seg_target.shape}, Cls pred: {cls_pred.shape}, Cls target: {cls_target.shape}")
+            print(f"[LOSS DEBUG] Seg pred range: [{seg_pred[0].min().item():.6f}, {seg_pred[0].max().item():.6f}]" if isinstance(seg_pred, list) else f"[{seg_pred.min().item():.6f}, {seg_pred.max().item():.6f}]")
+            print(f"[LOSS DEBUG] Cls pred range: [{cls_pred.min().item():.6f}, {cls_pred.max().item():.6f}]")
+            print(f"[LOSS DEBUG] Cls target unique values: {cls_target.unique()}")
+
+        # Ensure classification predictions are within a reasonable range
+        cls_pred = torch.clamp(cls_pred, min=-10.0, max=10.0)
+
+        # Segmentation loss - FOLLOW BASELINE PATTERN EXACTLY
+        if self.loss_type == 'dice_ce':
+            # Handle ignore label like baseline
+            if self.ignore_label is not None:
+                assert seg_target.shape[1] == 1, 'ignore label is not implemented for one hot encoded target variables'
+                mask = (seg_target != self.ignore_label).bool()
+                target_dice = torch.clone(seg_target)
+                target_dice[seg_target == self.ignore_label] = 0
+                num_fg = mask.sum()
+            else:
+                target_dice = seg_target
+                mask = None
+
+            # Dice loss with proper mask handling
+            seg_dice = self.dice_loss(seg_pred, target_dice, loss_mask=mask)
+
+            # CE loss with proper target format (remove channel dimension)
+            if seg_target.shape[1] == 1:  # Ensure target has channel dimension
+                ce_target = seg_target[:, 0]  # Remove channel dimension like baseline
+            else:
+                ce_target = seg_target
+
+            seg_ce = self.ce_loss(seg_pred, ce_target)
+
+            seg_loss = seg_dice + seg_ce
+
+            if DEBUG:
+                print(f"[LOSS DEBUG] Seg dice: {seg_dice.item():.6f}")
+                print(f"[LOSS DEBUG] Seg CE: {seg_ce.item():.6f}")
+        else:
+            seg_loss = self.seg_loss(seg_pred, seg_target)
+            if DEBUG:
+                print(f"[LOSS DEBUG] Seg loss: {seg_loss.item():.6f}")
+
+        # Classification loss
+        if DEBUG:
+            print(f"[LOSS DEBUG] Pre-classification cls pred sample: {cls_pred[0]}")
+
+        cls_loss = self.cls_loss(cls_pred, cls_target)
+        if DEBUG:
+            print(f"[LOSS DEBUG] Raw classification loss: {cls_loss.item():.6f}")
+
+        # Uncertainty weighting
+        total_loss = (
+            torch.exp(-self.log_sigma_seg) * seg_loss + self.log_sigma_seg +
+            torch.exp(-self.log_sigma_cls) * cls_loss + self.log_sigma_cls
+        )
+
+        if DEBUG:
+            print(f"[LOSS DEBUG] Final losses - Seg: {seg_loss.item():.6f}, Cls: {cls_loss.item():.6f}, Total: {total_loss.item():.6f}")
+            print(f"[LOSS DEBUG] Uncertainty weights - Seg: {torch.exp(-self.log_sigma_seg).item():.6f}, Cls: {torch.exp(-self.log_sigma_cls).item():.6f}")
+
+        return {
+            'loss': total_loss,
+            'segmentation_loss': seg_loss,
+            'classification_loss': cls_loss,
+            'log_sigma_seg': self.log_sigma_seg,
+            'log_sigma_cls': self.log_sigma_cls,
+        }

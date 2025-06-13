@@ -52,13 +52,27 @@ Some other flags that might be useful:
 -p P                  [OPTIONAL] Use this flag to specify a custom plans identifier. Default: nnUNetPlans
 ```
 
-## Run training and prediction on ResEncPlans
+## Run training and prediction on ResEncPlans for combined MultiTask end-to-end training
 ```bash
-uv run --extra cu<cuda-version> nnUNetv2_train <dataset_id> <3d_lowres | 3d_fullres> <crossvalidataion_fold_index> --npz -device 'cuda' --c <checkpoint_path> -p nnUNetResEncUNet(M/L/XL)Plans
-
-# mine example
 export nnUNet_raw="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_raw"
 export nnUNet_preprocessed="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_preprocessed"
 export nnUNet_results="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_results"
 CUDA_VISIBLE_DEVICES=0 uv run --extra cu124 nnUNetv2_train 1 3d_fullres 0  -p nnUNetMultiTaskResEncUNetPlans -tr nnUNetTrainerMultiTask > training_log.txt
 ```
+
+
+## Run training with pretrained ResEncUNet on just the classifier
+#### Pretraining ResEncUNet
+```bash
+
+uv run --extra cu<cuda-version> nnUNetv2_train <dataset_id> <3d_lowres | 3d_fullres> <crossvalidataion_fold_index> --npz -device 'cuda' --c <checkpoint_path> -p nnUNetResEncUNet(M/L/XL)Plans
+```
+#### Train classifier with frozen pretrained weights for encoder
+```bash
+export nnUNet_raw="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_raw"
+export nnUNet_preprocessed="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_preprocessed"
+export nnUNet_results="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_results"
+
+CUDA_VISIBLE_DEVICES=0 uv run --extra cu124 nnUNetv2_train 1 3d_fullres 0  -p nnUNetResEncUNetMPlans -tr nnUNetTrainerFrozenEncoderClsRobust > training_classifier_log.txt
+```
+

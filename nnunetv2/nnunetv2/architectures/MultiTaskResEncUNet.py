@@ -360,32 +360,36 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             encoder_features.append(current)
 
         # Manual decoder iteration (matching UNetDecoder.forward logic)
-        lres_input = encoder_features[-1]  # Start with bottleneck (deepest features)
-        seg_outputs = []
+        # lres_input = encoder_features[-1]  # Start with bottleneck (deepest features)
+        # seg_outputs = []
+        # for s in range(len(self.decoder.stages)):
+        #     x = self.decoder.transpconvs[s](lres_input)
+        #     # Skip index: -(s+2) because we skip the current deepest and go to previous
+        #     skip_features = encoder_features[-(s+2)]
+        #     x = torch.cat((x, skip_features), 1)
+        #     x = self.decoder.stages[s](x)
+        #     if self.decoder.deep_supervision:
+        #         seg_outputs.append(self.decoder.seg_layers[s](x))
+        #     elif s == (len(self.decoder.stages) - 1):  # Last stage
+        #         seg_outputs.append(self.decoder.seg_layers[-1](x))
+        #     lres_input = x
+        # if self.decoder.deep_supervision:
+        #     # Invert outputs so largest prediction is first (matching UNetDecoder)
+        #     seg_output = seg_outputs[::-1]
+        # else:
+        #     seg_output = seg_outputs[0]
 
-        for s in range(len(self.decoder.stages)):
-            x = self.decoder.transpconvs[s](lres_input)
-            # Skip index: -(s+2) because we skip the current deepest and go to previous
-            skip_features = encoder_features[-(s+2)]
-            x = torch.cat((x, skip_features), 1)
-            x = self.decoder.stages[s](x)
-            if self.decoder.deep_supervision:
-                seg_outputs.append(self.decoder.seg_layers[s](x))
-            elif s == (len(self.decoder.stages) - 1):  # Last stage
-                seg_outputs.append(self.decoder.seg_layers[-1](x))
-            lres_input = x
-
-        if self.decoder.deep_supervision:
-            # Invert outputs so largest prediction is first (matching UNetDecoder)
-            seg_output = seg_outputs[::-1]
+        seg_output = self.decoder(encoder_features)
+        # cls_output = self.classification_head(encoder_features[-1])
+        if self.training:
+            # During training, return both outputs
+            cls_output = self.classification_head(encoder_features[-1])
+            return {
+                'segmentation': seg_output,
+                'classification': cls_output
+            }
         else:
-            seg_output = seg_outputs[0]
-
-        cls_output = self.classification_head(encoder_features[-1])
-
-        return {
-            'segmentation': seg_output,
-            'classification': cls_output
-        }
+            # During inference, return only segmentation
+            return seg_output
 
 

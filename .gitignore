@@ -121,4 +121,13 @@ uv.lock
 training_log.txt
 debug_output.txt
 
+test*
+*.sh
+*.txt
+debug*
+*.pth
+train*
+benchmark*
+analyze*
+
 !documentation/assets/scribble_example.png

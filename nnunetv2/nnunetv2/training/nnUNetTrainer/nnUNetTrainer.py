@@ -227,6 +227,8 @@ class nnUNetTrainer(object):
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
+            if isinstance(self.loss, nn.Module):
+                self.loss = self.loss.to(self.device)
 
             self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
 

@@ -36,7 +36,16 @@ class nnUNetLogger(object):
             'cls_recall_per_class': list(),
             'cls_macro_f1': list(),
             'cls_macro_precision': list(),
-            'cls_macro_recall': list()
+            'cls_macro_recall': list(),
+
+            # Classification trainer specific keys
+            'train_cls_loss': list(),
+            'train_cls_accuracy': list(),
+            'val_cls_accuracy': list(),
+            'val_cls_f1_macro': list(),
+            'val_cls_f1_micro': list(),
+            'val_cls_precision': list(),
+            'val_cls_recall': list()
         }
         self.verbose = verbose
         # shut up, this logging is great
