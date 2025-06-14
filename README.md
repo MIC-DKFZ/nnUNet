@@ -76,3 +76,8 @@ export nnUNet_results="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_r
 CUDA_VISIBLE_DEVICES=0 uv run --extra cu124 nnUNetv2_train 1 3d_fullres 0  -p nnUNetResEncUNetMPlans -tr nnUNetTrainerFrozenEncoderClsRobust > training_classifier_log.txt
 ```
 
+
+
+
+
+# Prompts
