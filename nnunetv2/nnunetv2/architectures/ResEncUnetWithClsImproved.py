@@ -4,6 +4,283 @@ import torch.nn.functional as F
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.unet_decoder import UNetDecoder
 
+
+# Spatial attention multi-scale classification head that builds on successful architecture.
+class SpatialAttentionMultiScaleHead(nn.Module):
+    """
+    Enhanced multi-scale classification head with spatial attention mechanisms.
+    Builds on your successful architecture by adding attention before pooling.
+    """
+    def __init__(self, encoder_channels=[32, 64, 128, 256, 320, 320], bottleneck_dim=320, num_classes=3):
+        super().__init__()
+        self.encoder_channels = encoder_channels
+        self.num_stages = len(encoder_channels)
+
+        # Spatial attention modules for each scale
+        self.spatial_attentions = nn.ModuleList([
+            SpatialAttentionBlock(ch) for ch in encoder_channels
+        ])
+
+        # Weighted pooling instead of simple average
+        self.weighted_pools = nn.ModuleList([
+            WeightedAdaptivePool3d() for _ in encoder_channels
+        ])
+
+        # Project each scale to same dimension (keeping your proven architecture)
+        self.projections = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(ch, bottleneck_dim // 4),
+                nn.LayerNorm(bottleneck_dim // 4),
+                nn.LeakyReLU(0.01, inplace=True),
+                nn.Dropout(0.2)
+            ) for ch in encoder_channels
+        ])
+
+        # Optional: Learn importance of each scale
+        self.scale_weights = nn.Parameter(torch.ones(len(encoder_channels)))
+
+        # Keep your successful classifier architecture
+        concat_dim = (bottleneck_dim // 4) * len(encoder_channels)
+        self.classifier = nn.Sequential(
+            nn.Linear(concat_dim, bottleneck_dim),
+            nn.LayerNorm(bottleneck_dim),
+            nn.LeakyReLU(0.01, inplace=True),
+            nn.Dropout(0.3),
+
+            nn.Linear(bottleneck_dim, bottleneck_dim // 2),
+            nn.LayerNorm(bottleneck_dim // 2),
+            nn.LeakyReLU(0.01, inplace=True),
+            nn.Dropout(0.3),
+
+            nn.Linear(bottleneck_dim // 2, num_classes)
+        )
+
+        self._init_weights()
+
+    def forward(self, encoder_features):
+        """
+        Args:
+            encoder_features: List of features from encoder stages
+        """
+        if len(encoder_features) != self.num_stages:
+            raise ValueError(f"Expected {self.num_stages} encoder features, got {len(encoder_features)}")
+
+        pooled_features = []
+        attention_maps = []  # For visualization if needed
+
+        for i, (feat, attn, pool, proj) in enumerate(
+            zip(encoder_features, self.spatial_attentions, self.weighted_pools, self.projections)
+        ):
+            # Generate spatial attention map
+            attention_map = attn(feat)
+            attention_maps.append(attention_map)
+
+            # Apply attention to features
+            attended_feat = feat * attention_map
+
+            # Weighted pooling using attention scores
+            pooled = pool(attended_feat, attention_map)
+
+            # Project to common dimension
+            projected = proj(pooled)
+
+            # Apply learned scale importance
+            scale_weight = F.softmax(self.scale_weights, dim=0)[i]
+            pooled_features.append(projected * scale_weight)
+
+        # Concatenate all scale features
+        concatenated = torch.cat(pooled_features, dim=1)
+
+        # Final classification
+        output = self.classifier(concatenated)
+
+        # Return output and attention maps (useful for interpretability)
+        return output, attention_maps
+
+    def _init_weights(self):
+        """Initialize weights following nnU-Net conventions"""
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, (nn.LayerNorm, nn.InstanceNorm3d)):
+                if hasattr(module, 'weight') and module.weight is not None:
+                    nn.init.constant_(module.weight, 1)
+                if hasattr(module, 'bias') and module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.Conv3d):
+                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+
+
+class SpatialAttentionBlock(nn.Module):
+    """
+    Generates spatial attention maps highlighting important regions.
+    Uses both channel-wise and spatial information.
+    """
+    def __init__(self, in_channels):
+        super().__init__()
+        # Channel attention path
+        self.channel_attention = nn.Sequential(
+            nn.Conv3d(in_channels, in_channels // 16, 1),
+            nn.BatchNorm3d(in_channels // 16),
+            nn.ReLU(inplace=True),
+            nn.Conv3d(in_channels // 16, in_channels, 1)
+        )
+
+        # Spatial attention path
+        self.spatial_attention = nn.Sequential(
+            nn.Conv3d(in_channels, 1, kernel_size=7, padding=3),
+            nn.BatchNorm3d(1),
+            nn.Sigmoid()
+        )
+
+        # Combine both paths
+        self.combine = nn.Conv3d(2, 1, kernel_size=3, padding=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # Channel attention
+        avg_pool = F.adaptive_avg_pool3d(x, 1)
+        max_pool = F.adaptive_max_pool3d(x, 1)
+        channel_att = self.channel_attention(avg_pool + max_pool)
+        channel_att = torch.sigmoid(channel_att)
+
+        # Apply channel attention
+        x_channel = x * channel_att
+
+        # Spatial attention on channel-attended features
+        spatial_att = self.spatial_attention(x_channel)
+
+        # Alternative: Combine avg and max for spatial attention
+        avg_out = torch.mean(x, dim=1, keepdim=True)
+        max_out, _ = torch.max(x, dim=1, keepdim=True)
+        combined = torch.cat([avg_out, max_out], dim=1)
+
+        # Final spatial attention map
+        attention = self.sigmoid(self.combine(combined))
+
+        return attention
+
+
+class WeightedAdaptivePool3d(nn.Module):
+    """
+    Performs weighted pooling where weights come from attention maps.
+    More sophisticated than simple average pooling.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, features, attention_weights):
+        """
+        Args:
+            features: [B, C, D, H, W]
+            attention_weights: [B, 1, D, H, W]
+        """
+        B, C, D, H, W = features.shape
+
+        # Normalize attention weights
+        attention_weights = attention_weights.view(B, 1, -1)
+        attention_weights = F.softmax(attention_weights, dim=-1)
+        attention_weights = attention_weights.view(B, 1, D, H, W)
+
+        # Weighted sum
+        features_weighted = features * attention_weights
+        pooled = features_weighted.view(B, C, -1).sum(dim=-1)
+
+        return pooled
+
+
+# Simpler alternative if the above is too complex
+class SimpleSpatialAttentionHead(nn.Module):
+    """
+    A simpler version that adds minimal attention to your working architecture.
+    Less risky to implement while still providing attention benefits.
+    """
+    def __init__(self, encoder_channels=[32, 64, 128, 256, 320, 320], bottleneck_dim=320, num_classes=3):
+        super().__init__()
+        self.encoder_channels = encoder_channels
+        self.num_stages = len(encoder_channels)
+
+        # Simple attention: just learn what regions to focus on
+        self.attention_convs = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv3d(ch, ch // 8, 1),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(ch // 8, 1, 1),
+                nn.Sigmoid()
+            ) for ch in encoder_channels
+        ])
+
+        # Keep everything else from your working architecture
+        self.pools = nn.ModuleList([
+            nn.AdaptiveAvgPool3d(1) for _ in encoder_channels
+        ])
+
+        self.projections = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(ch, bottleneck_dim // 4),
+                nn.LayerNorm(bottleneck_dim // 4),
+                nn.LeakyReLU(0.01, inplace=True),
+                nn.Dropout(0.2)
+            ) for ch in encoder_channels
+        ])
+
+        concat_dim = (bottleneck_dim // 4) * len(encoder_channels)
+        self.classifier = nn.Sequential(
+            nn.Linear(concat_dim, bottleneck_dim),
+            nn.LayerNorm(bottleneck_dim),
+            nn.LeakyReLU(0.01, inplace=True),
+            nn.Dropout(0.3),
+
+            nn.Linear(bottleneck_dim, bottleneck_dim // 2),
+            nn.LayerNorm(bottleneck_dim // 2),
+            nn.LeakyReLU(0.01, inplace=True),
+            nn.Dropout(0.3),
+
+            nn.Linear(bottleneck_dim // 2, num_classes)
+        )
+
+        self._init_weights()
+
+    def forward(self, encoder_features):
+        pooled_features = []
+
+        for feat, attn_conv, pool, proj in zip(
+            encoder_features, self.attention_convs, self.pools, self.projections
+        ):
+            # Generate simple attention map
+            attention = attn_conv(feat)
+
+            # Apply attention
+            attended_feat = feat * attention
+
+            # Standard pooling (proven to work in your setup)
+            pooled = pool(attended_feat).flatten(1)
+
+            # Project
+            projected = proj(pooled)
+            pooled_features.append(projected)
+
+        concatenated = torch.cat(pooled_features, dim=1)
+        return self.classifier(concatenated)
+
+    def _init_weights(self):
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, (nn.LayerNorm, nn.InstanceNorm1d, nn.InstanceNorm3d)):
+                if hasattr(module, 'weight') and module.weight is not None:
+                    nn.init.constant_(module.weight, 1)
+                if hasattr(module, 'bias') and module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+            elif isinstance(module, nn.Conv3d):
+                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
+
+
+# Multiscale classification head that combines features from all encoder stages.
 class MultiScaleClassificationHead(nn.Module):
     """
     Multi-scale classification head that combines features from all encoder stages.
@@ -23,7 +300,7 @@ class MultiScaleClassificationHead(nn.Module):
         self.projections = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(ch, bottleneck_dim // 4),
-                nn.BatchNorm1d(bottleneck_dim // 4),
+                nn.LayerNorm(bottleneck_dim // 4),
                 nn.LeakyReLU(0.01, inplace=True),
                 nn.Dropout(0.2)
             ) for ch in encoder_channels
@@ -33,12 +310,12 @@ class MultiScaleClassificationHead(nn.Module):
         concat_dim = (bottleneck_dim // 4) * len(encoder_channels)
         self.classifier = nn.Sequential(
             nn.Linear(concat_dim, bottleneck_dim),
-            nn.BatchNorm1d(bottleneck_dim),
+            nn.LayerNorm(bottleneck_dim),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Dropout(0.3),
 
             nn.Linear(bottleneck_dim, bottleneck_dim // 2),
-            nn.BatchNorm1d(bottleneck_dim // 2),
+            nn.LayerNorm(bottleneck_dim // 2),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Dropout(0.3),
 
@@ -79,7 +356,7 @@ class MultiScaleClassificationHead(nn.Module):
                 nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
-            elif isinstance(module, nn.BatchNorm1d):
+            elif isinstance(module, (nn.LayerNorm, nn.InstanceNorm1d)):
                 if hasattr(module, 'weight') and module.weight is not None:
                     nn.init.constant_(module.weight, 1)
                 if hasattr(module, 'bias') and module.bias is not None:
@@ -131,12 +408,12 @@ class UNetDecoderClassificationHead(nn.Module):
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(final_channels, final_channels * 2),
-            nn.BatchNorm1d(final_channels * 2),
+            nn.LayerNorm(final_channels * 2),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Dropout(0.3),
 
             nn.Linear(final_channels * 2, final_channels),
-            nn.BatchNorm1d(final_channels),
+            nn.LayerNorm(final_channels),
             nn.LeakyReLU(0.01, inplace=True),
             nn.Dropout(0.3),
 
@@ -157,7 +434,7 @@ class UNetDecoderClassificationHead(nn.Module):
                 nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
-            elif isinstance(module, (nn.BatchNorm1d, nn.InstanceNorm3d, nn.InstanceNorm2d, nn.InstanceNorm1d)):
+            elif isinstance(module, (nn.InstanceNorm1d, nn.InstanceNorm3d, nn.InstanceNorm2d, nn.InstanceNorm1d)):
                 if hasattr(module, 'weight') and module.weight is not None:
                     nn.init.constant_(module.weight, 1)
                 if hasattr(module, 'bias') and module.bias is not None:
@@ -250,19 +527,19 @@ class ResEncUnetWithClsImproved(nn.Module):
                 # Follow nnU-Net's decoder pattern: conv + norm + activation
                 # First layer: reduce dimensionality while preserving information
                 nn.Linear(bottleneck_dim, bottleneck_dim // 2),  # 320 -> 160
-                nn.BatchNorm1d(bottleneck_dim // 2),
+                nn.LayerNorm(bottleneck_dim // 2),
                 nn.LeakyReLU(negative_slope=0.01, inplace=True),
                 nn.Dropout(0.2),
 
                 # Second layer: further dimensionality reduction
                 nn.Linear(bottleneck_dim // 2, bottleneck_dim // 4),  # 160 -> 80
-                nn.BatchNorm1d(bottleneck_dim // 4),
+                nn.LayerNorm(bottleneck_dim // 4),
                 nn.LeakyReLU(negative_slope=0.01, inplace=True),
                 nn.Dropout(0.3),
 
                 # Third layer: compress to intermediate representation
                 nn.Linear(bottleneck_dim // 4, bottleneck_dim // 8),  # 80 -> 40
-                nn.BatchNorm1d(bottleneck_dim // 8),
+                nn.LayerNorm(bottleneck_dim // 8),
                 nn.LeakyReLU(negative_slope=0.01, inplace=True),
                 nn.Dropout(0.3),
 
@@ -285,10 +562,22 @@ class ResEncUnetWithClsImproved(nn.Module):
                 norm_op=unet_kwargs.get('norm_op', torch.nn.InstanceNorm3d),
                 nonlin=unet_kwargs.get('nonlin', torch.nn.LeakyReLU)
             )
+        elif classification_mode == 'spatial_attention_multiscale':
+            self.cls_head = SpatialAttentionMultiScaleHead(
+                encoder_channels=features_per_stage,
+                bottleneck_dim=bottleneck_dim,
+                num_classes=num_cls_classes
+            )
+        elif classification_mode == 'simple_spatial_attention':
+            self.cls_head = SimpleSpatialAttentionHead(
+                encoder_channels=features_per_stage,
+                bottleneck_dim=bottleneck_dim,
+                num_classes=num_cls_classes
+            )
         else:
             raise ValueError(f"Unknown classification_mode: {classification_mode}. "
-                           f"Choose from: 'bottleneck', 'multiscale', 'unet_decoder'")
-
+                           f"Choose from: 'bottleneck', 'multiscale', 'unet_decoder', 'spatial_attention_multiscale', 'simple_spatial_attention'")
+        self.classification_mode = classification_mode
         # Initialize classification head with Xavier initialization
         self._init_classification_head()
 
@@ -301,7 +590,7 @@ class ResEncUnetWithClsImproved(nn.Module):
                     nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='leaky_relu')
                     if module.bias is not None:
                         nn.init.constant_(module.bias, 0)
-                elif isinstance(module, (nn.BatchNorm1d, nn.InstanceNorm1d)):
+                elif isinstance(module, (nn.BatchNorm1d, nn.InstanceNorm1d, nn.LayerNorm)):
                     # Initialize norm layers like nnU-Net, but check if weights exist
                     if hasattr(module, 'weight') and module.weight is not None:
                         nn.init.constant_(module.weight, 1)
@@ -320,7 +609,10 @@ class ResEncUnetWithClsImproved(nn.Module):
             cls_out = self.cls_head(bottleneck_features)
         else:
             # Use all encoder features (multiscale or unet_decoder)
-            cls_out = self.cls_head(encoder_features)
+            if self.classification_mode in ['multiscale', 'unet_decoder', 'simple_spatial_attention']:
+                cls_out = self.cls_head(encoder_features)
+            elif self.classification_mode == 'spatial_attention_multiscale':
+                cls_out, _ = self.cls_head(encoder_features)
 
         # Get full segmentation output
         seg_out = self.unet(x)
