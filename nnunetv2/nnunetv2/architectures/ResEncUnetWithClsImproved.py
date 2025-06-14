@@ -678,7 +678,7 @@ class ResEncUnetWithClsImproved(nn.Module):
         # Filter out empty parameter groups
         param_groups = [group for group in param_groups if len(list(group['params'])) > 0]
 
-        optimizer = torch.optim.Adam(param_groups)
+        optimizer = torch.optim.sgd.SGD(param_groups)
 
         print(f"Setup partial fine-tuning ({self.classification_mode} mode):")
         print(f"  - Unfrozen encoder stages: {unfreeze_stages}")
@@ -734,7 +734,7 @@ class ResEncUnetWithClsImproved(nn.Module):
             }
         ]
 
-        optimizer = torch.optim.Adam(param_groups)
+        optimizer = torch.optim.sgd.SGD(param_groups)
 
         # Print setup info
         encoder_trainable = sum(p.numel() for p in encoder_params if p.requires_grad)

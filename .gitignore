@@ -124,12 +124,17 @@ debug_output.txt
 test*
 *.sh
 *.txt
-debug*
+debug_*
 *.pth
-train*
-benchmark*
-analyze*
+train_*
+benchmark_*
+analyze_*
 
 !documentation/assets/scribble_example.png
 MULTITASK_END2END_README.md
 TRAINER_MIGRATION_SUMMARY.md
+example_plans/plans_optimizer_adamw_example.json
+example_plans/plans_optimizer_adan_example.json
+example_plans/plans_optimizer_sgd_example.json
+example_plans/plans_with_optimizer_example.json
+OPTIMIZER_ENHANCEMENT_SUMMARY.md
