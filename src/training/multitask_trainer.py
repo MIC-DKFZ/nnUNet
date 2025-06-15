@@ -1,4 +1,5 @@
 import shutil
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -31,6 +32,13 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     """
 
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, device: torch.device = torch.device('cuda')):
+        # Progressive training stages
+        self.training_stages = ['enc_seg', 'enc_cls', 'joint_finetune', 'full']
+        self.current_stage_idx = 0
+        self.epochs_per_stage = [50, 25, 50, 100]  # Adjustable
+        self.stage_epoch_counter = 0
+
+        # Call parent constructor after to clear the stage
         super().__init__(plans, configuration, fold, dataset_json, device)
 
         # Multi-task configuration
@@ -42,18 +50,22 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'focal_alpha': 0.25
         })
 
-        # Progressive training stages
-        self.training_stages = ['enc_seg', 'enc_cls', 'joint_finetune', 'full']
-        self.current_stage_idx = 0
-        self.epochs_per_stage = [50, 25, 50, 100]  # Adjustable
-        self.stage_epoch_counter = 0
-
         # Classification configuration
         self.num_classification_classes = 3  # subtype 0, 1, 2
 
         # Metrics tracking
         self.train_metrics = {'seg_loss': [], 'cls_loss': [], 'total_loss': []}
         self.val_metrics = {'seg_dice': [], 'cls_f1': [], 'pancreas_dice': [], 'lesion_dice': []}
+        self.print_to_log_file(f"Stage schedule: {dict(zip(self.training_stages, self.epochs_per_stage))}")
+
+    def set_custom_stage_epochs(self, custom_epochs_per_stage: List[int]):
+        """
+        Set custom epochs per stage for training
+        """
+        if len(custom_epochs_per_stage) != len(self.training_stages):
+            raise ValueError(f"Custom epochs must match number of stages: {len(self.training_stages)}")
+        self.epochs_per_stage = custom_epochs_per_stage
+        self.print_to_log_file(f"Custom epochs per stage set: {self.epochs_per_stage}")
 
     @staticmethod
     def build_network_architecture(architecture_class_name: str,
@@ -204,6 +216,39 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'cls_weight': loss_dict['cls_weight']
         }
 
+    def on_train_end(self):
+        """Save final checkpoint with complete training information"""
+        super().on_train_end()
+
+        # Save final checkpoint
+        final_checkpoint_path = os.path.join(self.output_folder, "checkpoint_final.pth")
+        self.save_checkpoint(final_checkpoint_path)
+
+        # Save a summary of the training process
+        training_summary = {
+            'total_epochs': self.current_epoch + 1,
+            'training_stages_completed': self.training_stages[:self.current_stage_idx + 1],
+            'epochs_per_stage_actual': self._get_actual_epochs_per_stage(),
+            'final_uncertainty_weights': {
+                'seg_weight': torch.exp(-self.network.log_var_seg).item(),
+                'cls_weight': torch.exp(-self.network.log_var_cls).item()
+            },
+            'final_stage_info': self.network.get_training_stage_info()
+        }
+
+        import json
+        summary_path = os.path.join(self.output_folder, "training_summary.json")
+        with open(summary_path, 'w') as f:
+            json.dump(training_summary, f, indent=2)
+
+        self.print_to_log_file("Training completed. Final checkpoint and summary saved.")
+
+    def _get_actual_epochs_per_stage(self):
+        """Helper to track actual epochs spent in each stage"""
+        # This would need to be tracked during training
+        # For now, return the planned epochs
+        return dict(zip(self.training_stages, self.epochs_per_stage))
+
     def validation_step(self, batch: dict) -> dict:
         """Validation step with multi-task metrics"""
         # Unpack batch
@@ -249,21 +294,89 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'lesion_union': lesion_union,
             'cls_f1': cls_f1
         }
-    # def on_validation_epoch_end(self, val_outputs: List[dict]):
-    #     outputs_collated = collate_outputs(val_outputs)
-    #     loss_here = np.mean(outputs_collated['val_loss'])
-    #     seg_dice = np.mean(outputs_collated['seg_dice'])
-    #     pancreas_dice = np.mean(outputs_collated['pancreas_dice'])
-    #     lesion_dice = np.mean(outputs_collated['lesion_dice'])
-    #     cls_f1 = np.mean(outputs_collated['cls_f1'])
 
-    #     # Print metrics for logging
-    #     print(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
+    def save_checkpoint(self, filename: str) -> None:
+        """
+        Enhanced checkpoint saving with multi-task specific information
+        """
+        checkpoint = {
+            'network_weights': self.network.state_dict(),
+            'optimizer_state': self.optimizer.state_dict(),
+            'lr_scheduler_state': self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None,
+            'epoch': self.current_epoch,
+            'current_epoch': self.current_epoch,
+            'init': self.was_initialized,
 
-    #     # Use pancreas dice for standard nnUNet logging
-    #     self.logger.log('val_losses', loss_here, self.current_epoch)
-    #     self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch)
-    #     self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch) # using this as a placeholder the value isn't real
+            # Multi-task specific state
+            'training_stage': self.training_stages[self.current_stage_idx],
+            'current_stage_idx': self.current_stage_idx,
+            'stage_epoch_counter': self.stage_epoch_counter,
+            'epochs_per_stage': self.epochs_per_stage,
+
+            # Uncertainty weights (current values)
+            'uncertainty_weights': {
+                'seg_weight': torch.exp(-self.network.log_var_seg).item(),
+                'cls_weight': torch.exp(-self.network.log_var_cls).item(),
+                'log_var_seg': self.network.log_var_seg.item(),
+                'log_var_cls': self.network.log_var_cls.item()
+            },
+
+            # Training metrics history
+            'train_metrics': getattr(self, 'train_metrics', {}),
+            'val_metrics': getattr(self, 'val_metrics', {}),
+
+            # Additional metadata
+            'multitask_config': self.multitask_config,
+            'training_stage_info': self.network.get_training_stage_info()
+        }
+
+        # Add grad scaler state if using mixed precision
+        if self.grad_scaler is not None:
+            checkpoint['grad_scaler_state'] = self.grad_scaler.state_dict()
+
+        torch.save(checkpoint, filename)
+        self.print_to_log_file(f"Saved checkpoint: {filename}")
+        self.print_to_log_file(f"Stage: {checkpoint['training_stage']}, Stage Epoch: {self.stage_epoch_counter}")
+
+    def load_checkpoint(self, filename: str) -> None:
+        """
+        Enhanced checkpoint loading with multi-task state restoration
+        """
+        checkpoint = torch.load(filename, map_location=self.device)
+
+        # Load standard components
+        self.network.load_state_dict(checkpoint['network_weights'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+
+        if self.lr_scheduler is not None and checkpoint['lr_scheduler_state'] is not None:
+            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler_state'])
+
+        if self.grad_scaler is not None and 'grad_scaler_state' in checkpoint:
+            self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
+
+        # Restore multi-task specific state
+        self.current_epoch = checkpoint['current_epoch']
+
+        if 'current_stage_idx' in checkpoint:
+            self.current_stage_idx = checkpoint['current_stage_idx']
+            self.stage_epoch_counter = checkpoint.get('stage_epoch_counter', 0)
+
+            # Restore training stage
+            stage_name = checkpoint.get('training_stage', 'full')
+            self.network.set_training_stage(stage_name)
+
+            self.print_to_log_file(f"Restored training stage: {stage_name}")
+            self.print_to_log_file(f"Stage epoch counter: {self.stage_epoch_counter}")
+
+        # Restore metrics if available
+        if 'train_metrics' in checkpoint:
+            self.train_metrics = checkpoint['train_metrics']
+        if 'val_metrics' in checkpoint:
+            self.val_metrics = checkpoint['val_metrics']
+
+        self.was_initialized = checkpoint.get('init', True)
+        self.print_to_log_file(f"Loaded checkpoint: {filename}")
+
 
     def on_validation_epoch_end(self, val_outputs: List[dict]):
         outputs_collated = collate_outputs(val_outputs)
@@ -323,6 +436,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.stage_epoch_counter >= self.epochs_per_stage[self.current_stage_idx] and
             self.current_stage_idx < len(self.training_stages) - 1):
 
+            # Save checkpoint before stage transition
+            old_stage = self.training_stages[self.current_stage_idx]
+            transition_checkpoint = f"checkpoint_before_{old_stage}_to_{self.training_stages[self.current_stage_idx + 1]}.pth"
+            self.save_checkpoint(os.path.join(self.output_folder, transition_checkpoint))
+
             self.current_stage_idx += 1
             self.stage_epoch_counter = 0
 
@@ -352,41 +470,56 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.print_to_log_file(f"seg_uncertainty_weight: {seg_weight}")
             self.print_to_log_file(f"cls_uncertainty_weight: {cls_weight}")
 
-    def compute_dice_score(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-        """Compute overall Dice score"""
-        pred_binary = (pred.argmax(dim=1) > 0).float()
-        target_binary = (target > 0).float()
+        # Periodic saving
+        if hasattr(self, 'save_every') and self.save_every is not None:
+            if (self.current_epoch + 1) % self.save_every == 0:
+                checkpoint_name = f"checkpoint_epoch_{self.current_epoch + 1}.pth"
+                checkpoint_path = os.path.join(self.output_folder, checkpoint_name)
+                self.save_checkpoint(checkpoint_path)
 
-        intersection = (pred_binary * target_binary).sum()
-        union = pred_binary.sum() + target_binary.sum()
+        # Save at end of each training stage
+        stage_name = self.training_stages[self.current_stage_idx]
+        if self.stage_epoch_counter == self.epochs_per_stage[self.current_stage_idx]:
+            stage_checkpoint_name = f"checkpoint_end_of_{stage_name}.pth"
+            stage_checkpoint_path = os.path.join(self.output_folder, stage_checkpoint_name)
+            self.save_checkpoint(stage_checkpoint_path)
+            self.print_to_log_file(f"Saved end-of-stage checkpoint: {stage_checkpoint_name}")
 
-        dice = (2.0 * intersection) / (union + 1e-8)
-        return dice.item()
+    # def compute_dice_score(self, pred: torch.Tensor, target: torch.Tensor) -> float:
+    #     """Compute overall Dice score"""
+    #     pred_binary = (pred.argmax(dim=1) > 0).float()
+    #     target_binary = (target > 0).float()
 
-    def compute_pancreas_dice(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-        """Compute pancreas-specific Dice score"""
-        pred_pancreas = (pred.argmax(dim=1) > 0).float()  # Combined pancreas + lesion
-        target_pancreas = (target > 0).float()
+    #     intersection = (pred_binary * target_binary).sum()
+    #     union = pred_binary.sum() + target_binary.sum()
 
-        intersection = (pred_pancreas * target_pancreas).sum()
-        union = pred_pancreas.sum() + target_pancreas.sum()
+    #     dice = (2.0 * intersection) / (union + 1e-8)
+    #     return dice.item()
 
-        dice = (2.0 * intersection) / (union + 1e-8)
-        return dice.item()
+    # def compute_pancreas_dice(self, pred: torch.Tensor, target: torch.Tensor) -> float:
+    #     """Compute pancreas-specific Dice score"""
+    #     pred_pancreas = (pred.argmax(dim=1) > 0).float()  # Combined pancreas + lesion
+    #     target_pancreas = (target > 0).float()
 
-    def compute_lesion_dice(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-        """Compute lesion-specific Dice score"""
-        pred_lesion = (pred.argmax(dim=1) == 2).float()  # Only lesion class
-        target_lesion = (target == 2).float()
+    #     intersection = (pred_pancreas * target_pancreas).sum()
+    #     union = pred_pancreas.sum() + target_pancreas.sum()
 
-        intersection = (pred_lesion * target_lesion).sum()
-        union = pred_lesion.sum() + target_lesion.sum()
+    #     dice = (2.0 * intersection) / (union + 1e-8)
+    #     return dice.item()
 
-        if union == 0:
-            return 1.0  # Perfect score if no lesions present
+    # def compute_lesion_dice(self, pred: torch.Tensor, target: torch.Tensor) -> float:
+    #     """Compute lesion-specific Dice score"""
+    #     pred_lesion = (pred.argmax(dim=1) == 2).float()  # Only lesion class
+    #     target_lesion = (target == 2).float()
 
-        dice = (2.0 * intersection) / (union + 1e-8)
-        return dice.item()
+    #     intersection = (pred_lesion * target_lesion).sum()
+    #     union = pred_lesion.sum() + target_lesion.sum()
+
+    #     if union == 0:
+    #         return 1.0  # Perfect score if no lesions present
+
+    #     dice = (2.0 * intersection) / (union + 1e-8)
+    #     return dice.item()
 
     def compute_macro_f1(self, pred: torch.Tensor, target: torch.Tensor) -> float:
         """Compute macro-averaged F1 score for classification"""

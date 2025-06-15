@@ -277,18 +277,41 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
         seg_loss = seg_loss_fn(seg_pred, seg_target)
         cls_loss = cls_loss_fn(cls_pred, cls_target)
 
-        # Uncertainty weighting
-        seg_weight = torch.exp(-self.log_var_seg)
-        cls_weight = torch.exp(-self.log_var_cls)
+        # stage specific loss handling
+        if self.training_stage == "enc_seg":
+            # Only segmentation loss, no uncertainty weighting
+            return {
+                'total_loss': seg_loss,
+                'segmentation_loss': seg_loss,
+                'classification_loss': cls_loss,
+                'seg_weight': 1.0,
+                'cls_weight': 0.0
+            }
+        elif self.training_stage == "enc_cls":
+            # Only classification loss
+            return {
+                'total_loss': cls_loss,
+                'segmentation_loss': seg_loss,
+                'classification_loss': cls_loss,
+                'seg_weight': 0.0,
+                'cls_weight': 1.0
+            }
+        else:
+            # Uncertainty weighting
+            seg_weight = torch.exp(-self.log_var_seg)
+            cls_weight = torch.exp(-self.log_var_cls)
 
-        # Weighted loss with regularization terms
-        total_loss = (seg_weight * seg_loss + 0.5 * self.log_var_seg +
-                     cls_weight * cls_loss + 0.5 * self.log_var_cls)
+            # Weighted loss with regularization terms
+            total_loss = seg_weight * seg_loss + self.log_var_seg + cls_weight * cls_loss + self.log_var_cls
 
-        return {
-            'total_loss': total_loss,
-            'segmentation_loss': seg_loss,
-            'classification_loss': cls_loss,
-            'seg_weight': seg_weight.item(),
-            'cls_weight': cls_weight.item()
-        }
+            # L2 regularization on uncertainty weights
+            log_var_reg = 0.01 * (self.log_var_seg.pow(2) + self.log_var_cls.pow(2))
+            total_loss += log_var_reg
+
+            return {
+                'total_loss': total_loss,
+                'segmentation_loss': seg_loss,
+                'classification_loss': cls_loss,
+                'seg_weight': seg_weight.item(),
+                'cls_weight': cls_weight.item()
+            }

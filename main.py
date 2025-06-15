@@ -216,7 +216,8 @@ def train_multitask_model(dataset_id: int,
                          export_validation_probabilities: bool = True,
                          val_disable_overwrite: bool = False,
                          disable_checkpointing: bool = False,
-                         device: str = 'cuda'):
+                         device: str = 'cuda',
+                         custom_stage_epochs: list = None):
     """
     Train multi-task model using custom trainer
     """
@@ -256,11 +257,13 @@ def train_multitask_model(dataset_id: int,
             configuration=configuration,
             fold=fold,
             dataset_json=dataset_json,
-            device=torch.device(device)
+            device=torch.device(device),
         )
+        if custom_stage_epochs is not None:
+            trainer.set_custom_stage_epochs(custom_stage_epochs)
 
         # Set up output folder
-        output_folder = join(nnUNet_results, dataset_name, 'nnUNetTrainerMultiTask__' + plans_identifier, configuration)
+        output_folder = join(nnUNet_results, dataset_name, str('nnUNetTrainerMultiTask__' + plans_identifier + '_' + configuration))
         trainer.output_folder = join(output_folder, f'fold_{fold}')
         maybe_mkdir_p(trainer.output_folder)
 
@@ -442,7 +445,8 @@ def main():
             continue_training=args.continue_training,
             only_run_validation=args.validation_only,
             num_epochs=args.num_epochs,
-            device=args.device
+            device=args.device,
+            custom_stage_epochs=[0, 0, 0, 100]  # You can specify custom epochs per stage if needed
         )
 
         if success:
