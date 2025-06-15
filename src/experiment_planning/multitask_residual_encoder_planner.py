@@ -37,6 +37,20 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
             # ADDED: Smaller model size for testsing (Comment out to restore)
             config['architecture']['arch_kwargs']['features_per_stage'] = [16, 64, 128, 320]
             config['architecture']['arch_kwargs']['n_stages'] = 4
+            config['architecture']['arch_kwargs']['n_blocks_per_stage'] = [1, 3, 4, 4] # same number as n_stage
+            config['architecture']['arch_kwargs']['n_conv_per_stage_decoder'] = [1, 1, 1] # one less than blocks per stage
+            config['architecture']['arch_kwargs']['kernel_sizes'] = [
+                [1, 3, 3],
+                [3, 3, 3],
+                [3, 3, 3],
+                [3, 3, 3]
+            ]
+            config['architecture']['arch_kwargs']['strides'] = [
+                [1, 1, 1],
+                [1, 2, 2],
+                [2, 2, 2],
+                [2, 2, 2]
+            ]
 
             # Update architecture to use custom multitask network
             config['architecture']['network_class_name'] = 'src.architectures.multitask_resenc_unet.MultiTaskResEncUNet'

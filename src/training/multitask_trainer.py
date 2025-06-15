@@ -1,3 +1,4 @@
+import shutil
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,17 +6,22 @@ from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import PolynomialLR
 import numpy as np
 from typing import Union, Tuple, List, Dict, Any
-import time
 
+# from nnunetv2.utilities.helpers import empty_cache
 from nnunetv2.training.nnUNetTrainer.variants.network_architecture.nnUNetTrainerNoDeepSupervision import nnUNetTrainerNoDeepSupervision
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss
 from nnunetv2.training.loss.dice import MemoryEfficientSoftDiceLoss
-from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
-from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
-from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, isdir, maybe_mkdir_p
+# from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
+# from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+# from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, isdir, maybe_mkdir_p
+from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
+from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
+from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
+from nnunetv2.utilities.collate_outputs import collate_outputs
 
-from src.architectures.multitask_resenc_unet import MultiTaskResEncUNet
-from src.training.dataloading.multitask_dataset import MultiTasknnUNetDataset
+# from src.architectures.multitask_resenc_unet import MultiTaskResEncUNet
+from src.training.dataloading.multitask_dataset import MultiTasknnUNetDataset, MultiTasknnUNetDataLoader
 
 
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
@@ -50,49 +56,55 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.val_metrics = {'seg_dice': [], 'cls_f1': [], 'pancreas_dice': [], 'lesion_dice': []}
 
     @staticmethod
-    def build_network_architecture(plans_manager: PlansManager,
-                                 dataset_json: dict,
-                                 configuration_manager: ConfigurationManager,
-                                 num_input_channels: int,
-                                 enable_deep_supervision: bool = False) -> nn.Module:
+    def build_network_architecture(architecture_class_name: str,
+                                    arch_init_kwargs: dict,
+                                    arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+                                    num_input_channels: int,
+                                    num_output_channels: int,
+                                    enable_deep_supervision: bool = True) -> nn.Module:
         """Build multi-task network"""
+        # For now, create the network with the expected architecture
+        from src.architectures.multitask_resenc_unet import MultiTaskResEncUNet
 
-        num_stages = len(configuration_manager.configuration['conv_kernel_sizes'])
-        dim = len(configuration_manager.configuration['conv_kernel_sizes'][0])
-        conv_op = convert_dim_to_conv_op(dim)
+        # If this is our custom architecture, build it directly
+        if architecture_class_name.split('.')[-1] == 'MultiTaskResEncUNet':
+            # Convert string references to actual classes, ex: conv_op needs to be the class not str
+            import importlib
+            for key in arch_init_kwargs_req_import:
+                if key in arch_init_kwargs and isinstance(arch_init_kwargs[key], str):
+                    module_path, class_name = arch_init_kwargs[key].rsplit('.', 1)
+                    module = importlib.import_module(module_path)
+                    arch_init_kwargs[key] = getattr(module, class_name)
 
-        segmentation_network_class_name = configuration_manager.configuration['architecture']['network_class_name']
-        architecture_kwargs = configuration_manager.configuration['architecture']['arch_kwargs']
-
-        # Get classification config
-        classification_config = configuration_manager.configuration['architecture'].get('classification_head', {
-            'num_classes': 3,
-            'dropout_rate': 0.2,
-            'hidden_dims': [256, 128],
-            'use_all_features': True
-        })
-
-        network = MultiTaskResEncUNet(
-            input_channels=num_input_channels,
-            n_stages=num_stages,
-            features_per_stage=architecture_kwargs['features_per_stage'],
-            conv_op=conv_op,
-            kernel_sizes=configuration_manager.configuration['conv_kernel_sizes'],
-            strides=configuration_manager.configuration['pool_op_kernel_sizes'],
-            n_blocks_per_stage=architecture_kwargs['n_blocks_per_stage'],
-            num_classes=plans_manager.get_label_manager(dataset_json).num_segmentation_classes,
-            n_conv_per_stage_decoder=architecture_kwargs['n_conv_per_stage_decoder'],
-            conv_bias=True,
-            norm_op=get_matching_instancenorm(conv_op),
-            norm_op_kwargs={'eps': 1e-5, 'affine': True},
-            dropout_op=None,
-            dropout_op_kwargs=None,
-            nonlin=nn.LeakyReLU,
-            nonlin_kwargs={'inplace': True},
-            classification_config=classification_config
-        )
-
-        return network
+            # We need to extract parameters from arch_init_kwargs
+            network = MultiTaskResEncUNet(
+                input_channels=num_input_channels,
+                n_stages=arch_init_kwargs['n_stages'],
+                features_per_stage=arch_init_kwargs['features_per_stage'],
+                conv_op=arch_init_kwargs['conv_op'],
+                kernel_sizes=arch_init_kwargs['kernel_sizes'],
+                strides=arch_init_kwargs['strides'],
+                n_blocks_per_stage=arch_init_kwargs['n_blocks_per_stage'],
+                num_classes=num_output_channels,
+                n_conv_per_stage_decoder=arch_init_kwargs.get('n_conv_per_stage_decoder'),
+                conv_bias=arch_init_kwargs.get('conv_bias', True),
+                norm_op=arch_init_kwargs.get('norm_op'),
+                norm_op_kwargs=arch_init_kwargs.get('norm_op_kwargs'),
+                dropout_op=arch_init_kwargs.get('dropout_op'),
+                dropout_op_kwargs=arch_init_kwargs.get('dropout_op_kwargs'),
+                nonlin=arch_init_kwargs.get('nonlin'),
+                nonlin_kwargs=arch_init_kwargs.get('nonlin_kwargs'),
+                deep_supervision=enable_deep_supervision,
+                classification_config=arch_init_kwargs.get('classification_config', {
+                    'num_classes': 3,
+                    'dropout_rate': 0.2,
+                    'hidden_dims': [256, 128],
+                    'use_all_features': True
+                })
+            )
+            return network
+        else:
+            raise ValueError(f"Wrong architecture: {architecture_class_name}")
 
     def _build_loss(self):
         """Build multi-task loss function"""
@@ -147,8 +159,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
     def train_step(self, batch: dict) -> dict:
         """Single training step with multi-task loss"""
-        # Unpack batch - now returns 5-tuple: data, seg, seg_prev, properties, classification
-        data, target_seg, seg_prev, properties, target_cls = batch
+        # Unpack batch - now returns 5-tuple: data, seg, seg_prev, properties
+        data = batch['data']
+        target_seg = batch['target']
+        target_cls = batch['classification']
+        keys = batch['keys']
 
         data = data.to(self.device, non_blocking=True)
         target_seg = target_seg.to(self.device, non_blocking=True)
@@ -192,7 +207,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     def validation_step(self, batch: dict) -> dict:
         """Validation step with multi-task metrics"""
         # Unpack batch
-        data, target_seg, seg_prev, properties, target_cls = batch
+        data = batch['data']
+        target_seg = batch['target']
+        target_cls = batch['classification']
+        keys = batch['keys']
 
         data = data.to(self.device, non_blocking=True)
         target_seg = target_seg.to(self.device, non_blocking=True)
@@ -229,6 +247,22 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'cls_f1': cls_f1
         }
 
+    def on_validation_epoch_end(self, val_outputs: List[dict]):
+        outputs_collated = collate_outputs(val_outputs)
+        loss_here = np.mean(outputs_collated['val_loss'])
+        seg_dice = np.mean(outputs_collated['seg_dice'])
+        pancreas_dice = np.mean(outputs_collated['pancreas_dice'])
+        lesion_dice = np.mean(outputs_collated['lesion_dice'])
+        cls_f1 = np.mean(outputs_collated['cls_f1'])
+
+        # Print metrics for logging
+        print(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
+
+        # Use pancreas dice for standard nnUNet logging
+        self.logger.log('val_losses', loss_here, self.current_epoch)
+        self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch)
+        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch) # using this as a placeholder the value isn't real
+
     def on_epoch_start(self):
         """Handle training stage progression"""
         super().on_epoch_start()
@@ -264,8 +298,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             seg_weight = torch.exp(-self.network.log_var_seg).item()
             cls_weight = torch.exp(-self.network.log_var_cls).item()
 
-            self.logger.log('train', 'seg_uncertainty_weight', seg_weight, self.current_epoch)
-            self.logger.log('train', 'cls_uncertainty_weight', cls_weight, self.current_epoch)
+            self.print_to_log_file(f"seg_uncertainty_weight: {seg_weight}")
+            self.print_to_log_file(f"cls_uncertainty_weight: {cls_weight}")
 
     def compute_dice_score(self, pred: torch.Tensor, target: torch.Tensor) -> float:
         """Compute overall Dice score"""
@@ -323,6 +357,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
             f1_scores.append(f1)
 
+        return float(np.mean(f1_scores))
+
     def get_tr_and_val_datasets(self):
         """Get training and validation datasets with multi-task support"""
         # Get case identifiers
@@ -350,12 +386,95 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         return dataset_tr, dataset_val
 
+    def get_dataloaders(self):
+        # Get patch size and deep supervision scales
+        patch_size = self.configuration_manager.patch_size
+        deep_supervision_scales = self._get_deep_supervision_scales()
+
+        # Configure data augmentation
+        (rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes) = \
+            self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
+
+        # Get transforms
+        tr_transforms = self.get_training_transforms(
+            patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
+            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
+            is_cascaded=self.is_cascaded,
+            foreground_labels=self.label_manager.foreground_labels,
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label
+        )
+
+        val_transforms = self.get_validation_transforms(
+            deep_supervision_scales,
+            is_cascaded=self.is_cascaded,
+            foreground_labels=self.label_manager.foreground_labels,
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label
+        )
+
+        # Use your custom datasets
+        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
+        dl_tr = MultiTasknnUNetDataLoader(
+            dataset_tr, self.batch_size, initial_patch_size,
+            self.configuration_manager.patch_size, self.label_manager,
+            oversample_foreground_percent=self.oversample_foreground_percent,
+            sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+            probabilistic_oversampling=self.probabilistic_oversampling
+        )
+
+        dl_val = MultiTasknnUNetDataLoader(
+            dataset_val, self.batch_size,
+            self.configuration_manager.patch_size, self.configuration_manager.patch_size,
+            self.label_manager, oversample_foreground_percent=self.oversample_foreground_percent,
+            sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+            probabilistic_oversampling=self.probabilistic_oversampling
+        )
+
+        # Standard nnUNet augmenter setup
+        allowed_num_processes = get_allowed_n_proc_DA()
+        if allowed_num_processes == 0:
+            mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
+            mt_gen_val = SingleThreadedAugmenter(dl_val, None)
+        else:
+            mt_gen_train = NonDetMultiThreadedAugmenter(
+                data_loader=dl_tr, transform=None, num_processes=allowed_num_processes,
+                num_cached=max(6, allowed_num_processes // 2), seeds=None,
+                pin_memory=self.device.type == 'cuda', wait_time=0.002
+            )
+            mt_gen_val = NonDetMultiThreadedAugmenter(
+                data_loader=dl_val, transform=None, num_processes=max(1, allowed_num_processes // 2),
+                num_cached=max(3, allowed_num_processes // 4), seeds=None,
+                pin_memory=self.device.type == 'cuda', wait_time=0.002
+            )
+
+        # Initialize dataloaders
+        _ = next(mt_gen_train)
+        _ = next(mt_gen_val)
+
+        return mt_gen_train, mt_gen_val
+
+
     def _get_label_distribution(self, labels_dict: dict) -> dict:
         """Get distribution of classification labels"""
         from collections import Counter
         distribution = Counter(labels_dict.values())
         return {f'subtype_{i}': distribution.get(i, 0) for i in range(3)}
 
+    def on_validation_epoch_start(self):
+        super().on_validation_epoch_start()
+        if self.dataloader_val is None:
+            _, self.dataloader_val = self.get_dataloaders()
+
+    def run_validation(self):
+        with torch.no_grad():
+            self.on_validation_epoch_start()
+            val_outputs = []
+            for batch_id in range(self.num_val_iterations_per_epoch):
+                val_outputs.append(self.validation_step(next(self.dataloader_val)))
+            self.on_validation_epoch_end(val_outputs)
+
+        self.on_epoch_end()
 
 class FocalLoss(nn.Module):
     """Focal Loss for classification with class imbalance"""

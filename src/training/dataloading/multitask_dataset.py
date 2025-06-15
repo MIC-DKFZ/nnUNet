@@ -4,9 +4,16 @@ from typing import Union, Tuple, List, Optional
 import numpy as np
 import torch
 import blosc2
-
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
+import warnings
+from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, load_pickle
+from threadpoolctl import threadpool_limits
+
+from nnunetv2.paths import nnUNet_preprocessed
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
+from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
+from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
 
 class MultiTasknnUNetDataset(nnUNetBaseDataset):
@@ -31,7 +38,7 @@ class MultiTasknnUNetDataset(nnUNetBaseDataset):
         Load classification labels from labels.csv in preprocessed folder
         Expected format: case_id,subtype
         """
-        labels_file = join(self.source_folder, 'labels.csv')
+        labels_file = join('/'.join(self.source_folder.split('/')[:-1]), 'labels.csv')
 
         if not os.path.exists(labels_file):
             print(f"Warning: labels.csv not found at {labels_file}")
@@ -45,6 +52,7 @@ class MultiTasknnUNetDataset(nnUNetBaseDataset):
                 raise ValueError("labels.csv must have 'case_id' and 'subtype' columns")
 
             # Create mapping
+            df['case_id'] = df['case_id'].str[:8].astype(str)  # Ensure case_id is string
             labels_dict = dict(zip(df['case_id'], df['subtype']))
 
             # Verify all case_identifiers have labels
@@ -88,8 +96,9 @@ class MultiTasknnUNetDataset(nnUNetBaseDataset):
 
         # Add classification label
         classification_label = self.classification_labels.get(identifier, 0)
+        properties['classification_label'] = classification_label
 
-        return data, seg, seg_prev, properties, classification_label
+        return data, seg, seg_prev, properties
 
     @staticmethod
     def save_case(
@@ -212,3 +221,92 @@ class MultiTasknnUNetDataset(nnUNetBaseDataset):
         from collections import Counter
         distribution = Counter(labels_dict.values())
         return {f'subtype_{i}': distribution.get(i, 0) for i in range(3)}
+
+class MultiTasknnUNetDataLoader(nnUNetDataLoader):
+    """
+    Multi-task dataloader that returns classification targets along with segmentation data
+    """
+
+    def __init__(self,
+                 data,  # MultiTasknnUNetDataset
+                 batch_size: int,
+                 patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
+                 label_manager: LabelManager,
+                 oversample_foreground_percent: float = 0.0,
+                 sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
+                 pad_sides: Union[List[int], Tuple[int, ...]] = None,
+                 probabilistic_oversampling: bool = False,
+                 transforms=None):
+
+        super().__init__(data, batch_size, patch_size, final_patch_size, label_manager,
+                         oversample_foreground_percent, sampling_probabilities, pad_sides,
+                         probabilistic_oversampling, transforms)
+
+    def generate_train_batch(self):
+        selected_keys = self.get_indices()
+        # preallocate memory for data and seg
+        data_all = np.zeros(self.data_shape, dtype=np.float32)
+        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+
+        # Add classification targets
+        cls_all = np.zeros(self.batch_size, dtype=np.int64)
+
+        for j, i in enumerate(selected_keys):
+            # oversampling foreground will improve stability of model training
+            force_fg = self.get_do_oversample(j)
+
+            # Load case with classification label
+            data, seg, seg_prev, properties = self._data.load_case(i)
+            classification = properties['classification_label']
+
+            shape = data.shape[1:]
+            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
+            bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
+
+            # Crop data and segmentation
+            data_all[j] = crop_and_pad_nd(data, bbox, 0)
+
+            seg_cropped = crop_and_pad_nd(seg, bbox, -1)
+            if seg_prev is not None:
+                seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
+            seg_all[j] = seg_cropped
+
+            # Store classification target
+            cls_all[j] = classification
+
+        if self.patch_size_was_2d:
+            data_all = data_all[:, :, 0]
+            seg_all = seg_all[:, :, 0]
+
+        if self.transforms is not None:
+            with torch.no_grad():
+                with threadpool_limits(limits=1, user_api=None):
+                    data_all = torch.from_numpy(data_all).float()
+                    seg_all = torch.from_numpy(seg_all).to(torch.int16)
+                    images = []
+                    segs = []
+                    for b in range(self.batch_size):
+                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
+                        images.append(tmp['image'])
+                        segs.append(tmp['segmentation'])
+                    data_all = torch.stack(images)
+                    if isinstance(segs[0], list):
+                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    else:
+                        seg_all = torch.stack(segs)
+                    del segs, images
+
+            return {
+                'data': data_all,
+                'target': seg_all,
+                'classification': torch.from_numpy(cls_all),
+                'keys': selected_keys
+            }
+
+        return {
+            'data': data_all,
+            'target': seg_all,
+            'classification': cls_all,
+            'keys': selected_keys
+        }
