@@ -89,7 +89,7 @@ def test_plan_and_preprocess(dataset_id: int,
                            verify_dataset_integrity: bool = True,
                            extract_fingerprints_flag: bool = True,
                            clean: bool = False,
-                           verbose: bool = True):
+                           verbose: bool = False):
     """
     Test plan_and_preprocess with custom planner using individual API functions
     """
@@ -140,7 +140,7 @@ def test_plan_and_preprocess(dataset_id: int,
             plans_identifier=plans_identifier,
             configurations=configurations,
             num_processes=num_processes,
-            verbose=verbose
+            verbose=verbose,
         )
 
         print("✓ plan_and_preprocess completed successfully")
@@ -162,7 +162,7 @@ def test_dataloader(dataset_id: int, configuration: str = '3d_fullres'):
     from src.training.dataloading.multitask_dataset import MultiTasknnUNetDataset
 
     dataset_name = maybe_convert_to_dataset_name(dataset_id)
-    preprocessed_folder = join(nnUNet_preprocessed, dataset_name, 'MultiTasknnUNetPlannerResEncM__nnUNetPlans_multitask', configuration)
+    preprocessed_folder = join(nnUNet_preprocessed, dataset_name, 'nnUNetPlans_multitask_'+configuration)
 
     if not os.path.exists(preprocessed_folder):
         print(f"Preprocessed folder not found: {preprocessed_folder}")
@@ -170,8 +170,8 @@ def test_dataloader(dataset_id: int, configuration: str = '3d_fullres'):
 
     try:
         # Get case identifiers
-        from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
-        case_identifiers = nnUNetBaseDataset.get_identifiers(preprocessed_folder)
+        from src.training.dataloading.multitask_dataset import MultiTasknnUNetDataset
+        case_identifiers = MultiTasknnUNetDataset.get_identifiers(preprocessed_folder)
 
         print(f"Found {len(case_identifiers)} cases in {preprocessed_folder}")
 
@@ -213,7 +213,7 @@ def main():
     parser.add_argument('--configurations', nargs='+', default=['3d_fullres'],
                        help='Configurations to process')
     parser.add_argument('--clean', action='store_true', help='Clean previous preprocessing')
-    parser.add_argument('--verbose', action='store_true', default=True, help='Verbose output')
+    parser.add_argument('--verbose', action='store_true', default=False, help='Verbose output')
 
     args = parser.parse_args()
 
@@ -235,7 +235,6 @@ def main():
             clean=args.clean,
             verbose=args.verbose
         )
-
         if success:
             print("\nTesting dataloader...")
             test_dataloader(args.dataset_id, args.configurations[0])

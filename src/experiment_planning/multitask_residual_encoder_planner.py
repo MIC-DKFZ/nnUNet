@@ -2,6 +2,8 @@ import torch
 from typing import Union, List, Tuple
 from nnunetv2.experiment_planning.experiment_planners.residual_unets.residual_encoder_unet_planners import nnUNetPlannerResEncM
 from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
+import contextlib
+from io import StringIO
 
 
 class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
@@ -24,11 +26,17 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
         self.pretrained_checkpoint = pretrained_checkpoint
 
     def plan_experiment(self):
-        super().plan_experiment()
+        # Suppress print statements from parent class
+        with contextlib.redirect_stdout(StringIO()):
+            super().plan_experiment()
 
         # Add multitask specific configurations
         for configuration_name in self.plans['configurations'].keys():
             config = self.plans['configurations'][configuration_name]
+
+            # ADDED: Smaller model size for testsing (Comment out to restore)
+            config['architecture']['arch_kwargs']['features_per_stage'] = [16, 64, 128, 320]
+            config['architecture']['arch_kwargs']['n_stages'] = 4
 
             # Update architecture to use custom multitask network
             config['architecture']['network_class_name'] = 'src.architectures.multitask_resenc_unet.MultiTaskResEncUNet'
@@ -53,9 +61,20 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
             # Optimizer selection based on model size and GPU memory
             config['optimizer_config'] = self._determine_optimizer_config(config)
 
-            # Add pretrained checkpoint if specified
-            if self.pretrained_checkpoint:
-                config['pretrained_checkpoint'] = self.pretrained_checkpoint
+            # Modify the data_identifier, plans_name is already overwritten
+            config['data_identifier'] = f"{self.plans['plans_name']}_{configuration_name}"
+
+            print(f'U-Net configuration: {configuration_name}')
+            print(self.plans['configurations'][configuration_name])
+            print()
+
+        # Add pretrained checkpoint if specified
+        if self.pretrained_checkpoint:
+            self.plans['pretrained_checkpoint'] = self.pretrained_checkpoint
+
+        # Save updated plans
+        super().save_plans(self.plans)
+        return self.plans
 
     def _determine_optimizer_config(self, config: dict) -> dict:
         """

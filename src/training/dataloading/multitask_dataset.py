@@ -206,3 +206,9 @@ class MultiTasknnUNetDataset(nnUNetBaseDataset):
             'is_valid': len(missing_files) == 0 and len(subtype_issues) == 0,
             'classification_distribution': self.get_classification_distribution()
         }
+
+    def _get_label_distribution(self, labels_dict: dict) -> dict:
+        """Get distribution of classification labels"""
+        from collections import Counter
+        distribution = Counter(labels_dict.values())
+        return {f'subtype_{i}': distribution.get(i, 0) for i in range(3)}
