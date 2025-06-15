@@ -65,7 +65,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         if len(custom_epochs_per_stage) != len(self.training_stages):
             raise ValueError(f"Custom epochs must match number of stages: {len(self.training_stages)}")
         self.epochs_per_stage = custom_epochs_per_stage
-        self.print_to_log_file(f"Custom epochs per stage set: {self.epochs_per_stage}")
+        self.print_to_log_file(f"Custom epochs per stage set: {dict(zip(self.training_stages, self.epochs_per_stage))}")
 
     @staticmethod
     def build_network_architecture(architecture_class_name: str,
