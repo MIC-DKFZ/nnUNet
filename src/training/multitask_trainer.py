@@ -231,28 +231,49 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             seg_pred = torch.softmax(output['segmentation'], dim=1)
             cls_pred = torch.softmax(output['classification'], dim=1)
 
-            # Segmentation metrics
-            seg_dice = self.compute_dice_score(seg_pred, target_seg)
-            pancreas_dice = self.compute_pancreas_dice(seg_pred, target_seg)
-            lesion_dice = self.compute_lesion_dice(seg_pred, target_seg)
+            # Compute raw intersection/union for dice metrics
+            seg_intersect, seg_union = self.compute_dice_components(seg_pred, target_seg, mode='overall')
+            pancreas_intersect, pancreas_union = self.compute_dice_components(seg_pred, target_seg, mode='pancreas')
+            lesion_intersect, lesion_union = self.compute_dice_components(seg_pred, target_seg, mode='lesion')
 
             # Classification metrics
             cls_f1 = self.compute_macro_f1(cls_pred, target_cls)
 
         return {
             'val_loss': loss_dict['total_loss'].detach().cpu().numpy(),
-            'seg_dice': seg_dice,
-            'pancreas_dice': pancreas_dice,
-            'lesion_dice': lesion_dice,
+            'seg_intersect': seg_intersect,
+            'seg_union': seg_union,
+            'pancreas_intersect': pancreas_intersect,
+            'pancreas_union': pancreas_union,
+            'lesion_intersect': lesion_intersect,
+            'lesion_union': lesion_union,
             'cls_f1': cls_f1
         }
+    # def on_validation_epoch_end(self, val_outputs: List[dict]):
+    #     outputs_collated = collate_outputs(val_outputs)
+    #     loss_here = np.mean(outputs_collated['val_loss'])
+    #     seg_dice = np.mean(outputs_collated['seg_dice'])
+    #     pancreas_dice = np.mean(outputs_collated['pancreas_dice'])
+    #     lesion_dice = np.mean(outputs_collated['lesion_dice'])
+    #     cls_f1 = np.mean(outputs_collated['cls_f1'])
+
+    #     # Print metrics for logging
+    #     print(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
+
+    #     # Use pancreas dice for standard nnUNet logging
+    #     self.logger.log('val_losses', loss_here, self.current_epoch)
+    #     self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch)
+    #     self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch) # using this as a placeholder the value isn't real
 
     def on_validation_epoch_end(self, val_outputs: List[dict]):
         outputs_collated = collate_outputs(val_outputs)
         loss_here = np.mean(outputs_collated['val_loss'])
-        seg_dice = np.mean(outputs_collated['seg_dice'])
-        pancreas_dice = np.mean(outputs_collated['pancreas_dice'])
-        lesion_dice = np.mean(outputs_collated['lesion_dice'])
+
+        # Aggregate intersection/union then compute dice
+        seg_dice = self._compute_aggregated_dice(outputs_collated, 'seg')
+        pancreas_dice = self._compute_aggregated_dice(outputs_collated, 'pancreas')
+        lesion_dice = self._compute_aggregated_dice(outputs_collated, 'lesion')
+
         cls_f1 = np.mean(outputs_collated['cls_f1'])
 
         # Print metrics for logging
@@ -261,7 +282,37 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Use pancreas dice for standard nnUNet logging
         self.logger.log('val_losses', loss_here, self.current_epoch)
         self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch)
-        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch) # using this as a placeholder the value isn't real
+        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch)
+
+    def compute_dice_components(self, pred: torch.Tensor, target: torch.Tensor, mode: str):
+        """Compute intersection and union for dice calculation"""
+        if mode == 'overall':
+            pred_binary = (pred.argmax(dim=1) > 0).float()
+            target_binary = (target > 0).float()
+        elif mode == 'pancreas':
+            pred_binary = (pred.argmax(dim=1) > 0).float()  # Same as overall for pancreas+lesion
+            target_binary = (target > 0).float()
+        elif mode == 'lesion':
+            pred_binary = (pred.argmax(dim=1) == 2).float()
+            target_binary = (target == 2).float()
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        intersection = (pred_binary * target_binary).sum().item()
+        union = (pred_binary.sum() + target_binary.sum()).item()
+
+        return intersection, union
+
+    def _compute_aggregated_dice(self, outputs_collated: dict, prefix: str) -> float:
+        """Compute dice from aggregated intersection/union"""
+        total_intersection = np.sum(outputs_collated[f'{prefix}_intersect'])
+        total_union = np.sum(outputs_collated[f'{prefix}_union'])
+
+        if total_union == 0:
+            return 1.0
+
+        dice = (2.0 * total_intersection) / (total_union + 1e-8)
+        return min(dice, 1.0)  # Clamp to max 1.0
 
     def on_epoch_start(self):
         """Handle training stage progression"""
