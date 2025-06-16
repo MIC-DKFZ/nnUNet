@@ -34,36 +34,126 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
         for configuration_name in self.plans['configurations'].keys():
             config = self.plans['configurations'][configuration_name]
 
-            # ADDED: Smaller model size for testsing (Comment out to restore)
-            config['architecture']['arch_kwargs']['features_per_stage'] = [16, 64, 128]
-            config['architecture']['arch_kwargs']['n_stages'] = 3
-            config['architecture']['arch_kwargs']['n_blocks_per_stage'] = [1, 3, 4] # same number as n_stage
-            config['architecture']['arch_kwargs']['n_conv_per_stage_decoder'] = [1, 1] # one less than blocks per stage
-            config['architecture']['arch_kwargs']['kernel_sizes'] = [
-                [1, 3, 3],
-                [3, 3, 3],
-                [3, 3, 3],
-            ]
-            config['architecture']['arch_kwargs']['strides'] = [
-                [1, 1, 1],
-                [1, 2, 2],
-                [2, 2, 2],
-            ]
+            # 4x scaled model size for enhanced capacity
+            if configuration_name == '2d':
+                config['architecture']['arch_kwargs']['features_per_stage'] = [32, 64, 128]
+                config['architecture']['arch_kwargs']['n_stages'] = 3
+                config['architecture']['arch_kwargs']['n_blocks_per_stage'] = [1, 1, 2]
+                config['architecture']['arch_kwargs']['n_conv_per_stage_decoder'] = [1, 1]
+                config['architecture']['arch_kwargs']['kernel_sizes'] = [
+                    [3, 3],
+                    [3, 3],
+                    [3, 3],
+                ]
+                config['architecture']['arch_kwargs']['strides'] = [
+                    [1, 1],
+                    [2, 2],
+                    [2, 2],
+                ]
+                # Reduce batch size for larger model
+                config['batch_size'] = 12
+            else:  # 3d_fullres
+                config['architecture']['arch_kwargs']['features_per_stage'] = [16, 64]
+                config['architecture']['arch_kwargs']['n_stages'] = 2
+                config['architecture']['arch_kwargs']['n_blocks_per_stage'] = [1, 1]
+                config['architecture']['arch_kwargs']['n_conv_per_stage_decoder'] = [1]
+                config['architecture']['arch_kwargs']['kernel_sizes'] = [
+                    [1, 3, 3],
+                    [3, 3, 3],
+                ]
+                config['architecture']['arch_kwargs']['strides'] = [
+                    [1, 1, 1],
+                    [2, 2, 2],
+                ]
+                # Reduce batch size for larger 3D model
+                config['batch_size'] = 2
 
             # Update architecture to use custom multitask network
             config['architecture']['network_class_name'] = 'src.architectures.multitask_resenc_unet.MultiTaskResEncUNet'
 
-            # Add classification head configuration
-            config['architecture']['classification_head'] = {
-                'head_type': 'mlp',  # Use MLP head by default
-                'num_classes': 3,  # subtype 0, 1, 2
-                'dropout_rate': 0.3,
-                'latent_dim': 1024,  # Large latent representation for expressiveness
-                'mlp_hidden_dims': [512, 256],  # MLP hidden dimensions
-                'use_all_features': False,  # Use last encoder stage for MLP
-                # Legacy spatial attention config (kept for backward compatibility)
-                'hidden_dims': [256, 128]
+            # Add latent layer configuration (4x scaled)
+            last_stage_channels = config['architecture']['arch_kwargs']['features_per_stage'][-1]
+            config['architecture']['latent_layer'] = {
+                'channels': last_stage_channels,
+                'spatial_size': [24, 24] if configuration_name == '2d' else [16, 32, 32],
+                'compression_ratio': 0.5,
+                'compression_channels': last_stage_channels // 2,
+                'activation': 'torch.nn.LeakyReLU',
+                'use_bottleneck': True,
+                'bottleneck_reduction': 2,
+                'normalization': 'torch.nn.modules.instancenorm.InstanceNorm2d' if configuration_name == '2d' else 'torch.nn.modules.instancenorm.InstanceNorm3d',
+                'dropout_rate': 0.1
             }
+
+            # Add classification head configuration (4x scaled)
+            if configuration_name == '2d':
+                config['architecture']['classification_head'] = {
+                    'num_classes': 3,
+                    'dropout_rate': 0.2,
+                    'initial_conv_config': {
+                        'input_channels': last_stage_channels,
+                        'output_channels': last_stage_channels * 2,
+                        'kernel_size': [3, 3],
+                        'stride': [1, 1],
+                        'padding': [1, 1],
+                        'use_batch_norm': True,
+                        'activation': 'torch.nn.LeakyReLU'
+                    },
+                    'conv_layers': [
+                        {
+                            'in_channels': last_stage_channels * 2,
+                            'out_channels': last_stage_channels,
+                            'kernel_size': [3, 3],
+                            'stride': [2, 2],
+                            'padding': [1, 1],
+                            'use_batch_norm': True,
+                            'activation': 'torch.nn.LeakyReLU',
+                            'dropout_rate': 0.1
+                        }
+                    ],
+                    'global_pooling': 'adaptive_avg',
+                    'hidden_dims': [last_stage_channels * 2, last_stage_channels],
+                    'use_all_features': False,
+                    'feature_fusion': {
+                        'enabled': False,
+                        'fusion_type': 'concatenation',
+                        'skip_connections': []
+                    }
+                }
+            else:  # 3d_fullres
+                config['architecture']['classification_head'] = {
+                    'num_classes': 3,
+                    'dropout_rate': 0.2,
+                    'initial_conv_config': {
+                        'input_channels': last_stage_channels,
+                        'output_channels': last_stage_channels * 2,
+                        'kernel_size': [3, 3, 3],
+                        'stride': [1, 1, 1],
+                        'padding': [1, 1, 1],
+                        'use_batch_norm': True,
+                        'activation': 'torch.nn.LeakyReLU'
+                    },
+                    'conv_layers': [
+                        {
+                            'in_channels': last_stage_channels * 2,
+                            'out_channels': last_stage_channels,
+                            'kernel_size': [3, 3, 3],
+                            'stride': [2, 2, 2],
+                            'padding': [1, 1, 1],
+                            'use_batch_norm': True,
+                            'activation': 'torch.nn.LeakyReLU',
+                            'dropout_rate': 0.1
+                        }
+                    ],
+                    'global_pooling': 'adaptive_avg',
+                    'hidden_dims': [last_stage_channels * 2, last_stage_channels],
+                    'use_all_features': False,
+                    'feature_fusion': {
+                        'enabled': False,
+                        'fusion_type': 'concatenation',
+                        'skip_connections': []
+                    }
+                }
 
             # Add multitask training configuration
             config['multitask_config'] = {
