@@ -67,11 +67,15 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
 
             # Add multitask training configuration
             config['multitask_config'] = {
-                'seg_weight': 1.0,
-                'cls_weight': 0.5,
+                'seg_weight': 0.6,  # Base weights (used when normalization is off)
+                'cls_weight': 0.4,
                 'use_focal_loss': True,
                 'focal_gamma': 2.0,
-                'focal_alpha': 0.25
+                'focal_alpha': 0.25,
+                # New normalization settings
+                'use_loss_normalization': True,
+                'normalization_warmup_epochs': 10,
+                'progressive_weighting': True
             }
 
             # Optimizer selection based on model size and GPU memory

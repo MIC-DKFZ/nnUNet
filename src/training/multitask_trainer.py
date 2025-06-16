@@ -47,14 +47,32 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         }
         self.criteria_met_count = 0  # Track consecutive epochs meeting criteria
 
-        # Multi-task configuration
+        # Multi-task configuration with loss normalization
         self.multitask_config = self.configuration_manager.configuration.get('multitask_config', {
             'seg_weight': 1.0,
             'cls_weight': 0.5,
             'use_focal_loss': True,
             'focal_gamma': 2.0,
-            'focal_alpha': 0.25
+            'focal_alpha': 0.25,
+            # Loss normalization settings
+            'use_loss_normalization': True,
+            'normalization_warmup_epochs': 10,
+            'progressive_weighting': True,
+            'ema_momentum': 0.1,
+            'min_ema_value': 1e-6
         })
+
+        # Loss magnitude normalization state (stored in trainer)
+        self.loss_normalization = {
+            'enabled': self.multitask_config.get('use_loss_normalization', True),
+            'seg_loss_ema': None,
+            'cls_loss_ema': None,
+            'warmup_epochs': self.multitask_config.get('normalization_warmup_epochs', 10),
+            'ema_momentum': self.multitask_config.get('ema_momentum', 0.1),
+            'min_ema_value': self.multitask_config.get('min_ema_value', 1e-6),
+            'initialized': False
+        }
+
 
         # Classification configuration
         self.num_classification_classes = 3  # subtype 0, 1, 2
@@ -198,8 +216,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         return optimizer, lr_scheduler
 
     def train_step(self, batch: dict) -> dict:
-        """Single training step with multi-task loss"""
-        # Unpack batch - now returns 5-tuple: data, seg, seg_prev, properties
+        """Enhanced training step with loss normalization"""
+        # Unpack batch
         data = batch['data']
         target_seg = batch['target']
         target_cls = batch['classification']
@@ -214,17 +232,15 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Forward pass
         output = self.network(data)
 
-        # Compute losses
-        loss_dict = self.network.compute_multitask_loss(
-            output,
-            {'segmentation': target_seg, 'classification': target_cls},
-            self.seg_loss,
-            self.cls_loss
+        # Compute losses with normalization (now handled in trainer)
+        loss_dict = self.compute_multitask_loss_with_normalization(
+            outputs=output,
+            targets={'segmentation': target_seg, 'classification': target_cls}
         )
 
         total_loss = loss_dict['total_loss']
 
-        # Backward pass
+        # Backward pass (unchanged)
         if self.grad_scaler is not None:
             self.grad_scaler.scale(total_loss).backward()
             self.grad_scaler.unscale_(self.optimizer)
@@ -236,12 +252,15 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
 
+        # Return enhanced metrics
         return {
             'loss': total_loss.detach().cpu().numpy(),
             'seg_loss': loss_dict['segmentation_loss'].detach().cpu().numpy(),
             'cls_loss': loss_dict['classification_loss'].detach().cpu().numpy(),
             'seg_weight': loss_dict['seg_weight'],
-            'cls_weight': loss_dict['cls_weight']
+            'cls_weight': loss_dict['cls_weight'],
+            # Add normalization metrics if available
+            **{k: v for k, v in loss_dict.items() if k.endswith('_ema') or k.endswith('_normalized') or k.endswith('_ratio')}
         }
 
     def check_initialization_health(self):
@@ -338,7 +357,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         return dict(zip(self.training_stages, self.epochs_per_stage))
 
     def validation_step(self, batch: dict) -> dict:
-        """Validation step with multi-task metrics"""
+        """Enhanced validation step"""
         # Unpack batch
         data = batch['data']
         target_seg = batch['target']
@@ -352,15 +371,13 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         with torch.no_grad():
             output = self.network(data)
 
-            # Compute losses
-            loss_dict = self.network.compute_multitask_loss(
-                output,
-                {'segmentation': target_seg, 'classification': target_cls},
-                self.seg_loss,
-                self.cls_loss
+            # Compute losses (no EMA updates during validation)
+            loss_dict = self.compute_multitask_loss_with_normalization(
+                outputs=output,
+                targets={'segmentation': target_seg, 'classification': target_cls}
             )
 
-            # Compute metrics
+            # Compute metrics (your existing metric computation)
             seg_pred = torch.softmax(output['segmentation'], dim=1)
             cls_pred = torch.softmax(output['classification'], dim=1)
 
@@ -425,9 +442,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.print_to_log_file(f"Stage: {checkpoint['training_stage']}, Stage Epoch: {self.stage_epoch_counter}")
 
     def _load_checkpoint(self, filename: str) -> None:
-        """
-        Enhanced checkpoint loading with multi-task state restoration
-        """
+        """Enhanced checkpoint loading with loss normalization state restoration"""
         checkpoint = torch.load(filename, map_location=self.device)
 
         # Load standard components
@@ -445,14 +460,20 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         if 'current_stage_idx' in checkpoint:
             self.current_stage_idx = checkpoint['current_stage_idx']
-            self.stage_epoch_counter = checkpoint.get('stage_epoch_counter', 0)-1
+            self.stage_epoch_counter = checkpoint.get('stage_epoch_counter', 0) - 1
 
             # Restore training stage
             stage_name = checkpoint.get('training_stage', 'full')
-            self.network.set_training_stage(stage_name)
+            if hasattr(self.network, 'set_training_stage'):
+                self.network.set_training_stage(stage_name)
 
             self.print_to_log_file(f"Restored training stage: {stage_name}")
             self.print_to_log_file(f"Stage epoch counter: {self.stage_epoch_counter}")
+
+        # Restore loss normalization state
+        if 'loss_normalization' in checkpoint:
+            self.loss_normalization.update(checkpoint['loss_normalization'])
+            self.print_to_log_file(f"Restored loss normalization state: {self.loss_normalization}")
 
         # Restore metrics if available
         if 'train_metrics' in checkpoint:
@@ -475,8 +496,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         cls_f1 = np.mean(outputs_collated['cls_f1'])
 
         # Print metrics for logging
-        print(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
+        self.print_to_log_file(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
         print(f"Current epoch: {self.current_epoch - self.stage_epoch_counter + 1}")
+        self.current_epoch += 1
         # Use pancreas dice for standard nnUNet logging
         self.logger.log('val_losses', loss_here, self.current_epoch - self.stage_epoch_counter + 1)
         self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch - self.stage_epoch_counter + 1)
@@ -544,15 +566,26 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.stage_epoch_counter += 1
 
     def on_epoch_end(self):
-        """Log training progress and metrics"""
+        """Enhanced epoch end with normalization logging"""
         super().on_epoch_end()
+
+        # Log loss normalization status every 10 epochs
+        if self.current_epoch % 10 == 0 and self.loss_normalization['initialized']:
+            seg_ema = self.loss_normalization['seg_loss_ema']
+            cls_ema = self.loss_normalization['cls_loss_ema']
+            ratio = cls_ema / seg_ema if seg_ema > 0 else 1.0
+
+            self.print_to_log_file(
+                f"Loss Normalization - Epoch {self.current_epoch}: "
+                f"Seg EMA: {seg_ema:.4f}, Cls EMA: {cls_ema:.4f}, Ratio: {ratio:.2f}"
+            )
 
         # Log manual weights
         if hasattr(self.network, 'seg_weight'):
             self.print_to_log_file(f"seg_manual_weight: {self.network.seg_weight}")
             self.print_to_log_file(f"cls_manual_weight: {self.network.cls_weight}")
 
-        # Periodic saving
+        # Periodic saving (your existing logic)
         if hasattr(self, 'save_every') and self.save_every is not None:
             if (self.current_epoch + 1) % self.save_every == 0:
                 checkpoint_name = f"checkpoint_epoch_{self.current_epoch + 1}.pth"
@@ -746,7 +779,210 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         self.on_epoch_end()
 
+    def initialize_loss_normalization(self, seg_loss_value: float, cls_loss_value: float):
+        """Initialize the EMAs with first computed losses"""
+        if self.loss_normalization['enabled'] and not self.loss_normalization['initialized']:
+            self.loss_normalization['seg_loss_ema'] = seg_loss_value
+            self.loss_normalization['cls_loss_ema'] = cls_loss_value
+            self.loss_normalization['initialized'] = True
 
+            self.print_to_log_file(f"✓ Initialized loss EMAs - Seg: {seg_loss_value:.4f}, Cls: {cls_loss_value:.4f}")
+
+    def update_loss_emas(self, seg_loss_value: float, cls_loss_value: float):
+        """Update exponential moving averages of loss magnitudes"""
+        if not self.loss_normalization['enabled'] or not self.loss_normalization['initialized']:
+            return
+
+        # Don't update EMAs too early
+        if self.current_epoch < 5:  # Start updating from epoch 5
+            return
+
+        # Determine momentum based on training stage
+        if self.current_epoch < self.loss_normalization['warmup_epochs']:
+            momentum = 0.3  # Higher momentum = faster adaptation during warmup
+        else:
+            momentum = self.loss_normalization['ema_momentum']  # Stable momentum
+
+        # Update EMAs
+        self.loss_normalization['seg_loss_ema'] = (
+            (1 - momentum) * self.loss_normalization['seg_loss_ema'] +
+            momentum * seg_loss_value
+        )
+        self.loss_normalization['cls_loss_ema'] = (
+            (1 - momentum) * self.loss_normalization['cls_loss_ema'] +
+            momentum * cls_loss_value
+        )
+
+        # Ensure minimum values to prevent numerical issues
+        min_val = self.loss_normalization['min_ema_value']
+        self.loss_normalization['seg_loss_ema'] = max(self.loss_normalization['seg_loss_ema'], min_val)
+        self.loss_normalization['cls_loss_ema'] = max(self.loss_normalization['cls_loss_ema'], min_val)
+
+    def compute_multitask_loss_with_normalization(self, outputs: dict, targets: dict) -> dict:
+        """Compute multi-task loss with optional magnitude normalization"""
+        seg_pred = outputs['segmentation']
+        cls_pred = outputs['classification']
+        seg_target = targets['segmentation']
+        cls_target = targets['classification']
+
+        # Compute individual losses
+        seg_loss = self.seg_loss(seg_pred, seg_target)
+        cls_loss = self.cls_loss(cls_pred, cls_target)
+
+        # Convert to float values for EMA tracking
+        seg_loss_value = seg_loss.item()
+        cls_loss_value = cls_loss.item()
+
+        # Initialize EMAs on first call
+        if not self.loss_normalization['initialized']:
+            self.initialize_loss_normalization(seg_loss_value, cls_loss_value)
+
+        # Update EMAs
+        self.update_loss_emas(seg_loss_value, cls_loss_value)
+
+        # Stage-specific loss handling
+        if self.training_stages[self.current_stage_idx] == 'enc_seg':
+            # Only segmentation loss
+            return self._create_loss_dict(
+                total_loss=seg_loss,
+                seg_loss=seg_loss,
+                cls_loss=cls_loss,
+                seg_weight=1.0,
+                cls_weight=0.0,
+                seg_loss_raw=seg_loss_value,
+                cls_loss_raw=cls_loss_value
+            )
+        elif self.training_stages[self.current_stage_idx] == 'enc_cls':
+            # Only classification loss
+            return self._create_loss_dict(
+                total_loss=cls_loss,
+                seg_loss=seg_loss,
+                cls_loss=cls_loss,
+                seg_weight=0.0,
+                cls_weight=1.0,
+                seg_loss_raw=seg_loss_value,
+                cls_loss_raw=cls_loss_value
+            )
+        else:
+            # Multi-task loss computation
+            if self._should_use_normalization():
+                return self._compute_normalized_multitask_loss(seg_loss, cls_loss, seg_loss_value, cls_loss_value)
+            else:
+                return self._compute_manual_weighted_loss(seg_loss, cls_loss, seg_loss_value, cls_loss_value)
+
+    def _should_use_normalization(self) -> bool:
+        """Check if we should use loss normalization"""
+        return (
+            self.loss_normalization['enabled'] and
+            self.loss_normalization['initialized'] and
+            self.current_epoch >= 5  # Start normalization from epoch 5
+        )
+
+    def _create_loss_dict(self, total_loss, seg_loss, cls_loss, seg_weight, cls_weight,
+                         seg_loss_raw, cls_loss_raw, seg_loss_norm=None, cls_loss_norm=None,
+                         seg_ema=None, cls_ema=None):
+        """Create standardized loss dictionary"""
+        loss_dict = {
+            'total_loss': total_loss,
+            'segmentation_loss': seg_loss,
+            'classification_loss': cls_loss,
+            'seg_weight': seg_weight,
+            'cls_weight': cls_weight,
+            'seg_loss_raw': seg_loss_raw,
+            'cls_loss_raw': cls_loss_raw
+        }
+
+        # Add normalization info if available
+        if seg_loss_norm is not None:
+            loss_dict.update({
+                'seg_loss_normalized': seg_loss_norm,
+                'cls_loss_normalized': cls_loss_norm,
+                'seg_loss_ema': seg_ema,
+                'cls_loss_ema': cls_ema,
+                'ema_ratio': cls_ema / seg_ema if seg_ema > 0 else 1.0
+            })
+
+        return loss_dict
+
+    def _get_current_weights(self) -> Tuple[float, float]:
+        """Get current loss weights (progressive or fixed)"""
+        if self.multitask_config.get('progressive_weighting', True):
+            # Progressive weighting schedule
+            if self.current_epoch < 50:
+                return 0.7, 0.3  # Early: slight segmentation focus
+            elif self.current_epoch < 150:
+                return 0.6, 0.4  # Mid: balanced
+            else:
+                return 0.5, 0.5  # Late: equal weight
+        else:
+            # Fixed weights from config
+            return (
+                self.multitask_config.get('seg_weight', 1.0),
+                self.multitask_config.get('cls_weight', 0.5)
+            )
+
+    def _compute_normalized_multitask_loss(self, seg_loss, cls_loss, seg_loss_value, cls_loss_value):
+        """Compute loss with magnitude normalization"""
+        seg_ema = self.loss_normalization['seg_loss_ema']
+        cls_ema = self.loss_normalization['cls_loss_ema']
+
+        # Normalize losses by their typical magnitudes
+        seg_loss_normalized = seg_loss / seg_ema
+        cls_loss_normalized = cls_loss / cls_ema
+
+        # Get weights (progressive or fixed)
+        seg_weight, cls_weight = self._get_current_weights()
+
+        # Compute normalized total loss
+        total_loss = seg_weight * seg_loss_normalized + cls_weight * cls_loss_normalized
+
+        return self._create_loss_dict(
+            total_loss=total_loss,
+            seg_loss=seg_loss,
+            cls_loss=cls_loss,
+            seg_weight=seg_weight,
+            cls_weight=cls_weight,
+            seg_loss_raw=seg_loss_value,
+            cls_loss_raw=cls_loss_value,
+            seg_loss_norm=seg_loss_normalized.item(),
+            cls_loss_norm=cls_loss_normalized.item(),
+            seg_ema=seg_ema,
+            cls_ema=cls_ema
+        )
+
+    def _compute_manual_weighted_loss(self, seg_loss, cls_loss, seg_loss_value, cls_loss_value):
+        """Fallback to manual weighting"""
+        seg_weight = self.multitask_config.get('seg_weight', 1.0)
+        cls_weight = self.multitask_config.get('cls_weight', 0.5)
+
+        total_loss = seg_weight * seg_loss + cls_weight * cls_loss
+
+        return self._create_loss_dict(
+            total_loss=total_loss,
+            seg_loss=seg_loss,
+            cls_loss=cls_loss,
+            seg_weight=seg_weight,
+            cls_weight=cls_weight,
+            seg_loss_raw=seg_loss_value,
+            cls_loss_raw=cls_loss_value
+        )
+
+    def get_loss_normalization_status(self) -> dict:
+        """Get current status of loss normalization for debugging"""
+        return {
+            'enabled': self.loss_normalization['enabled'],
+            'initialized': self.loss_normalization['initialized'],
+            'current_epoch': self.current_epoch,
+            'seg_loss_ema': self.loss_normalization['seg_loss_ema'],
+            'cls_loss_ema': self.loss_normalization['cls_loss_ema'],
+            'ema_ratio': (
+                self.loss_normalization['cls_loss_ema'] / self.loss_normalization['seg_loss_ema']
+                if self.loss_normalization['seg_loss_ema'] and self.loss_normalization['cls_loss_ema']
+                else None
+            ),
+            'warmup_epochs': self.loss_normalization['warmup_epochs'],
+            'should_use_normalization': self._should_use_normalization()
+        }
 class FocalLoss(nn.Module):
     """Focal Loss for classification with class imbalance"""
 
