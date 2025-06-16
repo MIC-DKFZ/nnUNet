@@ -18,12 +18,14 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
                  plans_name: str = 'MultiTasknnUNetResEncMPlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
                  suppress_transpose: bool = False,
-                 pretrained_checkpoint: str = None):
+                 pretrained_checkpoint: str = None,
+                 head_type: str = 'latent_spatial'):
 
         super().__init__(dataset_name_or_id, gpu_memory_target_in_gb, preprocessor_name,
                         plans_name, overwrite_target_spacing, suppress_transpose)
 
         self.pretrained_checkpoint = pretrained_checkpoint
+        self.head_type = head_type
 
     def plan_experiment(self):
         # Suppress print statements from parent class
@@ -85,75 +87,90 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
                 'dropout_rate': 0.1
             }
 
-            # Add classification head configuration (4x scaled)
-            if configuration_name == '2d':
+            # Add classification head configuration based on head type
+            head_type = getattr(self, 'head_type', 'latent_spatial')  # Default to latent_spatial
+            config['architecture']['head_type'] = head_type
+
+            if head_type == 'simple_mlp':
+                # Simple MLP head - no latent layer, direct from encoder
                 config['architecture']['classification_head'] = {
                     'num_classes': 3,
-                    'dropout_rate': 0.2,
-                    'initial_conv_config': {
-                        'input_channels': last_stage_channels,
-                        'output_channels': last_stage_channels * 2,
-                        'kernel_size': [3, 3],
-                        'stride': [1, 1],
-                        'padding': [1, 1],
-                        'use_batch_norm': True,
-                        'activation': 'torch.nn.LeakyReLU'
-                    },
-                    'conv_layers': [
-                        {
-                            'in_channels': last_stage_channels * 2,
-                            'out_channels': last_stage_channels,
+                    'mlp_hidden_dims': [256, 128],  # Simple hidden dimensions
+                    'dropout_rate': 0.3,
+                    'global_pooling': 'adaptive_avg'
+                }
+                # Remove latent layer for simple_mlp
+                config['architecture'].pop('latent_layer', None)
+            else:
+                # Standard latent_spatial head configuration
+                if configuration_name == '2d':
+                    config['architecture']['classification_head'] = {
+                        'num_classes': 3,
+                        'dropout_rate': 0.2,
+                        'initial_conv_config': {
+                            'input_channels': last_stage_channels,
+                            'output_channels': last_stage_channels * 2,
                             'kernel_size': [3, 3],
-                            'stride': [2, 2],
+                            'stride': [1, 1],
                             'padding': [1, 1],
                             'use_batch_norm': True,
-                            'activation': 'torch.nn.LeakyReLU',
-                            'dropout_rate': 0.1
+                            'activation': 'torch.nn.LeakyReLU'
+                        },
+                        'conv_layers': [
+                            {
+                                'in_channels': last_stage_channels * 2,
+                                'out_channels': last_stage_channels,
+                                'kernel_size': [3, 3],
+                                'stride': [2, 2],
+                                'padding': [1, 1],
+                                'use_batch_norm': True,
+                                'activation': 'torch.nn.LeakyReLU',
+                                'dropout_rate': 0.1
+                            }
+                        ],
+                        'global_pooling': 'adaptive_avg',
+                        'hidden_dims': [last_stage_channels * 2, last_stage_channels],
+                        'use_all_features': False,
+                        'feature_fusion': {
+                            'enabled': False,
+                            'fusion_type': 'concatenation',
+                            'skip_connections': []
                         }
-                    ],
-                    'global_pooling': 'adaptive_avg',
-                    'hidden_dims': [last_stage_channels * 2, last_stage_channels],
-                    'use_all_features': False,
-                    'feature_fusion': {
-                        'enabled': False,
-                        'fusion_type': 'concatenation',
-                        'skip_connections': []
                     }
-                }
-            else:  # 3d_fullres
-                config['architecture']['classification_head'] = {
-                    'num_classes': 3,
-                    'dropout_rate': 0.2,
-                    'initial_conv_config': {
-                        'input_channels': last_stage_channels,
-                        'output_channels': last_stage_channels * 2,
-                        'kernel_size': [3, 3, 3],
-                        'stride': [1, 1, 1],
-                        'padding': [1, 1, 1],
-                        'use_batch_norm': True,
-                        'activation': 'torch.nn.LeakyReLU'
-                    },
-                    'conv_layers': [
-                        {
-                            'in_channels': last_stage_channels * 2,
-                            'out_channels': last_stage_channels,
+                else:  # 3d_fullres
+                    config['architecture']['classification_head'] = {
+                        'num_classes': 3,
+                        'dropout_rate': 0.2,
+                        'initial_conv_config': {
+                            'input_channels': last_stage_channels,
+                            'output_channels': last_stage_channels * 2,
                             'kernel_size': [3, 3, 3],
-                            'stride': [2, 2, 2],
+                            'stride': [1, 1, 1],
                             'padding': [1, 1, 1],
                             'use_batch_norm': True,
-                            'activation': 'torch.nn.LeakyReLU',
-                            'dropout_rate': 0.1
+                            'activation': 'torch.nn.LeakyReLU'
+                        },
+                        'conv_layers': [
+                            {
+                                'in_channels': last_stage_channels * 2,
+                                'out_channels': last_stage_channels,
+                                'kernel_size': [3, 3, 3],
+                                'stride': [2, 2, 2],
+                                'padding': [1, 1, 1],
+                                'use_batch_norm': True,
+                                'activation': 'torch.nn.LeakyReLU',
+                                'dropout_rate': 0.1
+                            }
+                        ],
+                        'global_pooling': 'adaptive_avg',
+                        'hidden_dims': [last_stage_channels * 2, last_stage_channels],
+                        'use_all_features': False,
+                        'feature_fusion': {
+                            'enabled': False,
+                            'fusion_type': 'concatenation',
+                            'skip_connections': []
                         }
-                    ],
-                    'global_pooling': 'adaptive_avg',
-                    'hidden_dims': [last_stage_channels * 2, last_stage_channels],
-                    'use_all_features': False,
-                    'feature_fusion': {
-                        'enabled': False,
-                        'fusion_type': 'concatenation',
-                        'skip_connections': []
                     }
-                }
 
             # Add multitask training configuration
             config['multitask_config'] = {

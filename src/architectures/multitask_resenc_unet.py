@@ -213,8 +213,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             self._build_spatial_attention_classification_decoder()
         elif head_type == 'latent_spatial':
             self._build_latent_spatial_classification_decoder()
+        elif head_type == 'simple_mlp':
+            self._build_simple_mlp_classification_decoder()
         else:
-            raise ValueError(f"Unknown head_type: {head_type}. Must be 'mlp', 'spatial_attention', or 'latent_spatial'")
+            raise ValueError(f"Unknown head_type: {head_type}. Must be 'mlp', 'spatial_attention', 'latent_spatial', or 'simple_mlp'")
 
     def _build_mlp_classification_decoder(self):
         """Build MLP-based classification decoder with latent layer"""
@@ -402,9 +404,28 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
 
             print(f"✓ Built legacy latent spatial attention classification head with latent dim: {latent_dim}")
 
+    def _build_simple_mlp_classification_decoder(self):
+        """Build simple MLP classification decoder without latent layer"""
+        # Get the last encoder stage output channels
+        last_stage_channels = self.encoder.stages[-1].output_channels
+
+        # No latent layer - use encoder features directly
+        self.latent_layer = None
+
+        # Build simple MLP classification head
+        self.classification_head = MLPClassificationHead(
+            input_channels=last_stage_channels,
+            num_classes=self.classification_config['num_classes'],
+            hidden_dims=self.classification_config.get('mlp_hidden_dims', [256, 128]),
+            dropout_rate=self.classification_config.get('dropout_rate', 0.3),
+            conv_op=self.conv_op
+        )
+
+        print(f"✓ Built simple MLP classification head (no latent layer)")
+
     def forward_classification_part(self, encoder_outputs):
         """
-        Forward pass for classification - handles both MLP and spatial attention
+        Forward pass for classification - handles all head types
         """
         head_type = self.classification_config.get('head_type', 'mlp')
 
@@ -414,6 +435,8 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             return self._forward_spatial_attention_classification(encoder_outputs)
         elif head_type == 'latent_spatial':
             return self._forward_latent_spatial_classification(encoder_outputs)
+        elif head_type == 'simple_mlp':
+            return self._forward_simple_mlp_classification(encoder_outputs)
         else:
             raise ValueError(f"Unknown head_type: {head_type}")
 
@@ -473,6 +496,16 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
 
         # Apply latent spatial attention head (includes spatial attention + pooling + MLP)
         classification_output = self.classification_head(latent_features)
+
+        return classification_output
+
+    def _forward_simple_mlp_classification(self, encoder_outputs):
+        """Forward pass for simple MLP classification head (no latent layer)"""
+        # Use the last encoder stage output directly
+        last_encoder_features = encoder_outputs[-1]  # [B, C, H, W, D]
+
+        # Apply MLP head directly (includes global pooling)
+        classification_output = self.classification_head(last_encoder_features)
 
         return classification_output
 
