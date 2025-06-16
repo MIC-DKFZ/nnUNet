@@ -498,7 +498,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Print metrics for logging
         self.print_to_log_file(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
         print(f"Current epoch: {self.current_epoch - self.stage_epoch_counter + 1}")
-        self.current_epoch += 1
         # Use pancreas dice for standard nnUNet logging
         self.logger.log('val_losses', loss_here, self.current_epoch - self.stage_epoch_counter + 1)
         self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch - self.stage_epoch_counter + 1)
