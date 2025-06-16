@@ -34,11 +34,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, device)
         # Progressive training stages
-        self.training_stages = ['enc_seg','enc_cls']
+        self.training_stages = ['full']
         self.current_stage_idx = 0
         self.stage_epoch_counter = 0
 
-        self.epochs_per_stage = [100, 100]  # Max epochs per stage
+        self.epochs_per_stage = [100]  # Max epochs per stage
         self.min_epochs_before_switch = 20  # Minimum epochs in full training
         self.switch_criteria = {
             'seg_dice_threshold': 0.95,
@@ -296,16 +296,26 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Call parent's on_train_start (this initializes the network)
         super().on_train_start()
 
-        # Set manual weights from configuration
-        if self.network.training_stage == 'enc_cls':
+        # Synchronize network training stage with trainer's current stage
+        current_stage_name = self.training_stages[self.current_stage_idx]
+        self.network.set_training_stage(current_stage_name)
+        self.print_to_log_file(f"Synchronized network training stage to: {current_stage_name}")
+
+        # Set manual weights and loss normalization based on current stage
+        if current_stage_name == 'enc_cls':
             self.loss_normalization['enabled'] = False
             self.network.set_manual_weights(0.0, self.multitask_config.get('cls_weight', 1.0))
-        elif self.network.training_stage == 'enc_seg':
+            self.print_to_log_file(f"Stage {current_stage_name}: Disabled segmentation loss, enabled classification loss")
+        elif current_stage_name == 'enc_seg':
             self.loss_normalization['enabled'] = False
             self.network.set_manual_weights(self.multitask_config.get('seg_weight', 1.0), 0.0)
+            self.print_to_log_file(f"Stage {current_stage_name}: Enabled segmentation loss, disabled classification loss")
         else:
+            # Full training or joint fine-tuning
             self.network.set_manual_weights(self.multitask_config.get('seg_weight', 1.0), self.multitask_config.get('cls_weight', 1.0))
-        self.print_to_log_file(f"Set manual weights: seg={self.multitask_config.get('seg_weight', 1.0)}, cls={self.multitask_config.get('cls_weight', 1.0)}")
+            self.print_to_log_file(f"Stage {current_stage_name}: Both losses enabled")
+
+        self.print_to_log_file(f"Set manual weights: seg={self.network.seg_weight}, cls={self.network.cls_weight}")
 
         # Check initialization after everything is set up
         if hasattr(self, 'check_initialization_health'):
@@ -597,9 +607,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Increment stage epoch counter first
         self.stage_epoch_counter += 1
 
-        # Debug all three conditions for stage advancement
-        # self.print_to_log_file(f"Epoch {self.current_epoch}: {self.current_epoch > 0}, {self.stage_epoch_counter >= self.epochs_per_stage[self.current_stage_idx]}, {self.current_stage_idx < len(self.training_stages) - 1}")
-
         # Check if we need to advance training stage
         if (self.current_epoch > 0 and
             self.stage_epoch_counter >= self.epochs_per_stage[self.current_stage_idx] and
@@ -613,12 +620,28 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.current_stage_idx += 1
             self.stage_epoch_counter = 1  # Reset to 1 since we're starting the new stage
 
-            # Update network training stage
+            # Update network training stage and synchronize loss settings
             stage_name = self.training_stages[self.current_stage_idx]
             self.network.set_training_stage(stage_name)
 
+            # Update loss normalization and manual weights for new stage
+            if stage_name == 'enc_cls':
+                self.loss_normalization['enabled'] = False
+                self.network.set_manual_weights(0.0, self.multitask_config.get('cls_weight', 1.0))
+                self.print_to_log_file(f"Stage {stage_name}: Disabled segmentation loss, enabled classification loss")
+            elif stage_name == 'enc_seg':
+                self.loss_normalization['enabled'] = False
+                self.network.set_manual_weights(self.multitask_config.get('seg_weight', 1.0), 0.0)
+                self.print_to_log_file(f"Stage {stage_name}: Enabled segmentation loss, disabled classification loss")
+            else:
+                # Re-enable loss normalization for full training stages
+                self.loss_normalization['enabled'] = self.multitask_config.get('use_loss_normalization', True)
+                self.network.set_manual_weights(self.multitask_config.get('seg_weight', 1.0), self.multitask_config.get('cls_weight', 1.0))
+                self.print_to_log_file(f"Stage {stage_name}: Both losses enabled, normalization: {self.loss_normalization['enabled']}")
+
             self.print_to_log_file(f"Advanced to training stage: {stage_name} (from {old_stage})")
             self.print_to_log_file(f"Stage epoch counter reset to: {self.stage_epoch_counter}")
+            self.print_to_log_file(f"Manual weights updated: seg={self.network.seg_weight}, cls={self.network.cls_weight}")
             self.print_to_log_file(f"Trainable parameters: {self.network.get_training_stage_info()['trainable_parameters']:,}")
 
             # Adjust learning rate for new stage
@@ -627,7 +650,12 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                     param_group['lr'] *= 0.1  # Reduce LR for fine-tuning stages
 
         # Log current stage info
-        self.print_to_log_file(f"Epoch {self.current_epoch}: Stage '{self.training_stages[self.current_stage_idx]}', Stage Epoch {self.stage_epoch_counter}/{self.epochs_per_stage[self.current_stage_idx]}")
+        current_stage_name = self.training_stages[self.current_stage_idx]
+        self.print_to_log_file(f"Epoch {self.current_epoch}: Stage '{current_stage_name}', Stage Epoch {self.stage_epoch_counter}/{self.epochs_per_stage[self.current_stage_idx]}")
+
+        # Log loss disabling status for debugging
+        if current_stage_name in ['enc_seg', 'enc_cls']:
+            self.print_to_log_file(f"Loss disabling active - seg_weight: {self.network.seg_weight}, cls_weight: {self.network.cls_weight}")
 
     def on_epoch_end(self):
         """Enhanced epoch end with normalization logging"""
@@ -905,9 +933,13 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Update EMAs
         self.update_loss_emas(seg_loss_value, cls_loss_value)
 
-        # Stage-specific loss handling
-        if self.training_stages[self.current_stage_idx] == 'enc_seg':
-            # Only segmentation loss
+        # Stage-specific loss handling - use network's training stage for consistency
+        current_stage = self.network.training_stage
+
+        if current_stage == 'enc_seg':
+            # Only segmentation loss - classification loss is disabled
+            if self.current_epoch % 5 == 0:  # Log every 5 epochs to avoid spam
+                self.print_to_log_file(f"Stage {current_stage}: Using only segmentation loss (cls disabled) - seg_loss: {seg_loss_value:.4f}, cls_loss: {cls_loss_value:.4f}")
             return self._create_loss_dict(
                 total_loss=seg_loss,
                 seg_loss=seg_loss,
@@ -917,8 +949,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 seg_loss_raw=seg_loss_value,
                 cls_loss_raw=cls_loss_value
             )
-        elif self.training_stages[self.current_stage_idx] == 'enc_cls':
-            # Only classification loss
+        elif current_stage == 'enc_cls':
+            # Only classification loss - segmentation loss is disabled
+            if self.current_epoch % 5 == 0:  # Log every 5 epochs to avoid spam
+                self.print_to_log_file(f"Stage {current_stage}: Using only classification loss (seg disabled) - seg_loss: {seg_loss_value:.4f}, cls_loss: {cls_loss_value:.4f}")
             return self._create_loss_dict(
                 total_loss=cls_loss,
                 seg_loss=seg_loss,
@@ -929,7 +963,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 cls_loss_raw=cls_loss_value
             )
         else:
-            # Multi-task loss computation
+            # Multi-task loss computation (full training or joint fine-tuning)
             if self._should_use_normalization():
                 return self._compute_normalized_multitask_loss(seg_loss, cls_loss, seg_loss_value, cls_loss_value)
             else:
