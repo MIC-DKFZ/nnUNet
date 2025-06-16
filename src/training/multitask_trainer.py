@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import SGD, Adam
-from torch.optim.lr_scheduler import PolynomialLR
+from torch.optim.lr_scheduler import PolynomialLR, CosineAnnealingWarmRestarts
 import numpy as np
 from typing import Union, Tuple, List, Dict, Any
 
@@ -53,7 +53,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'cls_weight': 0.5,
             'use_focal_loss': True,
             'focal_gamma': 2.0,
-            'focal_alpha': 0.25,
+            'focal_alpha': [0.33, 0.33, 0.33],
             # Loss normalization settings
             'use_loss_normalization': True,
             'normalization_warmup_epochs': 10,
@@ -181,7 +181,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Classification loss
         if self.multitask_config.get('use_focal_loss', True):
             self.cls_loss = FocalLoss(
-                alpha=self.multitask_config.get('focal_alpha', 0.25),
+                alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
                 gamma=self.multitask_config.get('focal_gamma', 2.0)
             )
         else:
@@ -190,10 +190,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     def configure_optimizers(self):
         """Configure optimizer based on planner settings"""
         optimizer_config = self.configuration_manager.configuration.get('optimizer_config', {
-            'optimizer': 'SGD',
-            'initial_lr': 1e-2,
+            'optimizer': 'Adam',
+            'initial_lr': 1e-4,
             'momentum': 0.99,
-            'weight_decay': 3e-5
+            'weight_decay': 1e-5
         })
 
         if optimizer_config['optimizer'] == 'Adam':
@@ -211,8 +211,12 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 nesterov=True
             )
 
-        lr_scheduler = PolynomialLR(optimizer, self.num_epochs, power=0.9)
-
+        lr_scheduler = CosineAnnealingWarmRestarts(
+                optimizer,
+                T_0=25,  # Restart every 25 epochs
+                T_mult=1,
+                eta_min=1e-6
+            )
         return optimizer, lr_scheduler
 
     def train_step(self, batch: dict) -> dict:
@@ -983,18 +987,57 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'should_use_normalization': self._should_use_normalization()
         }
 class FocalLoss(nn.Module):
-    """Focal Loss for classification with class imbalance"""
+    """
+    Improved Focal Loss for multi-class classification with class imbalance
+    Supports both single alpha and per-class alpha weighting
+    """
 
-    def __init__(self, alpha=0.25, gamma=2.0):
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
         super().__init__()
-        self.alpha = alpha
         self.gamma = gamma
+        self.reduction = reduction
+
+        # Handle different alpha configurations
+        if isinstance(alpha, (list, tuple)):
+            self.alpha = torch.tensor(alpha, dtype=torch.float32)
+        elif isinstance(alpha, (int, float)):
+            self.alpha = torch.tensor([alpha], dtype=torch.float32)
+        else:
+            self.alpha = None
 
     def forward(self, inputs, targets):
+        """
+        Args:
+            inputs: (N, C) logits
+            targets: (N,) class indices
+        """
+        # Compute cross entropy
         ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+
+        # Compute p_t
         pt = torch.exp(-ce_loss)
-        focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
-        return focal_loss.mean()
+
+        # Apply alpha weighting if provided
+        if self.alpha is not None:
+            if self.alpha.device != targets.device:
+                self.alpha = self.alpha.to(targets.device)
+
+            if len(self.alpha) > 1:  # Per-class alpha
+                alpha_t = self.alpha[targets]
+            else:  # Single alpha for all classes
+                alpha_t = self.alpha[0]
+        else:
+            alpha_t = 1.0
+
+        # Compute focal loss
+        focal_loss = alpha_t * (1 - pt) ** self.gamma * ce_loss
+
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
 
 
 def convert_dim_to_conv_op(dimension: int):
