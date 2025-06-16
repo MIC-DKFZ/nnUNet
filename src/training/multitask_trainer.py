@@ -34,7 +34,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, device)
         # Progressive training stages
-        self.training_stages = ['full']
+        self.training_stages = ['enc_cls']
         self.current_stage_idx = 0
         self.stage_epoch_counter = 0
 
@@ -165,8 +165,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             raise ValueError(f"Wrong architecture: {architecture_class_name}")
 
     def _build_loss(self):
-        """Build multi-task loss function"""
-        # Segmentation loss (Dice + CE like standard nnUNet)
+        """Build multi-task loss function with separate losses for enc_cls and enc_seg"""
+        # Segmentation loss (Dice + CE like standard nnUNet) - used for enc_seg and multi-task
         dice_kwargs = {'batch_dice': self.configuration_manager.batch_dice,
                        'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}
         ce_kwargs = {}
@@ -178,14 +178,19 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             dice_class=MemoryEfficientSoftDiceLoss
         )
 
-        # Classification loss
+        # Classification loss for multi-task - can be focal or cross entropy
         if self.multitask_config.get('use_focal_loss', True):
             self.cls_loss = FocalLoss(
                 alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
                 gamma=self.multitask_config.get('focal_gamma', 2.0)
             )
+            self.cls_loss_enc_cls = FocalLoss(
+            alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
+            gamma=self.multitask_config.get('focal_gamma', 2.0)
+        )
         else:
             self.cls_loss = nn.CrossEntropyLoss()
+            self.cls_loss_enc_cls = nn.CrossEntropyLoss()
 
     def configure_optimizers(self):
         """Configure optimizer based on planner settings"""
@@ -227,6 +232,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         target_cls = batch['classification']
         keys = batch['keys']
 
+
+
         data = data.to(self.device, non_blocking=True)
         target_seg = target_seg.to(self.device, non_blocking=True)
         target_cls = torch.tensor(target_cls, dtype=torch.long).to(self.device, non_blocking=True)
@@ -241,6 +248,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             outputs=output,
             targets={'segmentation': target_seg, 'classification': target_cls}
         )
+
+        print("keys in output: ", keys)
+        print("training target for cls: ", target_cls)
+        print("prediction for cls: ", output['classification'])
 
         total_loss = loss_dict['total_loss']
 
@@ -328,6 +339,12 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 self._load_checkpoint(self.pretrained_checkpoint_path)
             else:
                 self.print_to_log_file(f"Warning: Pretrained checkpoint not found: {self.pretrained_checkpoint_path}")
+
+
+        total_params = sum(p.numel() for p in self.network.parameters())
+        trainable_params = sum(p.numel() for p in self.network.parameters() if p.requires_grad)
+        self.print_to_log_file(f"✓ Initialized {self.network.__class__.__name__} with {total_params} total parameters, "
+                               f"{trainable_params} trainable parameters")
 
     def set_pretrained_checkpoint(self, checkpoint_path: str):
         """Set the path to pretrained checkpoint to load after network initialization"""
@@ -912,34 +929,27 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.loss_normalization['cls_loss_ema'] = max(self.loss_normalization['cls_loss_ema'], min_val)
 
     def compute_multitask_loss_with_normalization(self, outputs: dict, targets: dict) -> dict:
-        """Compute multi-task loss with optional magnitude normalization"""
+        """Compute multi-task loss with separate loss functions for enc_cls and enc_seg"""
         seg_pred = outputs['segmentation']
         cls_pred = outputs['classification']
         seg_target = targets['segmentation']
         cls_target = targets['classification']
 
-        # Compute individual losses
-        seg_loss = self.seg_loss(seg_pred, seg_target)
-        cls_loss = self.cls_loss(cls_pred, cls_target)
-
-        # Convert to float values for EMA tracking
-        seg_loss_value = seg_loss.item()
-        cls_loss_value = cls_loss.item()
-
-        # Initialize EMAs on first call
-        if not self.loss_normalization['initialized']:
-            self.initialize_loss_normalization(seg_loss_value, cls_loss_value)
-
-        # Update EMAs
-        self.update_loss_emas(seg_loss_value, cls_loss_value)
-
         # Stage-specific loss handling - use network's training stage for consistency
         current_stage = self.network.training_stage
 
+        # Compute losses based on training stage
         if current_stage == 'enc_seg':
-            # Only segmentation loss - classification loss is disabled
-            if self.current_epoch % 5 == 0:  # Log every 5 epochs to avoid spam
-                self.print_to_log_file(f"Stage {current_stage}: Using only segmentation loss (cls disabled) - seg_loss: {seg_loss_value:.4f}, cls_loss: {cls_loss_value:.4f}")
+            # For enc_seg: use DICE_CE loss for segmentation, compute cls loss for tracking only
+            seg_loss = self.seg_loss(seg_pred, seg_target)
+            cls_loss = self.cls_loss(cls_pred, cls_target)  # For tracking only
+
+            seg_loss_value = seg_loss.item()
+            cls_loss_value = cls_loss.item()
+
+            # if self.current_epoch % 5 == 0:  # Log every 5 epochs to avoid spam
+            #     self.print_to_log_file(f"Stage {current_stage}: Using DICE_CE loss for segmentation - seg_loss: {seg_loss_value:.4f}, cls_loss: {cls_loss_value:.4f} (tracking only)")
+
             return self._create_loss_dict(
                 total_loss=seg_loss,
                 seg_loss=seg_loss,
@@ -949,10 +959,18 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 seg_loss_raw=seg_loss_value,
                 cls_loss_raw=cls_loss_value
             )
+
         elif current_stage == 'enc_cls':
-            # Only classification loss - segmentation loss is disabled
-            if self.current_epoch % 5 == 0:  # Log every 5 epochs to avoid spam
-                self.print_to_log_file(f"Stage {current_stage}: Using only classification loss (seg disabled) - seg_loss: {seg_loss_value:.4f}, cls_loss: {cls_loss_value:.4f}")
+            # For enc_cls: use focal loss for classification, compute seg loss for tracking only
+            seg_loss = self.seg_loss(seg_pred, seg_target)  # For tracking only
+            cls_loss = self.cls_loss_enc_cls(cls_pred, cls_target)  # Use dedicated focal loss
+
+            seg_loss_value = seg_loss.item()
+            cls_loss_value = cls_loss.item()
+
+            # if self.current_epoch % 5 == 0:  # Log every 5 epochs to avoid spam
+            #     self.print_to_log_file(f"Stage {current_stage}: Using focal loss for classification - seg_loss: {seg_loss_value:.4f} (tracking only), cls_loss: {cls_loss_value:.4f}")
+
             return self._create_loss_dict(
                 total_loss=cls_loss,
                 seg_loss=seg_loss,
@@ -962,8 +980,23 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 seg_loss_raw=seg_loss_value,
                 cls_loss_raw=cls_loss_value
             )
+
         else:
             # Multi-task loss computation (full training or joint fine-tuning)
+            # Use standard losses with normalization
+            seg_loss = self.seg_loss(seg_pred, seg_target)
+            cls_loss = self.cls_loss(cls_pred, cls_target)
+
+            seg_loss_value = seg_loss.item()
+            cls_loss_value = cls_loss.item()
+
+            # Initialize EMAs on first call
+            if not self.loss_normalization['initialized']:
+                self.initialize_loss_normalization(seg_loss_value, cls_loss_value)
+
+            # Update EMAs
+            self.update_loss_emas(seg_loss_value, cls_loss_value)
+
             if self._should_use_normalization():
                 return self._compute_normalized_multitask_loss(seg_loss, cls_loss, seg_loss_value, cls_loss_value)
             else:
@@ -1082,6 +1115,49 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'warmup_epochs': self.loss_normalization['warmup_epochs'],
             'should_use_normalization': self._should_use_normalization()
         }
+
+    def get_loss_function_info(self) -> dict:
+        """Get information about which loss functions are being used"""
+        current_stage = getattr(self.network, 'training_stage', 'full') if self.network else 'unknown'
+
+        loss_info = {
+            'current_stage': current_stage,
+            'seg_loss_type': 'DC_and_CE_loss (DICE + CrossEntropy)',
+            'cls_loss_type': 'Unknown',
+            'cls_loss_enc_cls_type': 'FocalLoss',
+            'active_losses': []
+        }
+
+        # Determine classification loss type
+        if hasattr(self, 'cls_loss'):
+            if isinstance(self.cls_loss, FocalLoss):
+                loss_info['cls_loss_type'] = 'FocalLoss'
+            else:
+                loss_info['cls_loss_type'] = type(self.cls_loss).__name__
+
+        # Determine which losses are active based on stage
+        if current_stage == 'enc_seg':
+            loss_info['active_losses'] = ['segmentation: DC_and_CE_loss']
+            loss_info['description'] = 'enc_seg stage: Using DICE_CE loss for segmentation only'
+        elif current_stage == 'enc_cls':
+            loss_info['active_losses'] = ['classification: FocalLoss']
+            loss_info['description'] = 'enc_cls stage: Using focal loss for classification only'
+        else:
+            loss_info['active_losses'] = [
+                f'segmentation: {loss_info["seg_loss_type"]}',
+                f'classification: {loss_info["cls_loss_type"]}'
+            ]
+            loss_info['description'] = f'{current_stage} stage: Using both losses with normalization/weighting'
+
+        # Add focal loss parameters if available
+        if hasattr(self, 'cls_loss_enc_cls') and isinstance(self.cls_loss_enc_cls, FocalLoss):
+            loss_info['focal_loss_params'] = {
+                'gamma': self.cls_loss_enc_cls.gamma,
+                'alpha': self.cls_loss_enc_cls.alpha.tolist() if self.cls_loss_enc_cls.alpha is not None else None,
+                'reduction': self.cls_loss_enc_cls.reduction
+            }
+
+        return loss_info
 class FocalLoss(nn.Module):
     """
     Improved Focal Loss for multi-class classification with class imbalance

@@ -99,10 +99,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             self._initialize_norm_layer(module)
 
         # print model parameter count
-        total_params = sum(p.numel() for p in self.parameters())
-        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        print(f"✓ Initialized {module.__class__.__name__} with {total_params} total parameters, "
-              f"{trainable_params} trainable parameters")
+        # total_params = sum(p.numel() for p in self.parameters())
+        # trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        # print(f"✓ Initialized {module.__class__.__name__} with {total_params} total parameters, "
+        #       f"{trainable_params} trainable parameters")
 
     def _initialize_conv_layer(self, module):
         """Initialize convolutional layers with context-aware strategy"""

@@ -443,7 +443,7 @@ def main():
             continue_training=args.continue_training,
             only_run_validation=args.validation_only,
             device=args.device,
-            custom_stage_epochs=[100]  # You can specify custom epochs per stage if needed
+            custom_stage_epochs=[50]  # You can specify custom epochs per stage if needed
         )
 
         if success:
