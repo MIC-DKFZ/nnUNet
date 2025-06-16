@@ -211,8 +211,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             self._build_mlp_classification_decoder()
         elif head_type == 'spatial_attention':
             self._build_spatial_attention_classification_decoder()
+        elif head_type == 'latent_spatial':
+            self._build_latent_spatial_classification_decoder()
         else:
-            raise ValueError(f"Unknown head_type: {head_type}. Must be 'mlp' or 'spatial_attention'")
+            raise ValueError(f"Unknown head_type: {head_type}. Must be 'mlp', 'spatial_attention', or 'latent_spatial'")
 
     def _build_mlp_classification_decoder(self):
         """Build MLP-based classification decoder with latent layer"""
@@ -336,6 +338,70 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
 
         print("✓ Built spatial attention classification head")
 
+    def _build_latent_spatial_classification_decoder(self):
+        """Build latent spatial attention-based classification decoder"""
+        # Get the last encoder stage output channels
+        last_stage_channels = self.encoder.stages[-1].output_channels
+
+        # Build latent layer first (same as MLP approach)
+        if 'latent_layer' in self.classification_config and 'classification_head' in self.classification_config:
+            # New configuration style
+            latent_config = self.classification_config['latent_layer']
+            cls_head_config = self.classification_config['classification_head']
+
+            # Build latent layer with config
+            self.latent_layer = LatentRepresentationLayer(
+                input_channels=last_stage_channels,
+                config=latent_config,
+                conv_op=self.conv_op
+            )
+
+            # Build latent spatial attention head
+            self.classification_head = LatentSpatialAttentionHead(
+                input_channels=last_stage_channels,  # Input channels remain the same due to residual connection
+                config=cls_head_config,
+                conv_op=self.conv_op
+            )
+
+            print(f"✓ Built latent spatial attention classification head with multi-layer latent representation")
+        else:
+            # Legacy configuration style - backward compatibility
+            latent_dim = self.classification_config.get('latent_dim', 1024)
+
+            # Create legacy config for latent layer
+            legacy_latent_config = {
+                'compression_channels': latent_dim // 2,
+                'bottleneck_reduction': 2,
+                'use_bottleneck': False,
+                'dropout_rate': 0.1,
+                'activation': 'torch.nn.LeakyReLU'
+            }
+
+            self.latent_layer = LatentRepresentationLayer(
+                input_channels=last_stage_channels,
+                config=legacy_latent_config,
+                conv_op=self.conv_op
+            )
+
+            # Build latent spatial attention head (legacy)
+            legacy_cls_config = {
+                'num_classes': self.classification_config['num_classes'],
+                'hidden_dims': self.classification_config.get('mlp_hidden_dims', [512, 256]),
+                'dropout_rate': self.classification_config.get('dropout_rate', 0.3),
+                'attention_config': {
+                    'reduction_ratio': 16,
+                    'spatial_kernel_size': 7
+                }
+            }
+
+            self.classification_head = LatentSpatialAttentionHead(
+                input_channels=last_stage_channels,
+                config=legacy_cls_config,
+                conv_op=self.conv_op
+            )
+
+            print(f"✓ Built legacy latent spatial attention classification head with latent dim: {latent_dim}")
+
     def forward_classification_part(self, encoder_outputs):
         """
         Forward pass for classification - handles both MLP and spatial attention
@@ -346,6 +412,8 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             return self._forward_mlp_classification(encoder_outputs)
         elif head_type == 'spatial_attention':
             return self._forward_spatial_attention_classification(encoder_outputs)
+        elif head_type == 'latent_spatial':
+            return self._forward_latent_spatial_classification(encoder_outputs)
         else:
             raise ValueError(f"Unknown head_type: {head_type}")
 
@@ -392,6 +460,19 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             # Fallback to original approach
             cls_x = self.global_pools[0](encoder_outputs[-1])
             classification_output = self.classification_head(cls_x.flatten(1))
+
+        return classification_output
+
+    def _forward_latent_spatial_classification(self, encoder_outputs):
+        """Forward pass for latent spatial attention classification head"""
+        # Use the last encoder stage output
+        last_encoder_features = encoder_outputs[-1]  # [B, C, H, W, D]
+
+        # Apply latent layer first
+        latent_features = self.latent_layer(last_encoder_features)  # [B, latent_dim, H, W, D]
+
+        # Apply latent spatial attention head (includes spatial attention + pooling + MLP)
+        classification_output = self.classification_head(latent_features)
 
         return classification_output
 
@@ -1063,3 +1144,108 @@ class EnhancedClassificationHead(nn.Module):
             x = layer(x)
 
         return self.classifier(x)
+
+
+class LatentSpatialAttentionHead(nn.Module):
+    """
+    Spatial attention applied to latent representation features
+    Combines the benefits of latent processing with spatial attention mechanisms
+    """
+    def __init__(self, input_channels: int, conv_op: type, config: dict):
+        super().__init__()
+        self.conv_op = conv_op
+        self.config = config
+
+        # Extract configuration
+        self.num_classes = config['num_classes']
+        self.dropout_rate = config.get('dropout_rate', 0.2)
+        hidden_dims = config.get('hidden_dims', [256, 128])
+
+        # Attention configuration
+        attention_config = config.get('attention_config', {})
+        self.reduction_ratio = attention_config.get('reduction_ratio', 16)
+        spatial_kernel_size = attention_config.get('spatial_kernel_size', 7)
+
+        # Spatial attention module for latent features
+        self.spatial_attention = SpatialAttentionModule(
+            channels=input_channels,
+            conv_op=conv_op,
+            reduction_ratio=self.reduction_ratio
+        )
+
+        # Attention-weighted pooling
+        if conv_op == nn.Conv3d:
+            self.global_pool_avg = nn.AdaptiveAvgPool3d(1)
+            self.global_pool_max = nn.AdaptiveMaxPool3d(1)
+        elif conv_op == nn.Conv2d:
+            self.global_pool_avg = nn.AdaptiveAvgPool2d(1)
+            self.global_pool_max = nn.AdaptiveMaxPool2d(1)
+        else:
+            self.global_pool_avg = nn.AdaptiveAvgPool1d(1)
+            self.global_pool_max = nn.AdaptiveMaxPool1d(1)
+
+        # MLP classification head
+        mlp_layers = []
+        # Input features: input_channels * 2 (avg + max pooling)
+        prev_dim = input_channels * 2
+
+        for hidden_dim in hidden_dims:
+            mlp_layers.extend([
+                nn.Linear(prev_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout(self.dropout_rate)
+            ])
+            prev_dim = hidden_dim
+
+        # Final classification layer
+        mlp_layers.append(nn.Linear(prev_dim, self.num_classes))
+        self.mlp = nn.Sequential(*mlp_layers)
+
+        # Store attention maps for visualization
+        self.attention_maps = []
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        """Initialize weights for all layers"""
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu', a=0.2)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm1d):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.constant_(m.weight, 1)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+    def forward(self, x):
+        """
+        Args:
+            x: Latent features [B, C, H, W, D] or [B, C, H, W]
+        Returns:
+            Classification logits [B, num_classes]
+        """
+        # Apply spatial attention to latent features
+        attended_features, attention_map = self.spatial_attention(x)
+
+        # Store attention map for visualization
+        self.attention_maps = [attention_map]
+
+        # Attention-weighted pooling (both avg and max)
+        avg_pooled = self.global_pool_avg(attended_features)  # [B, C, 1, 1, 1] or [B, C, 1, 1]
+        max_pooled = self.global_pool_max(attended_features)  # [B, C, 1, 1, 1] or [B, C, 1, 1]
+
+        # Flatten and concatenate
+        avg_flat = avg_pooled.flatten(1)  # [B, C]
+        max_flat = max_pooled.flatten(1)  # [B, C]
+
+        # Combine avg and max pooled features
+        combined_features = torch.cat([avg_flat, max_flat], dim=1)  # [B, 2*C]
+
+        # Apply MLP for classification
+        classification_output = self.mlp(combined_features)
+
+        return classification_output
