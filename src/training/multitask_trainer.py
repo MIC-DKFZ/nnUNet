@@ -34,11 +34,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, device)
         # Progressive training stages
-        self.training_stages = ['full', 'enc_cls']
+        self.training_stages = ['enc_seg','enc_cls']
         self.current_stage_idx = 0
         self.stage_epoch_counter = 0
 
-        self.epochs_per_stage = [200, 100]  # Max epochs per stage
+        self.epochs_per_stage = [100, 100]  # Max epochs per stage
         self.min_epochs_before_switch = 20  # Minimum epochs in full training
         self.switch_criteria = {
             'seg_dice_threshold': 0.95,
@@ -297,7 +297,15 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         super().on_train_start()
 
         # Set manual weights from configuration
-        self._set_manual_weights()
+        if self.network.training_stage == 'enc_cls':
+            self.loss_normalization['enabled'] = False
+            self.network.set_manual_weights(0.0, self.multitask_config.get('cls_weight', 1.0))
+        elif self.network.training_stage == 'enc_seg':
+            self.loss_normalization['enabled'] = False
+            self.network.set_manual_weights(self.multitask_config.get('seg_weight', 1.0), 0.0)
+        else:
+            self.network.set_manual_weights(self.multitask_config.get('seg_weight', 1.0), self.multitask_config.get('cls_weight', 1.0))
+        self.print_to_log_file(f"Set manual weights: seg={self.multitask_config.get('seg_weight', 1.0)}, cls={self.multitask_config.get('cls_weight', 1.0)}")
 
         # Check initialization after everything is set up
         if hasattr(self, 'check_initialization_health'):
@@ -310,17 +318,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 self._load_checkpoint(self.pretrained_checkpoint_path)
             else:
                 self.print_to_log_file(f"Warning: Pretrained checkpoint not found: {self.pretrained_checkpoint_path}")
-
-    def _set_manual_weights(self):
-        """Set manual weights from multitask configuration"""
-        seg_weight = self.multitask_config.get('seg_weight', 1.0)
-        cls_weight = self.multitask_config.get('cls_weight', 1.0)
-
-        if hasattr(self.network, 'set_manual_weights'):
-            self.network.set_manual_weights(seg_weight, cls_weight)
-            self.print_to_log_file(f"Set manual weights: seg={seg_weight}, cls={cls_weight}")
-        else:
-            self.print_to_log_file("Warning: Network does not support manual weight setting")
 
     def set_pretrained_checkpoint(self, checkpoint_path: str):
         """Set the path to pretrained checkpoint to load after network initialization"""
@@ -432,6 +429,12 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'train_metrics': getattr(self, 'train_metrics', {}),
             'val_metrics': getattr(self, 'val_metrics', {}),
 
+            # Logger state to prevent IndexError when switching strategies
+            'logger_state': self.logger.get_checkpoint() if hasattr(self, 'logger') and self.logger is not None else None,
+
+            # Loss normalization state
+            'loss_normalization': self.loss_normalization,
+
             # Additional metadata
             'multitask_config': self.multitask_config,
             'training_stage_info': self.network.get_training_stage_info()
@@ -446,7 +449,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.print_to_log_file(f"Stage: {checkpoint['training_stage']}, Stage Epoch: {self.stage_epoch_counter}")
 
     def _load_checkpoint(self, filename: str) -> None:
-        """Enhanced checkpoint loading with loss normalization state restoration"""
+        """Enhanced checkpoint loading with logger state management"""
         checkpoint = torch.load(filename, map_location=self.device)
 
         # Load standard components
@@ -460,7 +463,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
         # Restore multi-task specific state
-        self.current_epoch = checkpoint['current_epoch']
+        # self.current_epoch = checkpoint['current_epoch']
 
         if 'current_stage_idx' in checkpoint:
             self.current_stage_idx = checkpoint['current_stage_idx']
@@ -468,8 +471,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
             # Restore training stage
             stage_name = checkpoint.get('training_stage', 'full')
-            if hasattr(self.network, 'set_training_stage'):
-                self.network.set_training_stage(stage_name)
+            self.network.set_training_stage(stage_name)
 
             self.print_to_log_file(f"Restored training stage: {stage_name}")
             self.print_to_log_file(f"Stage epoch counter: {self.stage_epoch_counter}")
@@ -488,6 +490,55 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.was_initialized = checkpoint.get('init', True)
         self.print_to_log_file(f"Loaded checkpoint: {filename}")
 
+    def _handle_logger_state_on_checkpoint_load(self, checkpoint: dict) -> None:
+        """
+        Handle logger state restoration or reset when loading checkpoint.
+        This prevents IndexError when switching training strategies.
+        """
+        if 'logger_state' in checkpoint and checkpoint['logger_state'] is not None:
+            # Try to restore logger state if available
+            try:
+                if hasattr(self, 'logger') and self.logger is not None:
+                    self.logger.load_checkpoint(checkpoint['logger_state'])
+                    self.print_to_log_file("✓ Restored logger state from checkpoint")
+                else:
+                    self.print_to_log_file("⚠️ Logger not initialized, cannot restore logger state")
+            except Exception as e:
+                self.print_to_log_file(f"⚠️ Failed to restore logger state: {e}")
+                self._reset_logger_for_fresh_start()
+        else:
+            # No logger state in checkpoint or switching strategies - reset logger
+            self.print_to_log_file("No logger state in checkpoint - resetting logger for fresh start")
+            self._reset_logger_for_fresh_start()
+
+    def _reset_logger_for_fresh_start(self) -> None:
+        """
+        Reset logger arrays to start fresh training.
+        This prevents IndexError when switching strategies or starting new training.
+        """
+        if hasattr(self, 'logger') and self.logger is not None:
+            # Reset all logging arrays to empty lists
+            self.logger.my_fantastic_logging = {
+                'mean_fg_dice': list(),
+                'ema_fg_dice': list(),
+                'dice_per_class_or_region': list(),
+                'train_losses': list(),
+                'val_losses': list(),
+                'lrs': list(),
+                'epoch_start_timestamps': list(),
+                'epoch_end_timestamps': list()
+            }
+
+            # Reset epoch counters to align with logger
+            self.current_epoch = 0
+            self.stage_epoch_counter = 0
+
+            self.print_to_log_file("✓ Reset logger arrays and epoch counters for fresh start")
+            self.print_to_log_file(f"Current epoch reset to: {self.current_epoch}")
+            self.print_to_log_file(f"Stage epoch counter reset to: {self.stage_epoch_counter}")
+        else:
+            self.print_to_log_file("⚠️ Logger not available for reset")
+
     def on_validation_epoch_end(self, val_outputs: List[dict]):
         outputs_collated = collate_outputs(val_outputs)
         loss_here = np.mean(outputs_collated['val_loss'])
@@ -501,11 +552,13 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         # Print metrics for logging
         self.print_to_log_file(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
-        print(f"Current epoch: {self.current_epoch - self.stage_epoch_counter + 1}")
+        # print(f"Running epoch count across stages: {self.current_epoch}")
+        # print(f"Current epoch at stage {self.training_stages[self.current_stage_idx]}: {self.stage_epoch_counter}")
         # Use pancreas dice for standard nnUNet logging
-        self.logger.log('val_losses', loss_here, self.current_epoch - self.stage_epoch_counter + 1)
-        self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch - self.stage_epoch_counter + 1)
-        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch - self.stage_epoch_counter + 1)
+        # self.print_to_log_file(self.logger.my_fantastic_logging['val_losses'])
+        self.logger.log('val_losses', loss_here, self.current_epoch)
+        self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch)
+        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch)
 
     def compute_dice_components(self, pred: torch.Tensor, target: torch.Tensor, mode: str):
         """Compute intersection and union for dice calculation"""
@@ -541,6 +594,12 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """Handle training stage progression"""
         super().on_epoch_start()
 
+        # Increment stage epoch counter first
+        self.stage_epoch_counter += 1
+
+        # Debug all three conditions for stage advancement
+        # self.print_to_log_file(f"Epoch {self.current_epoch}: {self.current_epoch > 0}, {self.stage_epoch_counter >= self.epochs_per_stage[self.current_stage_idx]}, {self.current_stage_idx < len(self.training_stages) - 1}")
+
         # Check if we need to advance training stage
         if (self.current_epoch > 0 and
             self.stage_epoch_counter >= self.epochs_per_stage[self.current_stage_idx] and
@@ -552,13 +611,14 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.save_checkpoint(os.path.join(self.output_folder, transition_checkpoint))
 
             self.current_stage_idx += 1
-            self.stage_epoch_counter = 0
+            self.stage_epoch_counter = 1  # Reset to 1 since we're starting the new stage
 
             # Update network training stage
             stage_name = self.training_stages[self.current_stage_idx]
             self.network.set_training_stage(stage_name)
 
-            self.print_to_log_file(f"Advanced to training stage: {stage_name}")
+            self.print_to_log_file(f"Advanced to training stage: {stage_name} (from {old_stage})")
+            self.print_to_log_file(f"Stage epoch counter reset to: {self.stage_epoch_counter}")
             self.print_to_log_file(f"Trainable parameters: {self.network.get_training_stage_info()['trainable_parameters']:,}")
 
             # Adjust learning rate for new stage
@@ -566,7 +626,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] *= 0.1  # Reduce LR for fine-tuning stages
 
-        self.stage_epoch_counter += 1
+        # Log current stage info
+        self.print_to_log_file(f"Epoch {self.current_epoch}: Stage '{self.training_stages[self.current_stage_idx]}', Stage Epoch {self.stage_epoch_counter}/{self.epochs_per_stage[self.current_stage_idx]}")
 
     def on_epoch_end(self):
         """Enhanced epoch end with normalization logging"""
@@ -602,6 +663,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             stage_checkpoint_path = os.path.join(self.output_folder, stage_checkpoint_name)
             self.save_checkpoint(stage_checkpoint_path)
             self.print_to_log_file(f"Saved end-of-stage checkpoint: {stage_checkpoint_name}")
+            self.stage_epoch_counter = 0  # Reset counter for next stage
 
     def should_switch_to_cls_focus(self, seg_dice, lesion_dice):
         """Check if we should switch from full training to classification focus"""

@@ -280,8 +280,9 @@ def train_multitask_model(dataset_id: int,
         else:
             # Check for existing checkpoint
             if continue_training and os.path.exists(join(trainer.output_folder, 'checkpoint_latest.pth')):
+                # Use a checkpoint that will trigger fresh start (no logger state)
                 filename = join(trainer.output_folder, 'checkpoint_before_adaptive_switch_epoch_22.pth')
-                print(f"Continuing training from {filename}")
+                print(f"Continuing training from {filename} (will reset logger for fresh start)")
                 trainer.set_pretrained_checkpoint(filename)
             # Run training
             print("Starting training...")
@@ -442,7 +443,7 @@ def main():
             continue_training=args.continue_training,
             only_run_validation=args.validation_only,
             device=args.device,
-            custom_stage_epochs=[250, 0]  # You can specify custom epochs per stage if needed
+            custom_stage_epochs=[50,20]  # You can specify custom epochs per stage if needed
         )
 
         if success:
