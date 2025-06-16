@@ -211,7 +211,6 @@ def train_multitask_model(dataset_id: int,
                          fold: int = 0,
                          continue_training: bool = False,
                          only_run_validation: bool = False,
-                         num_epochs: int = 200,
                          use_compressed_data: bool = False,
                          export_validation_probabilities: bool = True,
                          val_disable_overwrite: bool = False,
@@ -268,23 +267,22 @@ def train_multitask_model(dataset_id: int,
         maybe_mkdir_p(trainer.output_folder)
 
         # Set training parameters
-        trainer.num_epochs = num_epochs
         trainer.save_every = 25
 
         print(f"Output folder: {trainer.output_folder}")
-        print(f"Training epochs: {num_epochs}")
+        print(f"Training epochs: {trainer.num_epochs}")
 
         if only_run_validation:
             print("Running validation only...")
-            trainer.load_checkpoint(join(trainer.output_folder, 'checkpoint_final.pth'))
+            trainer.set_pretrained_checkpoint(join(trainer.output_folder, 'checkpoint_final.pth'))
             trainer.run_validation()
 
         else:
             # Check for existing checkpoint
             if continue_training and os.path.exists(join(trainer.output_folder, 'checkpoint_latest.pth')):
-                print("Continuing training from latest checkpoint...")
-                trainer.load_checkpoint(join(trainer.output_folder, 'checkpoint_latest.pth'))
-
+                filename = join(trainer.output_folder, 'checkpoint_before_adaptive_switch_epoch_22.pth')
+                print(f"Continuing training from {filename}")
+                trainer.set_pretrained_checkpoint(filename)
             # Run training
             print("Starting training...")
             trainer.run_training()
@@ -399,7 +397,6 @@ def main():
     parser.add_argument('--fold', type=int, default=0, help='Cross-validation fold')
     parser.add_argument('--continue_training', action='store_true', help='Continue from checkpoint')
     parser.add_argument('--validation_only', action='store_true', help='Run validation only')
-    parser.add_argument('--num_epochs', type=int, default=200, help='Number of training epochs')
     parser.add_argument('--device', default='cuda', help='Training device')
 
     # Inference arguments
@@ -444,9 +441,8 @@ def main():
             fold=args.fold,
             continue_training=args.continue_training,
             only_run_validation=args.validation_only,
-            num_epochs=args.num_epochs,
             device=args.device,
-            custom_stage_epochs=[0, 0, 0, 100]  # You can specify custom epochs per stage if needed
+            custom_stage_epochs=[50, 0]  # You can specify custom epochs per stage if needed
         )
 
         if success:

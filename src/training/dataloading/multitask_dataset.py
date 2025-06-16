@@ -42,33 +42,34 @@ class MultiTasknnUNetDataset(nnUNetBaseDataset):
 
         if not os.path.exists(labels_file):
             print(f"Warning: labels.csv not found at {labels_file}")
-            # Return default labels (all subtype 0)
             return {case_id: 0 for case_id in self.identifiers}
 
         try:
             df = pd.read_csv(labels_file)
-            # Ensure columns exist
             if 'case_id' not in df.columns or 'subtype' not in df.columns:
                 raise ValueError("labels.csv must have 'case_id' and 'subtype' columns")
 
             # Create mapping
             df['case_id'] = df['case_id'].str[:8].astype(str)  # Ensure case_id is string
-            labels_dict = dict(zip(df['case_id'], df['subtype']))
+            all_labels_dict = dict(zip(df['case_id'], df['subtype']))
 
-            # Verify all case_identifiers have labels
+            filtered_labels_dict = {}
             missing_labels = []
+
             for case_id in self.identifiers:
-                if case_id not in labels_dict:
+                if case_id in all_labels_dict:
+                    filtered_labels_dict[case_id] = all_labels_dict[case_id]
+                else:
+                    filtered_labels_dict[case_id] = 0  # Default to subtype 0
                     missing_labels.append(case_id)
-                    labels_dict[case_id] = 0  # Default to subtype 0
 
             if missing_labels:
                 print(f"Warning: Missing labels for cases: {missing_labels}")
 
-            return labels_dict
+            return filtered_labels_dict
 
         except Exception as e:
-            print(f"Error loading labels.csv: {e}")
+            print(f"Error loading labels.csv: {e}, assuming all cases are subtype 0")
             return {case_id: 0 for case_id in self.identifiers}
 
     def __getitem__(self, identifier):

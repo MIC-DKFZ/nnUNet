@@ -28,18 +28,24 @@ from src.training.dataloading.multitask_dataset import MultiTasknnUNetDataset, M
 class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     """
     Multi-task trainer for pancreatic segmentation and classification
-    with progressive training stages and uncertainty weighting
+    with progressive training stages and manual weighting
     """
 
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, device: torch.device = torch.device('cuda')):
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Progressive training stages
-        self.training_stages = ['enc_seg', 'enc_cls', 'joint_finetune', 'full']
+        self.training_stages = ['full', 'enc_cls']
         self.current_stage_idx = 0
-        self.epochs_per_stage = [50, 25, 50, 100]  # Adjustable
         self.stage_epoch_counter = 0
 
-        # Call parent constructor after to clear the stage
-        super().__init__(plans, configuration, fold, dataset_json, device)
+        self.epochs_per_stage = [200, 100]  # Max epochs per stage
+        self.min_epochs_before_switch = 20  # Minimum epochs in full training
+        self.switch_criteria = {
+            'seg_dice_threshold': 0.95,
+            'lesion_dice_threshold': 0.4,
+            'stability_epochs': 3  # Number of consecutive epochs meeting criteria
+        }
+        self.criteria_met_count = 0  # Track consecutive epochs meeting criteria
 
         # Multi-task configuration
         self.multitask_config = self.configuration_manager.configuration.get('multitask_config', {
@@ -53,10 +59,31 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         # Classification configuration
         self.num_classification_classes = 3  # subtype 0, 1, 2
 
+        # Pretrained weight path
+        self.pretrained_checkpoint_path = plans.get('pretrained_checkpoint', None)
+
         # Metrics tracking
         self.train_metrics = {'seg_loss': [], 'cls_loss': [], 'total_loss': []}
         self.val_metrics = {'seg_dice': [], 'cls_f1': [], 'pancreas_dice': [], 'lesion_dice': []}
         self.print_to_log_file(f"Stage schedule: {dict(zip(self.training_stages, self.epochs_per_stage))}")
+
+    def check_adaptive_switch(self, seg_dice, lesion_dice):
+        """Check if we should adaptively switch training stages"""
+        if (self.current_stage_idx == 0 and  # Currently in full training
+            self.current_epoch >= self.min_epochs_before_switch and
+            seg_dice >= self.switch_criteria['seg_dice_threshold'] and
+            lesion_dice >= self.switch_criteria['lesion_dice_threshold']):
+
+            self.criteria_met_count += 1
+            self.print_to_log_file(f"Switch criteria met for {self.criteria_met_count} consecutive epochs")
+
+            if self.criteria_met_count >= self.switch_criteria['stability_epochs']:
+                return True
+        else:
+            self.criteria_met_count = 0  # Reset counter if criteria not met
+
+        return False
+
 
     def set_custom_stage_epochs(self, custom_epochs_per_stage: List[int]):
         """
@@ -65,6 +92,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         if len(custom_epochs_per_stage) != len(self.training_stages):
             raise ValueError(f"Custom epochs must match number of stages: {len(self.training_stages)}")
         self.epochs_per_stage = custom_epochs_per_stage
+        self.num_epochs = sum(self.epochs_per_stage)
         self.print_to_log_file(f"Custom epochs per stage set: {dict(zip(self.training_stages, self.epochs_per_stage))}")
 
     @staticmethod
@@ -107,13 +135,13 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 nonlin=arch_init_kwargs.get('nonlin'),
                 nonlin_kwargs=arch_init_kwargs.get('nonlin_kwargs'),
                 deep_supervision=enable_deep_supervision,
-                classification_config=arch_init_kwargs.get('classification_config', {
-                    'num_classes': 3,
-                    'dropout_rate': 0.2,
-                    'hidden_dims': [256, 128],
-                    'use_all_features': True
-                })
+                classification_config=arch_init_kwargs.get('classification_head', None)
             )
+
+            # This follows the nnUNet pattern: network.apply(network.initialize)
+            network.apply(network.initialize)
+            # Post-initialization setup
+            network.post_initialization_setup()
             return network
         else:
             raise ValueError(f"Wrong architecture: {architecture_class_name}")
@@ -216,6 +244,66 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'cls_weight': loss_dict['cls_weight']
         }
 
+    def check_initialization_health(self):
+        """Debug method to verify initialization is working"""
+        network = self.network.module if self.is_ddp else self.network
+
+        if hasattr(network, 'attention_maps'):
+            print("\n🔍 Initialization Health Check:")
+
+            # Check manual weights
+            print(f"  Manual weights: seg={network.seg_weight:.3f}, cls={network.cls_weight:.3f}")
+
+            # Check attention module weights
+            for name, module in network.named_modules():
+                if 'spatial_attention' in name and isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+                    weight_std = module.weight.std().item()
+                    print(f"  {name} weight std: {weight_std:.6f} {'✓' if 0.001 < weight_std < 0.1 else '⚠️'}")
+
+            # Check classification head weights
+            for name, module in network.named_modules():
+                if 'classification_head' in name and isinstance(module, nn.Linear):
+                    weight_std = module.weight.std().item()
+                    expected_range = (0.01, 0.3) if 'classifier' not in name else (0.0001, 0.01)
+                    in_range = expected_range[0] < weight_std < expected_range[1]
+                    print(f"  {name} weight std: {weight_std:.6f} {'✓' if in_range else '⚠️'}")
+
+    def on_train_start(self):
+        """Override to add pretrained checkpoint loading after network initialization"""
+        # Call parent's on_train_start (this initializes the network)
+        super().on_train_start()
+
+        # Set manual weights from configuration
+        self._set_manual_weights()
+
+        # Check initialization after everything is set up
+        if hasattr(self, 'check_initialization_health'):
+            self.check_initialization_health()
+
+        # After network is initialized, load pretrained weights if specified
+        if hasattr(self, 'pretrained_checkpoint_path') and self.pretrained_checkpoint_path:
+            if os.path.exists(self.pretrained_checkpoint_path):
+                self.print_to_log_file(f"Loading pretrained checkpoint: {self.pretrained_checkpoint_path}")
+                self._load_checkpoint(self.pretrained_checkpoint_path)
+            else:
+                self.print_to_log_file(f"Warning: Pretrained checkpoint not found: {self.pretrained_checkpoint_path}")
+
+    def _set_manual_weights(self):
+        """Set manual weights from multitask configuration"""
+        seg_weight = self.multitask_config.get('seg_weight', 1.0)
+        cls_weight = self.multitask_config.get('cls_weight', 1.0)
+
+        if hasattr(self.network, 'set_manual_weights'):
+            self.network.set_manual_weights(seg_weight, cls_weight)
+            self.print_to_log_file(f"Set manual weights: seg={seg_weight}, cls={cls_weight}")
+        else:
+            self.print_to_log_file("Warning: Network does not support manual weight setting")
+
+    def set_pretrained_checkpoint(self, checkpoint_path: str):
+        """Set the path to pretrained checkpoint to load after network initialization"""
+        self.pretrained_checkpoint_path = checkpoint_path
+        self.print_to_log_file(f"Pretrained checkpoint path set: {checkpoint_path}")
+
     def on_train_end(self):
         """Save final checkpoint with complete training information"""
         super().on_train_end()
@@ -229,9 +317,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'total_epochs': self.current_epoch + 1,
             'training_stages_completed': self.training_stages[:self.current_stage_idx + 1],
             'epochs_per_stage_actual': self._get_actual_epochs_per_stage(),
-            'final_uncertainty_weights': {
-                'seg_weight': torch.exp(-self.network.log_var_seg).item(),
-                'cls_weight': torch.exp(-self.network.log_var_cls).item()
+            'final_manual_weights': {
+                'seg_weight': self.network.seg_weight,
+                'cls_weight': self.network.cls_weight
             },
             'final_stage_info': self.network.get_training_stage_info()
         }
@@ -313,12 +401,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             'stage_epoch_counter': self.stage_epoch_counter,
             'epochs_per_stage': self.epochs_per_stage,
 
-            # Uncertainty weights (current values)
-            'uncertainty_weights': {
-                'seg_weight': torch.exp(-self.network.log_var_seg).item(),
-                'cls_weight': torch.exp(-self.network.log_var_cls).item(),
-                'log_var_seg': self.network.log_var_seg.item(),
-                'log_var_cls': self.network.log_var_cls.item()
+            # Manual weights (current values)
+            'manual_weights': {
+                'seg_weight': self.network.seg_weight,
+                'cls_weight': self.network.cls_weight
             },
 
             # Training metrics history
@@ -338,7 +424,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.print_to_log_file(f"Saved checkpoint: {filename}")
         self.print_to_log_file(f"Stage: {checkpoint['training_stage']}, Stage Epoch: {self.stage_epoch_counter}")
 
-    def load_checkpoint(self, filename: str) -> None:
+    def _load_checkpoint(self, filename: str) -> None:
         """
         Enhanced checkpoint loading with multi-task state restoration
         """
@@ -359,7 +445,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         if 'current_stage_idx' in checkpoint:
             self.current_stage_idx = checkpoint['current_stage_idx']
-            self.stage_epoch_counter = checkpoint.get('stage_epoch_counter', 0)
+            self.stage_epoch_counter = checkpoint.get('stage_epoch_counter', 0)-1
 
             # Restore training stage
             stage_name = checkpoint.get('training_stage', 'full')
@@ -377,7 +463,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         self.was_initialized = checkpoint.get('init', True)
         self.print_to_log_file(f"Loaded checkpoint: {filename}")
 
-
     def on_validation_epoch_end(self, val_outputs: List[dict]):
         outputs_collated = collate_outputs(val_outputs)
         loss_here = np.mean(outputs_collated['val_loss'])
@@ -391,11 +476,11 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         # Print metrics for logging
         print(f"EPOCH {self.current_epoch}: val_loss={loss_here:.4f}, seg_dice={seg_dice:.4f}, pancreas_dice={pancreas_dice:.4f}, lesion_dice={lesion_dice:.4f}, cls_f1={cls_f1:.4f}")
-
+        print(f"Current epoch: {self.current_epoch - self.stage_epoch_counter + 1}")
         # Use pancreas dice for standard nnUNet logging
-        self.logger.log('val_losses', loss_here, self.current_epoch)
-        self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch)
-        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch)
+        self.logger.log('val_losses', loss_here, self.current_epoch - self.stage_epoch_counter + 1)
+        self.logger.log('mean_fg_dice', pancreas_dice, self.current_epoch - self.stage_epoch_counter + 1)
+        self.logger.log('dice_per_class_or_region', [lesion_dice], self.current_epoch - self.stage_epoch_counter + 1)
 
     def compute_dice_components(self, pred: torch.Tensor, target: torch.Tensor, mode: str):
         """Compute intersection and union for dice calculation"""
@@ -462,13 +547,10 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """Log training progress and metrics"""
         super().on_epoch_end()
 
-        # Log uncertainty weights
-        if hasattr(self.network, 'log_var_seg'):
-            seg_weight = torch.exp(-self.network.log_var_seg).item()
-            cls_weight = torch.exp(-self.network.log_var_cls).item()
-
-            self.print_to_log_file(f"seg_uncertainty_weight: {seg_weight}")
-            self.print_to_log_file(f"cls_uncertainty_weight: {cls_weight}")
+        # Log manual weights
+        if hasattr(self.network, 'seg_weight'):
+            self.print_to_log_file(f"seg_manual_weight: {self.network.seg_weight}")
+            self.print_to_log_file(f"cls_manual_weight: {self.network.cls_weight}")
 
         # Periodic saving
         if hasattr(self, 'save_every') and self.save_every is not None:
@@ -485,48 +567,19 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.save_checkpoint(stage_checkpoint_path)
             self.print_to_log_file(f"Saved end-of-stage checkpoint: {stage_checkpoint_name}")
 
-    # def compute_dice_score(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-    #     """Compute overall Dice score"""
-    #     pred_binary = (pred.argmax(dim=1) > 0).float()
-    #     target_binary = (target > 0).float()
-
-    #     intersection = (pred_binary * target_binary).sum()
-    #     union = pred_binary.sum() + target_binary.sum()
-
-    #     dice = (2.0 * intersection) / (union + 1e-8)
-    #     return dice.item()
-
-    # def compute_pancreas_dice(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-    #     """Compute pancreas-specific Dice score"""
-    #     pred_pancreas = (pred.argmax(dim=1) > 0).float()  # Combined pancreas + lesion
-    #     target_pancreas = (target > 0).float()
-
-    #     intersection = (pred_pancreas * target_pancreas).sum()
-    #     union = pred_pancreas.sum() + target_pancreas.sum()
-
-    #     dice = (2.0 * intersection) / (union + 1e-8)
-    #     return dice.item()
-
-    # def compute_lesion_dice(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-    #     """Compute lesion-specific Dice score"""
-    #     pred_lesion = (pred.argmax(dim=1) == 2).float()  # Only lesion class
-    #     target_lesion = (target == 2).float()
-
-    #     intersection = (pred_lesion * target_lesion).sum()
-    #     union = pred_lesion.sum() + target_lesion.sum()
-
-    #     if union == 0:
-    #         return 1.0  # Perfect score if no lesions present
-
-    #     dice = (2.0 * intersection) / (union + 1e-8)
-    #     return dice.item()
+    def should_switch_to_cls_focus(self, seg_dice, lesion_dice):
+        """Check if we should switch from full training to classification focus"""
+        return seg_dice >= 0.95 and lesion_dice >= 0.4
 
     def compute_macro_f1(self, pred: torch.Tensor, target: torch.Tensor) -> float:
-        """Compute macro-averaged F1 score for classification"""
+        """Compute macro-averaged F1 score for classification with diagnostics"""
         pred_classes = pred.argmax(dim=1).cpu().numpy()
         target_classes = target.cpu().numpy()
 
+        # Compute detailed metrics
         f1_scores = []
+        detailed_metrics = []
+
         for class_idx in range(self.num_classification_classes):
             pred_class = (pred_classes == class_idx)
             target_class = (target_classes == class_idx)
@@ -534,14 +587,48 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             tp = (pred_class & target_class).sum()
             fp = (pred_class & ~target_class).sum()
             fn = (~pred_class & target_class).sum()
+            tn = (~pred_class & ~target_class).sum()
 
             precision = tp / (tp + fp + 1e-8)
             recall = tp / (tp + fn + 1e-8)
             f1 = 2 * precision * recall / (precision + recall + 1e-8)
 
             f1_scores.append(f1)
+            detailed_metrics.append({
+                'class': class_idx,
+                'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn,
+                'precision': precision,
+                'recall': recall,
+                'f1': f1,
+                'support': target_class.sum()  # Number of true instances
+            })
 
-        return float(np.mean(f1_scores))
+        macro_f1 = float(np.mean(f1_scores))
+        return macro_f1
+
+    def additional_classification_diagnostics(self, pred: torch.Tensor, target: torch.Tensor):
+        """Additional diagnostic function to call during validation"""
+        pred_probs = torch.softmax(pred, dim=1).cpu().numpy()
+        pred_classes = pred.argmax(dim=1).cpu().numpy()
+        target_classes = target.cpu().numpy()
+
+        # Check prediction confidence distribution
+        max_probs = pred_probs.max(axis=1)
+
+        # Check if model is stuck in local minima
+        pred_variance = np.var(pred_probs, axis=0)  # Variance across samples for each class
+
+        diagnostics = {
+            'prediction_entropy': -np.sum(pred_probs * np.log(pred_probs + 1e-8), axis=1).mean(),
+            'max_confidence': max_probs.mean(),
+            'min_confidence': max_probs.min(),
+            'prediction_variance_per_class': pred_variance,
+            'unique_predictions': len(np.unique(pred_classes)),
+            'prediction_distribution': np.bincount(pred_classes, minlength=self.num_classification_classes),
+            'target_distribution': np.bincount(target_classes, minlength=self.num_classification_classes)
+        }
+
+        return diagnostics
 
     def get_tr_and_val_datasets(self):
         """Get training and validation datasets with multi-task support"""
@@ -638,7 +725,6 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         return mt_gen_train, mt_gen_val
 
-
     def _get_label_distribution(self, labels_dict: dict) -> dict:
         """Get distribution of classification labels"""
         from collections import Counter
@@ -659,6 +745,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             self.on_validation_epoch_end(val_outputs)
 
         self.on_epoch_end()
+
 
 class FocalLoss(nn.Module):
     """Focal Loss for classification with class imbalance"""

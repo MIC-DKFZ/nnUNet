@@ -35,21 +35,19 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
             config = self.plans['configurations'][configuration_name]
 
             # ADDED: Smaller model size for testsing (Comment out to restore)
-            config['architecture']['arch_kwargs']['features_per_stage'] = [16, 64, 128, 320]
-            config['architecture']['arch_kwargs']['n_stages'] = 4
-            config['architecture']['arch_kwargs']['n_blocks_per_stage'] = [1, 3, 4, 4] # same number as n_stage
-            config['architecture']['arch_kwargs']['n_conv_per_stage_decoder'] = [1, 1, 1] # one less than blocks per stage
+            config['architecture']['arch_kwargs']['features_per_stage'] = [16, 64, 128]
+            config['architecture']['arch_kwargs']['n_stages'] = 3
+            config['architecture']['arch_kwargs']['n_blocks_per_stage'] = [1, 3, 4] # same number as n_stage
+            config['architecture']['arch_kwargs']['n_conv_per_stage_decoder'] = [1, 1] # one less than blocks per stage
             config['architecture']['arch_kwargs']['kernel_sizes'] = [
                 [1, 3, 3],
                 [3, 3, 3],
                 [3, 3, 3],
-                [3, 3, 3]
             ]
             config['architecture']['arch_kwargs']['strides'] = [
                 [1, 1, 1],
                 [1, 2, 2],
                 [2, 2, 2],
-                [2, 2, 2]
             ]
 
             # Update architecture to use custom multitask network
@@ -57,10 +55,14 @@ class MultiTasknnUNetPlannerResEncM(nnUNetPlannerResEncM):
 
             # Add classification head configuration
             config['architecture']['classification_head'] = {
+                'head_type': 'mlp',  # Use MLP head by default
                 'num_classes': 3,  # subtype 0, 1, 2
-                'dropout_rate': 0.2,
-                'hidden_dims': [256, 128],
-                'use_all_features': True  # Use features from all encoder stages
+                'dropout_rate': 0.3,
+                'latent_dim': 1024,  # Large latent representation for expressiveness
+                'mlp_hidden_dims': [512, 256],  # MLP hidden dimensions
+                'use_all_features': False,  # Use last encoder stage for MLP
+                # Legacy spatial attention config (kept for backward compatibility)
+                'hidden_dims': [256, 128]
             }
 
             # Add multitask training configuration

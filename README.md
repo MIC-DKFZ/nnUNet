@@ -75,3 +75,7 @@ export nnUNet_results="/mnt/data/gpu-server/nnUNet_modified/nnunet_data/nnUNet_r
 
 uv run --extra cu124 python main.py --mode train > training_classifier_log.txt
 ```
+
+
+## Citations
+https://arxiv.org/html/2412.00351v1
