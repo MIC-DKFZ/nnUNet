@@ -219,24 +219,56 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
         # Get the last encoder stage output channels
         last_stage_channels = self.encoder.stages[-1].output_channels
 
-        # Add latent representation layer
-        latent_dim = self.classification_config.get('latent_dim', 1024)
-        self.latent_layer = LatentRepresentationLayer(
-            input_channels=last_stage_channels,
-            latent_dim=latent_dim,
-            conv_op=self.conv_op
-        )
+        # Check if we have new-style configuration with latent_layer and classification_head configs
+        if 'latent_layer' in self.classification_config and 'classification_head' in self.classification_config:
+            # New configuration style - use config-based approach
+            latent_config = self.classification_config['latent_layer']
+            cls_head_config = self.classification_config['classification_head']
 
-        # Build MLP classification head
-        self.classification_head = MLPClassificationHead(
-            input_channels=latent_dim,
-            num_classes=self.classification_config['num_classes'],
-            hidden_dims=self.classification_config.get('mlp_hidden_dims', [512, 256]),
-            dropout_rate=self.classification_config.get('dropout_rate', 0.3),
-            conv_op=self.conv_op
-        )
+            # Build latent layer with config
+            self.latent_layer = LatentRepresentationLayer(
+                input_channels=last_stage_channels,
+                config=latent_config,
+                conv_op=self.conv_op
+            )
 
-        print(f"✓ Built MLP classification head with latent dim: {latent_dim}")
+            # Build classification head with config
+            self.classification_head = MLPClassificationHead(
+                input_channels=last_stage_channels,  # Input channels remain the same due to residual connection
+                config=cls_head_config,
+                conv_op=self.conv_op
+            )
+
+            print(f"✓ Built enhanced MLP classification head with multi-layer latent representation")
+        else:
+            # Legacy configuration style - backward compatibility
+            latent_dim = self.classification_config.get('latent_dim', 1024)
+
+            # Create legacy config for latent layer
+            legacy_latent_config = {
+                'compression_channels': latent_dim // 2,
+                'bottleneck_reduction': 2,
+                'use_bottleneck': False,
+                'dropout_rate': 0.1,
+                'activation': 'torch.nn.LeakyReLU'
+            }
+
+            self.latent_layer = LatentRepresentationLayer(
+                input_channels=last_stage_channels,
+                config=legacy_latent_config,
+                conv_op=self.conv_op
+            )
+
+            # Build MLP classification head (legacy)
+            self.classification_head = MLPClassificationHead(
+                input_channels=last_stage_channels,
+                num_classes=self.classification_config['num_classes'],
+                hidden_dims=self.classification_config.get('mlp_hidden_dims', [512, 256]),
+                dropout_rate=self.classification_config.get('dropout_rate', 0.3),
+                conv_op=self.conv_op
+            )
+
+            print(f"✓ Built legacy MLP classification head with latent dim: {latent_dim}")
 
     def _build_spatial_attention_classification_decoder(self):
         """Build spatial attention-based classification decoder (legacy)"""
@@ -644,61 +676,251 @@ class ScaleSpecificProcessor(nn.Module):
 
 class LatentRepresentationLayer(nn.Module):
     """
-    Latent representation layer to increase expressiveness of the encoder output
+    Multi-layer latent representation with compression and bottleneck design
+    Based on paper implementation with multiple convolution layers
     """
-    def __init__(self, input_channels: int, latent_dim: int, conv_op: type):
+    def __init__(self, input_channels: int, config: dict, conv_op: type):
         super().__init__()
         self.conv_op = conv_op
+        self.config = config
 
-        # 1x1 convolution to project to latent space
-        self.latent_projection = conv_op(input_channels, latent_dim, kernel_size=1, bias=True)
+        # Extract configuration parameters
+        compression_channels = config.get('compression_channels', input_channels // 2)
+        bottleneck_reduction = config.get('bottleneck_reduction', 2)
+        use_bottleneck = config.get('use_bottleneck', True)
+        dropout_rate = config.get('dropout_rate', 0.1)
 
-        # Normalization and activation
+        # Determine normalization layer
         if conv_op == nn.Conv3d:
-            self.norm = nn.BatchNorm3d(latent_dim)
+            norm_layer = nn.InstanceNorm3d
         elif conv_op == nn.Conv2d:
-            self.norm = nn.BatchNorm2d(latent_dim)
+            norm_layer = nn.InstanceNorm2d
         else:
-            self.norm = nn.BatchNorm1d(latent_dim)
+            norm_layer = nn.InstanceNorm1d
 
-        self.activation = nn.LeakyReLU(0.2, inplace=True)
+        # Get activation function
+        activation_class = self._get_activation_class(config.get('activation', 'torch.nn.LeakyReLU'))
+
+        # Build compression pathway: input → compress → bottleneck → expand → output
+        layers = []
+
+        # 1. Initial compression layer
+        layers.extend([
+            conv_op(input_channels, compression_channels, kernel_size=3, padding=1, bias=True),
+            norm_layer(compression_channels, eps=1e-5, affine=True),
+            activation_class(0.2, inplace=True),
+            nn.Dropout(dropout_rate) if dropout_rate > 0 else nn.Identity()
+        ])
+
+        # 2. Bottleneck layer (if enabled)
+        if use_bottleneck:
+            bottleneck_channels = compression_channels // bottleneck_reduction
+            layers.extend([
+                conv_op(compression_channels, bottleneck_channels, kernel_size=1, bias=True),
+                norm_layer(bottleneck_channels, eps=1e-5, affine=True),
+                activation_class(0.2, inplace=True),
+                conv_op(bottleneck_channels, compression_channels, kernel_size=1, bias=True),
+                norm_layer(compression_channels, eps=1e-5, affine=True),
+                activation_class(0.2, inplace=True)
+            ])
+
+        # 3. Expansion back to input channels
+        layers.extend([
+            conv_op(compression_channels, input_channels, kernel_size=3, padding=1, bias=True),
+            norm_layer(input_channels, eps=1e-5, affine=True),
+            activation_class(0.2, inplace=True)
+        ])
+
+        self.latent_layers = nn.Sequential(*[layer for layer in layers if not isinstance(layer, nn.Identity)])
+
+        # Residual connection for better gradient flow
+        self.use_residual = True
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def _get_activation_class(self, activation_str):
+        """Get activation class from string"""
+        if 'LeakyReLU' in activation_str:
+            return nn.LeakyReLU
+        elif 'ReLU' in activation_str:
+            return nn.ReLU
+        else:
+            return nn.LeakyReLU  # Default
+
+    def _initialize_weights(self):
+        """Initialize weights for latent layers"""
+        for m in self.modules():
+            if isinstance(m, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu', a=0.2)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, (nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d)):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.constant_(m.weight, 1)
+                if hasattr(m, 'bias') and m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         """
         Args:
             x: Input tensor from encoder [B, C, H, W, D] or [B, C, H, W]
         Returns:
-            Latent representation with same spatial dimensions but latent_dim channels
+            Enhanced latent representation with same spatial dimensions and channels
         """
-        x = self.latent_projection(x)
-        x = self.norm(x)
-        x = self.activation(x)
-        return x
+        identity = x
+
+        # Apply latent transformation
+        out = self.latent_layers(x)
+
+        # Add residual connection
+        if self.use_residual:
+            out = out + identity
+
+        return out
 
 
 class MLPClassificationHead(nn.Module):
     """
-    Simple but effective MLP classification head with global pooling
+    Enhanced MLP classification head with conv upsampling + FC layers
+    Supports both config-based and legacy parameter-based initialization
     """
-    def __init__(self, input_channels: int, num_classes: int, hidden_dims: List[int],
-                 dropout_rate: float, conv_op: type):
+    def __init__(self, input_channels: int, conv_op: type, config: dict = None,
+                 num_classes: int = None, hidden_dims: List[int] = None, dropout_rate: float = None):
         super().__init__()
         self.conv_op = conv_op
 
+        # Handle both new config-based and legacy parameter-based initialization
+        if config is not None:
+            # New config-based approach
+            self._build_from_config(input_channels, config)
+        else:
+            # Legacy approach - for backward compatibility
+            if num_classes is None or hidden_dims is None or dropout_rate is None:
+                raise ValueError("For legacy initialization, num_classes, hidden_dims, and dropout_rate must be provided")
+            self._build_legacy(input_channels, num_classes, hidden_dims, dropout_rate)
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def _build_from_config(self, input_channels: int, config: dict):
+        """Build classification head from configuration"""
+        self.num_classes = config['num_classes']
+        self.dropout_rate = config.get('dropout_rate', 0.2)
+
+        # Get configuration sections
+        initial_conv_config = config.get('initial_conv_config', {})
+        conv_layers_config = config.get('conv_layers', [])
+        hidden_dims = config.get('hidden_dims', [64, 32])
+
+        # Determine normalization layer
+        if self.conv_op == nn.Conv3d:
+            norm_layer = nn.InstanceNorm3d
+        elif self.conv_op == nn.Conv2d:
+            norm_layer = nn.InstanceNorm2d
+        else:
+            norm_layer = nn.InstanceNorm1d
+
+        # Get activation function
+        activation_class = self._get_activation_class(initial_conv_config.get('activation', 'torch.nn.LeakyReLU'))
+
+        # Build convolutional layers
+        conv_layers = []
+        current_channels = input_channels
+
+        # 1. Initial convolution (channel expansion)
+        if initial_conv_config:
+            output_channels = initial_conv_config.get('output_channels', current_channels * 2)
+            kernel_size = initial_conv_config.get('kernel_size', [3, 3, 3] if self.conv_op == nn.Conv3d else [3, 3])
+            stride = initial_conv_config.get('stride', [1, 1, 1] if self.conv_op == nn.Conv3d else [1, 1])
+            padding = initial_conv_config.get('padding', [1, 1, 1] if self.conv_op == nn.Conv3d else [1, 1])
+
+            conv_layers.extend([
+                self.conv_op(current_channels, output_channels, kernel_size=kernel_size,
+                           stride=stride, padding=padding, bias=True),
+                norm_layer(output_channels, eps=1e-5, affine=True) if initial_conv_config.get('use_batch_norm', True) else nn.Identity(),
+                activation_class(0.2, inplace=True)
+            ])
+            current_channels = output_channels
+
+        # 2. Additional conv layers (spatial reduction)
+        for layer_config in conv_layers_config:
+            out_channels = layer_config.get('out_channels', current_channels // 2)
+            kernel_size = layer_config.get('kernel_size', [3, 3, 3] if self.conv_op == nn.Conv3d else [3, 3])
+            stride = layer_config.get('stride', [2, 2, 2] if self.conv_op == nn.Conv3d else [2, 2])
+            padding = layer_config.get('padding', [1, 1, 1] if self.conv_op == nn.Conv3d else [1, 1])
+            layer_dropout = layer_config.get('dropout_rate', 0.0)
+
+            conv_layers.extend([
+                self.conv_op(current_channels, out_channels, kernel_size=kernel_size,
+                           stride=stride, padding=padding, bias=True),
+                norm_layer(out_channels, eps=1e-5, affine=True) if layer_config.get('use_batch_norm', True) else nn.Identity(),
+                activation_class(0.2, inplace=True),
+                nn.Dropout(layer_dropout) if layer_dropout > 0 else nn.Identity()
+            ])
+            current_channels = out_channels
+
+        # Remove Identity layers
+        self.conv_layers = nn.Sequential(*[layer for layer in conv_layers if not isinstance(layer, nn.Identity)])
+
+        # 3. Global pooling
+        pooling_type = config.get('global_pooling', 'adaptive_avg')
+        if pooling_type == 'adaptive_avg':
+            if self.conv_op == nn.Conv3d:
+                self.global_pool = nn.AdaptiveAvgPool3d(1)
+            elif self.conv_op == nn.Conv2d:
+                self.global_pool = nn.AdaptiveAvgPool2d(1)
+            else:
+                self.global_pool = nn.AdaptiveAvgPool1d(1)
+        else:
+            # Add other pooling types if needed
+            if self.conv_op == nn.Conv3d:
+                self.global_pool = nn.AdaptiveAvgPool3d(1)
+            elif self.conv_op == nn.Conv2d:
+                self.global_pool = nn.AdaptiveAvgPool2d(1)
+            else:
+                self.global_pool = nn.AdaptiveAvgPool1d(1)
+
+        # 4. Build MLP layers
+        mlp_layers = []
+        prev_dim = current_channels
+
+        for hidden_dim in hidden_dims:
+            mlp_layers.extend([
+                nn.Linear(prev_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Dropout(self.dropout_rate)
+            ])
+            prev_dim = hidden_dim
+
+        # Final classification layer
+        mlp_layers.append(nn.Linear(prev_dim, self.num_classes))
+
+        self.mlp = nn.Sequential(*mlp_layers)
+
+    def _build_legacy(self, input_channels: int, num_classes: int, hidden_dims: List[int], dropout_rate: float):
+        """Build classification head using legacy parameters"""
+        self.num_classes = num_classes
+        self.dropout_rate = dropout_rate
+
+        # No conv layers in legacy mode - just global pooling + MLP
+        self.conv_layers = nn.Identity()
+
         # Global average pooling
-        if conv_op == nn.Conv3d:
+        if self.conv_op == nn.Conv3d:
             self.global_pool = nn.AdaptiveAvgPool3d(1)
-        elif conv_op == nn.Conv2d:
+        elif self.conv_op == nn.Conv2d:
             self.global_pool = nn.AdaptiveAvgPool2d(1)
         else:
             self.global_pool = nn.AdaptiveAvgPool1d(1)
 
         # Build MLP layers
-        layers = []
+        mlp_layers = []
         prev_dim = input_channels
 
-        for i, hidden_dim in enumerate(hidden_dims):
-            layers.extend([
+        for hidden_dim in hidden_dims:
+            mlp_layers.extend([
                 nn.Linear(prev_dim, hidden_dim),
                 nn.BatchNorm1d(hidden_dim),
                 nn.LeakyReLU(0.2, inplace=True),
@@ -707,19 +929,34 @@ class MLPClassificationHead(nn.Module):
             prev_dim = hidden_dim
 
         # Final classification layer
-        layers.append(nn.Linear(prev_dim, num_classes))
+        mlp_layers.append(nn.Linear(prev_dim, num_classes))
 
-        self.mlp = nn.Sequential(*layers)
+        self.mlp = nn.Sequential(*mlp_layers)
 
-        # Initialize weights
-        self._initialize_weights()
+    def _get_activation_class(self, activation_str):
+        """Get activation class from string"""
+        if 'LeakyReLU' in activation_str:
+            return nn.LeakyReLU
+        elif 'ReLU' in activation_str:
+            return nn.ReLU
+        else:
+            return nn.LeakyReLU  # Default
 
     def _initialize_weights(self):
-        """Initialize MLP weights with proper scaling"""
+        """Initialize weights for all layers"""
         for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu')
+            if isinstance(m, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu', a=0.2)
                 if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu', a=0.2)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, (nn.InstanceNorm1d, nn.InstanceNorm2d, nn.InstanceNorm3d, nn.BatchNorm1d)):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.constant_(m.weight, 1)
+                if hasattr(m, 'bias') and m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
@@ -729,6 +966,9 @@ class MLPClassificationHead(nn.Module):
         Returns:
             Classification logits [B, num_classes]
         """
+        # Apply convolutional layers (if any)
+        x = self.conv_layers(x)
+
         # Global pooling
         x = self.global_pool(x)  # [B, C, 1, 1, 1] or [B, C, 1, 1]
         x = x.flatten(1)  # [B, C]
