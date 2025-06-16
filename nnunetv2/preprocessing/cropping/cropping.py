@@ -1,7 +1,5 @@
 import numpy as np
 from scipy.ndimage import binary_fill_holes
-
-# Hello! crop_to_nonzero is the function you are looking for. Ignore the rest.
 from acvl_utils.cropping_and_padding.bounding_boxes import get_bbox_from_mask, bounding_box_to_slice
 
 

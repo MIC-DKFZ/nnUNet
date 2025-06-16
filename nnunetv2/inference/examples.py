@@ -89,7 +89,7 @@ if __name__ == '__main__':
     def my_iterator(list_of_input_arrs, list_of_input_props):
         preprocessor = predictor.configuration_manager.preprocessor_class(verbose=predictor.verbose)
         for a, p in zip(list_of_input_arrs, list_of_input_props):
-            data, seg = preprocessor.run_case_npy(a,
+            data, seg, p = preprocessor.run_case_npy(a,
                                                   None,
                                                   p,
                                                   predictor.plans_manager,

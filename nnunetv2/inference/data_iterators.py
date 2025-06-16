@@ -1,6 +1,6 @@
 import multiprocessing
 import queue
-from torch.multiprocessing import Event, Process, Queue, Manager
+from torch.multiprocessing import Event, Queue, Manager
 
 from time import sleep
 from typing import Union, List
@@ -195,7 +195,7 @@ class PreprocessAdapterFromNpy(DataLoader):
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
-        data, seg = self.preprocessor.run_case_npy(image, seg_prev_stage, props,
+        data, seg, props = self.preprocessor.run_case_npy(image, seg_prev_stage, props,
                                                    self.plans_manager,
                                                    self.configuration_manager,
                                                    self.dataset_json)
@@ -223,13 +223,14 @@ def preprocess_fromnpy_save_to_queue(list_of_images: List[np.ndarray],
         label_manager = plans_manager.get_label_manager(dataset_json)
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         for idx in range(len(list_of_images)):
-            data, seg = preprocessor.run_case_npy(list_of_images[idx],
+            data, seg, props = preprocessor.run_case_npy(list_of_images[idx],
                                                   list_of_segs_from_prev_stage[
                                                       idx] if list_of_segs_from_prev_stage is not None else None,
                                                   list_of_image_properties[idx],
                                                   plans_manager,
                                                   configuration_manager,
                                                   dataset_json)
+            list_of_image_properties[idx] = props
             if list_of_segs_from_prev_stage is not None and list_of_segs_from_prev_stage[idx] is not None:
                 seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
                 data = np.vstack((data, seg_onehot))

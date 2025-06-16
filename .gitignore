@@ -99,7 +99,7 @@ ENV/
 *.txt
 .idea/*
 *.png
-*.nii.gz
+# *.nii.gz  # nifti files needed for example_data for github actions tests
 *.nii
 *.tif
 *.bmp
