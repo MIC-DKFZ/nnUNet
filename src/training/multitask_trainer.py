@@ -34,7 +34,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, device)
         # Progressive training stages
-        self.training_stages = ['enc_cls']
+        self.training_stages = ['full']
         self.current_stage_idx = 0
         self.stage_epoch_counter = 0
 
@@ -134,6 +134,8 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                     module = importlib.import_module(module_path)
                     arch_init_kwargs[key] = getattr(module, class_name)
 
+            # print("[DEBUG] Building MultiTaskResEncUNet with parameters:", arch_init_kwargs)
+
             # We need to extract parameters from arch_init_kwargs
             network = MultiTaskResEncUNet(
                 input_channels=num_input_channels,
@@ -152,8 +154,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
                 dropout_op_kwargs=arch_init_kwargs.get('dropout_op_kwargs'),
                 nonlin=arch_init_kwargs.get('nonlin'),
                 nonlin_kwargs=arch_init_kwargs.get('nonlin_kwargs'),
-                deep_supervision=enable_deep_supervision,
-                classification_config=arch_init_kwargs.get('classification_head', None)
+                deep_supervision=enable_deep_supervision
             )
 
             # This follows the nnUNet pattern: network.apply(network.initialize)
@@ -173,24 +174,42 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         self.seg_loss = DC_and_CE_loss(
             dice_kwargs, ce_kwargs,
-            weight_ce=1, weight_dice=1,
+            weight_ce=1, weight_dice=2,
             ignore_label=self.label_manager.ignore_label,
             dice_class=MemoryEfficientSoftDiceLoss
         )
 
-        # Classification loss for multi-task - can be focal or cross entropy
-        if self.multitask_config.get('use_focal_loss', True):
-            self.cls_loss = FocalLoss(
-                alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
-                gamma=self.multitask_config.get('focal_gamma', 2.0)
+        # Check if using unet_decoder for pixel-wise classification
+        head_type = self.configuration_manager.configuration.get('architecture', {}).get('classification_head', {}).get('head_type', 'mlp')
+
+        if head_type == 'unet_decoder':
+            # For unet_decoder: use DICE_CE loss for 4-class pixel classification
+            # Adjust dice_kwargs for 4 classes (0, 1, 2, 3 where 3 is masked)
+            cls_dice_kwargs = {'batch_dice': self.configuration_manager.batch_dice,
+                               'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}
+            cls_ce_kwargs = {}
+
+            self.cls_loss = DC_and_CE_loss(
+                cls_dice_kwargs, cls_ce_kwargs,
+                weight_ce=4, weight_dice=1,
+                ignore_label=None,  # No ignore label for classification
+                dice_class=MemoryEfficientSoftDiceLoss
             )
-            self.cls_loss_enc_cls = FocalLoss(
-            alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
-            gamma=self.multitask_config.get('focal_gamma', 2.0)
-        )
+            self.cls_loss_enc_cls = self.cls_loss  # Same loss for enc_cls stage
         else:
-            self.cls_loss = nn.CrossEntropyLoss()
-            self.cls_loss_enc_cls = nn.CrossEntropyLoss()
+            # Original classification loss for other head types
+            if self.multitask_config.get('use_focal_loss', True):
+                self.cls_loss = FocalLoss(
+                    alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
+                    gamma=self.multitask_config.get('focal_gamma', 2.0)
+                )
+                self.cls_loss_enc_cls = FocalLoss(
+                    alpha=self.multitask_config.get('focal_alpha', [0.33, 0.33, 0.34]),
+                    gamma=self.multitask_config.get('focal_gamma', 2.0)
+                )
+            else:
+                self.cls_loss = nn.CrossEntropyLoss()
+                self.cls_loss_enc_cls = nn.CrossEntropyLoss()
 
     def configure_optimizers(self):
         """Configure optimizer based on planner settings"""
@@ -236,12 +255,30 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         data = data.to(self.device, non_blocking=True)
         target_seg = target_seg.to(self.device, non_blocking=True)
-        target_cls = torch.tensor(target_cls, dtype=torch.long).to(self.device, non_blocking=True)
+
+        # Check if using unet_decoder for pixel-wise classification
+        head_type = self.configuration_manager.configuration.get('architecture', {}).get('classification_head', {}).get('head_type', 'mlp')
+
+        if head_type == 'unet_decoder':
+            # Create pixel-wise classification target
+            target_cls = self._create_pixel_classification_target(target_seg, target_cls)
+        else:
+            # Original: single label per image
+            target_cls = torch.tensor(target_cls, dtype=torch.long).to(self.device, non_blocking=True)
+
+        # Debugging: Check shapes and types
+        # print("[DEBUG] Data Shape: ", data.shape)
+        # print("[DEBUG] Target Segmentation Shape: ", target_seg.shape)
+        # print("[DEBUG] Target Classification Shape: ", target_cls.shape)
 
         self.optimizer.zero_grad()
 
         # Forward pass
         output = self.network(data)
+
+        # print("[DEBUG] Output Keys: ", output.keys())
+        # print("[DEBUG] Output Segmentation Shape: ", output['segmentation'].shape if 'segmentation' in output else "N/A")
+        # print("[DEBUG] Output Classification Shape: ", output['classification'].shape if 'classification' in output else "N/A")
 
         # Compute losses with normalization (now handled in trainer)
         loss_dict = self.compute_multitask_loss_with_normalization(
@@ -249,9 +286,9 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             targets={'segmentation': target_seg, 'classification': target_cls}
         )
 
-        print("keys in output: ", keys)
-        print("training target for cls: ", target_cls)
-        print("prediction for cls: ", output['classification'])
+        # print("keys in output: ", keys)
+        # print("training target for cls: ", target_cls.shape if hasattr(target_cls, 'shape') else target_cls)
+        # print("prediction for cls: ", output['classification'].shape if hasattr(output['classification'], 'shape') else output['classification'])
 
         total_loss = loss_dict['total_loss']
 
@@ -394,7 +431,16 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
 
         data = data.to(self.device, non_blocking=True)
         target_seg = target_seg.to(self.device, non_blocking=True)
-        target_cls = torch.tensor(target_cls, dtype=torch.long).to(self.device, non_blocking=True)
+
+        # Check if using unet_decoder for pixel-wise classification
+        head_type = self.configuration_manager.configuration.get('architecture', {}).get('classification_head', {}).get('head_type', 'mlp')
+
+        if head_type == 'unet_decoder':
+            # Create pixel-wise classification target
+            target_cls = self._create_pixel_classification_target(target_seg, target_cls)
+        else:
+            # Original: single label per image
+            target_cls = torch.tensor(target_cls, dtype=torch.long).to(self.device, non_blocking=True)
 
         with torch.no_grad():
             output = self.network(data)
@@ -409,13 +455,19 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
             seg_pred = torch.softmax(output['segmentation'], dim=1)
             cls_pred = torch.softmax(output['classification'], dim=1)
 
+            # import pdb
+            # pdb.set_trace() # check seg_pred shape
+
             # Compute raw intersection/union for dice metrics
             seg_intersect, seg_union = self.compute_dice_components(seg_pred, target_seg, mode='overall')
             pancreas_intersect, pancreas_union = self.compute_dice_components(seg_pred, target_seg, mode='pancreas')
             lesion_intersect, lesion_union = self.compute_dice_components(seg_pred, target_seg, mode='lesion')
 
             # Classification metrics
-            cls_f1 = self.compute_macro_f1(cls_pred, target_cls)
+            if head_type == 'unet_decoder':
+                cls_f1 = self.compute_macro_f1_unet_decoder(cls_pred, target_cls, target_seg)
+            else:
+                cls_f1 = self.compute_macro_f1(cls_pred, target_cls)
 
         return {
             'val_loss': loss_dict['total_loss'].detach().cpu().numpy(),
@@ -714,6 +766,104 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         """Check if we should switch from full training to classification focus"""
         return seg_dice >= 0.95 and lesion_dice >= 0.4
 
+    def _create_pixel_classification_target(self, seg_target: torch.Tensor, cls_labels: list) -> torch.Tensor:
+        """
+        Create pixel-wise classification target from segmentation target and image-level labels
+
+        Args:
+            seg_target: Segmentation target [B, H, W, D] with values 0 (background), 1 (pancreas), 2 (lesion)
+            cls_labels: List of classification labels (0, 1, or 2) for each image in the batch
+
+        Returns:
+            Pixel-wise classification target [B, H, W, D] with values:
+            - 0, 1, or 2 where seg_target == 2 (lesion regions)
+            - 3 everywhere else (masked out)
+        """
+        batch_size = seg_target.shape[0]
+        cls_target = torch.full_like(seg_target, 3, dtype=torch.long)  # Initialize with 3 (masked)
+
+        for b in range(batch_size):
+            # Get lesion mask for this sample
+            lesion_mask = (seg_target[b] == 2)
+
+            # Set the classification label in lesion regions
+            cls_target[b][lesion_mask] = cls_labels[b]
+
+        return cls_target
+
+    def compute_macro_f1_unet_decoder(self, pred: torch.Tensor, target: torch.Tensor, seg_target: torch.Tensor) -> float:
+        """
+        Compute macro F1 score for unet_decoder by aggregating pixel predictions within lesion regions
+
+        Args:
+            pred: Pixel-wise classification predictions [B, 4, H, W, D] (softmax probabilities)
+            target: Pixel-wise classification target [B, H, W, D]
+            seg_target: Segmentation target [B, H, W, D] to identify lesion regions
+
+        Returns:
+            Macro F1 score
+        """
+        batch_size = pred.shape[0]
+        image_predictions = []
+        image_targets = []
+
+        for b in range(batch_size):
+            # Get lesion mask
+            lesion_mask = (seg_target[b] == 2)
+
+            if lesion_mask.sum() > 0:
+
+                # import pdb
+                # pdb.set_trace()
+                # Extract predictions within lesion regions
+                lesion_pred = pred[b, :3, lesion_mask.squeeze(0)]  # [3, N] - only classes 0, 1, 2
+
+                # Compute normalized distribution over classes 0, 1, 2
+                class_probs = lesion_pred.mean(dim=1)  # Average probability per class
+                class_probs = class_probs / class_probs.sum()  # Normalize
+
+                # Get image-level prediction via argmax
+                image_pred = class_probs.argmax().item()
+
+                # Get ground truth (should be consistent within lesion region)
+                # Take the mode of target values in lesion region (excluding class 3)
+                lesion_targets = target[b][lesion_mask]
+                valid_targets = lesion_targets[lesion_targets < 3]
+                if len(valid_targets) > 0:
+                    image_target = valid_targets[0].item()  # Should all be the same
+                else:
+                    # Fallback - shouldn't happen with proper target creation
+                    image_target = 0
+            else:
+                # No lesion in this image - default to class 0
+                image_pred = 0
+                image_target = 0
+
+            image_predictions.append(image_pred)
+            image_targets.append(image_target)
+
+        # Convert to numpy arrays and compute F1
+        image_predictions = np.array(image_predictions)
+        image_targets = np.array(image_targets)
+
+        # Compute F1 scores per class
+        f1_scores = []
+        for class_idx in range(3):  # Only 3 actual classes
+            pred_class = (image_predictions == class_idx)
+            target_class = (image_targets == class_idx)
+
+            tp = (pred_class & target_class).sum()
+            fp = (pred_class & ~target_class).sum()
+            fn = (~pred_class & target_class).sum()
+
+            precision = tp / (tp + fp + 1e-8)
+            recall = tp / (tp + fn + 1e-8)
+            f1 = 2 * precision * recall / (precision + recall + 1e-8)
+
+            f1_scores.append(f1)
+
+        return float(np.mean(f1_scores))
+
     def compute_macro_f1(self, pred: torch.Tensor, target: torch.Tensor) -> float:
         """Compute macro-averaged F1 score for classification with diagnostics"""
         pred_classes = pred.argmax(dim=1).cpu().numpy()
@@ -963,7 +1113,7 @@ class nnUNetTrainerMultiTask(nnUNetTrainerNoDeepSupervision):
         elif current_stage == 'enc_cls':
             # For enc_cls: use focal loss for classification, compute seg loss for tracking only
             seg_loss = self.seg_loss(seg_pred, seg_target)  # For tracking only
-            cls_loss = self.cls_loss_enc_cls(cls_pred, cls_target)  # Use dedicated focal loss
+            cls_loss = self.cls_loss_enc_cls(cls_pred, cls_target)  # Use dedicated loss
 
             seg_loss_value = seg_loss.item()
             cls_loss_value = cls_loss.item()

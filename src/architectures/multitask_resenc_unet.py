@@ -1,3 +1,4 @@
+from sklearn.metrics import classification_report
 import torch
 import torch.nn as nn
 from typing import Union, Tuple, List
@@ -28,11 +29,17 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
                  dropout_op_kwargs: dict = None,
                  nonlin: Union[None, type] = None,
                  nonlin_kwargs: dict = None,
-                 deep_supervision: bool = False,
-                 classification_config: dict = None):
+                 deep_supervision: bool = False):
 
         # Store conv_op for later use
         self.conv_op = conv_op
+        self.norm_op = norm_op
+        self.norm_op_kwargs = norm_op_kwargs
+        self.dropout_op = dropout_op
+        self.dropout_op_kwargs = dropout_op_kwargs
+        self.conv_bias = conv_bias
+        self.nonlin = nonlin
+        self.nonlin_kwargs = nonlin_kwargs
 
         # Set default for n_conv_per_stage_decoder if None
         if n_conv_per_stage_decoder is None:
@@ -60,18 +67,47 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
         )
 
         # Classification configuration
-        if classification_config is None:
-            classification_config = {
-                'head_type': 'mlp',  # 'mlp' or 'spatial_attention'
-                'num_classes': 3,
-                'dropout_rate': 0.3,
-                'latent_dim': 1024,  # Large latent representation for expressiveness
-                'mlp_hidden_dims': [512, 256],  # MLP hidden dimensions
-                'use_all_features': False,  # Use last encoder stage for MLP
-                # Legacy spatial attention config (kept for backward compatibility)
-                'hidden_dims': [256, 128]
+        self.classification_config = {
+            "head_type": "unet_decoder",
+            "mlp_only": True,
+            "num_classes": 3,
+            "dropout_rate": 0.2,
+            "initial_conv_config": {
+                "input_channels": 256,
+                "output_channels": 128,
+                "kernel_size": [3, 3, 3],
+                "stride": [1, 1, 1],
+                "padding": [1, 1, 1],
+                "use_batch_norm": False,
+                "activation": "torch.nn.LeakyReLU"
+            },
+            "conv_layers": [
+                {
+                    "in_channels": 128,
+                    "out_channels": 16,
+                    "kernel_size": [3, 3, 3],
+                    "stride": [2, 2, 2],
+                    "padding": [1, 1, 1],
+                    "use_batch_norm": False,
+                    "activation": "torch.nn.LeakyReLU",
+                    "dropout_rate": 0.1
+                }
+            ],
+            "global_pooling": "adaptive_avg",
+            "hidden_dims": [
+                512,
+                64,
+                16
+            ],
+            "use_all_features": False,
+            "feature_fusion": {
+                "enabled": False,
+                "fusion_type": "concatenation",
+                "skip_connections": []
             }
-        self.classification_config = classification_config
+        }
+
+        print("[DEBUG] Classification Config: ", self.classification_config)
 
         # Build classification decoder
         self._build_classification_decoder()
@@ -205,7 +241,9 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
 
     def _build_classification_decoder(self):
         """Build classification decoder based on head_type configuration"""
-        head_type = self.classification_config.get('head_type', 'mlp')
+        head_type = self.classification_config.get('head_type', 'unet_decoder')
+
+        print("[DEBUG] Head Type: ", head_type)
 
         if head_type == 'mlp':
             self._build_mlp_classification_decoder()
@@ -215,8 +253,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             self._build_latent_spatial_classification_decoder()
         elif head_type == 'simple_mlp':
             self._build_simple_mlp_classification_decoder()
+        elif head_type == 'unet_decoder':
+            self._build_unet_classification_decoder()
         else:
-            raise ValueError(f"Unknown head_type: {head_type}. Must be 'mlp', 'spatial_attention', 'latent_spatial', or 'simple_mlp'")
+            raise ValueError(f"Unknown head_type: {head_type}. Must be 'mlp', 'spatial_attention', 'latent_spatial', 'simple_mlp', or 'unet_decoder'")
 
     def _build_mlp_classification_decoder(self):
         """Build MLP-based classification decoder with latent layer"""
@@ -423,6 +463,55 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
 
         print(f"✓ Built simple MLP classification head (no latent layer)")
 
+    def _build_unet_classification_decoder(self):
+        """Build UNet-style classification decoder that mirrors segmentation decoder architecture"""
+        # Import necessary components from dynamic_network_architectures
+        from dynamic_network_architectures.architectures.unet import UNetDecoder
+
+        # Get the number of classification classes (4 for pixel-wise: 0, 1, 2, 3)
+        num_classification_classes = 4  # 0, 1, 2 for actual classes, 3 for masked out
+
+        # Create a classification decoder that mirrors the segmentation decoder structure
+        # We need to use the same parameters as the segmentation decoder
+        n_stages_decoder = len(self.decoder.stages)
+
+        # Get features per stage from decoder (reverse order of encoder)
+        # decoder_features = []
+        # for stage in self.decoder.stages:
+        #     # Get output channels from the first conv layer in each stage
+        #     if hasattr(stage, 'convs'):
+        #         decoder_features.append(stage.convs[0].out_channels)
+        #     elif hasattr(stage, '0'):  # Sequential module
+        #         decoder_features.append(stage[0].out_channels)
+        #     else:
+        #         # Fallback - use encoder features in reverse
+        #         decoder_features = list(reversed(self.encoder.output_channels[:-1]))
+        #         break
+
+        # Build the classification decoder using UNetDecoder
+        self.classification_decoder = UNetDecoder(
+            encoder=self.encoder,
+            num_classes=num_classification_classes,
+            n_conv_per_stage=self.decoder.n_conv_per_stage if hasattr(self.decoder, 'n_conv_per_stage') else [2] * n_stages_decoder,
+            deep_supervision=False,  # No deep supervision for classification
+            nonlin_first=False,
+            norm_op=self.norm_op,
+            norm_op_kwargs=self.norm_op_kwargs,
+            dropout_op=self.dropout_op,
+            dropout_op_kwargs=self.dropout_op_kwargs,
+            nonlin=self.nonlin,
+            nonlin_kwargs=self.nonlin_kwargs,
+            conv_bias=self.conv_bias
+        )
+
+        # For compatibility with existing code, set classification_head to the decoder
+        self.classification_head = self.classification_decoder
+
+        # No latent layer for UNet decoder
+        self.latent_layer = None
+
+        print(f"✓ Built UNet-style classification decoder with {num_classification_classes} output classes")
+
     def forward_classification_part(self, encoder_outputs):
         """
         Forward pass for classification - handles all head types
@@ -437,6 +526,8 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             return self._forward_latent_spatial_classification(encoder_outputs)
         elif head_type == 'simple_mlp':
             return self._forward_simple_mlp_classification(encoder_outputs)
+        elif head_type == 'unet_decoder':
+            return self._forward_unet_classification(encoder_outputs)
         else:
             raise ValueError(f"Unknown head_type: {head_type}")
 
@@ -509,35 +600,52 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
 
         return classification_output
 
+    def _forward_unet_classification(self, encoder_outputs):
+        """Forward pass for UNet-style classification decoder"""
+        # # The UNet decoder needs the encoder outputs in the same way as segmentation
+        # # Extract skip connections and deepest features
+        # skips = encoder_outputs[:-1]  # All except the last (deepest) features
+        # cls_x = encoder_outputs[-1]   # Deepest features
+
+        # # Pass through the classification decoder (UNetDecoder)
+        # # The decoder will handle the upsampling and skip connections
+        # for i, (decoder_stage, transpconv) in enumerate(zip(self.classification_decoder.stages, self.classification_decoder.transpconvs)):
+        #     cls_x = transpconv(cls_x)
+        #     cls_x = torch.cat([cls_x, skips[-(i+1)]], dim=1)
+        #     cls_x = decoder_stage(cls_x)
+
+        return self.classification_decoder(encoder_outputs)
+
     def forward(self, x):
         """Forward pass returning both segmentation and classification outputs"""
-        encoder_outputs = []
+        # encoder_outputs = []
 
-        # Process stem first
-        x = self.encoder.stem(x)
-        encoder_outputs.append(x)
+        # # Process stem first
+        # x = self.encoder.stem(x)
+        # encoder_outputs.append(x)
 
-        # Then process encoder stages
-        for stage in self.encoder.stages:
-            x = stage(x)
-            encoder_outputs.append(x)
+        # # Then process encoder stages
+        # for stage in self.encoder.stages:
+        #     x = stage(x)
+        #     encoder_outputs.append(x)
 
-        # Use parent's forward method for segmentation
-        # But we need to replicate the encoder part since we already did it
-        skips = encoder_outputs[:-1]  # All except the last (deepest) features
-        seg_x = encoder_outputs[-1]   # Deepest features
+        # # Use parent's forward method for segmentation
+        # # But we need to replicate the encoder part since we already did it
+        # skips = encoder_outputs[:-1]  # All except the last (deepest) features
+        # seg_x = encoder_outputs[-1]   # Deepest features
 
-        # Decoder forward pass (following UNetDecoder pattern)
-        for i, (decoder_stage, transpconv) in enumerate(zip(self.decoder.stages, self.decoder.transpconvs)):
-            seg_x = transpconv(seg_x)
-            seg_x = torch.cat([seg_x, skips[-(i+1)]], dim=1)
-            seg_x = decoder_stage(seg_x)
+        # # Decoder forward pass (following UNetDecoder pattern)
+        # for i, (decoder_stage, transpconv) in enumerate(zip(self.decoder.stages, self.decoder.transpconvs)):
+        #     seg_x = transpconv(seg_x)
+        #     seg_x = torch.cat([seg_x, skips[-(i+1)]], dim=1)
+        #     seg_x = decoder_stage(seg_x)
 
-        # The decoder output IS the segmentation result
-        segmentation_output = seg_x
+        # # The decoder output IS the segmentation result
+        # segmentation_output = seg_x
 
-        # Classification decoder
-        classification_output = self.forward_classification_part(encoder_outputs)
+        skips = self.encoder(x)
+        segmentation_output = self.decoder(skips)
+        classification_output = self.forward_classification_part(skips)
 
         return {
             'segmentation': segmentation_output,
@@ -571,10 +679,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             for param in self.decoder.parameters():
                 param.requires_grad = True
             # Also unfreeze latent layer if using MLP head
-            if hasattr(self, 'latent_layer'):
+            if hasattr(self, 'latent_layer') and self.latent_layer is not None:
                 for param in self.latent_layer.parameters():
                     param.requires_grad = True
-            if hasattr(self, 'global_pools'):
+            if hasattr(self, 'global_pools') and self.global_pools is not None:
                 for param in self.global_pools.parameters():
                     param.requires_grad = True
         elif self.training_stage == "enc_cls":
@@ -584,10 +692,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             for param in self.classification_head.parameters():
                 param.requires_grad = True
             # Also unfreeze latent layer if using MLP head
-            if hasattr(self, 'latent_layer'):
+            if hasattr(self, 'latent_layer') and self.latent_layer is not None:
                 for param in self.latent_layer.parameters():
                     param.requires_grad = True
-            if hasattr(self, 'global_pools'):
+            if hasattr(self, 'global_pools') and self.global_pools is not None:
                 for param in self.global_pools.parameters():
                     param.requires_grad = True
 
@@ -604,10 +712,10 @@ class MultiTaskResEncUNet(ResidualEncoderUNet):
             for param in self.classification_head.parameters():
                 param.requires_grad = True
             # Also unfreeze latent layer if using MLP head
-            if hasattr(self, 'latent_layer'):
+            if hasattr(self, 'latent_layer') and self.latent_layer is not None:
                 for param in self.latent_layer.parameters():
                     param.requires_grad = True
-            if hasattr(self, 'global_pools'):
+            if hasattr(self, 'global_pools') and self.global_pools is not None:
                 for param in self.global_pools.parameters():
                     param.requires_grad = True
 
