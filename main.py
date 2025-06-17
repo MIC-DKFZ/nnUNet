@@ -319,61 +319,58 @@ def run_inference(dataset_id: int,
     print(f"Running Multi-Task Inference")
     print(f"Dataset: {dataset_id}, Config: {configuration}")
     print(f"{'='*50}")
-    return
+
     try:
-        from src.training.multitask_trainer import nnUNetTrainerMultiTask
-        from nnunetv2.inference.predict import nnUNetPredictor
+        from src.inference.multitask_predictor import MultiTaskPredictor
 
         dataset_name = maybe_convert_to_dataset_name(dataset_id)
         plans_identifier = 'nnUNetPlans_multitask'
 
         # Set default paths if not provided
         if input_folder is None:
-            input_folder = join(nnUNet_raw, dataset_name, 'imagesTs')
+            input_folder = 'raw_data/test'  # Use the test data folder
         if output_folder is None:
             output_folder = join(nnUNet_results, dataset_name, 'predictions')
 
         maybe_mkdir_p(output_folder)
 
-        # Model folder
-        model_folder = join(nnUNet_results, dataset_name, 'nnUNetTrainerMultiTask__' + plans_identifier, configuration)
+        # Model folder - construct the correct path
+        model_folder = join(nnUNet_results, dataset_name, f'nnUNetTrainerMultiTask__{plans_identifier}_{configuration}')
 
         if not os.path.exists(model_folder):
             raise RuntimeError(f"Model folder not found: {model_folder}")
 
-        # Use nnUNet predictor
-        predictor = nnUNetPredictor(
-            tile_step_size=step_size,
-            use_gaussian=use_gaussian,
-            use_mirroring=use_mirroring,
-            perform_everything_on_device=perform_everything_on_device,
-            verbose=verbose,
-            verbose_preprocessing=verbose,
-            allow_tqdm=True
-        )
+        print(f"Input folder: {input_folder}")
+        print(f"Output folder: {output_folder}")
+        print(f"Model folder: {model_folder}")
 
-        # Initialize predictor
+        # Initialize our custom MultiTask predictor
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        predictor = MultiTaskPredictor(device=device, verbose=verbose)
+
+        # Initialize predictor from trained model
         predictor.initialize_from_trained_model_folder(
-            model_folder,
-            use_folds=use_folds,
+            model_training_output_dir=model_folder,
+            use_folds=[fold] if use_folds != 'all' else [0],  # Use specified fold or default to 0
             checkpoint_name='checkpoint_final.pth'
         )
 
         # Run prediction
-        predictor.predict_from_files(
+        classification_results = predictor.predict_from_files(
             list_of_lists_or_source_folder=input_folder,
             output_folder_or_list_of_truncated_output_files=output_folder,
             save_probabilities=save_probabilities,
-            overwrite=overwrite_existing,
-            num_processes_preprocessing=2,
-            num_processes_segmentation_export=2,
-            folder_with_segs_from_previous_stage=None,
-            num_parts=1,
-            part_id=0
+            overwrite=overwrite_existing
         )
 
+        # Save classification results to CSV
+        csv_output_path = join(output_folder, 'classification_results.csv')
+        predictor.save_classification_results(classification_results, csv_output_path)
+
         print(f"✓ Inference completed successfully")
-        print(f"Results saved to: {output_folder}")
+        print(f"Segmentation results saved to: {output_folder}")
+        print(f"Classification results saved to: {csv_output_path}")
+        print(f"Processed {len(classification_results)} cases")
 
         return True
 
