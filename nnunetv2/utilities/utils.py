@@ -47,12 +47,15 @@ def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, ide
     if identifiers is None:
         identifiers = get_identifiers_from_splitted_dataset_folder(folder, file_ending)
     files = subfiles(folder, suffix=file_ending, join=False, sort=True)
+    print(f"len files: {len(files)}")
     list_of_lists = []
 
     params_list = [(folder, files, file_ending, f) for f in identifiers]
+    #print(f"params_list: {params_list}")
     with Pool(processes=num_processes) as pool:
         list_of_lists = pool.starmap(create_paths_fn, params_list)
         
+    #print(f"list_of_lists: {list_of_lists}")
     return list_of_lists
 
 
@@ -61,16 +64,22 @@ def get_filenames_of_train_images_and_targets(raw_dataset_folder: str, dataset_j
         dataset_json = load_json(join(raw_dataset_folder, 'dataset.json'))
 
     if 'dataset' in dataset_json.keys():
+        #print(f"inside if")
         dataset = dataset_json['dataset']
         for k in dataset.keys():
             expanded_label_file = os.path.expandvars(dataset[k]['label'])
             dataset[k]['label'] = os.path.abspath(join(raw_dataset_folder, expanded_label_file)) if not os.path.isabs(expanded_label_file) else expanded_label_file
             dataset[k]['images'] = [os.path.abspath(join(raw_dataset_folder, os.path.expandvars(i))) if not os.path.isabs(os.path.expandvars(i)) else os.path.expandvars(i) for i in dataset[k]['images']]
     else:
+        #print(f"inside else")
         identifiers = get_identifiers_from_splitted_dataset_folder(join(raw_dataset_folder, 'imagesTr'), dataset_json['file_ending'])
+        #print(f"identifiers: {identifiers}")
         images = create_lists_from_splitted_dataset_folder(join(raw_dataset_folder, 'imagesTr'), dataset_json['file_ending'], identifiers)
+        #print(f"images: {images}")
         segs = [join(raw_dataset_folder, 'labelsTr', i + dataset_json['file_ending']) for i in identifiers]
+        #print(f"segs: {segs}")
         dataset = {i: {'images': im, 'label': se} for i, im, se in zip(identifiers, images, segs)}
+        #print(f"dataset: {dataset}")
     return dataset
 
 

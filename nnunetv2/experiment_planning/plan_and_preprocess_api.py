@@ -23,6 +23,7 @@ def extract_fingerprint_dataset(dataset_id: int,
     """
     Returns the fingerprint as a dictionary (additionally to saving it)
     """
+    print(f'Extracting fingerprint for dataset {dataset_id}...')
     dataset_name = convert_id_to_dataset_name(dataset_id)
     print(dataset_name)
 
@@ -61,7 +62,8 @@ def plan_experiment_dataset(dataset_id: int,
         kwargs['plans_name'] = overwrite_plans_name
     if gpu_memory_target_in_gb is not None:
         kwargs['gpu_memory_target_in_gb'] = gpu_memory_target_in_gb
-
+    	
+    
     planner = experiment_planner_class(dataset_id,
                                        preprocessor_name=preprocess_class_name,
                                        overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
