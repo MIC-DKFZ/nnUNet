@@ -23,14 +23,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
-data
-/data
-data*
-*data
-*nnUNetTrainer_2epochs_TEST_FREDRIk__nnUNetPlans__3d_fullres_test
-nnUNetTrainer_2epochs_TEST_FREDRIk__nnUNetPlans__3d_fullres_test
-/nnUNetTrainer_2epochs_TEST_FREDRIk__nnUNetPlans__3d_fullres_test
-nnUNetTrainer_2epochs_TEST_FREDRIk__nnUNetPlans__3d_fullres_test/
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -121,3 +114,17 @@ ENV/
 *.model
 
 !documentation/assets/scribble_example.png
+
+
+data
+/data
+data*
+*data
+*pth
+pth
+checkpoint_best.pth
+checkpoint_final.pth
+nnUNetTrainer_2epochs_TEST_FREDRIk__nnUNetPlans__3d_fullres_test/
+*/nnUNetTrainer_*/ 
+nnUNetTrainer_*/   
+**/checkpoint_*.pth
