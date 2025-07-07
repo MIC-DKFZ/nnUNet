@@ -1,6 +1,6 @@
 # Ignore Label
 
-The pe label_ can be used to mark regions that should be ignored by nnU-Net. This can be used to 
+The _ignore label_ can be used to mark regions that should be ignored by nnU-Net. This can be used to 
 learn from images where only sparse annotations are available, for example in the form of scribbles or a limited 
 amount of annotated slices. Internally, this is accomplished by using partial losses, i.e. losses that are only 
 computed on annotated pixels while ignoring the rest. Take a look at our 
