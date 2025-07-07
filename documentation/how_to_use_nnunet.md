@@ -73,7 +73,7 @@ UNET_CONFIGURATION is a string that identifies the requested U-Net configuration
 3d_cascade_fullres). DATASET_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of 
 the 5-fold-cross-validation is trained.
 
-nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `-c` to the
+nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `--c` to the
 training command.
 
 IMPORTANT: If you plan to use `nnUNetv2_find_best_configuration` (see below) add the `--npz` flag. This makes 
