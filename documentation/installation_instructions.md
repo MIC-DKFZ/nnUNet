@@ -32,13 +32,13 @@ Example Server configuration for training:
 - RAM: 1 TB
 - Storage: local SSD storage (PCIe Gen 3 or better) or ultra fast network storage
 
-(nnU-net by default uses one GPU per training. The server configuration can run up to 8 model trainings simultaneously)
+(nnU-Net by default uses one GPU per training. The server configuration can run up to 8 model trainings simultaneously)
 
 ### Setting the correct number of Workers for data augmentation (training only)
 Note that you will need to manually set the number of processes nnU-Net uses for data augmentation according to your 
 CPU/GPU ratio. For the server above (256 threads for 8 GPUs), a good value would be 24-30. You can do this by 
 setting the `nnUNet_n_proc_DA` environment variable (`export nnUNet_n_proc_DA=XX`). 
-Recommended values (assuming a recent CPU with good IPC) are 10-12 for RTX 2080 ti, 12 for a RTX 3090, 16-18 for 
+Recommended values (assuming a recent CPU with good IPC) are 10-12 for RTX 2080 ti, 12 for an RTX 3090, 16-18 for 
 RTX 4090, 28-32 for A100. Optimal values may vary depending on the number of input channels/modalities and number of classes.
 
 # Installation instructions
@@ -54,27 +54,29 @@ install the latest version with support for your hardware (cuda, mps, cpu).
 **DO NOT JUST `pip install nnunetv2` WITHOUT PROPERLY INSTALLING PYTORCH FIRST**. For maximum speed, consider 
 [compiling pytorch yourself](https://github.com/pytorch/pytorch#from-source) (experienced users only!). 
 2) Install nnU-Net depending on your use case:
-    1) For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running 
-     **inference with pretrained models**:
+   1) For use as **standardized baseline**, **out-of-the-box segmentation algorithm** or for running 
+   **inference with pretrained models**:
 
-       ```pip install nnunetv2```
+      ```bash
+      pip install nnunetv2
+      ```
 
-    2) For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you
+   2) For use as integrative **framework** (this will create a copy of the nnU-Net code on your computer so that you
    can modify it as needed):
-          ```bash
-          git clone https://github.com/MIC-DKFZ/nnUNet.git
-          cd nnUNet
-          pip install -e .
-          ```
+      ```bash
+      git clone https://github.com/MIC-DKFZ/nnUNet.git
+      cd nnUNet
+      pip install -e .
+      ```
 3) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
    set a few environment variables. Please follow the instructions [here](setting_up_paths.md).
-4) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
+4) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-Net to generate
    plots of the network topologies it generates (see [Model training](how_to_use_nnunet.md#model-training)). 
 To install hiddenlayer,
    run the following command:
-    ```bash
-    pip install --upgrade git+https://github.com/FabianIsensee/hiddenlayer.git
-    ```
+   ```bash
+   pip install --upgrade git+https://github.com/FabianIsensee/hiddenlayer.git
+   ```
 
 Installing nnU-Net will add several new commands to your terminal. These commands are used to run the entire nnU-Net
 pipeline. You can execute them from any location on your system. All nnU-Net commands have the prefix `nnUNetv2_` for

@@ -16,7 +16,7 @@ connect images with the correct segmentation.
 A training case consists of images and their corresponding segmentation. 
 
 **Images** is plural because nnU-Net supports arbitrarily many input channels. In order to be as flexible as possible, 
-nnU-net requires each input channel to be stored in a separate image (with the sole exception being RGB natural 
+nnU-Net requires each input channel to be stored in a separate image (with the sole exception being RGB natural 
 images). So these images could for example be a T1 and a T2 MRI (or whatever else you want). The different input 
 channels MUST have the same geometry (same shape, spacing (if applicable) etc.) and
 must be co-registered (if applicable). Input channels are identified by nnU-Net by their FILE_ENDING: a four-digit integer at the end 
@@ -32,7 +32,7 @@ Exception are natural images (RGB; .png) where the three color channels can all 
 **Segmentations** must share the same geometry with their corresponding images (same shape etc.). Segmentations are 
 integer maps with each value representing a semantic class. The background must be 0. If there is no background, then 
 do not use the label 0 for something else! Integer values of your semantic classes must be consecutive (0, 1, 2, 3, 
-...). Of course, not all labels have to be present in each training case. Segmentations are saved as {CASE_IDENTIFER}.{FILE_ENDING} .
+...). Of course, not all labels have to be present in each training case. Segmentations are saved as {CASE_IDENTIFIER}.{FILE_ENDING} .
 
 Within a training case, all image geometries (input channels, corresponding segmentation) must match. Between training 
 cases, they can of course differ. nnU-Net takes care of that.
@@ -110,7 +110,7 @@ be a convenient location for you to store these images. Remnant of the Medical S
 - **dataset.json** contains metadata of the dataset.
 
 The scheme introduced [above](#what-do-training-cases-look-like) results in the following folder structure. Given 
-is an example for the first Dataset of the MSD: BrainTumour. This dataset hat four input channels: FLAIR (0000), 
+is an example for the first Dataset of the MSD: BrainTumour. This dataset has four input channels: FLAIR (0000), 
 T1w (0001), T1gd (0002) and T2w (0003). Note that the imagesTs folder is optional and does not have to be present.
 
     nnUNet_raw/Dataset001_BrainTumour/
@@ -179,7 +179,7 @@ Here is what the dataset.json should look like at the example of the Dataset005_
        "TZ": 2
      }, 
      "numTraining": 32, 
-     "file_ending": ".nii.gz"
+     "file_ending": ".nii.gz",
      "overwrite_image_reader_writer": "SimpleITKIO"  # optional! If not provided nnU-Net will automatically determine the ReaderWriter
      }
 
@@ -204,7 +204,7 @@ See our examples in [dataset_conversion](../nnunetv2/dataset_conversion) for how
 As described above, a json file that contains spacing information is required for TIFF files.
 An example for a 3D TIFF stack with units corresponding to 7.6 in x and y, 80 in z is:
 
-```
+```json
 {
     "spacing": [7.6, 7.6, 80.0]
 }

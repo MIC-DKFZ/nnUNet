@@ -7,7 +7,7 @@ Yannick Kirchhoff*, Ashis Ravindran*, Maximilian Rouven Rokuss, Benjamin Hamm, C
 # Introduction
 
 This document describes our contribution to [Task 2 of the FLARE24 Challenge](https://www.codabench.org/competitions/2320/).
-Our model is basically is a default nnU-Net with a custom low resolution setting and OpenVINO optimizations for faster CPU inference.
+Our model is basically a default nnU-Net with a custom low resolution setting and OpenVINO optimizations for faster CPU inference.
 
 # Experiment Planning and Preprocessing
 
@@ -95,7 +95,7 @@ Inference using the provided script requires OpenVINO, which can easily be insta
 pip install openvino
 ```
 
-To run inference simply run the following commands. `model_folder` is the folder containing the training results, i.e. for example `nnUNetTrainer__nnUNetPlans__3d_halfiso`. `-save_model` needs to be set to precompile the model once using OpenVINO. If not precompiled model exists, the inference script will fail!
+To run inference simply run the following commands. `model_folder` is the folder containing the training results, i.e. for example `nnUNetTrainer__nnUNetPlans__3d_halfiso`. `-save_model` needs to be set to precompile the model once using OpenVINO. If no precompiled model exists, the inference script will fail!
 
 ```bash
 python inference_flare_task1.py -i input_folder -o output_folder -m model_folder [-save_model]

@@ -38,7 +38,7 @@ Run the following commands:
 Please read the [information on how to modify plans files](../explanation_plans_files.md) first!!!
 
 
-It is easier to have everything in one plans file, so the first thing we do is transfer the ResEnc UNet to the 
+It is easier to have everything in one plans file, so the first thing we do is transfer the ResEnc U-Net to the 
 default plans file. We use the configuration inheritance feature of nnU-Net to make it use the same data as the 
 3d_fullres configuration.
 Add the following to the 'configurations' dict in 'nnUNetPlans.json':
@@ -110,8 +110,8 @@ Done!
 
 ## How to make predictions with pretrained weights
 Our final model is an ensemble of two configurations:
-- ResEnc UNet with batch size 80
-- ResEnc UNet with patch size 192x192x192 and batch size 24
+- ResEnc U-Net with batch size 80
+- ResEnc U-Net with patch size 192x192x192 and batch size 24
 
 To run inference with these models, do the following:
 

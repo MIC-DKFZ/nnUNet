@@ -10,11 +10,11 @@ When using these presets, please cite our recent paper on the need for rigorous 
 [PAPER LINK](https://arxiv.org/pdf/2404.09556.pdf)
 
 
-Residual Encoder UNets have been supported by nnU-Net since our participation in KiTS2019, but have flown under the radar.
+Residual Encoder U-Nets have been supported by nnU-Net since our participation in KiTS2019, but have flown under the radar.
 This is bound to change with our new nnUNetResEncUNet presets :raised_hands:! Especially on large datasets such as KiTS2023 and AMOS2022 
 they offer improved segmentation performance!
 
-|                        | BTCV  | ACDC  | LiTS  | BraTS | KiTS  | AMOS  |  VRAM |  RT | Arch. | nnU |
+|                        | BTCV  | ACDC  | LiTS  | BraTS | KiTS  | AMOS  | VRAM  |  RT | Arch. | nnU |
 |------------------------|-------|-------|-------|-------|-------|-------|-------|-----|-------|-----|
 |                        | n=30  | n=200 | n=131 | n=1251| n=489 | n=360 |       |     |       |     |
 | nnU-Net (org.) [1]     | 83.08 | 91.54 | 80.09 | 91.24 | 86.04 | 88.64 |  7.70 |  9  |  CNN  | Yes |
@@ -43,12 +43,12 @@ dataset. All models trained from scratch.
 RT: training run time (measured on 1x Nvidia A100 PCIe 40GB)\
 VRAM: GPU VRAM used during training, as reported by nvidia-smi\
 Arch.: CNN = convolutional neural network; TF = transformer; Mam = Mamba\
-nnU: whether the architectrue was integrated and tested with the nnU-Net framework (either by us or the original authors)
+nnU: whether the architecture was integrated and tested with the nnU-Net framework (either by us or the original authors)
 
 ## How to use the new presets
 
 We offer three new presets, each targeted for a different GPU VRAM and compute budget:
-- **nnU-Net ResEnc M**: similar GPU budget to the standard UNet configuration. Best suited for GPUs with 9-11GB VRAM. Training time: ~12h on A100
+- **nnU-Net ResEnc M**: similar GPU budget to the standard U-Net configuration. Best suited for GPUs with 9-11GB VRAM. Training time: ~12h on A100
 - **nnU-Net ResEnc L**: requires a GPU with 24GB VRAM. Training time: ~35h on A100
 - **nnU-Net ResEnc XL**: requires a GPU with 40GB VRAM. Training time: ~66h on A100
 
@@ -62,7 +62,7 @@ data folder as the standard 2d and 3d_fullres configurations since the preproces
 planning to run 3d_fullres/2d and you already have this data preprocessed, you can just run 
 `nnUNetv2_plan_experiment -d DATASET -pl nnUNetPlannerResEnc(M/L/XL)` to avoid preprocessing again! 
 2. Now, just specify the correct plans when running `nnUNetv2_train`, `nnUNetv2_predict` etc. The interface is 
-consistent across all nnU-Net commands: `-p nnUNetResEncUNet(M/L/XL)Plans`  
+consistent across all nnU-Net commands: `-p nnUNetResEncUNet(M/L/XL)Plans` 
 
 Training results for the new presets will be stored in a dedicated folder and will not overwrite standard nnU-Net 
 results! So don't be afraid to give it a go!
@@ -70,7 +70,7 @@ results! So don't be afraid to give it a go!
 ## Scaling ResEnc nnU-Net beyond the Presets
 The presets differ from `ResEncUNetPlanner` in two ways:
 - They set new default values for `gpu_memory_target_in_gb` to target the respective VRAM consumptions
-- They remove the batch size cap of 0.05 (= previously one batch could not cover mode pixels than 5% of the entire dataset, not it can be arbitrarily large)
+- They remove the batch size cap of 0.05 (= previously one batch could not cover mode pixels than 5% of the entire dataset, now it can be arbitrarily large)
 
 The presets are merely there to make life easier, and to provide standardized configurations people can benchmark with.
 You can easily adapt the GPU memory target to match your GPU, and to scale beyond 40GB of GPU memory. 
@@ -123,4 +123,3 @@ requirements of your method!
  [9] Myronenko, Andriy. "3D MRI brain tumor segmentation using autoencoder regularization." Brainlesion: Glioma, Multiple Sclerosis, Stroke and Traumatic Brain Injuries: 4th International Workshop, BrainLes 2018, Held in Conjunction with MICCAI 2018, Granada, Spain, September 16, 2018, Revised Selected Papers, Part II 4. Springer International Publishing, 2019.\
  [10] He, Yufan, et al. "Dints: Differentiable neural network topology search for 3d medical image segmentation." Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. 2021.\
  [11] Auto3DSeg, MONAI 1.3.0, [LINK](https://github.com/Project-MONAI/tutorials/tree/ed8854fa19faa49083f48abf25a2c30ab9ac1c6b/auto3dseg)
-

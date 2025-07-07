@@ -13,7 +13,7 @@ This document describes our submission to the [AortaSeg24 Challenge](https://aor
 Our model is essentially a nnU-Net ResEnc L with modified data augmentation. We disable left/right mirroring and use the heavy data augmentation [DA5 Trainer](../../nnunetv2/training/nnUNetTrainer/variants/data_augmentation/nnUNetTrainerDA5.py). Training was performed on an A100 40GB GPU.
 
 # Experiment Planning and Preprocessing
-After converting the data into the [nnUNet format](../../../nnUNet/documentation/dataset_format.md) (either keep and just rename the .mha files or convert them to .nii.gz), you can run the preprocessing:
+After converting the data into the [nnU-Net format](../../../nnUNet/documentation/dataset_format.md) (either keep and just rename the .mha files or convert them to .nii.gz), you can run the preprocessing:
 
 ```bash
 nnUNetv2_plan_and_preprocess -d 610 -c 3d_fullres -pl nnUNetPlannerResEncL -np 16
@@ -31,7 +31,7 @@ We recommend to increase the number of processes used for data augmentation. Oth
 Use `export nnUNet_n_proc_DA=32` or higher (if your system permits!).
 
 # Inference
-For inference you can use the default [nnUNet inference functionalities](../../../nnUNet/documentation/how_to_use_nnunet.md). Specifically, once the training is finished, run:
+For inference you can use the default [nnU-Net inference functionalities](../../../nnUNet/documentation/how_to_use_nnunet.md). Specifically, once the training is finished, run:
 
 ```bash
 nnUNetv2_predict_from_modelfolder -i INPUT_FOLDER -o OUTPUT_FOLDER -m MODEL_FOLDER -f all

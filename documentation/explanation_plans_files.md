@@ -4,7 +4,7 @@ nnU-Net provides unprecedented out-of-the-box segmentation performance for essen
 it on. That said, there is always room for improvements. A fool-proof strategy for squeezing out the last bit of 
 performance is to start with the default nnU-Net, and then further tune it manually to a concrete dataset at hand.
 **This guide is about changes to the nnU-Net configuration you can make via the plans files. It does not cover code 
-extensions of nnU-Net. For that, take a look [here](extending_nnunet.md)**
+extensions of nnU-Net. For that, take a look [here](extending_nnunet.md).**
 
 In nnU-Net V2, plans files are SO MUCH MORE powerful than they were in v1. There are a lot more knobs that you can 
 turn without resorting to hacky solutions or even having to touch the nnU-Net code at all! And as an added bonus: 
@@ -31,7 +31,7 @@ in nnunetv2.utilities.label_handling!
 - `transpose_forward`: nnU-Net transposes the input data so that the axes with the highest resolution (lowest spacing) 
 come last. This is because the 2D U-Net operates on the trailing dimensions (more efficient slicing due to internal 
 memory layout of arrays). Future work might move this setting to affect only individual configurations. 
-- transpose_backward is what numpy.transpose gets as new axis ordering.
+- `transpose_backward` is what numpy.transpose gets as new axis ordering.
 - `transpose_backward`: the axis ordering that inverts "transpose_forward"
 - \[`original_median_shape_after_transp`\]: just here for your information
 - \[`original_median_spacing_after_transp`\]: just here for your information
@@ -74,8 +74,8 @@ nnunetv2.preprocessing.resampling
 resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in 
 nnunetv2.preprocessing.resampling
 - `resampling_fn_seg_kwargs`: kwargs for resampling_fn_seg
-- `network_arch_class_name`: UNet class name, can be used to integrate custom dynamic architectures
-- `UNet_base_num_features`: The number of starting features for the UNet architecture. Default is 32. Default: Features
+- `network_arch_class_name`: U-Net class name, can be used to integrate custom dynamic architectures
+- `UNet_base_num_features`: The number of starting features for the U-Net architecture. Default is 32. Default: Features
 are doubled with each downsampling 
 - `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). The purpose is to 
 prevent parameters from exploding too much. 
@@ -120,15 +120,15 @@ No need to rerun `nnUNetv2_preprocess` because we can use already existing data 
 If you would like to use a different preprocessor class then this can be specified as follows:
 
     "configurations": {
-      "3d_fullres_my_preprocesor": {
+      "3d_fullres_my_preprocessor": {
         "inherits_from": "3d_fullres",
         "preprocessor_name": MY_PREPROCESSOR,
-        "data_identifier": "3d_fullres_my_preprocesor"
+        "data_identifier": "3d_fullres_my_preprocessor"
       }
     }
 
 You need to run preprocessing for this new configuration: 
-`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_preprocesor` because it changes the preprocessing. Remember to 
+`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_preprocessor` because it changes the preprocessing. Remember to 
 set a unique `data_identifier` whenever you make modifications to the preprocessed data!
 
 ## Change target spacing
@@ -163,7 +163,7 @@ This is how this would look like (comparisons with 3d_fullres given as reference
     "configurations": {
       "3d_lowres": {
         "inherits_from": "3d_fullres",
-        "data_identifier": "3d_lowres"
+        "data_identifier": "3d_lowres",
         "spacing": [2.0, 2.0, 2.0], # from [1.0, 1.0, 1.0] in 3d_fullres
         "median_image_size_in_voxels": [18, 25, 18], # from [36, 50, 35]
         "patch_size": [20, 28, 20], # from [40, 56, 40]

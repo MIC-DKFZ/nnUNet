@@ -77,6 +77,6 @@ Specify the checkpoint in PATH_TO_CHECKPOINT.
 
 When loading pretrained weights, all layers except the segmentation layers will be used! 
 
-So far there are no specific nnUNet trainers for fine tuning, so the current recommendation is to just use 
+So far there are no specific nnU-Net trainers for fine tuning, so the current recommendation is to just use 
 nnUNetTrainer. You can however easily write your own trainers with learning rate ramp up, fine-tuning of segmentation 
 heads or shorter training time.
