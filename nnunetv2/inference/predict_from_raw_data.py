@@ -31,7 +31,8 @@ from nnunetv2.utilities.file_path_utilities import get_output_folder, check_work
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, \
+    convert_labelmap_to_one_hot
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
@@ -746,6 +747,7 @@ class nnUNetPredictor(object):
                 self.configuration_manager,
                 self.dataset_json
             )
+            if folder_with_segs_from_prev_stage is not None:
 
             print(f'perform_everything_on_device: {self.perform_everything_on_device}')
 
