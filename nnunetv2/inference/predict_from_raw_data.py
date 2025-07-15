@@ -748,6 +748,8 @@ class nnUNetPredictor(object):
                 self.dataset_json
             )
             if folder_with_segs_from_prev_stage is not None:
+                seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
+                data = np.vstack((data, seg_onehot))
 
             print(f'perform_everything_on_device: {self.perform_everything_on_device}')
 
