@@ -153,7 +153,7 @@ explicitly tell nnU-Net to use it.
 - checkpoint_final.pth: checkpoint file of the final model (after training has ended). This is what is used for both 
 validation and inference.
 - network_architecture.pdf (only if hiddenlayer is installed!): a pdf document with a figure of the network architecture in it.
-- progress.png: Shows losses, pseudo dice, learning rate and epoch times ofer the course of the training. At the top is 
+- progress.png: Shows losses, pseudo dice, learning rate and epoch times over the course of the training. At the top is 
 a plot of the training (blue) and validation (red) loss during training. Also shows an approximation of
   the dice (green) as well as a moving average of it (dotted green line). This approximation is the average Dice score 
   of the foreground classes. **It needs to be taken with a big (!) 
