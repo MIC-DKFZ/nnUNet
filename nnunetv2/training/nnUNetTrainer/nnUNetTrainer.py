@@ -675,7 +675,7 @@ class nnUNetTrainer(object):
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
-            ignore_label=self.label_manager.ignore_label)
+            ignore_label=self.label_manager.ignore_label, deterministic=self.deterministic)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
@@ -757,6 +757,7 @@ class nnUNetTrainer(object):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
+            deterministic: bool = False
     ) -> BasicTransform:
         transforms = []
         if do_dummy_2d_data_aug:
@@ -778,6 +779,11 @@ class nnUNetTrainer(object):
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
 
+        if deterministic : 
+            benchmark = False
+        else:
+            benchmark = True
+            
         transforms.append(RandomTransform(
             GaussianNoiseTransform(
                 noise_variance=(0, 0.1),
@@ -790,7 +796,7 @@ class nnUNetTrainer(object):
                 blur_sigma=(0.5, 1.),
                 synchronize_channels=False,
                 synchronize_axes=False,
-                p_per_channel=0.5, benchmark=False
+                p_per_channel=0.5, benchmark=benchmark
             ), apply_probability=0.2
         ))
         transforms.append(RandomTransform(
