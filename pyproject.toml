@@ -1,8 +1,8 @@
 [project]
-name = "nnunetv2"
+name = "nnunetv2-neuropoly"
 version = "2.6.2"
 requires-python = ">=3.10"
-description = "nnU-Net is a framework for out-of-the box image segmentation."
+description = "NeuroPoly fork of nnU-Net"
 readme = "readme.md"
 license = { file = "LICENSE" }
 authors = [
