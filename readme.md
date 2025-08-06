@@ -1,3 +1,11 @@
+# NeuroPoly Fork of nnU-Net
+
+This project is a minor fork of the original nnU-Net project, with small fixes to improve compatibility with various Python dependencies, OS versions, and trained model versions.
+
+The existing readme from the original nnU-Net project is preserved below.
+
+----
+
 # Welcome to the new nnU-Net!
 
 Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looking for the old one instead.
