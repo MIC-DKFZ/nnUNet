@@ -96,11 +96,14 @@ class nnUNetTrainer(object):
         # print what device we are using
         if self.is_ddp:  # implicitly it's clear that we use cuda in this case
             assert device.type == 'cuda', f'DDP only works with CUDA devices. You have {device.type}'
-            self.device = torch.device(type='cuda', index=self.local_rank)
-            torch.cuda.set_device(self.device)
+
             self.local_rank = int(os.environ["LOCAL_RANK"])
             self.global_rank = int(os.environ["RANK"])
             self.world_size = int(os.environ['WORLD_SIZE'])
+
+            self.device = torch.device(type='cuda', index=self.local_rank)
+            torch.cuda.set_device(self.device)
+
             print(f"The world size is {self.world_size}. I am global rank {self.global_rank}."
                   f"I am local rank {self.local_rank}. {device_count()} GPUs are available."
                   f"Setting device to {self.device}")
@@ -109,7 +112,9 @@ class nnUNetTrainer(object):
                 # we still prefer people use CUDA_VISIBLE_DEVICES=X
                 torch.cuda.set_device(device)
             self.device = device
+
             print(f"Using device: {self.device}")
+
             self.local_rank = 0
             self.global_rank = 0
             self.world_size = 1
@@ -241,7 +246,7 @@ class nnUNetTrainer(object):
             # this might mess with checkpointing etc because _orig_mod is located in a different position. Will need to test this.
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
-                self.network = torch.compile(self.network, fullgraph=True)
+                self.network = torch.compile(self.network)
 
             self.loss = self._build_loss()
 
@@ -423,7 +428,7 @@ class nnUNetTrainer(object):
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
             weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
-            if self.is_ddp and not self._do_i_compile():
+            if self.is_ddp:
                 # very strange and stupid interaction. DDP crashes and complains about unused parameters due to
                 # weights[-1] = 0. Interestingly this crash doesn't happen with torch.compile enabled. Strange stuff.
                 # Anywho, the simple fix is to set a very low weight to this.
