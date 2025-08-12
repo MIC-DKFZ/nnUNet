@@ -14,6 +14,7 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from torch.backends import cudnn
+import torch
 
 
 def find_free_network_port() -> int:
@@ -37,14 +38,14 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           device: torch.device = torch.device('cuda')):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
-                                                trainer_name, 'nnunetv2.training.nnUNetTrainer')
+                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
     if nnunet_trainer is None:
         raise RuntimeError(f'Could not find requested nnunet trainer {trainer_name} in '
                            f'nnunetv2.training.nnUNetTrainer ('
                            f'{join(nnunetv2.__path__[0], "training", "nnUNetTrainer")}). If it is located somewhere '
                            f'else, please move it there.')
     assert issubclass(nnunet_trainer, nnUNetTrainer), 'The requested nnunet trainer class must inherit from ' \
-                                                    'nnUNetTrainer'
+                                                      'nnUNetTrainer'
 
     # handle dataset input. If it's an ID we need to convert to int from string
     if dataset_name_or_id.startswith('Dataset'):
@@ -81,7 +82,7 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
             expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
         if not isfile(expected_checkpoint_file):
             print(f"WARNING: Cannot continue training because there seems to be no checkpoint available to "
-                               f"continue from. Starting a new training...")
+                  f"continue from. Starting a new training...")
             expected_checkpoint_file = None
     elif validation_only:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
@@ -98,40 +99,40 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         nnunet_trainer.load_checkpoint(expected_checkpoint_file)
 
 
-def setup_ddp(rank, world_size):
-    # initialize the process group
+def run_intranode_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkpointing, c, val,
+                      pretrained_weights, npz, val_with_best, world_size):
+    # Emulate torchrun environment variables for non-torchrun launches
+    os.environ["RANK"] = str(rank)
+    os.environ["WORLD_SIZE"] = str(world_size)
+    os.environ["LOCAL_RANK"] = str(rank)  # single-node, so local_rank == rank
+
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
+    try:
+        torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
 
-def cleanup_ddp():
-    dist.destroy_process_group()
+        nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p)
 
+        if disable_checkpointing:
+            nnunet_trainer.disable_checkpointing = disable_checkpointing
 
-def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkpointing, c, val,
-            pretrained_weights, npz, val_with_best, world_size):
-    setup_ddp(rank, world_size)
-    torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
+        assert not (c and val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
-    nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p)
+        maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights)
 
-    if disable_checkpointing:
-        nnunet_trainer.disable_checkpointing = disable_checkpointing
+        if torch.cuda.is_available():
+            cudnn.deterministic = False
+            cudnn.benchmark = True
 
-    assert not (c and val), f'Cannot set --c and --val flag at the same time. Dummy.'
+        if not val:
+            nnunet_trainer.run_training()
 
-    maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights)
-
-    if torch.cuda.is_available():
-        cudnn.deterministic = False
-        cudnn.benchmark = True
-
-    if not val:
-        nnunet_trainer.run_training()
-
-    if val_with_best:
-        nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
-    nnunet_trainer.perform_actual_validation(npz)
-    cleanup_ddp()
+        if val_with_best:
+            nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
+        nnunet_trainer.perform_actual_validation(npz)
+    finally:
+        if dist.is_initialized():
+            dist.destroy_process_group()
 
 
 def run_training(dataset_name_or_id: Union[str, int],
@@ -163,7 +164,45 @@ def run_training(dataset_name_or_id: Union[str, int],
     if val_with_best:
         assert not disable_checkpointing, '--val_best is not compatible with --disable_checkpointing'
 
-    if num_gpus > 1:
+    # detect if launched with torchrun
+    launched_with_torchrun = "RANK" in os.environ and "WORLD_SIZE" in os.environ
+
+    if launched_with_torchrun or num_gpus == 1:
+        if launched_with_torchrun:
+            assert device.type == 'cuda', f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
+            assert num_gpus == 1, "When using torchrun, do not pass -num_gpus (torchrun controls processes/GPUs)."
+            local_rank = int(os.environ["LOCAL_RANK"])
+            device = torch.device('cuda', local_rank)
+            torch.cuda.set_device(device)
+            dist.init_process_group(backend='nccl', init_method='env://')
+            print(f"Torchrun active. [rank {os.environ['RANK']}] using cuda:{local_rank}")
+
+        try:
+            nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
+                                                   plans_identifier, device=device)
+
+            if disable_checkpointing:
+                nnunet_trainer.disable_checkpointing = disable_checkpointing
+
+            assert not (continue_training and only_run_validation), f'Cannot set --c and --val flag at the same time. Dummy.'
+
+            maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, pretrained_weights)
+
+            if torch.cuda.is_available():
+                cudnn.deterministic = False
+                cudnn.benchmark = True
+
+            if not only_run_validation:
+                nnunet_trainer.run_training()
+
+            if val_with_best:
+                nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
+            nnunet_trainer.perform_actual_validation(export_validation_probabilities)
+
+        finally:
+            if dist.is_initialized():
+                dist.destroy_process_group()
+    elif num_gpus > 1:
         assert device.type == 'cuda', f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
 
         os.environ['MASTER_ADDR'] = 'localhost'
@@ -172,7 +211,7 @@ def run_training(dataset_name_or_id: Union[str, int],
             print(f"using port {port}")
             os.environ['MASTER_PORT'] = port  # str(port)
 
-        mp.spawn(run_ddp,
+        mp.spawn(run_intranode_ddp,
                  args=(
                      dataset_name_or_id,
                      configuration,
@@ -188,28 +227,6 @@ def run_training(dataset_name_or_id: Union[str, int],
                      num_gpus),
                  nprocs=num_gpus,
                  join=True)
-    else:
-        nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
-                                               plans_identifier, device=device)
-
-        if disable_checkpointing:
-            nnunet_trainer.disable_checkpointing = disable_checkpointing
-
-        assert not (continue_training and only_run_validation), f'Cannot set --c and --val flag at the same time. Dummy.'
-
-        maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, pretrained_weights)
-
-        if torch.cuda.is_available():
-            cudnn.deterministic = False
-            cudnn.benchmark = True
-
-        if not only_run_validation:
-            nnunet_trainer.run_training()
-
-        if val_with_best:
-            nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
-        nnunet_trainer.perform_actual_validation(export_validation_probabilities)
-
 
 def run_training_entry():
     import argparse
@@ -245,9 +262,9 @@ def run_training_entry():
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Use this to set the device the training should run with. Available options are 'cuda' "
-                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
-                         "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
+                        help="Use this to set the device the training should run with. Available options are 'cuda' "
+                             "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                             "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
     args = parser.parse_args()
 
     assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'

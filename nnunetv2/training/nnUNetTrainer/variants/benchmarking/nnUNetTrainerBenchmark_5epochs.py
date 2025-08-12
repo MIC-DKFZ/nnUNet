@@ -34,7 +34,7 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
     def on_train_end(self):
         super().on_train_end()
 
-        if not self.is_ddp or self.local_rank == 0:
+        if self.global_rank == 0:
             torch_version = torch.__version__
             cudnn_version = torch.backends.cudnn.version()
             gpu_name = torch.cuda.get_device_name()
@@ -44,11 +44,6 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
                 epoch_times = [i - j for i, j in zip(self.logger.my_fantastic_logging['epoch_end_timestamps'],
                                                      self.logger.my_fantastic_logging['epoch_start_timestamps'])]
                 fastest_epoch = min(epoch_times)
-
-            if self.is_ddp:
-                num_gpus = dist.get_world_size()
-            else:
-                num_gpus = 1
 
             benchmark_result_file = join(self.output_folder, 'benchmark_result.json')
             if isfile(benchmark_result_file):
@@ -63,7 +58,7 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
                 'cudnn_version': cudnn_version,
                 'gpu_name': gpu_name,
                 'fastest_epoch': fastest_epoch,
-                'num_gpus': num_gpus,
+                'world_size': self.world_size,
                 'hostname': hostname
             }
             save_json(old_results,

@@ -28,24 +28,20 @@ class nnUNetTrainer_probabilisticOversampling(nnUNetTrainer):
             self.batch_size = self.configuration_manager.batch_size
         else:
             # batch size is distributed over DDP workers and we need to change oversample_percent for each worker
-
-            world_size = dist.get_world_size()
-            my_rank = dist.get_rank()
-
             global_batch_size = self.configuration_manager.batch_size
-            assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
+            assert global_batch_size >= self.world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
                                                     'GPUs... Duh.'
 
-            batch_size_per_GPU = [global_batch_size // world_size] * world_size
+            batch_size_per_GPU = [global_batch_size // self.world_size] * self.world_size
             batch_size_per_GPU = [batch_size_per_GPU[i] + 1
-                                  if (batch_size_per_GPU[i] * world_size + i) < global_batch_size
+                                  if (batch_size_per_GPU[i] * self.world_size + i) < global_batch_size
                                   else batch_size_per_GPU[i]
                                   for i in range(len(batch_size_per_GPU))]
             assert sum(batch_size_per_GPU) == global_batch_size
-            print("worker", my_rank, "batch_size", batch_size_per_GPU[my_rank])
-            print("worker", my_rank, "oversample", self.oversample_foreground_percent)
+            print("global rank", self.global_rank, "batch_size", batch_size_per_GPU[self.global_rank])
+            print("global rank", self.global_rank, "oversample", self.oversample_foreground_percent)
 
-            self.batch_size = batch_size_per_GPU[my_rank]
+            self.batch_size = batch_size_per_GPU[self.global_rank]
 
 
 class nnUNetTrainer_probabilisticOversampling_033(nnUNetTrainer_probabilisticOversampling):
