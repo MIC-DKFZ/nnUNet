@@ -2,6 +2,7 @@ import inspect
 import multiprocessing
 import os
 import shutil
+import signal
 import sys
 import warnings
 from copy import deepcopy
@@ -211,6 +212,10 @@ class nnUNetTrainer(object):
                                "Nature methods, 18(2), 203-211.\n"
                                "#######################################################################\n",
                                also_print_to_console=True, add_timestamp=False)
+
+        # used to detect if we have received a termination signal because the cluster job is running into timeout -> triggers graceful axit during training
+        self.exit_training_flag = False
+        signal.signal(signal.SIGUSR1, self.exit_training)
 
     def initialize(self):
         if not self.was_initialized:
@@ -1150,8 +1155,8 @@ class nnUNetTrainer(object):
             f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 
         # handling periodic checkpointing
-        current_epoch = self.current_epoch
-        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+        save_latest_checkpoint = (self.current_epoch + 1) % self.save_every == 0 and self.current_epoch != (self.num_epochs - 1)
+        if save_latest_checkpoint:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
@@ -1162,6 +1167,15 @@ class nnUNetTrainer(object):
 
         if self.global_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
+
+        if self.exit_training_flag:
+            self.print_to_log_file("Epoch ended and termination signal received. Let's exit gracefully.")
+            if not save_latest_checkpoint:
+                self.print_to_log_file("Saving latest checkpoint...")
+                self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
+            self.print_to_log_file("Now lets raise the keyboard into the sky and interrupt this madness. Expecting "
+                                   "either the user or an automated script to continue this training.")
+            raise KeyboardInterrupt
 
         self.current_epoch += 1
 
@@ -1404,3 +1418,7 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()
+
+    def exit_training(self, *args, **kwargs):
+        self.print_to_log_file("Received exit signal. Terminating after finishing epoch.")
+        self.exit_training_flag = True
