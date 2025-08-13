@@ -176,41 +176,7 @@ performing as expected.
 
 ### Using multiple GPUs for training
 
-If multiple GPUs are at your disposal, the best way of using them is to train multiple nnU-Net trainings at once, one 
-on each GPU. This is because data parallelism never scales perfectly linearly, especially not with small networks such 
-as the ones used by nnU-Net.
-
-Example:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 nnUNetv2_train DATASET_NAME_OR_ID 2d 0 [--npz] & # train on GPU 0
-CUDA_VISIBLE_DEVICES=1 nnUNetv2_train DATASET_NAME_OR_ID 2d 1 [--npz] & # train on GPU 1
-CUDA_VISIBLE_DEVICES=2 nnUNetv2_train DATASET_NAME_OR_ID 2d 2 [--npz] & # train on GPU 2
-CUDA_VISIBLE_DEVICES=3 nnUNetv2_train DATASET_NAME_OR_ID 2d 3 [--npz] & # train on GPU 3
-CUDA_VISIBLE_DEVICES=4 nnUNetv2_train DATASET_NAME_OR_ID 2d 4 [--npz] & # train on GPU 4
-...
-wait
-```
-
-**Important: The first time a training is run nnU-Net will extract the preprocessed data into uncompressed numpy 
-arrays for speed reasons! This operation must be completed before starting more than one training of the same 
-configuration! Wait with starting subsequent folds until the first training is using the GPU! Depending on the 
-dataset size and your System this should only take a couple of minutes at most.**
-
-If you insist on running DDP multi-GPU training, we got you covered:
-
-`nnUNetv2_train DATASET_NAME_OR_ID 2d 0 [--npz] -num_gpus X`
-
-Again, note that this will be slower than running separate training on separate GPUs. DDP only makes sense if you have 
-manually interfered with the nnU-Net configuration and are training larger models with larger patch and/or batch sizes!
-
-Important when using `-num_gpus`:
-1) If you train using, say, 2 GPUs but have more GPUs in the system you need to specify which GPUs should be used via 
-CUDA_VISIBLE_DEVICES=0,1 (or whatever your ids are).
-2) You cannot specify more GPUs than you have samples in your minibatches. If the batch size is 2, 2 GPUs is the maximum!
-3) Make sure your batch size is divisible by the numbers of GPUs you use or you will not make good use of your hardware.
-
-In contrast to the old nnU-Net, DDP is now completely hassle free. Enjoy!
+See [here](multi_gpu_training.md)
 
 ### Automatically determine the best configuration
 Once the desired configurations were trained (full cross-validation) you can tell nnU-Net to automatically identify 
