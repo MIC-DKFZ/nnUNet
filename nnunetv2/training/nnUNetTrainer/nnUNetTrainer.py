@@ -1175,7 +1175,7 @@ class nnUNetTrainer(object):
                 self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
             self.print_to_log_file("Now lets raise the keyboard into the sky and interrupt this madness. Expecting "
                                    "either the user or an automated script to continue this training.")
-            raise KeyboardInterrupt
+            sys.exit(0)
 
         self.current_epoch += 1
 
