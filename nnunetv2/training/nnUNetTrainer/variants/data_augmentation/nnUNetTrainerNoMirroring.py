@@ -53,9 +53,9 @@ class nnUNetTrainer_onlyMirror01(nnUNetTrainer):
 
 
 class nnUNetTrainer_onlyMirror01_1500ep(nnUNetTrainer_onlyMirror01):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.num_epochs = 1500
 
 

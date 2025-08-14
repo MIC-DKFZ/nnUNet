@@ -40,7 +40,7 @@ from torch import autocast, nn
 from torch import distributed as dist
 from torch._dynamo import OptimizedModule
 from torch.cuda import device_count
-from torch.cuda.amp import GradScaler
+from torch import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
@@ -50,10 +50,8 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
-from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
-from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
-from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
+from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
+from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
@@ -70,7 +68,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
 class nnUNetTrainer(object):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
@@ -119,7 +117,6 @@ class nnUNetTrainer(object):
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
-        self.unpack_dataset = unpack_dataset
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -132,6 +129,7 @@ class nnUNetTrainer(object):
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
                                                 self.configuration_manager.data_identifier)
+        self.dataset_class = None  # -> initialize
         # unlike the previous nnunet folder_with_segs_from_previous_stage is now part of the plans. For now it has to
         # be a different configuration in the same plans
         # IMPORTANT! the mapping must be bijective, so lowres must point to fullres and vice versa (using
@@ -147,6 +145,7 @@ class nnUNetTrainer(object):
         self.initial_lr = 1e-2
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
+        self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
@@ -161,7 +160,7 @@ class nnUNetTrainer(object):
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self.build_network_architecture()
         self.optimizer = self.lr_scheduler = None  # -> self.initialize
-        self.grad_scaler = GradScaler() if self.device.type == 'cuda' else None
+        self.grad_scaler = GradScaler("cuda") if self.device.type == 'cuda' else None
         self.loss = None  # -> self.initialize
 
         ### Simple logging. Don't take that away from me!
@@ -188,10 +187,6 @@ class nnUNetTrainer(object):
         self.save_every = 50
         self.disable_checkpointing = False
 
-        ## DDP batch size and oversampling can differ between workers and needs adaptation
-        # we need to change the batch size in DDP because we don't use any of those distributed samplers
-        self._set_batch_size_and_oversample()
-
         self.was_initialized = False
 
         self.print_to_log_file("\n#######################################################################\n"
@@ -204,6 +199,10 @@ class nnUNetTrainer(object):
 
     def initialize(self):
         if not self.was_initialized:
+            ## DDP batch size and oversampling can differ between workers and needs adaptation
+            # we need to change the batch size in DDP because we don't use any of those distributed samplers
+            self._set_batch_size_and_oversample()
+
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
 
@@ -227,6 +226,9 @@ class nnUNetTrainer(object):
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
+
+            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
             # torch 2.2.2 crashes upon compiling CE loss
             # if self._do_i_compile():
             #     self.loss = torch.compile(self.loss)
@@ -557,20 +559,23 @@ class nnUNetTrainer(object):
         use a random 80:20 data split.
         :return:
         """
+        if self.dataset_class is None:
+            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
         if self.fold == "all":
             # if fold==all then we use all images for training and validation
-            case_identifiers = get_case_identifiers(self.preprocessed_dataset_folder)
+            case_identifiers = self.dataset_class.get_identifiers(self.preprocessed_dataset_folder)
             tr_keys = case_identifiers
             val_keys = tr_keys
         else:
             splits_file = join(self.preprocessed_dataset_folder_base, "splits_final.json")
-            dataset = nnUNetDataset(self.preprocessed_dataset_folder, case_identifiers=None,
-                                    num_images_properties_loading_threshold=0,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+            dataset = self.dataset_class(self.preprocessed_dataset_folder,
+                                         identifiers=None,
+                                         folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
             # if the split file does not exist we need to create it
             if not isfile(splits_file):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
-                all_keys_sorted = list(np.sort(list(dataset.keys())))
+                all_keys_sorted = list(np.sort(list(dataset.identifiers)))
                 splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
                 save_json(splits, splits_file)
 
@@ -591,7 +596,7 @@ class nnUNetTrainer(object):
                                        "random (but seeded) 80:20 split!" % (self.fold, len(splits)))
                 # if we request a fold that is not in the split file, create a random 80:20 split
                 rnd = np.random.RandomState(seed=12345 + self.fold)
-                keys = np.sort(list(dataset.keys()))
+                keys = np.sort(list(dataset.identifiers))
                 idx_tr = rnd.choice(len(keys), int(len(keys) * 0.8), replace=False)
                 idx_val = [i for i in range(len(keys)) if i not in idx_tr]
                 tr_keys = [keys[i] for i in idx_tr]
@@ -609,21 +614,22 @@ class nnUNetTrainer(object):
 
         # load the datasets for training and validation. Note that we always draw random samples so we really don't
         # care about distributing training cases across GPUs.
-        dataset_tr = nnUNetDataset(self.preprocessed_dataset_folder, tr_keys,
-                                   folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                   num_images_properties_loading_threshold=0)
-        dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                    folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                    num_images_properties_loading_threshold=0)
+        dataset_tr = self.dataset_class(self.preprocessed_dataset_folder, tr_keys,
+                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+        dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
+                                         folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
+        if self.dataset_class is None:
+            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+
+        # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
+        # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-
         deep_supervision_scales = self._get_deep_supervision_scales()
 
         (
@@ -651,32 +657,20 @@ class nnUNetTrainer(object):
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
-        if dim == 2:
-            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
-                                       initial_patch_size,
-                                       self.configuration_manager.patch_size,
-                                       self.label_manager,
-                                       oversample_foreground_percent=self.oversample_foreground_percent,
-                                       sampling_probabilities=None, pad_sides=None, transforms=tr_transforms)
-            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.label_manager,
-                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                        sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
-        else:
-            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
-                                       initial_patch_size,
-                                       self.configuration_manager.patch_size,
-                                       self.label_manager,
-                                       oversample_foreground_percent=self.oversample_foreground_percent,
-                                       sampling_probabilities=None, pad_sides=None, transforms=tr_transforms)
-            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.label_manager,
-                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                        sampling_probabilities=None, pad_sides=None, transforms=val_transforms)
+        dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
+                                 initial_patch_size,
+                                 self.configuration_manager.patch_size,
+                                 self.label_manager,
+                                 oversample_foreground_percent=self.oversample_foreground_percent,
+                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                 probabilistic_oversampling=self.probabilistic_oversampling)
+        dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
+                                  self.configuration_manager.patch_size,
+                                  self.configuration_manager.patch_size,
+                                  self.label_manager,
+                                  oversample_foreground_percent=self.oversample_foreground_percent,
+                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                  probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
@@ -898,12 +892,12 @@ class nnUNetTrainer(object):
         mod.decoder.deep_supervision = enabled
 
     def on_train_start(self):
+        if not self.was_initialized:
+            self.initialize()
+
         # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
         # which may not be present  when doing inference
         self.dataloader_train, self.dataloader_val = self.get_dataloaders()
-
-        if not self.was_initialized:
-            self.initialize()
 
         maybe_mkdir_p(self.output_folder)
 
@@ -914,11 +908,12 @@ class nnUNetTrainer(object):
         empty_cache(self.device)
 
         # maybe unpack
-        if self.unpack_dataset and self.local_rank == 0:
-            self.print_to_log_file('unpacking dataset...')
-            unpack_dataset(self.preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
-                           num_processes=max(1, round(get_allowed_n_proc_DA() // 2)), verify_npy=True)
-            self.print_to_log_file('unpacking done...')
+        if self.local_rank == 0:
+            self.dataset_class.unpack_dataset(
+                self.preprocessed_dataset_folder,
+                overwrite_existing=False,
+                num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
+                verify=True)
 
         if self.is_ddp:
             dist.barrier()
@@ -1181,7 +1176,7 @@ class nnUNetTrainer(object):
             self.initialize()
 
         if isinstance(filename_or_checkpoint, str):
-            checkpoint = torch.load(filename_or_checkpoint, map_location=self.device)
+            checkpoint = torch.load(filename_or_checkpoint, map_location=self.device, weights_only=False)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
@@ -1250,9 +1245,8 @@ class nnUNetTrainer(object):
                 # we cannot just have barriers all over the place because the number of keys each GPU receives can be
                 # different
 
-            dataset_val = nnUNetDataset(self.preprocessed_dataset_folder, val_keys,
-                                        folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
-                                        num_images_properties_loading_threshold=0)
+            dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
+                                             folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
 
             next_stages = self.configuration_manager.next_stage_names
 
@@ -1261,7 +1255,7 @@ class nnUNetTrainer(object):
 
             results = []
 
-            for i, k in enumerate(dataset_val.keys()):
+            for i, k in enumerate(dataset_val.identifiers):
                 proceed = not check_workers_alive_and_busy(segmentation_export_pool, worker_list, results,
                                                            allowed_num_queued=2)
                 while not proceed:
@@ -1270,10 +1264,14 @@ class nnUNetTrainer(object):
                                                                allowed_num_queued=2)
 
                 self.print_to_log_file(f"predicting {k}")
-                data, seg, properties = dataset_val.load_case(k)
+                data, _, seg_prev, properties = dataset_val.load_case(k)
+
+                # we do [:] to convert blosc2 to numpy
+                data = data[:]
 
                 if self.is_cascaded:
-                    data = np.vstack((data, convert_labelmap_to_one_hot(seg[-1], self.label_manager.foreground_labels,
+                    seg_prev = seg_prev[:]
+                    data = np.vstack((data, convert_labelmap_to_one_hot(seg_prev, self.label_manager.foreground_labels,
                                                                         output_dtype=data.dtype)))
                 with warnings.catch_warnings():
                     # ignore 'The given NumPy array is not writable' warning
@@ -1296,8 +1294,8 @@ class nnUNetTrainer(object):
                     )
                 )
                 # for debug purposes
-                # export_prediction(prediction_for_export, properties, self.configuration, self.plans, self.dataset_json,
-                #              output_filename_truncated, save_probabilities)
+                # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
+                #      self.dataset_json, output_filename_truncated, save_probabilities)
 
                 # if needed, export the softmax prediction for the next stage
                 if next_stages is not None:
@@ -1305,12 +1303,13 @@ class nnUNetTrainer(object):
                         next_stage_config_manager = self.plans_manager.get_configuration(n)
                         expected_preprocessed_folder = join(nnUNet_preprocessed, self.plans_manager.dataset_name,
                                                             next_stage_config_manager.data_identifier)
+                        # next stage may have a different dataset class, do not use self.dataset_class
+                        dataset_class = infer_dataset_class(expected_preprocessed_folder)
 
                         try:
                             # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
-                            tmp = nnUNetDataset(expected_preprocessed_folder, [k],
-                                                num_images_properties_loading_threshold=0)
-                            d, s, p = tmp.load_case(k)
+                            tmp = dataset_class(expected_preprocessed_folder, [k])
+                            d, _, _, _ = tmp.load_case(k)
                         except FileNotFoundError:
                             self.print_to_log_file(
                                 f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! "
@@ -1319,16 +1318,18 @@ class nnUNetTrainer(object):
 
                         target_shape = d.shape[1:]
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
-                        output_file = join(output_folder, k + '.npz')
+                        output_file_truncated = join(output_folder, k)
 
                         # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
                         #                   self.dataset_json)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
-                                (prediction, target_shape, output_file, self.plans_manager,
+                                (prediction, target_shape, output_file_truncated, self.plans_manager,
                                  self.configuration_manager,
                                  properties,
-                                 self.dataset_json),
+                                 self.dataset_json,
+                                 default_num_processes,
+                                 dataset_class),
                             )
                         ))
                 # if we don't barrier from time to time we will get nccl timeouts for large datasets. Yuck.

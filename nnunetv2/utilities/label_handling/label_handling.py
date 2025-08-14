@@ -4,7 +4,7 @@ from typing import Union, List, Tuple, Type
 
 import numpy as np
 import torch
-from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
+from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, insert_crop_into_image
 from batchgenerators.utilities.file_and_folder_operations import join
 
 import nnunetv2
@@ -140,6 +140,7 @@ class LabelManager(object):
 
         return probabilities
 
+    @torch.inference_mode()
     def convert_probabilities_to_segmentation(self, predicted_probabilities: Union[np.ndarray, torch.Tensor]) -> \
             Union[np.ndarray, torch.Tensor]:
         """
@@ -170,14 +171,25 @@ class LabelManager(object):
             for i, c in enumerate(self.regions_class_order):
                 segmentation[predicted_probabilities[i] > 0.5] = c
         else:
+            # numpy is faster than torch. :facepalm:
+            is_numpy = isinstance(predicted_probabilities, np.ndarray)
+            if not is_numpy:
+                predicted_probabilities = predicted_probabilities.numpy()
             segmentation = predicted_probabilities.argmax(0)
+            if not is_numpy:
+                segmentation = torch.from_numpy(segmentation)
 
         return segmentation
 
+    @torch.inference_mode()
     def convert_logits_to_segmentation(self, predicted_logits: Union[np.ndarray, torch.Tensor]) -> \
             Union[np.ndarray, torch.Tensor]:
         input_is_numpy = isinstance(predicted_logits, np.ndarray)
-        probabilities = self.apply_inference_nonlin(predicted_logits)
+        # we can skip this step if we do not have region. Argmax is the same between logits or probabilities
+        if self.has_regions:
+            probabilities = self.apply_inference_nonlin(predicted_logits)
+        else:
+            probabilities = predicted_logits
         if input_is_numpy and isinstance(probabilities, torch.Tensor):
             probabilities = probabilities.cpu().numpy()
         return self.convert_probabilities_to_segmentation(probabilities)
@@ -204,8 +216,7 @@ class LabelManager(object):
         if not self.has_regions:
             probs_reverted_cropping[0] = 1
 
-        slicer = bounding_box_to_slice(bbox)
-        probs_reverted_cropping[tuple([slice(None)] + list(slicer))] = predicted_probabilities
+        probs_reverted_cropping = insert_crop_into_image(probs_reverted_cropping, predicted_probabilities, bbox)
         return probs_reverted_cropping
 
     @staticmethod
@@ -262,7 +273,7 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
     """
     if isinstance(segmentation, torch.Tensor):
         result = torch.zeros((len(all_labels), *segmentation.shape),
-                             dtype=output_dtype if output_dtype is not None else torch.uint8,
+                             dtype=output_dtype if output_dtype is not None else (torch.uint8 if max(all_labels) < 255 else torch.uint16),
                              device=segmentation.device)
         # variant 1, 2x faster than 2
         result.scatter_(0, segmentation[None].long(), 1)  # why does this have to be long!?
@@ -271,7 +282,7 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
         #     result[i] = segmentation == l
     else:
         result = np.zeros((len(all_labels), *segmentation.shape),
-                          dtype=output_dtype if output_dtype is not None else np.uint8)
+                          dtype=output_dtype if output_dtype is not None else (np.uint8 if max(all_labels) < 255 else np.uint16))
         # variant 1, fastest in my testing
         for i, l in enumerate(all_labels):
             result[i] = segmentation == l

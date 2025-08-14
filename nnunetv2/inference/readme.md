@@ -93,8 +93,8 @@ If you give files as input, you need to give individual output files as output!
     outdir = join(nnUNet_raw, 'Dataset003_Liver/imagesTs_predlowres')
     predictor.predict_from_files([[join(indir, 'liver_152_0000.nii.gz')], 
                                   [join(indir, 'liver_142_0000.nii.gz')]],
-                                 [join(outdir, 'liver_152.nii.gz'),
-                                  join(outdir, 'liver_142.nii.gz')],
+                                 [join(outdir, 'liver_152'),
+                                  join(outdir, 'liver_142')],
                                  save_probabilities=False, overwrite=False,
                                  num_processes_preprocessing=2, num_processes_segmentation_export=2,
                                  folder_with_segs_from_prev_stage=None, num_parts=1, part_id=0)

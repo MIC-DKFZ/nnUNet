@@ -16,6 +16,7 @@ from batchgenerators.transforms.spatial_transforms import SpatialTransform, Rot9
 from batchgenerators.transforms.utility_transforms import OneOfTransform, RemoveLabelTransform, RenameTransform, \
     NumpyToTensor
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
+from torch import autocast
 
 from nnunetv2.configuration import ANISO_THRESHOLD
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
@@ -28,10 +29,11 @@ from nnunetv2.training.data_augmentation.custom_transforms.region_based_training
     ConvertSegmentationToRegionsTransform
 from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_2d import Convert3DTo2DTransform, \
     Convert2DTo3DTransform
-from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
-from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
+from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
+from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.utilities.helpers import dummy_context
 
 
 class nnUNetTrainerDA5(nnUNetTrainer):
@@ -324,11 +326,9 @@ class nnUNetTrainerDA5(nnUNetTrainer):
         # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
-        dim = len(patch_size)
 
         # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
         # outputs?
-
         deep_supervision_scales = self._get_deep_supervision_scales()
 
         (
@@ -357,32 +357,20 @@ class nnUNetTrainerDA5(nnUNetTrainer):
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
         # we set transforms=None because this trainer still uses batchgenerators which expects transforms to be passed to
-        if dim == 2:
-            dl_tr = nnUNetDataLoader2D(dataset_tr, self.batch_size,
-                                       initial_patch_size,
-                                       self.configuration_manager.patch_size,
-                                       self.label_manager,
-                                       oversample_foreground_percent=self.oversample_foreground_percent,
-                                       sampling_probabilities=None, pad_sides=None, transforms=None)
-            dl_val = nnUNetDataLoader2D(dataset_val, self.batch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.label_manager,
-                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                        sampling_probabilities=None, pad_sides=None, transforms=None)
-        else:
-            dl_tr = nnUNetDataLoader3D(dataset_tr, self.batch_size,
-                                       initial_patch_size,
-                                       self.configuration_manager.patch_size,
-                                       self.label_manager,
-                                       oversample_foreground_percent=self.oversample_foreground_percent,
-                                       sampling_probabilities=None, pad_sides=None, transforms=None)
-            dl_val = nnUNetDataLoader3D(dataset_val, self.batch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.configuration_manager.patch_size,
-                                        self.label_manager,
-                                        oversample_foreground_percent=self.oversample_foreground_percent,
-                                        sampling_probabilities=None, pad_sides=None, transforms=None)
+        dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
+                                 initial_patch_size,
+                                 self.configuration_manager.patch_size,
+                                 self.label_manager,
+                                 oversample_foreground_percent=self.oversample_foreground_percent,
+                                 sampling_probabilities=None, pad_sides=None, transforms=None,
+                                 probabilistic_oversampling=self.probabilistic_oversampling)
+        dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
+                                  self.configuration_manager.patch_size,
+                                  self.configuration_manager.patch_size,
+                                  self.label_manager,
+                                  oversample_foreground_percent=self.oversample_foreground_percent,
+                                  sampling_probabilities=None, pad_sides=None, transforms=None,
+                                  probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
@@ -401,6 +389,73 @@ class nnUNetTrainerDA5(nnUNetTrainer):
         _ = next(mt_gen_train)
         _ = next(mt_gen_val)
         return mt_gen_train, mt_gen_val
+
+    def validation_step(self, batch: dict) -> dict:
+        data = batch['data']
+        target = batch['target']
+
+        data = data.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
+        else:
+            target = target.to(self.device, non_blocking=True)
+
+        # Autocast can be annoying
+        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
+        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
+        # So autocast will only be active if we have a cuda device.
+        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+        # we only need the output with the highest output resolution (if DS enabled)
+        if self.enable_deep_supervision:
+            output = output[0]
+            target = target[0]
+
+        # the following is needed for online evaluation. Fake dice (green line)
+        axes = [0] + list(range(2, output.ndim))
+
+        if self.label_manager.has_regions:
+            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
+        else:
+            # no need for softmax
+            output_seg = output.argmax(1)[:, None]
+            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
+            predicted_segmentation_onehot.scatter_(1, output_seg, 1)
+            del output_seg
+
+        if self.label_manager.has_ignore_label:
+            if not self.label_manager.has_regions:
+                mask = target != self.label_manager.ignore_label
+                # CAREFUL that you don't rely on target after this line!
+                target[target == self.label_manager.ignore_label] = 0
+            else:
+                if target.dtype == torch.bool:
+                    mask = ~target[:, -1:]
+                else:
+                    mask = (1 - target[:, -1:]).bool()
+                # CAREFUL that you don't rely on target after this line!
+                target = target[:, :-1].bool()
+        else:
+            mask = None
+
+        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
+
+        tp_hard = tp.detach().cpu().numpy()
+        fp_hard = fp.detach().cpu().numpy()
+        fn_hard = fn.detach().cpu().numpy()
+        if not self.label_manager.has_regions:
+            # if we train with regions all segmentation heads predict some kind of foreground. In conventional
+            # (softmax training) there needs tobe one output for the background. We are not interested in the
+            # background Dice
+            # [1:] in order to remove background
+            tp_hard = tp_hard[1:]
+            fp_hard = fp_hard[1:]
+            fn_hard = fn_hard[1:]
+
+        return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
 
 
 class nnUNetTrainerDA5ord0(nnUNetTrainerDA5):
@@ -848,7 +903,7 @@ class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
 
 
 class nnUNetTrainerDA5_10epochs(nnUNetTrainerDA5):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, unpack_dataset: bool = True,
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        super().__init__(plans, configuration, fold, dataset_json, unpack_dataset, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.num_epochs = 10

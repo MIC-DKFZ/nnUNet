@@ -121,7 +121,7 @@ class SimpleITKIO(BaseReaderWriter):
         if output_dimension == 2:
             seg = seg[0]
 
-        itk_image = sitk.GetImageFromArray(seg.astype(np.uint8, copy=False))
+        itk_image = sitk.GetImageFromArray(seg.astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False))
         itk_image.SetSpacing(properties['sitk_stuff']['spacing'])
         itk_image.SetOrigin(properties['sitk_stuff']['origin'])
         itk_image.SetDirection(properties['sitk_stuff']['direction'])

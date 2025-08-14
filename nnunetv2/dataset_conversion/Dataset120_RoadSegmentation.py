@@ -11,7 +11,7 @@ from acvl_utils.morphology.morphology_helper import generic_filter_components
 from scipy.ndimage import binary_fill_holes
 
 
-def load_and_covnert_case(input_image: str, input_seg: str, output_image: str, output_seg: str,
+def load_and_convert_case(input_image: str, input_seg: str, output_image: str, output_seg: str,
                           min_component_size: int = 50):
     seg = io.imread(input_seg)
     seg[seg == 255] = 1
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         for v in valid_ids:
             r.append(
                 p.starmap_async(
-                    load_and_covnert_case,
+                    load_and_convert_case,
                     ((
                          join(train_source, 'input', v),
                          join(train_source, 'output', v),
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         for v in valid_ids:
             r.append(
                 p.starmap_async(
-                    load_and_covnert_case,
+                    load_and_convert_case,
                     ((
                          join(test_source, 'input', v),
                          join(test_source, 'output', v),
