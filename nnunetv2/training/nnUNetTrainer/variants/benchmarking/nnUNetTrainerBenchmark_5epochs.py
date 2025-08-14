@@ -52,7 +52,7 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
                 old_results = {}
             # generate some unique key
             hostname = subprocess.getoutput('hostname')
-            my_key = f"{hostname}__{cudnn_version}__{torch_version.replace(' ', '')}__{gpu_name.replace(' ', '')}__num_gpus_{num_gpus}"
+            my_key = f"{hostname}__{cudnn_version}__{torch_version.replace(' ', '')}__{gpu_name.replace(' ', '')}__num_gpus_{self.world_size}"
             old_results[my_key] = {
                 'torch_version': torch_version,
                 'cudnn_version': cudnn_version,
