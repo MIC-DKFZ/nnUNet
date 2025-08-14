@@ -295,7 +295,7 @@ class nnUNetTrainer(object):
 
     def _save_debug_information(self):
         # saving some debug information
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             dct = {}
             for k in self.__dir__():
                 if not k.startswith("__"):
