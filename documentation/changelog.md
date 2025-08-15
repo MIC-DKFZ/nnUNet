@@ -21,7 +21,7 @@ There is no cross-GPU communication in inference, so it doesn't make sense to ad
 what functions you need to call.
 - Dataset fingerprint is now explicitly created and saved in a json file (see nnUNet_preprocessed).
 
-- Complete overhaul of plans files (read also [this](explanation_plans_files.md):
+- Complete overhaul of plans files (read also [this](explanation_plans_files.md)):
   - Plans are now .json and can be opened and read more easily
   - Configurations are explicitly named ("3d_fullres" , ...)
   - Configurations can inherit from each other to make manual experimentation easier
@@ -43,7 +43,7 @@ Folder structures are different and more user-friendly:
 
 ## What other changes are planned and not yet implemented?
 - Integration into MONAI (together with our friends at Nvidia)
-- New pretrained weights for a large number of datasets (coming very soon))
+- New pretrained weights for a large number of datasets (coming very soon)
 
 
 [//]: # (- nnU-Net now also natively supports an **ignore label**. Pixels with this label will not contribute to the loss. )

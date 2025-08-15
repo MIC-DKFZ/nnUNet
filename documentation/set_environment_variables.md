@@ -59,10 +59,10 @@ $Env:nnUNet_results = "C:/Users/fabian/nnUNet_results"
 ```
 
 (Command Prompt)
-```Command Prompt
+```cmd
 set nnUNet_raw=C:/Users/fabian/nnUNet_raw
 set nnUNet_preprocessed=C:/Users/fabian/nnUNet_preprocessed
-set nnUNet_results=C:/Users/fabian/fabian/nnUNet_results
+set nnUNet_results=C:/Users/fabian/nnUNet_results
 ```
 
 (Of course you need to adapt the paths to the actual folders you intend to use).

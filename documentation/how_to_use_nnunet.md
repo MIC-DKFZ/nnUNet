@@ -1,17 +1,17 @@
-## **2024-04-18 UPDATE: New residual encoder UNet presets available!**
+## **2024-04-18 UPDATE: New residual encoder U-Net presets available!**
 The recommended nnU-Net presets have changed! See [here](resenc_presets.md) how to unlock them!
 
 
-## How to run nnU-Net on a new dataset
+# How to run nnU-Net on a new dataset
 
 
 Given some dataset, nnU-Net fully automatically configures an entire segmentation pipeline that matches its properties.
 nnU-Net covers the entire pipeline, from preprocessing to model configuration, model training, postprocessing
 all the way to ensembling. After running nnU-Net, the trained model(s) can be applied to the test cases for inference.
 
-### Dataset Format
+## Dataset Format
 nnU-Net expects datasets in a structured format. This format is inspired by the data structure of
-the [Medical Segmentation Decthlon](http://medicaldecathlon.com/). Please read
+the [Medical Segmentation Decathlon](http://medicaldecathlon.com/). Please read
 [this](dataset_format.md) for information on how to set up datasets to be compatible with nnU-Net.
 
 **Since version 2 we support multiple image file formats (.nii.gz, .png, .tif, ...)! Read the dataset_format 
@@ -21,9 +21,9 @@ documentation to learn more!**
 OUTPUT_DATASET_NAME`.** Remember that v2 calls datasets DatasetXXX_Name (not Task) where XXX is a 3-digit number.
 Please provide the **path** to the old task, not just the Task name. nnU-Net V2 doesn't know where v1 tasks were!
 
-### Experiment planning and preprocessing
+## Experiment planning and preprocessing
 Given a new dataset, nnU-Net will extract a dataset fingerprint (a set of dataset-specific properties such as
-image sizes, voxel spacings, intensity information etc). This information is used to design three U-Net configurations. 
+image sizes, voxel spacings, intensity information etc.). This information is used to design three U-Net configurations. 
 Each of these pipelines operates on its own preprocessed version of the dataset.
 
 The easiest way to run fingerprint extraction, experiment planning and preprocessing is to use:
@@ -41,14 +41,14 @@ about all the options available to you please run `nnUNetv2_plan_and_preprocess 
 
 nnUNetv2_plan_and_preprocess will create a new subfolder in your nnUNet_preprocessed folder named after the dataset. 
 Once the command is completed there will be a dataset_fingerprint.json file as well as a nnUNetPlans.json file for you to look at 
-(in case you are interested!). There will also be subfolders containing the preprocessed data for your UNet configurations.
+(in case you are interested!). There will also be subfolders containing the preprocessed data for your U-Net configurations.
 
 [Optional]
 If you prefer to keep things separate, you can also use `nnUNetv2_extract_fingerprint`, `nnUNetv2_plan_experiment` 
 and `nnUNetv2_preprocess` (in that order). 
 
-### Model training
-#### Overview
+## Model training
+### Overview
 You pick which configurations (2d, 3d_fullres, 3d_lowres, 3d_cascade_fullres) should be trained! If you have no idea 
 what performs best on your data, just run all of them and let nnU-Net identify the best one. It's up to you!
 
@@ -70,7 +70,7 @@ nnUNetv2_train DATASET_NAME_OR_ID UNET_CONFIGURATION FOLD [additional options, s
 ```
 
 UNET_CONFIGURATION is a string that identifies the requested U-Net configuration (defaults: 2d, 3d_fullres, 3d_lowres, 
-3d_cascade_lowres). DATASET_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of 
+3d_cascade_fullres). DATASET_NAME_OR_ID specifies what dataset should be trained on and FOLD specifies which fold of 
 the 5-fold-cross-validation is trained.
 
 nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `--c` to the
@@ -84,31 +84,31 @@ If you ran initially without the `--npz` flag but now require the softmax predic
 nnUNetv2_train DATASET_NAME_OR_ID UNET_CONFIGURATION FOLD --val --npz
 ```
 
-You can specify the device nnU-net should use by using `-device DEVICE`. DEVICE can only be cpu, cuda or mps. If 
+You can specify the device nnU-Net should use by using `-device DEVICE`. DEVICE can only be cpu, cuda or mps. If 
 you have multiple GPUs, please select the gpu id using `CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...]` (requires device to be cuda).
 
 See `nnUNetv2_train -h` for additional options.
 
-### 2D U-Net
+## 2D U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
 nnUNetv2_train DATASET_NAME_OR_ID 2d FOLD [--npz]
 ```
 
-### 3D full resolution U-Net
+## 3D full resolution U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
 nnUNetv2_train DATASET_NAME_OR_ID 3d_fullres FOLD [--npz]
 ```
 
-### 3D U-Net cascade
-#### 3D low resolution U-Net
+## 3D U-Net cascade
+### 3D low resolution U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
 nnUNetv2_train DATASET_NAME_OR_ID 3d_lowres FOLD [--npz]
 ```
 
-#### 3D full resolution U-Net
+### 3D full resolution U-Net
 For FOLD in [0, 1, 2, 3, 4], run:
 ```bash
 nnUNetv2_train DATASET_NAME_OR_ID 3d_cascade_fullres FOLD [--npz]
@@ -153,9 +153,9 @@ explicitly tell nnU-Net to use it.
 - checkpoint_final.pth: checkpoint file of the final model (after training has ended). This is what is used for both 
 validation and inference.
 - network_architecture.pdf (only if hiddenlayer is installed!): a pdf document with a figure of the network architecture in it.
-- progress.png: Shows losses, pseudo dice, learning rate and epoch times ofer the course of the training. At the top is 
+- progress.png: Shows losses, pseudo Dice, learning rate and epoch times over the course of the training. At the top is 
 a plot of the training (blue) and validation (red) loss during training. Also shows an approximation of
-  the dice (green) as well as a moving average of it (dotted green line). This approximation is the average Dice score 
+  the Dice (green) as well as a moving average of it (dotted green line). This approximation is the average Dice score 
   of the foreground classes. **It needs to be taken with a big (!) 
   grain of salt** because it is computed on randomly drawn patches from the validation
   data at the end of each epoch, and the aggregation of TP, FP and FN for the Dice computation treats the patches as if
@@ -174,7 +174,7 @@ Training times largely depend on the GPU. The smallest GPU we recommend for trai
 that all network trainings take less than 2 days. Refer to our [benchmarks](benchmarking.md) to see if your system is 
 performing as expected.
 
-### Using multiple GPUs for training
+## Using multiple GPUs for training
 
 If multiple GPUs are at your disposal, the best way of using them is to train multiple nnU-Net trainings at once, one 
 on each GPU. This is because data parallelism never scales perfectly linearly, especially not with small networks such 
@@ -212,7 +212,7 @@ CUDA_VISIBLE_DEVICES=0,1 (or whatever your ids are).
 
 In contrast to the old nnU-Net, DDP is now completely hassle free. Enjoy!
 
-### Automatically determine the best configuration
+## Automatically determine the best configuration
 Once the desired configurations were trained (full cross-validation) you can tell nnU-Net to automatically identify 
 the best combination for you:
 
@@ -237,7 +237,7 @@ will also create two files in the `nnUNet_results/DATASET_NAME` folder for you t
 - `inference_information.json` can be inspected to see the performance of all configurations and ensembles, as well 
 as the effect of the postprocessing plus some debug information. 
 
-### Run inference
+## Run inference
 Remember that the data located in the input folder must have the file endings as the dataset you trained the model on 
 and must adhere to the nnU-Net naming scheme for image files (see [dataset format](dataset_format.md) and 
 [inference data format](dataset_format_inference.md)!)
@@ -247,9 +247,9 @@ The easiest way to run inference is to simply use these commands.
 
 If you wish to manually specify the configuration(s) used for inference, use the following commands:
 
-#### Run prediction
+### Run prediction
 For each of the desired configurations, run:
-```
+```bash
 nnUNetv2_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -d DATASET_NAME_OR_ID -c CONFIGURATION --save_probabilities
 ```
 
@@ -264,7 +264,7 @@ strongly recommend you use all 5 folds. Thus, all 5 folds must have been trained
 If you wish to make predictions with a single model, train the `all` fold and specify it in `nnUNetv2_predict`
 with `-f all`
 
-#### Ensembling multiple configurations
+### Ensembling multiple configurations
 If you wish to ensemble multiple predictions (typically form different configurations), you can do so with the following command:
 ```bash
 nnUNetv2_ensemble -i FOLDER1 FOLDER2 ... -o OUTPUT_FOLDER -np NUM_PROCESSES
@@ -273,7 +273,7 @@ nnUNetv2_ensemble -i FOLDER1 FOLDER2 ... -o OUTPUT_FOLDER -np NUM_PROCESSES
 You can specify an arbitrary number of folders, but remember that each folder needs to contain npz files that were
 generated by `nnUNetv2_predict`. Again, `nnUNetv2_ensemble -h` will tell you more about additional options.
 
-#### Apply postprocessing
+### Apply postprocessing
 Finally, apply the previously determined postprocessing to the (ensembled) predictions: 
 
 ```commandline
@@ -287,10 +287,10 @@ a `-dataset_json` file that should be used (for single configuration predictions
 from the respective training). You can pick these files from any of the ensemble members.
 
 
-## How to run inference with pretrained models
+# How to run inference with pretrained models
 See [here](run_inference_with_pretrained_models.md)
 
-## How to Deploy and Run Inference with YOUR Pretrained Models
+# How to Deploy and Run Inference with YOUR Pretrained Models
 To facilitate the use of pretrained models on a different computer for inference purposes, follow these streamlined steps:
 1. Exporting the Model: Utilize the `nnUNetv2_export_model_to_zip` function to package your trained model into a .zip file. This file will contain all necessary model files.
 2. Transferring the Model: Transfer the .zip file to the target computer where inference will be performed.

@@ -9,7 +9,7 @@ existing splits, stored as a file, and if no split exists it will create one. So
 manually creating a split file that will then be recognized and used is the way to go!
 
 The split file is located in the `nnUNet_preprocessed/DATASETXXX_NAME` folder. So it is best practice to first 
-populate this folder by running `nnUNetv2_plan_and_preproccess`.
+populate this folder by running `nnUNetv2_plan_and_preprocess`.
 
 Splits are stored as a .json file. They are a simple python list. The length of that list is the number of splits it 
 contains (so it's 5 in the default nnU-Net). Each list entry is a dictionary with keys 'train' and 'val'. Values are 

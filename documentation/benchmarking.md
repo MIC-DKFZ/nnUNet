@@ -4,7 +4,7 @@ Does your system run like it should? Is your epoch time longer than expected? Wh
 
 Look no further for we have the solution here!
 
-## What does the nnU-netv2 benchmark do?
+## What does the nnU-Netv2 benchmark do?
 
 nnU-Net's benchmark trains models for 5 epochs. At the end, the fastest epoch will 
 be noted down, along with the GPU name, torch version and cudnn version. You can find the benchmark output in the 
@@ -30,10 +30,10 @@ Run `nnUNetv2_plan_and_preprocess` for them.
 Then, for each dataset, run the following commands (only one per GPU! Or one after the other):
 
 ```bash
-nnUNetv2_train DATSET_ID 2d 0 -tr nnUNetTrainerBenchmark_5epochs
-nnUNetv2_train DATSET_ID 3d_fullres 0 -tr nnUNetTrainerBenchmark_5epochs
-nnUNetv2_train DATSET_ID 2d 0 -tr nnUNetTrainerBenchmark_5epochs_noDataLoading
-nnUNetv2_train DATSET_ID 3d_fullres 0 -tr nnUNetTrainerBenchmark_5epochs_noDataLoading
+nnUNetv2_train DATASET_ID 2d 0 -tr nnUNetTrainerBenchmark_5epochs
+nnUNetv2_train DATASET_ID 3d_fullres 0 -tr nnUNetTrainerBenchmark_5epochs
+nnUNetv2_train DATASET_ID 2d 0 -tr nnUNetTrainerBenchmark_5epochs_noDataLoading
+nnUNetv2_train DATASET_ID 3d_fullres 0 -tr nnUNetTrainerBenchmark_5epochs_noDataLoading
 ```
 
 If you want to inspect the outcome manually, check (for example!) your 
@@ -81,7 +81,7 @@ are also often a lot slower!
 
 If you see a large performance difference between `nnUNetTrainerBenchmark_5epochs_noDataLoading` (fast) and 
 `nnUNetTrainerBenchmark_5epochs` (slow) then the problem might be related to data loading and augmentation. As a 
-reminder, nnU-net does not use pre-augmented images (offline augmentation) but instead generates augmented training 
+reminder, nnU-Net does not use pre-augmented images (offline augmentation) but instead generates augmented training 
 samples on the fly during training (no, you cannot switch it to offline). This requires that your system can do partial 
 reads of the image files fast enough (SSD storage required!) and that your CPU is powerful enough to run the augmentations.
 
@@ -112,4 +112,3 @@ of allowed open files. `ulimit -n` gives your current limit (Linux only). It sho
 Increasing that to 65535 works well for me. See here for how to change these limits: 
 [Link](https://kupczynski.info/posts/ubuntu-18-10-ulimits/) 
 (works for Ubuntu 18, google for your OS!).
-

@@ -10,7 +10,7 @@ Helmholtz Imaging
 # Introduction
 
 This document describes our submission to the [Toothfairy2 Challenge](https://toothfairy2.grand-challenge.org/toothfairy2/). 
-Our model is essentially a nnU-Net ResEnc L with the patch size upscaled to 160x320x320 pixels. We disable left/right 
+Our model is essentially an nnU-Net ResEnc L with the patch size upscaled to 160x320x320 pixels. We disable left/right 
 mirroring and train for 1500 instead of the standard 1000 epochs. Training was either done on 2xA100 40GB or one GH200 96GB.
 
 # Dataset Conversion
@@ -205,4 +205,4 @@ If the prediction of a class on some test case is smaller than the corresponding
 
 Cutoff values were optimized using a five-fold cross-validation on the Toothfairy2 training data. We optimize HD95 and Dice separately. 
 The final cutoff for each class is then the smaller value between the two metrics. You can find our volume cutoffs in the inference 
-script as part of our `postprocess` function.    
+script as part of our `postprocess` function.

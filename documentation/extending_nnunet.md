@@ -21,7 +21,7 @@ are structured similarly to PyTorch lightning trainers, this should also make th
   - Quick and dirty: implement a new nnUNetTrainer class and overwrite its `build_network_architecture` function. 
   Make sure your architecture is compatible with deep supervision (if not, use `nnUNetTrainerNoDeepSupervision`
   as basis!) and that it can handle the patch sizes that are thrown at it! Your architecture should NOT apply any 
-  nonlinearities at the end (softmax, sigmoid etc). nnU-Net does that!   
+  nonlinearities at the end (softmax, sigmoid etc). nnU-Net does that! 
   - The 'proper' (but difficult) way: Build a dynamically configurable architecture such as the `PlainConvUNet` class 
   used by default. It needs to have some sort of GPU memory estimation method that can be used to evaluate whether 
   certain patch sizes and 

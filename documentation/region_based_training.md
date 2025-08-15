@@ -20,7 +20,7 @@ some segmentation tasks this provides a benefit, as this shifts the importance a
 Most prominently, this feature can be used to represent **hierarchical classes**, for example when organs + 
 substructures are to be segmented. Imagine a liver segmentation problem, where vessels and tumors are also to be 
 segmented. The first target region could thus be the entire liver (including the substructures), while the remaining 
-targets are the individual substructues.
+targets are the individual substructures.
 
 Important: nnU-Net still requires integer label maps as input and will produce integer label maps as output! 
 Region-based training can be used to learn overlapping labels, but there must be a way to model these overlaps 
@@ -30,7 +30,7 @@ for nnU-Net to work (see below how this is done).
 
 When declaring the labels in the `dataset.json` file, BraTS would typically look like this:
 
-```python
+```json
 ...
 "labels": {
     "background": 0,
@@ -46,7 +46,7 @@ This representation corresponds to the upper row in the figure above.
 
 For region-based training, the labels need to be changed to the following:
 
-```python
+```json
 ...
 "labels": {
     "background": 0,

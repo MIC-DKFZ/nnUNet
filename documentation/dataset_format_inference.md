@@ -19,7 +19,7 @@ unique identifier, followed by a 4-digit modality identifier. Here is an example
         ├── ...
 
     _0000 has to be the T2 image and _0001 has to be the ADC image (as specified by 'channel_names' in the 
-dataset.json), exactly the same as was used for training.
+dataset.json), exactly the same as what was used for training.
 
 2) Task002_Heart:
 
@@ -36,4 +36,3 @@ The segmentations in the output folder will be named {CASE_IDENTIFIER}.nii.gz (o
 
 Remember that the file format used for inference (.nii.gz in this example) must be the same as was used for training 
 (and as was specified in 'file_ending' in the dataset.json)!
-   

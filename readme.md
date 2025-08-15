@@ -4,8 +4,8 @@ Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looki
 
 Coming from V1? Check out the [TLDR Migration Guide](documentation/tldr_migration_guide_from_v1.md). Reading the rest of the documentation is still strongly recommended ;-)
 
-## **2024-04-18 UPDATE: New residual encoder UNet presets available!**
-Residual encoder UNet presets substantially improve segmentation performance.
+## **2024-04-18 UPDATE: New residual encoder U-Net presets available!**
+Residual encoder U-Net presets substantially improve segmentation performance.
 They ship for a variety of GPU memory targets. It's all awesome stuff, promised! 
 Read more :point_right: [here](documentation/resenc_presets.md) :point_left:
 
@@ -14,7 +14,7 @@ Also check out our [new paper](https://arxiv.org/pdf/2404.09556.pdf) on systemat
 # What is nnU-Net?
 Image datasets are enormously diverse: image dimensionality (2D, 3D), modalities/input channels (RGB image, CT, MRI, microscopy, ...), 
 image sizes, voxel sizes, class ratio, target structure properties and more change substantially between datasets. 
-Traditionally, given a new problem, a tailored solution needs to be manually designed and optimized  - a process that 
+Traditionally, given a new problem, a tailored solution needs to be manually designed and optimized - a process that 
 is prone to errors, not scalable and where success is overwhelmingly determined by the skill of the experimenter. Even 
 for experts, this process is anything but simple: there are not only many design choices and data properties that need to 
 be considered, but they are also tightly interconnected, rendering reliable manual pipeline optimization all but impossible! 
@@ -85,7 +85,7 @@ simply be used all the time. This includes, for example, nnU-Net's loss function
 hard-coded heuristic rules. For example, the network topology (pooling behavior and depth of the network architecture) 
 are adapted to the patch size; the patch size, network topology and batch size are optimized jointly given some GPU 
 memory constraint. 
-- **Empirical parameters** are essentially trial-and-error. For example the selection of the best U-net configuration 
+- **Empirical parameters** are essentially trial-and-error. For example the selection of the best U-Net configuration 
 for the given dataset (2D, 3D full resolution, 3D low resolution, 3D cascade) and the optimization of the postprocessing strategy.
 
 ## How to get started?

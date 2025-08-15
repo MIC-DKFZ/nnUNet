@@ -8,7 +8,7 @@ DatasetXXX_YYY where XXX is a 3-digit identifier (such as 001, 002, 043, 999, ..
 dataset name. The datasets must be in nnU-Net format, see [here](dataset_format.md).
 
     Example tree structure:
-    ```
+    ```text
     nnUNet_raw/Dataset001_NAME1
     ├── dataset.json
     ├── imagesTr
