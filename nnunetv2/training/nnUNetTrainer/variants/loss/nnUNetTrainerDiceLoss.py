@@ -59,7 +59,7 @@ class nnUNetTrainerDiceCELoss_noSmooth(nnUNetTrainer):
         return loss
 
 
-class nnUNetTrainerDiceCELoss_noSmooth_4000epochs(nnUNetTrainerDiceCELoss_noSmooth):
+class nnUNetTrainerDiceCELoss_noSmooth_4000epochs_fromScratch(nnUNetTrainerDiceCELoss_noSmooth):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, device)
