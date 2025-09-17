@@ -1,8 +1,15 @@
 from typing import Callable
 
 import torch
-from nnunetv2.utilities.ddp_allgather import AllGatherGrad
 from torch import nn
+from torch._dynamo import disable
+import torch.distributed.nn.functional as dnnF
+import torch.distributed as dist
+
+
+@disable
+def global_sum(x):
+    return dnnF.all_reduce(x, op=dist.ReduceOp.SUM)
 
 
 class SoftDiceLoss(nn.Module):
@@ -33,9 +40,9 @@ class SoftDiceLoss(nn.Module):
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
 
         if self.ddp and self.batch_dice:
-            tp = AllGatherGrad.apply(tp).sum(0)
-            fp = AllGatherGrad.apply(fp).sum(0)
-            fn = AllGatherGrad.apply(fn).sum(0)
+            tp = global_sum(tp)
+            fp = global_sum(fp)
+            fn = global_sum(fn)
 
         if self.clip_tp is not None:
             tp = torch.clip(tp, min=self.clip_tp , max=None)
@@ -105,9 +112,9 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
 
         if self.batch_dice:
             if self.ddp:
-                intersect = AllGatherGrad.apply(intersect).sum(0)
-                sum_pred = AllGatherGrad.apply(sum_pred).sum(0)
-                sum_gt = AllGatherGrad.apply(sum_gt).sum(0)
+                intersect = global_sum(intersect)
+                sum_pred = global_sum(sum_pred)
+                sum_gt = global_sum(sum_gt)
 
             intersect = intersect.sum(0)
             sum_pred = sum_pred.sum(0)
