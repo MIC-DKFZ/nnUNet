@@ -236,6 +236,12 @@ class nnUNetTrainer(object):
             ).to(self.device)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
+
+            # compile network for free speedup
+            if self._do_i_compile():
+                self.print_to_log_file('Using torch.compile...')
+                self.network = torch.compile(self.network)
+
             # if ddp, wrap in DDP wrapper
             if self.is_ddp:
                 self.network = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.network)
@@ -245,13 +251,6 @@ class nnUNetTrainer(object):
                     output_device=self.local_rank,
                     static_graph=True,
                     find_unused_parameters=False)
-
-            # compile network for free speedup
-            # according to chatGPT it's better to compile after DDP wrapper
-            # this might mess with checkpointing etc because _orig_mod is located in a different position. Will need to test this.
-            if self._do_i_compile():
-                self.print_to_log_file('Using torch.compile...')
-                self.network = torch.compile(self.network)
 
             self.loss = self._build_loss()
 
