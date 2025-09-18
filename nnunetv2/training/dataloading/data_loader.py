@@ -15,6 +15,8 @@ from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
+from threading import Lock
+global_mutex = Lock()
 
 class nnUNetDataLoader(DataLoader):
     def __init__(self,
@@ -198,7 +200,8 @@ class nnUNetDataLoader(DataLoader):
 
         if self.transforms is not None:
             with torch.no_grad():
-                with threadpool_limits(limits=1, user_api=None):
+                # with threadpool_limits(limits=1, user_api=None):
+                    global_mutex.acquire()
                     data_all = torch.from_numpy(data_all).float()
                     seg_all = torch.from_numpy(seg_all).to(torch.int16)
                     images = []
@@ -213,6 +216,7 @@ class nnUNetDataLoader(DataLoader):
                     else:
                         seg_all = torch.stack(segs)
                     del segs, images
+                    global_mutex.release()
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
