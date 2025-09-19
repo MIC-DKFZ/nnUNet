@@ -217,6 +217,7 @@ class nnUNetDataLoader(DataLoader):
                         seg_all = torch.stack(segs)
                     del segs, images
                     global_mutex.release()
+                
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
