@@ -425,7 +425,8 @@ class nnUNetPredictor(object):
     def predict_single_npy_array(self, input_image: np.ndarray, image_properties: dict,
                                  segmentation_previous_stage: np.ndarray = None,
                                  output_file_truncated: str = None,
-                                 save_or_return_probabilities: bool = False):
+                                 save_or_return_probabilities: bool = False,
+                                 return_logits_per_fold: bool = False):
         """
         WARNING: SLOW. ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON.
 
@@ -449,7 +450,11 @@ class nnUNetPredictor(object):
 
         if self.verbose:
             print('predicting')
-        predicted_logits = self.predict_logits_from_preprocessed_data(dct['data']).cpu()
+        # For getting logits per fold, cpu extraction has to be done for each list element
+        if return_logits_per_fold:
+            predicted_logits = [ elem.cpu() for elem in self.predict_logits_from_preprocessed_data(dct['data'], return_logits_per_fold=return_logits_per_fold)]
+        else:
+            predicted_logits = self.predict_logits_from_preprocessed_data(dct['data'], return_logits_per_fold=return_logits_per_fold).cpu()
 
         if self.verbose:
             print('resampling to original shape')
@@ -458,19 +463,34 @@ class nnUNetPredictor(object):
                                           self.plans_manager, self.dataset_json, output_file_truncated,
                                           save_or_return_probabilities)
         else:
-            ret = convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits, self.plans_manager,
-                                                                              self.configuration_manager,
-                                                                              self.label_manager,
-                                                                              dct['data_properties'],
-                                                                              return_probabilities=
-                                                                              save_or_return_probabilities)
+            if return_logits_per_fold:
+                ret = []
+                for elem in predicted_logits:
+                    ret.append(convert_predicted_logits_to_segmentation_with_correct_shape(
+                        elem, self.plans_manager,
+                        self.configuration_manager,
+                        self.label_manager,
+                        dct['data_properties'],
+                        return_probabilities=save_or_return_probabilities))
+                    
+                    
+            else:
+                ret = convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits, self.plans_manager,
+                                                                                self.configuration_manager,
+                                                                                self.label_manager,
+                                                                                dct['data_properties'],
+                                                                                return_probabilities=
+                                                                                save_or_return_probabilities)
             if save_or_return_probabilities:
+                if return_logits_per_fold:
+                    segs, probs = zip(*ret)
+                    ret = [list(segs), list(probs)]
                 return ret[0], ret[1]
             else:
                 return ret
 
     @torch.inference_mode()
-    def predict_logits_from_preprocessed_data(self, data: torch.Tensor) -> torch.Tensor:
+    def predict_logits_from_preprocessed_data(self, data: torch.Tensor, return_logits_per_fold: bool = False) -> torch.Tensor:
         """
         IMPORTANT! IF YOU ARE RUNNING THE CASCADE, THE SEGMENTATION FROM THE PREVIOUS STAGE MUST ALREADY BE STACKED ON
         TOP OF THE IMAGE AS ONE-HOT REPRESENTATION! SEE PreprocessAdapter ON HOW THIS SHOULD BE DONE!
@@ -481,6 +501,8 @@ class nnUNetPredictor(object):
         n_threads = torch.get_num_threads()
         torch.set_num_threads(default_num_processes if default_num_processes < n_threads else n_threads)
         prediction = None
+        if return_logits_per_fold:
+            prediction = []
 
         for params in self.list_of_parameters:
 
@@ -495,10 +517,12 @@ class nnUNetPredictor(object):
             # this actually saves computation time
             if prediction is None:
                 prediction = self.predict_sliding_window_return_logits(data).to('cpu')
+            if return_logits_per_fold:
+                prediction.append(self.predict_sliding_window_return_logits(data).to('cpu'))
             else:
                 prediction += self.predict_sliding_window_return_logits(data).to('cpu')
 
-        if len(self.list_of_parameters) > 1:
+        if len(self.list_of_parameters) > 1 and not return_logits_per_fold:
             prediction /= len(self.list_of_parameters)
 
         if self.verbose: print('Prediction done')
