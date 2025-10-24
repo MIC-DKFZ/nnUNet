@@ -11,6 +11,7 @@ from typing import Tuple, Union, List
 
 import numpy as np
 import torch
+from tqdm import tqdm
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
@@ -1382,14 +1383,18 @@ class nnUNetTrainer(object):
 
             self.on_train_epoch_start()
             train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
+            for batch_id in tqdm(range(self.num_iterations_per_epoch), 
+                                desc=f'Epoch {epoch}/{self.num_epochs} - Training', 
+                                leave=False):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
+                for batch_id in tqdm(range(self.num_val_iterations_per_epoch), 
+                                    desc=f'Epoch {epoch}/{self.num_epochs} - Validation', 
+                                    leave=False):
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
                 self.on_validation_epoch_end(val_outputs)
 
