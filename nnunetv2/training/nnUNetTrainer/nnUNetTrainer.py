@@ -67,6 +67,29 @@ from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
+
+# Etienne: I want to profile dataloading
+from torch.profiler import profile, ProfilerActivity, schedule
+from tqdm import tqdm
+
+def trace_handler(prof):
+    print(f"Export to chrome")
+    # Export timeline to see CPU/GPU overlap
+    prof.export_chrome_trace(f"trace_epoch_{prof.step_num}.json")
+
+    # Calculate GPU utilization
+    cuda_time = sum([item.cuda_time_total for item in prof.key_averages()])
+    total_time = sum([item.cpu_time_total for item in prof.key_averages()])
+
+    if cuda_time > 0:
+        print(f"\n=== Step {prof.step_num} GPU Utilization ===")
+        print(f"Total CUDA time: {cuda_time/1e6:.2f}s")
+        print(f"Total CPU time: {total_time/1e6:.2f}s")
+        print(f"GPU utilization: {100*cuda_time/total_time:.1f}%")
+
+
+
+
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
@@ -647,6 +670,8 @@ class nnUNetTrainer(object):
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
+        self.tr_transforms = tr_transforms
+
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
@@ -662,7 +687,7 @@ class nnUNetTrainer(object):
                                  self.configuration_manager.patch_size,
                                  self.label_manager,
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                 sampling_probabilities=None, pad_sides=None, transforms=None,
                                  probabilistic_oversampling=self.probabilistic_oversampling)
         dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
                                   self.configuration_manager.patch_size,
@@ -672,7 +697,9 @@ class nnUNetTrainer(object):
                                   sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
+        # allowed_num_processes = get_allowed_n_proc_DA()
+        # we simulate 0 process for now
+        allowed_num_processes = 0
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
@@ -724,118 +751,118 @@ class nnUNetTrainer(object):
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
 
-        transforms.append(RandomTransform(
-            GaussianNoiseTransform(
-                noise_variance=(0, 0.1),
-                p_per_channel=1,
-                synchronize_channels=True
-            ), apply_probability=0.1
-        ))
-        transforms.append(RandomTransform(
-            GaussianBlurTransform(
-                blur_sigma=(0.5, 1.),
-                synchronize_channels=False,
-                synchronize_axes=False,
-                p_per_channel=0.5, benchmark=True
-            ), apply_probability=0.2
-        ))
-        transforms.append(RandomTransform(
-            MultiplicativeBrightnessTransform(
-                multiplier_range=BGContrast((0.75, 1.25)),
-                synchronize_channels=False,
-                p_per_channel=1
-            ), apply_probability=0.15
-        ))
-        transforms.append(RandomTransform(
-            ContrastTransform(
-                contrast_range=BGContrast((0.75, 1.25)),
-                preserve_range=True,
-                synchronize_channels=False,
-                p_per_channel=1
-            ), apply_probability=0.15
-        ))
-        transforms.append(RandomTransform(
-            SimulateLowResolutionTransform(
-                scale=(0.5, 1),
-                synchronize_channels=False,
-                synchronize_axes=True,
-                ignore_axes=ignore_axes,
-                allowed_channels=None,
-                p_per_channel=0.5
-            ), apply_probability=0.25
-        ))
-        transforms.append(RandomTransform(
-            GammaTransform(
-                gamma=BGContrast((0.7, 1.5)),
-                p_invert_image=1,
-                synchronize_channels=False,
-                p_per_channel=1,
-                p_retain_stats=1
-            ), apply_probability=0.1
-        ))
-        transforms.append(RandomTransform(
-            GammaTransform(
-                gamma=BGContrast((0.7, 1.5)),
-                p_invert_image=0,
-                synchronize_channels=False,
-                p_per_channel=1,
-                p_retain_stats=1
-            ), apply_probability=0.3
-        ))
-        if mirror_axes is not None and len(mirror_axes) > 0:
-            transforms.append(
-                MirrorTransform(
-                    allowed_axes=mirror_axes
-                )
-            )
+        # transforms.append(RandomTransform(
+        #     GaussianNoiseTransform(
+        #         noise_variance=(0, 0.1),
+        #         p_per_channel=1,
+        #         synchronize_channels=True
+        #     ), apply_probability=0.1
+        # ))
+        # transforms.append(RandomTransform(
+        #     GaussianBlurTransform(
+        #         blur_sigma=(0.5, 1.),
+        #         synchronize_channels=False,
+        #         synchronize_axes=False,
+        #         p_per_channel=0.5, benchmark=True
+        #     ), apply_probability=0.2
+        # ))
+        # transforms.append(RandomTransform(
+        #     MultiplicativeBrightnessTransform(
+        #         multiplier_range=BGContrast((0.75, 1.25)),
+        #         synchronize_channels=False,
+        #         p_per_channel=1
+        #     ), apply_probability=0.15
+        # ))
+        # transforms.append(RandomTransform(
+        #     ContrastTransform(
+        #         contrast_range=BGContrast((0.75, 1.25)),
+        #         preserve_range=True,
+        #         synchronize_channels=False,
+        #         p_per_channel=1
+        #     ), apply_probability=0.15
+        # ))
+        # transforms.append(RandomTransform(
+        #     SimulateLowResolutionTransform(
+        #         scale=(0.5, 1),
+        #         synchronize_channels=False,
+        #         synchronize_axes=True,
+        #         ignore_axes=ignore_axes,
+        #         allowed_channels=None,
+        #         p_per_channel=0.5
+        #     ), apply_probability=0.25
+        # ))
+        # transforms.append(RandomTransform(
+        #     GammaTransform(
+        #         gamma=BGContrast((0.7, 1.5)),
+        #         p_invert_image=1,
+        #         synchronize_channels=False,
+        #         p_per_channel=1,
+        #         p_retain_stats=1
+        #     ), apply_probability=0.1
+        # ))
+        # transforms.append(RandomTransform(
+        #     GammaTransform(
+        #         gamma=BGContrast((0.7, 1.5)),
+        #         p_invert_image=0,
+        #         synchronize_channels=False,
+        #         p_per_channel=1,
+        #         p_retain_stats=1
+        #     ), apply_probability=0.3
+        # ))
+        # if mirror_axes is not None and len(mirror_axes) > 0:
+        #     transforms.append(
+        #         MirrorTransform(
+        #             allowed_axes=mirror_axes
+        #         )
+        #     )
 
-        if use_mask_for_norm is not None and any(use_mask_for_norm):
-            transforms.append(MaskImageTransform(
-                apply_to_channels=[i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
-                channel_idx_in_seg=0,
-                set_outside_to=0,
-            ))
+        # if use_mask_for_norm is not None and any(use_mask_for_norm):
+        #     transforms.append(MaskImageTransform(
+        #         apply_to_channels=[i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
+        #         channel_idx_in_seg=0,
+        #         set_outside_to=0,
+        #     ))
 
-        transforms.append(
-            RemoveLabelTansform(-1, 0)
-        )
-        if is_cascaded:
-            assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
-            transforms.append(
-                MoveSegAsOneHotToDataTransform(
-                    source_channel_idx=1,
-                    all_labels=foreground_labels,
-                    remove_channel_from_source=True
-                )
-            )
-            transforms.append(
-                RandomTransform(
-                    ApplyRandomBinaryOperatorTransform(
-                        channel_idx=list(range(-len(foreground_labels), 0)),
-                        strel_size=(1, 8),
-                        p_per_label=1
-                    ), apply_probability=0.4
-                )
-            )
-            transforms.append(
-                RandomTransform(
-                    RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-                        channel_idx=list(range(-len(foreground_labels), 0)),
-                        fill_with_other_class_p=0,
-                        dont_do_if_covers_more_than_x_percent=0.15,
-                        p_per_label=1
-                    ), apply_probability=0.2
-                )
-            )
+        # transforms.append(
+        #     RemoveLabelTansform(-1, 0)
+        # )
+        # if is_cascaded:
+        #     assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
+        #     transforms.append(
+        #         MoveSegAsOneHotToDataTransform(
+        #             source_channel_idx=1,
+        #             all_labels=foreground_labels,
+        #             remove_channel_from_source=True
+        #         )
+        #     )
+        #     transforms.append(
+        #         RandomTransform(
+        #             ApplyRandomBinaryOperatorTransform(
+        #                 channel_idx=list(range(-len(foreground_labels), 0)),
+        #                 strel_size=(1, 8),
+        #                 p_per_label=1
+        #             ), apply_probability=0.4
+        #         )
+        #     )
+        #     transforms.append(
+        #         RandomTransform(
+        #             RemoveRandomConnectedComponentFromOneHotEncodingTransform(
+        #                 channel_idx=list(range(-len(foreground_labels), 0)),
+        #                 fill_with_other_class_p=0,
+        #                 dont_do_if_covers_more_than_x_percent=0.15,
+        #                 p_per_label=1
+        #             ), apply_probability=0.2
+        #         )
+        #     )
 
-        if regions is not None:
-            # the ignore label must also be converted
-            transforms.append(
-                ConvertSegmentationToRegionsTransform(
-                    regions=list(regions) + [ignore_label] if ignore_label is not None else regions,
-                    channel_in_seg=0
-                )
-            )
+        # if regions is not None:
+        #     # the ignore label must also be converted
+        #     transforms.append(
+        #         ConvertSegmentationToRegionsTransform(
+        #             regions=list(regions) + [ignore_label] if ignore_label is not None else regions,
+        #             channel_in_seg=0
+        #         )
+        #     )
 
         if deep_supervision_scales is not None:
             transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
@@ -1359,16 +1386,78 @@ class nnUNetTrainer(object):
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()
 
+    # def run_training(self):
+    #     self.on_train_start()
+
+    #     for epoch in range(self.current_epoch, self.num_epochs):
+    #         self.on_epoch_start()
+
+    #         self.on_train_epoch_start()
+    #         train_outputs = []
+    #         for batch_id in range(self.num_iterations_per_epoch):
+    #             train_outputs.append(self.train_step(next(self.dataloader_train)))
+    #         self.on_train_epoch_end(train_outputs)
+
+    #         with torch.no_grad():
+    #             self.on_validation_epoch_start()
+    #             val_outputs = []
+    #             for batch_id in range(self.num_val_iterations_per_epoch):
+    #                 val_outputs.append(self.validation_step(next(self.dataloader_val)))
+    #             self.on_validation_epoch_end(val_outputs)
+
+    #         self.on_epoch_end()
+
+    #     self.on_train_end()
+
+
+    def data_aug_gpu(self, batch):
+        with torch.no_grad():
+            data_all = batch['data']
+            seg_all = batch['target']
+            data_all = torch.from_numpy(data_all).float().to(self.device)
+            seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device)
+            images = []
+            segs = []
+            for b in range(self.batch_size):
+                tmp = self.tr_transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
+                images.append(tmp['image'])
+                segs.append(tmp['segmentation'])
+            data_all = torch.stack(images)
+            if isinstance(segs[0], list):
+                seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+            else:
+                seg_all = torch.stack(segs)
+            del segs, images
+            return {'data': data_all, 'target': seg_all}
+
+    # DEBUG PROFILING
     def run_training(self):
         self.on_train_start()
+        self.num_iterations_per_epoch = 30
 
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
             self.on_train_epoch_start()
             train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
-                train_outputs.append(self.train_step(next(self.dataloader_train)))
+            #with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+            with profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                schedule=schedule(wait=1, warmup=1, active=3, repeat=1),
+                on_trace_ready=trace_handler,
+                record_shapes=True,
+                profile_memory=True,
+                with_stack=True
+            ) as prof:
+                for batch_id in tqdm(range(self.num_iterations_per_epoch)):
+                    batch = next(self.dataloader_train)
+                    batch = self.data_aug_gpu(batch)
+                    breakpoint()
+                    outputs = self.train_step(batch)
+                    train_outputs.append(outputs)
+                    prof.step()
+
+            # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
