@@ -744,7 +744,8 @@ class nnUNetTrainer(object):
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
                 p_rotation=0.2,
                 rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
-                bg_style_seg_sampling=False  # , mode_seg='nearest'
+                bg_style_seg_sampling=False,
+                mode_seg='nearest' # Etienne: for simplicity for now i activate this
             )
         )
 
@@ -1001,11 +1002,12 @@ class nnUNetTrainer(object):
         data = batch['data']
         target = batch['target']
 
-        data = data.to(self.device, non_blocking=True)
-        if isinstance(target, list):
-            target = [i.to(self.device, non_blocking=True) for i in target]
-        else:
-            target = target.to(self.device, non_blocking=True)
+        # not needed no more!
+        # data = data.to(self.device, non_blocking=True)
+        # if isinstance(target, list):
+        #     target = [i.to(self.device, non_blocking=True) for i in target]
+        # else:
+        #     target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad(set_to_none=True)
         # Autocast can be annoying
@@ -1415,7 +1417,7 @@ class nnUNetTrainer(object):
             data_all = batch['data']
             seg_all = batch['target']
             data_all = torch.from_numpy(data_all).float().to(self.device)
-            seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device)
+            seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device) # why not torch.int8...
             images = []
             segs = []
             for b in range(self.batch_size):
@@ -1426,7 +1428,7 @@ class nnUNetTrainer(object):
             if isinstance(segs[0], list):
                 seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
             else:
-                seg_all = torch.stack(segs)
+                seg_all = torch.stack(segs).to(torch.long).clip(0) # ??? etienne: why the clip(0) needed???
             del segs, images
             return {'data': data_all, 'target': seg_all}
 
@@ -1452,7 +1454,6 @@ class nnUNetTrainer(object):
                 for batch_id in tqdm(range(self.num_iterations_per_epoch)):
                     batch = next(self.dataloader_train)
                     batch = self.data_aug_gpu(batch)
-                    breakpoint()
                     outputs = self.train_step(batch)
                     train_outputs.append(outputs)
                     prof.step()
