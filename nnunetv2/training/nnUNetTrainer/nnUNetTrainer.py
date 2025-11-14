@@ -77,7 +77,7 @@ def trace_handler(prof):
     # Export timeline to see CPU/GPU overlap
     prof.export_chrome_trace(f"trace_epoch_{prof.step_num}.json")
 
-    breakpoint()
+
     # Get the raw events (not averages!)
     events = prof.events()
 
@@ -246,6 +246,8 @@ class nnUNetTrainer(object):
         self.disable_checkpointing = False
 
         self.was_initialized = False
+        self.num_repeats = 2
+        self.num_iterations_per_epoch //= self.num_repeats
 
         self.print_to_log_file("\n#######################################################################\n"
                                "Please cite the following paper when using nnU-Net:\n"
@@ -729,10 +731,12 @@ class nnUNetTrainer(object):
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=None,
+                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
+        allowed_num_processes = 1
+        print("Allowed Num Processes: ", allowed_num_processes)
         # we simulate 0 process for now
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
@@ -786,118 +790,118 @@ class nnUNetTrainer(object):
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
 
-        # transforms.append(RandomTransform(
-        #     GaussianNoiseTransform(
-        #         noise_variance=(0, 0.1),
-        #         p_per_channel=1,
-        #         synchronize_channels=True
-        #     ), apply_probability=0.1
-        # ))
-        # transforms.append(RandomTransform(
-        #     GaussianBlurTransform(
-        #         blur_sigma=(0.5, 1.),
-        #         synchronize_channels=False,
-        #         synchronize_axes=False,
-        #         p_per_channel=0.5, benchmark=True
-        #     ), apply_probability=0.2
-        # ))
-        # transforms.append(RandomTransform(
-        #     MultiplicativeBrightnessTransform(
-        #         multiplier_range=BGContrast((0.75, 1.25)),
-        #         synchronize_channels=False,
-        #         p_per_channel=1
-        #     ), apply_probability=0.15
-        # ))
-        # transforms.append(RandomTransform(
-        #     ContrastTransform(
-        #         contrast_range=BGContrast((0.75, 1.25)),
-        #         preserve_range=True,
-        #         synchronize_channels=False,
-        #         p_per_channel=1
-        #     ), apply_probability=0.15
-        # ))
-        # transforms.append(RandomTransform(
-        #     SimulateLowResolutionTransform(
-        #         scale=(0.5, 1),
-        #         synchronize_channels=False,
-        #         synchronize_axes=True,
-        #         ignore_axes=ignore_axes,
-        #         allowed_channels=None,
-        #         p_per_channel=0.5
-        #     ), apply_probability=0.25
-        # ))
-        # transforms.append(RandomTransform(
-        #     GammaTransform(
-        #         gamma=BGContrast((0.7, 1.5)),
-        #         p_invert_image=1,
-        #         synchronize_channels=False,
-        #         p_per_channel=1,
-        #         p_retain_stats=1
-        #     ), apply_probability=0.1
-        # ))
-        # transforms.append(RandomTransform(
-        #     GammaTransform(
-        #         gamma=BGContrast((0.7, 1.5)),
-        #         p_invert_image=0,
-        #         synchronize_channels=False,
-        #         p_per_channel=1,
-        #         p_retain_stats=1
-        #     ), apply_probability=0.3
-        # ))
-        # if mirror_axes is not None and len(mirror_axes) > 0:
-        #     transforms.append(
-        #         MirrorTransform(
-        #             allowed_axes=mirror_axes
-        #         )
-        #     )
+        transforms.append(RandomTransform(
+            GaussianNoiseTransform(
+                noise_variance=(0, 0.1),
+                p_per_channel=1,
+                synchronize_channels=True
+            ), apply_probability=0.1
+        ))
+        transforms.append(RandomTransform(
+            GaussianBlurTransform(
+                blur_sigma=(0.5, 1.),
+                synchronize_channels=False,
+                synchronize_axes=False,
+                p_per_channel=0.5, benchmark=True
+            ), apply_probability=0.2
+        ))
+        transforms.append(RandomTransform(
+            MultiplicativeBrightnessTransform(
+                multiplier_range=BGContrast((0.75, 1.25)),
+                synchronize_channels=False,
+                p_per_channel=1
+            ), apply_probability=0.15
+        ))
+        transforms.append(RandomTransform(
+            ContrastTransform(
+                contrast_range=BGContrast((0.75, 1.25)),
+                preserve_range=True,
+                synchronize_channels=False,
+                p_per_channel=1
+            ), apply_probability=0.15
+        ))
+        transforms.append(RandomTransform(
+            SimulateLowResolutionTransform(
+                scale=(0.5, 1),
+                synchronize_channels=False,
+                synchronize_axes=True,
+                ignore_axes=ignore_axes,
+                allowed_channels=None,
+                p_per_channel=0.5
+            ), apply_probability=0.25
+        ))
+        transforms.append(RandomTransform(
+            GammaTransform(
+                gamma=BGContrast((0.7, 1.5)),
+                p_invert_image=1,
+                synchronize_channels=False,
+                p_per_channel=1,
+                p_retain_stats=1
+            ), apply_probability=0.1
+        ))
+        transforms.append(RandomTransform(
+            GammaTransform(
+                gamma=BGContrast((0.7, 1.5)),
+                p_invert_image=0,
+                synchronize_channels=False,
+                p_per_channel=1,
+                p_retain_stats=1
+            ), apply_probability=0.3
+        ))
+        if mirror_axes is not None and len(mirror_axes) > 0:
+            transforms.append(
+                MirrorTransform(
+                    allowed_axes=mirror_axes
+                )
+            )
 
-        # if use_mask_for_norm is not None and any(use_mask_for_norm):
-        #     transforms.append(MaskImageTransform(
-        #         apply_to_channels=[i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
-        #         channel_idx_in_seg=0,
-        #         set_outside_to=0,
-        #     ))
+        if use_mask_for_norm is not None and any(use_mask_for_norm):
+            transforms.append(MaskImageTransform(
+                apply_to_channels=[i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
+                channel_idx_in_seg=0,
+                set_outside_to=0,
+            ))
 
-        # transforms.append(
-        #     RemoveLabelTansform(-1, 0)
-        # )
-        # if is_cascaded:
-        #     assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
-        #     transforms.append(
-        #         MoveSegAsOneHotToDataTransform(
-        #             source_channel_idx=1,
-        #             all_labels=foreground_labels,
-        #             remove_channel_from_source=True
-        #         )
-        #     )
-        #     transforms.append(
-        #         RandomTransform(
-        #             ApplyRandomBinaryOperatorTransform(
-        #                 channel_idx=list(range(-len(foreground_labels), 0)),
-        #                 strel_size=(1, 8),
-        #                 p_per_label=1
-        #             ), apply_probability=0.4
-        #         )
-        #     )
-        #     transforms.append(
-        #         RandomTransform(
-        #             RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-        #                 channel_idx=list(range(-len(foreground_labels), 0)),
-        #                 fill_with_other_class_p=0,
-        #                 dont_do_if_covers_more_than_x_percent=0.15,
-        #                 p_per_label=1
-        #             ), apply_probability=0.2
-        #         )
-        #     )
+        transforms.append(
+            RemoveLabelTansform(-1, 0)
+        )
+        if is_cascaded:
+            assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
+            transforms.append(
+                MoveSegAsOneHotToDataTransform(
+                    source_channel_idx=1,
+                    all_labels=foreground_labels,
+                    remove_channel_from_source=True
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    ApplyRandomBinaryOperatorTransform(
+                        channel_idx=list(range(-len(foreground_labels), 0)),
+                        strel_size=(1, 8),
+                        p_per_label=1
+                    ), apply_probability=0.4
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    RemoveRandomConnectedComponentFromOneHotEncodingTransform(
+                        channel_idx=list(range(-len(foreground_labels), 0)),
+                        fill_with_other_class_p=0,
+                        dont_do_if_covers_more_than_x_percent=0.15,
+                        p_per_label=1
+                    ), apply_probability=0.2
+                )
+            )
 
-        # if regions is not None:
-        #     # the ignore label must also be converted
-        #     transforms.append(
-        #         ConvertSegmentationToRegionsTransform(
-        #             regions=list(regions) + [ignore_label] if ignore_label is not None else regions,
-        #             channel_in_seg=0
-        #         )
-        #     )
+        if regions is not None:
+            # the ignore label must also be converted
+            transforms.append(
+                ConvertSegmentationToRegionsTransform(
+                    regions=list(regions) + [ignore_label] if ignore_label is not None else regions,
+                    channel_in_seg=0
+                )
+            )
 
         if deep_supervision_scales is not None:
             transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
@@ -1450,8 +1454,9 @@ class nnUNetTrainer(object):
         with torch.no_grad():
             data_all = batch['data']
             seg_all = batch['target']
-            data_all = torch.from_numpy(data_all).float().to(self.device)
-            seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device) # why not torch.int8...
+            if isinstance(data_all, np.ndarray):
+                data_all = torch.from_numpy(data_all).float().to(self.device)
+                seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device) # why not torch.int8...
             images = []
             segs = []
             for b in range(self.batch_size):
@@ -1490,25 +1495,25 @@ class nnUNetTrainer(object):
 
             for batch_id in tqdm(range(self.num_iterations_per_epoch)):
                 t1 = time()
-                batch = next(self.dataloader_train)
+                batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
                 t2 = time()
                 print(f"{t2-t1}s for getting batch")
 
-                start_event.record()
-                batch = self.data_aug_gpu(batch)
-                end_event.record()
-                torch.cuda.synchronize()
-                gpu_aug_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
-                print(f"{gpu_aug_time:.3f}s for gpu augmentation")
+                for j in range(self.num_repeats):
+                    start_event.record()
+                    batch_aug = self.data_aug_gpu(batch)
+                    end_event.record()
+                    torch.cuda.synchronize()
+                    gpu_aug_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
+                    print(f"{gpu_aug_time:.3f}s for gpu augmentation")
 
-
-                start_event.record()
-                outputs = self.train_step(batch)
-                train_outputs.append(outputs)
-                end_event.record()
-                torch.cuda.synchronize()
-                train_step_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
-                print(f"{train_step_time:.3f}s for train step")
+                    start_event.record()
+                    outputs = self.train_step(batch_aug)
+                    train_outputs.append(outputs)
+                    end_event.record()
+                    torch.cuda.synchronize()
+                    train_step_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
+                    print(f"{train_step_time:.3f}s for train step")
 
                 # prof.step()
 

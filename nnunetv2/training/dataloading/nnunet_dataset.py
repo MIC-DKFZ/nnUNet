@@ -14,7 +14,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, load_pick
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.training.dataloading.utils import unpack_dataset
 import math
-
+from time import time
 
 class nnUNetBaseDataset(ABC):
     """
@@ -64,6 +64,8 @@ class nnUNetBaseDataset(ABC):
 class nnUNetDatasetNumpy(nnUNetBaseDataset):
     def load_case(self, identifier):
         data_npy_file = join(self.source_folder, identifier + '.npy')
+        # t1 = time()
+
         if not isfile(data_npy_file):
             data = np.load(join(self.source_folder, identifier + '.npz'))['data']
         else:
@@ -74,6 +76,9 @@ class nnUNetDatasetNumpy(nnUNetBaseDataset):
             seg = np.load(join(self.source_folder, identifier + '.npz'))['seg']
         else:
             seg = np.load(seg_npy_file, mmap_mode='r')
+
+        # t2 = time()
+        # print(f"{t2-t1} just for np load")
 
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_npy_file = join(self.folder_with_segs_from_previous_stage, identifier + '.npy')

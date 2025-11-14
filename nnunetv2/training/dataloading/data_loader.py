@@ -15,6 +15,21 @@ from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
+from time import time
+from functools import wraps
+
+
+def timing(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        dt = 0
+        t1 = time()
+        result = f(*args, **kwargs)
+        t2 = time()
+        dt = t2-t1
+        print(f"{f}: {dt:.6f}")
+        return result
+    return wrap
 
 class nnUNetDataLoader(DataLoader):
     def __init__(self,
@@ -65,6 +80,10 @@ class nnUNetDataLoader(DataLoader):
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
         self.transforms = transforms
+
+        # avoid reallocation
+        self.data_all = np.zeros(self.data_shape, dtype=np.float32)
+        self.seg_all = np.zeros(self.seg_shape, dtype=np.int16)
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
@@ -165,10 +184,21 @@ class nnUNetDataLoader(DataLoader):
         return bbox_lbs, bbox_ubs
 
     def generate_train_batch(self):
+        # t1 = time()
         selected_keys = self.get_indices()
         # preallocate memory for data and seg
-        data_all = np.zeros(self.data_shape, dtype=np.float32)
-        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+
+        # Etienne: why not torch directly...
+        # t1 = time()
+        # data_all = np.zeros(self.data_shape, dtype=np.float32)
+        # seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+        data_all = self.data_all
+        seg_all = self.seg_all
+        data_all[...] = 0
+        seg_all[...] = 0
+
+        # t2 = time()
+        # print(f"allocation time: {t2-t1}")
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -177,6 +207,7 @@ class nnUNetDataLoader(DataLoader):
 
             data, seg, seg_prev, properties = self._data.load_case(i)
 
+            # t1_ = time()
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
             # self._data.load_case(i) (see nnUNetDataset.load_case)
             shape = data.shape[1:]
@@ -186,11 +217,14 @@ class nnUNetDataLoader(DataLoader):
 
             # use ACVL utils for that. Cleaner.
             data_all[j] = crop_and_pad_nd(data, bbox, 0)
-
             seg_cropped = crop_and_pad_nd(seg, bbox, -1)
+
             if seg_prev is not None:
                 seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
             seg_all[j] = seg_cropped
+
+            # t2_ = time()
+            # print(f"{t2_-t1_}s for cropping")
 
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]
@@ -215,6 +249,10 @@ class nnUNetDataLoader(DataLoader):
                     del segs, images
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
+        # transform_is_none = self.transforms is None
+        # transform_is_none_msg = ["Not None", "None"][transform_is_none]
+        # t2 = time()
+        # print(f"Loading One Batch {t2-t1}s, transforms is {transform_is_none_msg}")
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
 
