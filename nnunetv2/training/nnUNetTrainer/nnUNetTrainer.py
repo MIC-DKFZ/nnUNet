@@ -77,16 +77,51 @@ def trace_handler(prof):
     # Export timeline to see CPU/GPU overlap
     prof.export_chrome_trace(f"trace_epoch_{prof.step_num}.json")
 
-    # Use device_time_total or self_cuda_time_total instead
-    key_averages = prof.key_averages()
-    cuda_time = sum([item.device_time_total for item in key_averages])
-    cpu_time = sum([item.cpu_time_total for item in key_averages])
+    breakpoint()
+    # Get the raw events (not averages!)
+    events = prof.events()
 
-    if cuda_time > 0:
-        print(f"\n=== Step {prof.step_num} GPU Utilization ===")
-        print(f"Total CUDA time: {cuda_time/1e6:.2f}s")
-        print(f"Total CPU time: {cpu_time/1e6:.2f}s")
-        print(f"GPU utilization: {100*cuda_time/(cpu_time + cuda_time):.1f}%")
+    # Filter for CUDA events
+    cuda_events = [e for e in events if e.device_type() == 1]  # 1 = CUDA
+
+    if not cuda_events:
+        print("No CUDA events found")
+        return
+
+    # Find the time span
+    min_start = min(e.time_range().start for e in cuda_events)
+    max_end = max(e.time_range().end for e in cuda_events)
+    total_wall_time = (max_end - min_start) / 1e6  # Convert to seconds
+
+    # Calculate total GPU busy time (sum of all kernel durations)
+    total_gpu_time = sum((e.time_range().end - e.time_range().start) for e in cuda_events) / 1e6
+
+    print(f"\n=== Step {prof.step_num} GPU Utilization ===")
+    print(f"Wall clock time: {total_wall_time:.2f}s")
+    print(f"Total GPU kernel time: {total_gpu_time:.2f}s")
+    print(f"GPU utilization: {100 * total_gpu_time / total_wall_time:.1f}%")
+
+    # More sophisticated: find actual busy periods (account for parallel kernels)
+    # Sort events by start time
+    sorted_events = sorted(cuda_events, key=lambda e: e.time_range().start)
+
+    # Merge overlapping intervals to get actual busy time
+    busy_intervals = []
+    for event in sorted_events:
+        start = event.time_range().start
+        end = event.time_range().end
+
+        if busy_intervals and start <= busy_intervals[-1][1]:
+            # Overlapping - extend the last interval
+            busy_intervals[-1] = (busy_intervals[-1][0], max(busy_intervals[-1][1], end))
+        else:
+            # Non-overlapping - add new interval
+            busy_intervals.append((start, end))
+
+    actual_busy_time = sum(end - start for start, end in busy_intervals) / 1e6
+
+    print(f"Actual GPU busy time (accounting for parallelism): {actual_busy_time:.2f}s")
+    print(f"Actual GPU utilization: {100 * actual_busy_time / total_wall_time:.1f}%")
 
 
 
@@ -694,7 +729,7 @@ class nnUNetTrainer(object):
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                  sampling_probabilities=None, pad_sides=None, transforms=None,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
@@ -1434,7 +1469,6 @@ class nnUNetTrainer(object):
     # DEBUG PROFILING
     def run_training(self):
         self.on_train_start()
-        self.num_iterations_per_epoch = 30
 
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
@@ -1442,20 +1476,41 @@ class nnUNetTrainer(object):
             self.on_train_epoch_start()
             train_outputs = []
             #with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-            with profile(
-                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                schedule=schedule(wait=1, warmup=1, active=3, repeat=1),
-                on_trace_ready=trace_handler,
-                record_shapes=True,
-                profile_memory=True,
-                with_stack=True
-            ) as prof:
-                for batch_id in tqdm(range(self.num_iterations_per_epoch)):
-                    batch = next(self.dataloader_train)
-                    batch = self.data_aug_gpu(batch)
-                    outputs = self.train_step(batch)
-                    train_outputs.append(outputs)
-                    prof.step()
+            # with profile(
+            #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            #     schedule=schedule(wait=1, warmup=3, active=self.num_iterations_per_epoch, repeat=1),
+            #     on_trace_ready=trace_handler,
+            #     record_shapes=True,
+            #     profile_memory=True,
+            #     with_stack=True
+            # ) as prof:
+
+            start_event = torch.cuda.Event(enable_timing=True)
+            end_event = torch.cuda.Event(enable_timing=True)
+
+            for batch_id in tqdm(range(self.num_iterations_per_epoch)):
+                t1 = time()
+                batch = next(self.dataloader_train)
+                t2 = time()
+                print(f"{t2-t1}s for getting batch")
+
+                start_event.record()
+                batch = self.data_aug_gpu(batch)
+                end_event.record()
+                torch.cuda.synchronize()
+                gpu_aug_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
+                print(f"{gpu_aug_time:.3f}s for gpu augmentation")
+
+
+                start_event.record()
+                outputs = self.train_step(batch)
+                train_outputs.append(outputs)
+                end_event.record()
+                torch.cuda.synchronize()
+                train_step_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
+                print(f"{train_step_time:.3f}s for train step")
+
+                # prof.step()
 
             # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
             self.on_train_epoch_end(train_outputs)
