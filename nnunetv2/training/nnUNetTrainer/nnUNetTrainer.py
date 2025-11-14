@@ -77,16 +77,16 @@ def trace_handler(prof):
     # Export timeline to see CPU/GPU overlap
     prof.export_chrome_trace(f"trace_epoch_{prof.step_num}.json")
 
-    # Calculate GPU utilization
-    cuda_time = sum([item.cuda_time_total for item in prof.key_averages()])
-    total_time = sum([item.cpu_time_total for item in prof.key_averages()])
+    # Use device_time_total or self_cuda_time_total instead
+    key_averages = prof.key_averages()
+    cuda_time = sum([item.device_time_total for item in key_averages])
+    cpu_time = sum([item.cpu_time_total for item in key_averages])
 
     if cuda_time > 0:
         print(f"\n=== Step {prof.step_num} GPU Utilization ===")
         print(f"Total CUDA time: {cuda_time/1e6:.2f}s")
-        print(f"Total CPU time: {total_time/1e6:.2f}s")
-        print(f"GPU utilization: {100*cuda_time/total_time:.1f}%")
-
+        print(f"Total CPU time: {cpu_time/1e6:.2f}s")
+        print(f"GPU utilization: {100*cuda_time/(cpu_time + cuda_time):.1f}%")
 
 
 
@@ -697,9 +697,8 @@ class nnUNetTrainer(object):
                                   sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
-        # allowed_num_processes = get_allowed_n_proc_DA()
+        allowed_num_processes = get_allowed_n_proc_DA()
         # we simulate 0 process for now
-        allowed_num_processes = 0
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
@@ -1428,7 +1427,7 @@ class nnUNetTrainer(object):
             if isinstance(segs[0], list):
                 seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
             else:
-                seg_all = torch.stack(segs).to(torch.long).clip(0) # ??? etienne: why the clip(0) needed???
+                seg_all = torch.stack(segs).to(torch.long)
             del segs, images
             return {'data': data_all, 'target': seg_all}
 
