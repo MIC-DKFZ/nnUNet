@@ -127,7 +127,7 @@ def trace_handler(prof):
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'), gpu_augmentation: bool = True):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
@@ -175,6 +175,8 @@ class nnUNetTrainer(object):
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
+
+        self.gpu_augmentation = gpu_augmentation
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -246,8 +248,9 @@ class nnUNetTrainer(object):
         self.disable_checkpointing = False
 
         self.was_initialized = False
-        self.num_repeats = 2
-        self.num_iterations_per_epoch //= self.num_repeats
+        if self.gpu_augmentation:
+            self.num_repeats = 1
+            self.num_iterations_per_epoch //= self.num_repeats
 
         self.print_to_log_file("\n#######################################################################\n"
                                "Please cite the following paper when using nnU-Net:\n"
@@ -724,7 +727,7 @@ class nnUNetTrainer(object):
                                  self.configuration_manager.patch_size,
                                  self.label_manager,
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=None,
+                                 sampling_probabilities=None, pad_sides=None, transforms=None if self.gpu_augmentation else self.tr_transforms,
                                  probabilistic_oversampling=self.probabilistic_oversampling)
         dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
                                   self.configuration_manager.patch_size,
@@ -734,8 +737,8 @@ class nnUNetTrainer(object):
                                   sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
-        allowed_num_processes = get_allowed_n_proc_DA()
-        allowed_num_processes = 1
+
+        allowed_num_processes = 1 if self.gpu_augmentation else get_allowed_n_proc_DA()
         print("Allowed Num Processes: ", allowed_num_processes)
         # we simulate 0 process for now
         if allowed_num_processes == 0:
@@ -1040,12 +1043,11 @@ class nnUNetTrainer(object):
         data = batch['data']
         target = batch['target']
 
-        # not needed no more!
-        # data = data.to(self.device, non_blocking=True)
-        # if isinstance(target, list):
-        #     target = [i.to(self.device, non_blocking=True) for i in target]
-        # else:
-        #     target = target.to(self.device, non_blocking=True)
+        data = data.to(self.device, non_blocking=True)
+        if isinstance(target, list):
+            target = [i.to(self.device, non_blocking=True) for i in target]
+        else:
+            target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad(set_to_none=True)
         # Autocast can be annoying
@@ -1480,6 +1482,7 @@ class nnUNetTrainer(object):
 
             self.on_train_epoch_start()
             train_outputs = []
+
             #with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
             # with profile(
             #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
@@ -1490,30 +1493,33 @@ class nnUNetTrainer(object):
             #     with_stack=True
             # ) as prof:
 
-            start_event = torch.cuda.Event(enable_timing=True)
-            end_event = torch.cuda.Event(enable_timing=True)
+            if self.gpu_augmentation:
+                # start_event = torch.cuda.Event(enable_timing=True)
+                # end_event = torch.cuda.Event(enable_timing=True)
+                for batch_id in tqdm(range(self.num_iterations_per_epoch)):
+                    t1 = time()
+                    batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
+                    t2 = time()
+                    print(f"{t2-t1}s for getting batch")
 
-            for batch_id in tqdm(range(self.num_iterations_per_epoch)):
-                t1 = time()
-                batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
-                t2 = time()
-                print(f"{t2-t1}s for getting batch")
+                    for j in range(self.num_repeats):
+                        # start_event.record()
+                        batch_aug = self.data_aug_gpu(batch)
+                        # end_event.record()
+                        # torch.cuda.synchronize()
+                        # gpu_aug_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
+                        # print(f"{gpu_aug_time:.3f}s for gpu augmentation")
 
-                for j in range(self.num_repeats):
-                    start_event.record()
-                    batch_aug = self.data_aug_gpu(batch)
-                    end_event.record()
-                    torch.cuda.synchronize()
-                    gpu_aug_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
-                    print(f"{gpu_aug_time:.3f}s for gpu augmentation")
-
-                    start_event.record()
-                    outputs = self.train_step(batch_aug)
-                    train_outputs.append(outputs)
-                    end_event.record()
-                    torch.cuda.synchronize()
-                    train_step_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
-                    print(f"{train_step_time:.3f}s for train step")
+                        # start_event.record()
+                        outputs = self.train_step(batch_aug)
+                        train_outputs.append(outputs)
+                        # end_event.record()
+                        # torch.cuda.synchronize()
+                        # train_step_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
+                        # print(f"{train_step_time:.3f}s for train step")
+            else:
+                for batch_id in tqdm(range(self.num_iterations_per_epoch)):
+                    train_outputs.append(self.train_step(next(self.dataloader_train)))
 
                 # prof.step()
 

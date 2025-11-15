@@ -34,7 +34,8 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           fold: int,
                           trainer_name: str = 'nnUNetTrainer',
                           plans_identifier: str = 'nnUNetPlans',
-                          device: torch.device = torch.device('cuda')):
+                          device: torch.device = torch.device('cuda'),
+                          gpu_augmentation: bool = True):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
@@ -63,7 +64,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     plans = load_json(plans_file)
     dataset_json = load_json(join(preprocessed_dataset_folder_base, 'dataset.json'))
     nnunet_trainer = nnunet_trainer(plans=plans, configuration=configuration, fold=fold,
-                                    dataset_json=dataset_json, device=device)
+                                    dataset_json=dataset_json, device=device, gpu_augmentation=gpu_augmentation)
     return nnunet_trainer
 
 
@@ -108,11 +109,11 @@ def cleanup_ddp():
 
 
 def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkpointing, c, val,
-            pretrained_weights, npz, val_with_best, world_size):
+            pretrained_weights, npz, val_with_best, world_size, gpu_augmentation):
     setup_ddp(rank, world_size)
     torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
 
-    nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p)
+    nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p, gpu_augmentation=gpu_augmentation)
 
     if disable_checkpointing:
         nnunet_trainer.disable_checkpointing = disable_checkpointing
@@ -145,7 +146,8 @@ def run_training(dataset_name_or_id: Union[str, int],
                  only_run_validation: bool = False,
                  disable_checkpointing: bool = False,
                  val_with_best: bool = False,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'),
+                 gpu_augmentation: bool = True):
     if plans_identifier == 'nnUNetPlans':
         print("\n############################\n"
               "INFO: You are using the old nnU-Net default plans. We have updated our recommendations. "
@@ -185,12 +187,13 @@ def run_training(dataset_name_or_id: Union[str, int],
                      pretrained_weights,
                      export_validation_probabilities,
                      val_with_best,
-                     num_gpus),
+                     num_gpus,
+                     gpu_augmentation),
                  nprocs=num_gpus,
                  join=True)
     else:
         nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name,
-                                               plans_identifier, device=device)
+                                               plans_identifier, device=device, gpu_augmentation=gpu_augmentation)
 
         if disable_checkpointing:
             nnunet_trainer.disable_checkpointing = disable_checkpointing
@@ -248,6 +251,8 @@ def run_training_entry():
                     help="Use this to set the device the training should run with. Available options are 'cuda' "
                          "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                          "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
+    parser.add_argument('--gpu_augmentation', action='store_true',
+                        help='Use target device to run the augmentation directly on it.')
     args = parser.parse_args()
 
     assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
@@ -265,7 +270,7 @@ def run_training_entry():
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
                  args.num_gpus, args.npz, args.c, args.val, args.disable_checkpointing, args.val_best,
-                 device=device)
+                 device=device, gpu_augmentation=args.gpu_augmentation)
 
 
 if __name__ == '__main__':
