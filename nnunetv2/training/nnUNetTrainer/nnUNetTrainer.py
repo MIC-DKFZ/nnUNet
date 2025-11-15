@@ -52,6 +52,8 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
+from nnunetv2.training.dataloading.threaded_iterator import ThreadedIterator
+
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
@@ -738,12 +740,14 @@ class nnUNetTrainer(object):
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
 
-        allowed_num_processes = 1 if self.gpu_augmentation else get_allowed_n_proc_DA()
+        allowed_num_processes = 0 if self.gpu_augmentation else get_allowed_n_proc_DA()
         print("Allowed Num Processes: ", allowed_num_processes)
         # we simulate 0 process for now
         if allowed_num_processes == 0:
-            mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, None)
+            # mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
+            # mt_gen_val = SingleThreadedAugmenter(dl_val, None)
+            mt_gen_train = ThreadedIterator(dl_tr, 4)
+            mt_gen_val = ThreadedIterator(dl_val, 4)
         else:
             mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
                                                         num_processes=allowed_num_processes,
@@ -1497,10 +1501,10 @@ class nnUNetTrainer(object):
                 # start_event = torch.cuda.Event(enable_timing=True)
                 # end_event = torch.cuda.Event(enable_timing=True)
                 for batch_id in tqdm(range(self.num_iterations_per_epoch)):
-                    t1 = time()
+                    # t1 = time()
                     batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
-                    t2 = time()
-                    print(f"{t2-t1}s for getting batch")
+                    # t2 = time()
+                    # print(f"{t2-t1}s for getting batch")
 
                     for j in range(self.num_repeats):
                         # start_event.record()
@@ -1519,7 +1523,11 @@ class nnUNetTrainer(object):
                         # print(f"{train_step_time:.3f}s for train step")
             else:
                 for batch_id in tqdm(range(self.num_iterations_per_epoch)):
-                    train_outputs.append(self.train_step(next(self.dataloader_train)))
+                    # t1 = time()
+                    batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
+                    # t2 = time()
+                    # print(f"{t2-t1}s for getting batch")
+                    train_outputs.append(self.train_step(batch))
 
                 # prof.step()
 
