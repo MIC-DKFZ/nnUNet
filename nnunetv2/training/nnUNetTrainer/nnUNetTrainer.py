@@ -7,7 +7,9 @@ import warnings
 from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
+from tqdm import tqdm
 from typing import Tuple, Union, List
+
 
 import numpy as np
 import torch
@@ -52,7 +54,10 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
-from nnunetv2.training.dataloading.threaded_iterator import ThreadedIterator
+
+# Etienne: for gpu augmentation
+from nnunetv2.training.dataloading.threaded_gpu_augmenter import ThreadedGPUAugmenter
+
 
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
@@ -67,64 +72,6 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
-
-
-
-# Etienne: I want to profile dataloading
-from torch.profiler import profile, ProfilerActivity, schedule
-from tqdm import tqdm
-
-def trace_handler(prof):
-    print(f"Export to chrome")
-    # Export timeline to see CPU/GPU overlap
-    prof.export_chrome_trace(f"trace_epoch_{prof.step_num}.json")
-
-
-    # Get the raw events (not averages!)
-    events = prof.events()
-
-    # Filter for CUDA events
-    cuda_events = [e for e in events if e.device_type() == 1]  # 1 = CUDA
-
-    if not cuda_events:
-        print("No CUDA events found")
-        return
-
-    # Find the time span
-    min_start = min(e.time_range().start for e in cuda_events)
-    max_end = max(e.time_range().end for e in cuda_events)
-    total_wall_time = (max_end - min_start) / 1e6  # Convert to seconds
-
-    # Calculate total GPU busy time (sum of all kernel durations)
-    total_gpu_time = sum((e.time_range().end - e.time_range().start) for e in cuda_events) / 1e6
-
-    print(f"\n=== Step {prof.step_num} GPU Utilization ===")
-    print(f"Wall clock time: {total_wall_time:.2f}s")
-    print(f"Total GPU kernel time: {total_gpu_time:.2f}s")
-    print(f"GPU utilization: {100 * total_gpu_time / total_wall_time:.1f}%")
-
-    # More sophisticated: find actual busy periods (account for parallel kernels)
-    # Sort events by start time
-    sorted_events = sorted(cuda_events, key=lambda e: e.time_range().start)
-
-    # Merge overlapping intervals to get actual busy time
-    busy_intervals = []
-    for event in sorted_events:
-        start = event.time_range().start
-        end = event.time_range().end
-
-        if busy_intervals and start <= busy_intervals[-1][1]:
-            # Overlapping - extend the last interval
-            busy_intervals[-1] = (busy_intervals[-1][0], max(busy_intervals[-1][1], end))
-        else:
-            # Non-overlapping - add new interval
-            busy_intervals.append((start, end))
-
-    actual_busy_time = sum(end - start for start, end in busy_intervals) / 1e6
-
-    print(f"Actual GPU busy time (accounting for parallelism): {actual_busy_time:.2f}s")
-    print(f"Actual GPU utilization: {100 * actual_busy_time / total_wall_time:.1f}%")
-
 
 
 class nnUNetTrainer(object):
@@ -712,7 +659,7 @@ class nnUNetTrainer(object):
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
-        self.tr_transforms = tr_transforms
+
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
@@ -736,18 +683,18 @@ class nnUNetTrainer(object):
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                  sampling_probabilities=None, pad_sides=None, transforms=None,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
 
-        allowed_num_processes = 0 if self.gpu_augmentation else get_allowed_n_proc_DA()
+        allowed_num_processes = get_allowed_n_proc_DA()
         print("Allowed Num Processes: ", allowed_num_processes)
-        # we simulate 0 process for now
-        if allowed_num_processes == 0:
-            # mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
-            # mt_gen_val = SingleThreadedAugmenter(dl_val, None)
-            mt_gen_train = ThreadedIterator(dl_tr, 4)
-            mt_gen_val = ThreadedIterator(dl_val, 4)
+        if self.gpu_augmentation:
+            mt_gen_train = ThreadedGPUAugmenter(dl_tr, tr_transforms, 4)
+            mt_gen_val = ThreadedGPUAugmenter(dl_val, val_transforms, 4)
+        elif allowed_num_processes == 0:
+            mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
+            mt_gen_val = SingleThreadedAugmenter(dl_val, None)
         else:
             mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
                                                         num_processes=allowed_num_processes,
@@ -790,7 +737,7 @@ class nnUNetTrainer(object):
                 p_rotation=0.2,
                 rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
                 bg_style_seg_sampling=False,
-                mode_seg='nearest' # Etienne: for simplicity for now i activate this
+                mode_seg='bilinear'
             )
         )
 
@@ -1432,112 +1379,25 @@ class nnUNetTrainer(object):
         self.set_deep_supervision_enabled(True)
         compute_gaussian.cache_clear()
 
-    # def run_training(self):
-    #     self.on_train_start()
-
-    #     for epoch in range(self.current_epoch, self.num_epochs):
-    #         self.on_epoch_start()
-
-    #         self.on_train_epoch_start()
-    #         train_outputs = []
-    #         for batch_id in range(self.num_iterations_per_epoch):
-    #             train_outputs.append(self.train_step(next(self.dataloader_train)))
-    #         self.on_train_epoch_end(train_outputs)
-
-    #         with torch.no_grad():
-    #             self.on_validation_epoch_start()
-    #             val_outputs = []
-    #             for batch_id in range(self.num_val_iterations_per_epoch):
-    #                 val_outputs.append(self.validation_step(next(self.dataloader_val)))
-    #             self.on_validation_epoch_end(val_outputs)
-
-    #         self.on_epoch_end()
-
-    #     self.on_train_end()
-
-
-    def data_aug_gpu(self, batch):
-        with torch.no_grad():
-            data_all = batch['data']
-            seg_all = batch['target']
-            if isinstance(data_all, np.ndarray):
-                data_all = torch.from_numpy(data_all).float().to(self.device)
-                seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device) # why not torch.int8...
-            images = []
-            segs = []
-            for b in range(self.batch_size):
-                tmp = self.tr_transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
-                images.append(tmp['image'])
-                segs.append(tmp['segmentation'])
-            data_all = torch.stack(images)
-            if isinstance(segs[0], list):
-                seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
-            else:
-                seg_all = torch.stack(segs).to(torch.long)
-            del segs, images
-            return {'data': data_all, 'target': seg_all}
-
-    # DEBUG PROFILING
     def run_training(self):
         self.on_train_start()
+
+        # self.num_iterations_per_epoch = 10
+        # self.num_val_iterations_per_epoch = 10
 
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
             self.on_train_epoch_start()
             train_outputs = []
-
-            #with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-            # with profile(
-            #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-            #     schedule=schedule(wait=1, warmup=3, active=self.num_iterations_per_epoch, repeat=1),
-            #     on_trace_ready=trace_handler,
-            #     record_shapes=True,
-            #     profile_memory=True,
-            #     with_stack=True
-            # ) as prof:
-
-            if self.gpu_augmentation:
-                # start_event = torch.cuda.Event(enable_timing=True)
-                # end_event = torch.cuda.Event(enable_timing=True)
-                for batch_id in tqdm(range(self.num_iterations_per_epoch)):
-                    # t1 = time()
-                    batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
-                    # t2 = time()
-                    # print(f"{t2-t1}s for getting batch")
-
-                    for j in range(self.num_repeats):
-                        # start_event.record()
-                        batch_aug = self.data_aug_gpu(batch)
-                        # end_event.record()
-                        # torch.cuda.synchronize()
-                        # gpu_aug_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
-                        # print(f"{gpu_aug_time:.3f}s for gpu augmentation")
-
-                        # start_event.record()
-                        outputs = self.train_step(batch_aug)
-                        train_outputs.append(outputs)
-                        # end_event.record()
-                        # torch.cuda.synchronize()
-                        # train_step_time = start_event.elapsed_time(end_event) / 1000  # Convert ms to seconds
-                        # print(f"{train_step_time:.3f}s for train step")
-            else:
-                for batch_id in tqdm(range(self.num_iterations_per_epoch)):
-                    # t1 = time()
-                    batch = next(self.dataloader_train) # load_numpy, crop_and_pad_nd x batch_size
-                    # t2 = time()
-                    # print(f"{t2-t1}s for getting batch")
-                    train_outputs.append(self.train_step(batch))
-
-                # prof.step()
-
-            # print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+            for batch_id in tqdm(range(self.num_iterations_per_epoch)):
+                train_outputs.append(self.train_step(next(self.dataloader_train)))
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
+                for batch_id in tqdm(range(self.num_val_iterations_per_epoch)):
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
                 self.on_validation_epoch_end(val_outputs)
 
