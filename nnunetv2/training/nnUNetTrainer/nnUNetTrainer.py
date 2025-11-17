@@ -690,8 +690,8 @@ class nnUNetTrainer(object):
         allowed_num_processes = get_allowed_n_proc_DA()
         print("Allowed Num Processes: ", allowed_num_processes)
         if self.gpu_augmentation:
-            mt_gen_train = ThreadedGPUAugmenter(dl_tr, tr_transforms, 4)
-            mt_gen_val = ThreadedGPUAugmenter(dl_val, val_transforms, 4)
+            mt_gen_train = ThreadedGPUAugmenter(dl_tr, tr_transforms, 8)
+            mt_gen_val = ThreadedGPUAugmenter(dl_val, val_transforms, 8)
         elif allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
