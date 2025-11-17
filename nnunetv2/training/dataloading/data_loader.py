@@ -81,10 +81,6 @@ class nnUNetDataLoader(DataLoader):
             else self._probabilistic_oversampling
         self.transforms = transforms
 
-        # avoid reallocation
-        self.data_all = np.zeros(self.data_shape, dtype=np.float32)
-        self.seg_all = np.zeros(self.seg_shape, dtype=np.int16)
-
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
         determines whether sample sample_idx in a minibatch needs to be guaranteed foreground
@@ -184,21 +180,9 @@ class nnUNetDataLoader(DataLoader):
         return bbox_lbs, bbox_ubs
 
     def generate_train_batch(self):
-        # t1 = time()
         selected_keys = self.get_indices()
-        # preallocate memory for data and seg
-
-        # Etienne: why not torch directly...
-        # t1 = time()
-        # data_all = np.zeros(self.data_shape, dtype=np.float32)
-        # seg_all = np.zeros(self.seg_shape, dtype=np.int16)
-        data_all = self.data_all
-        seg_all = self.seg_all
-        data_all[...] = 0
-        seg_all[...] = 0
-
-        # t2 = time()
-        # print(f"allocation time: {t2-t1}")
+        data_all = np.zeros(self.data_shape, dtype=np.float32)
+        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -223,9 +207,6 @@ class nnUNetDataLoader(DataLoader):
                 seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
             seg_all[j] = seg_cropped
 
-            # t2_ = time()
-            # print(f"{t2_-t1_}s for cropping")
-
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]
             seg_all = seg_all[:, :, 0]
@@ -249,10 +230,6 @@ class nnUNetDataLoader(DataLoader):
                     del segs, images
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
-        # transform_is_none = self.transforms is None
-        # transform_is_none_msg = ["Not None", "None"][transform_is_none]
-        # t2 = time()
-        # print(f"Loading One Batch {t2-t1}s, transforms is {transform_is_none_msg}")
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
 

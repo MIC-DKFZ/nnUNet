@@ -7,6 +7,12 @@ import time
 
 
 
+def pin_memory_of_all_eligible_items_in_dict(result_dict):
+    result_dict['data'] = torch.from_numpy(result_dict['data']).pin_memory()
+    result_dict['target'] = torch.from_numpy(result_dict['target']).to(torch.int16).pin_memory()
+    return result_dict
+
+
 
 class ThreadedGPUAugmenter:
     """
@@ -20,11 +26,9 @@ class ThreadedGPUAugmenter:
         gpu_transform: Transform to apply on GPU (or None)
         num_threads: Number of loading threads
         queue_size: Size of the prefetch queue
-        device: torch.device for GPU augmentation
-        use_streams: If True, uses CUDA streams for async augmentation
     """
 
-    def __init__(self, data_loader, gpu_transforms=None, num_threads=4, queue_size=10):
+    def __init__(self, data_loader, gpu_transforms=None, num_threads=4, queue_size=2):
         self.data_loader = data_loader
         self.gpu_transforms = gpu_transforms
         self.device = torch.device('cuda')
@@ -52,6 +56,7 @@ class ThreadedGPUAugmenter:
             while not self.stop_event.is_set():
                 try:
                     item = next(self.data_loader)
+                    item = pin_memory_of_all_eligible_items_in_dict(item)
                     self.data_queue.put(item)
                 except StopIteration:
                     break
@@ -63,12 +68,13 @@ class ThreadedGPUAugmenter:
     @torch.no_grad()
     def _apply_gpu_transform(self, batch):
         """Apply GPU transformation to a batch"""
-        t1 = time.time()
-        data_all = batch['data']
-        seg_all = batch['target']
-        if isinstance(data_all, np.ndarray):
-            data_all = torch.from_numpy(data_all).float().to(self.device)
-            seg_all = torch.from_numpy(seg_all).to(torch.int16).to(self.device) # why not torch.int8...
+        # t1 = time.time()
+        data_all = batch['data'].cuda(non_blocking=True)
+        seg_all = batch['target'].cuda(non_blocking=True)
+
+        # t2 = time.time()
+        # print(f"{t2-t1} s for device transfer")
+        # t1 = time.time()
         images = []
         segs = []
         batch_size = len(data_all)
@@ -83,8 +89,8 @@ class ThreadedGPUAugmenter:
             seg_all = torch.stack(segs).to(torch.long)
         del segs, images
 
-        t2 = time.time()
-        print(f"{t2-t1} s for gpu augmentation! => please reduce this")
+        # t2 = time.time()
+        # print(f"{t2-t1} s for gpu augmentation! => please reduce this")
         return {'data': data_all, 'target': seg_all}
 
     def __next__(self):
@@ -98,6 +104,4 @@ class ThreadedGPUAugmenter:
     def __del__(self):
         """Cleanup on deletion"""
         self.stop_event.set()
-        if self.use_streams and self.stream is not None:
-            self.stream.synchronize()
 

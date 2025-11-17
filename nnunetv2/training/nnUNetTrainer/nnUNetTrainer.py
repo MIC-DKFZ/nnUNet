@@ -676,14 +676,14 @@ class nnUNetTrainer(object):
                                  self.configuration_manager.patch_size,
                                  self.label_manager,
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=None if self.gpu_augmentation else self.tr_transforms,
+                                 sampling_probabilities=None, pad_sides=None, transforms=None if self.gpu_augmentation else tr_transforms,
                                  probabilistic_oversampling=self.probabilistic_oversampling)
         dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
                                   self.configuration_manager.patch_size,
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=None,
+                                  sampling_probabilities=None, pad_sides=None, transforms=None if self.gpu_augmentation else val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
 
@@ -737,7 +737,7 @@ class nnUNetTrainer(object):
                 p_rotation=0.2,
                 rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
                 bg_style_seg_sampling=False,
-                mode_seg='bilinear'
+                mode_seg='nearest'
             )
         )
 
