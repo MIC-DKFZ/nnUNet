@@ -1016,6 +1016,25 @@ def predict_entry_point():
     #                           part_id=args.part_id,
     #                           device=device)
 
+def switch_resampling_mode():
+    import argparse
+    parser = argparse.ArgumentParser(description='Use this to switch the targeted model to prediction mode without doing the resampling.')
+    parser.add_argument('-d', type=str, required=True,
+                        help='Dataset with which you would like to predict. You can specify either dataset name or id')
+    parser.add_argument('-p', type=str, required=False, default='nnUNetPlans',
+                        help='Plans identifier. Specify the plans in which the desired configuration is located. '
+                             'Default: nnUNetPlans')
+    parser.add_argument('-tr', type=str, required=False, default='nnUNetTrainer',
+                        help='What nnU-Net trainer class was used for training? Default: nnUNetTrainer')
+    parser.add_argument('-c', type=str, required=True,
+                        help='nnU-Net configuration that should be used for prediction. Config must be located '
+                             'in the plans specified with -p')
+    parser.add_argument('-m', type=str, required=True,
+                        help='Resampling mode to use between "normal" and "no_resampling"')
+    
+    args = parser.parse_args()
+    model_folder = get_output_folder(args.d, args.tr, args.p, args.c)
+    print(model_folder)
 
 if __name__ == '__main__':
     ########################## predict a bunch of files
