@@ -932,7 +932,7 @@ def predict_entry_point():
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
                              'jobs)')
     parser.add_argument('--resampling_mode', type=str, required=False, default="normal",
-                        help='Resampling mode to use between "normal" and "no_resampling" (normal being the one used for). Default: "normal"')
+                        help="Resampling mode to use between 'normal' and 'no_resampling' (normal being the one used for training). Default: 'normal'")
 
     print(
         "\n#######################################################################\nPlease cite the following paper "
