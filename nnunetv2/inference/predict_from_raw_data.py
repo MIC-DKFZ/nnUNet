@@ -1033,7 +1033,23 @@ def switch_resampling_mode():
                         help='Resampling mode to use between "normal" and "no_resampling"')
     
     args = parser.parse_args()
-    model_folder = get_output_folder(args.d, args.tr, args.p, args.c)
+
+    from pathlib import Path
+    from glob import glob
+    import shutil
+
+    model_folder = Path(get_output_folder(args.d, args.tr, args.p, args.c))
+    plans_in_folder = [Path(p).absolute().resolve() for p in glob((model_folder / "plans*.json").absolute().resolve().as_posix())]
+
+    default_plan = (model_folder / "plans.json").absolute().resolve()
+    resampling_plan = (model_folder / "plans_resampling.json").absolute().resolve()
+    no_resampling_plan = (model_folder / "plans_no_resampling.json").absolute().resolve()
+
+    # If we do not have all the version of the file, we generate them
+
+    print([p in plans_in_folder for p in [default_plan, resampling_plan, no_resampling_plan]])
+    if not all([p in plans_in_folder for p in [default_plan, resampling_plan, no_resampling_plan]]):
+        shutil.copy(default_plan, model_folder / "plans_resampling.json")
     print(model_folder)
 
 if __name__ == '__main__':
