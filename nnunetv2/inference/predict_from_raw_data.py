@@ -1055,7 +1055,7 @@ def switch_resampling_mode():
                         help='Resampling mode to use between "normal" and "no_resampling"')
     
     args = parser.parse_args()
-    assert args.m not in ["normal", "no_resampling"], f'Invalid mode (-m) argument : {args.m} should be either "normal" or "no_resampling".'
+    assert args.m in ["normal", "no_resampling"], f'Invalid mode (-m) argument : {args.m} should be either "normal" or "no_resampling".'
 
     from pathlib import Path
     from glob import glob
