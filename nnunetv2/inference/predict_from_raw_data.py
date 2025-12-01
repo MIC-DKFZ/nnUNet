@@ -1055,6 +1055,7 @@ def switch_resampling_mode():
                         help='Resampling mode to use between "normal" and "no_resampling"')
     
     args = parser.parse_args()
+    assert args.m not in ["normal", "no_resampling"], f'Invalid mode (-m) argument : {args.m} should be either "normal" or "no_resampling".'
 
     from pathlib import Path
     from glob import glob
@@ -1067,10 +1068,10 @@ def switch_resampling_mode():
     default_resampling_plan = (model_folder / "plans_default_resampling.json").absolute().resolve()
     no_resampling_plan = (model_folder / "plans_no_resampling.json").absolute().resolve()
 
-    # If we do not have all the version of the file, we generate them
-    print([default_plan, default_resampling_plan, no_resampling_plan])
-    print([p in plans_in_folder for p in [default_plan, default_resampling_plan, no_resampling_plan]])
-    if not all([p in plans_in_folder for p in [default_plan, default_resampling_plan, no_resampling_plan]]):
+    # If we do not have all the version of the plans, we generate them
+    missing_plans = [p for p in [default_plan, default_resampling_plan, no_resampling_plan] if p not in plans_in_folder]
+    if missing_plans:
+        print(f"Missing plans: {[p.name for p in missing_plans]}\nThey will be generated.")
         shutil.copy(default_plan, default_resampling_plan)
         import json
         with open(default_resampling_plan, "r") as f:
@@ -1078,9 +1079,10 @@ def switch_resampling_mode():
         with open(no_resampling_plan, "w") as f:
             json.dump(json_dict, f, indent=4)
     
-    print([default_plan, default_resampling_plan, no_resampling_plan])
-    print([p in plans_in_folder for p in [default_plan, default_resampling_plan, no_resampling_plan]])
-    print(model_folder)
+    if args.m == "normal":
+        shutil.copy(default_resampling_plan, default_plan)
+    else:
+        shutil.copy(no_resampling_plan, default_plan)
 
 if __name__ == '__main__':
     ########################## predict a bunch of files
