@@ -992,10 +992,12 @@ def predict_entry_point():
 
     from pathlib import Path
     from glob import glob
-    plans_in_folder = [Path(p).absolute().resolve() for p in glob((model_folder / "plans*.json").absolute().resolve().as_posix())]
+
+    model_folder_path = Path(model_folder)
+    plans_in_folder = [Path(p).absolute().resolve() for p in glob((model_folder_path / "plans*.json").absolute().resolve().as_posix())]
     
-    default_plan = (model_folder / "plans.json").absolute().resolve()
-    no_resampling_plan = (model_folder / "plans_no_resampling.json").absolute().resolve()
+    default_plan = (model_folder_path / "plans.json").absolute().resolve()
+    no_resampling_plan = (model_folder_path / "plans_no_resampling.json").absolute().resolve()
 
     # If we do not have all the version of the plans, we generate them
     if no_resampling_plan not in plans_in_folder:
