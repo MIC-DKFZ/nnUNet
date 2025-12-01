@@ -66,7 +66,8 @@ class nnUNetPredictor(object):
 
     def initialize_from_trained_model_folder(self, model_training_output_dir: str,
                                              use_folds: Union[Tuple[Union[int, str]], None],
-                                             checkpoint_name: str = 'checkpoint_final.pth'):
+                                             checkpoint_name: str = 'checkpoint_final.pth',
+                                             plan_name: str = 'plans.json'):
         """
         This is used when making predictions with a trained model
         """
@@ -74,7 +75,7 @@ class nnUNetPredictor(object):
             use_folds = nnUNetPredictor.auto_detect_available_folds(model_training_output_dir, checkpoint_name)
 
         dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
-        plans = load_json(join(model_training_output_dir, 'plans.json'))
+        plans = load_json(join(model_training_output_dir, plan_name))
         plans_manager = PlansManager(plans)
 
         if isinstance(use_folds, str):
@@ -930,6 +931,8 @@ def predict_entry_point():
     parser.add_argument('--disable_progress_bar', action='store_true', required=False, default=False,
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
                              'jobs)')
+    parser.add_argument('--resampling_mode', type=str, required=False, default="normal",
+                        help='Resampling mode to use between "normal" and "no_resampling" (normal being the one used for). Default: "normal"')
 
     print(
         "\n#######################################################################\nPlease cite the following paper "
@@ -951,6 +954,7 @@ def predict_entry_point():
 
     assert args.device in ['cpu', 'cuda',
                            'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
+    assert args.resampling_mode in ["normal", "no_resampling"], f'-m must be either normal or no_resampling. Got: {args.resampling_mode}'
     if args.device == 'cpu':
         # let's allow torch to use hella threads
         import multiprocessing
@@ -964,6 +968,44 @@ def predict_entry_point():
     else:
         device = torch.device('mps')
 
+    CONVERT_TABLE = {
+        "resampling_fn_data": "no_resampling_hack",
+        "resampling_fn_seg": "no_resampling_hack",
+        "resampling_fn_data_kwargs": {},
+        "resampling_fn_seg_kwargs": {},
+        "resampling_fn_probabilities": "no_resampling_hack",
+        "resampling_fn_probabilities_kwargs": {},
+    }
+    def convert_to_no_resampling(plan : dict) -> dict:
+        """
+        We convert every field of a "classic resampling plan dict" to values in order to disable resampling.
+        """
+        for k in plan.keys():
+            if k in CONVERT_TABLE.keys():
+                plan[k] = CONVERT_TABLE[k]
+                continue
+
+            if isinstance(plan[k], dict):
+                plan[k] = convert_to_no_resampling(plan[k])
+
+        return plan
+
+    from pathlib import Path
+    from glob import glob
+    plans_in_folder = [Path(p).absolute().resolve() for p in glob((model_folder / "plans*.json").absolute().resolve().as_posix())]
+    
+    default_plan = (model_folder / "plans.json").absolute().resolve()
+    no_resampling_plan = (model_folder / "plans_no_resampling.json").absolute().resolve()
+
+    # If we do not have all the version of the plans, we generate them
+    if no_resampling_plan not in plans_in_folder:
+        print("Missing no_resampling plan, it will be generated.")
+        import json
+        with open(default_plan, "r") as f:
+            json_dict = convert_to_no_resampling(json.load(f))
+        with open(no_resampling_plan, "w") as f:
+            json.dump(json_dict, f, indent=4)
+
     predictor = nnUNetPredictor(tile_step_size=args.step_size,
                                 use_gaussian=True,
                                 use_mirroring=not args.disable_tta,
@@ -975,7 +1017,8 @@ def predict_entry_point():
     predictor.initialize_from_trained_model_folder(
         model_folder,
         args.f,
-        checkpoint_name=args.chk
+        checkpoint_name=args.chk,
+        plan_name=default_plan.name if args.resampling_mode == "normal" else no_resampling_plan.name
     )
     
     run_sequential = args.nps == 0 and args.npp == 0
@@ -1015,74 +1058,6 @@ def predict_entry_point():
     #                           num_parts=args.num_parts,
     #                           part_id=args.part_id,
     #                           device=device)
-
-CONVERT_TABLE = {
-    "resampling_fn_data": "no_resampling_hack",
-    "resampling_fn_seg": "no_resampling_hack",
-    "resampling_fn_data_kwargs": {},
-    "resampling_fn_seg_kwargs": {},
-    "resampling_fn_probabilities": "no_resampling_hack",
-    "resampling_fn_probabilities_kwargs": {},
-}
-def convert_to_no_resampling(plan : dict) -> dict:
-    """
-    We convert every field of a "classic resampling plan dict" to values in order to disable resampling.
-    """
-    for k in plan.keys():
-        if k in CONVERT_TABLE.keys():
-            plan[k] = CONVERT_TABLE[k]
-            continue
-
-        if isinstance(plan[k], dict):
-            plan[k] = convert_to_no_resampling(plan[k])
-
-    return plan
-
-def switch_resampling_mode():
-    import argparse
-    parser = argparse.ArgumentParser(description='Use this to switch the targeted model to prediction mode without doing the resampling.')
-    parser.add_argument('-d', type=str, required=True,
-                        help='Dataset with which you would like to predict. You can specify either dataset name or id')
-    parser.add_argument('-p', type=str, required=True, default='nnUNetPlans',
-                        help='Plans identifier. Specify the plans in which the desired configuration is located. '
-                             'Default: nnUNetPlans')
-    parser.add_argument('-tr', type=str, required=True, default='nnUNetTrainer',
-                        help='What nnU-Net trainer class was used for training? Default: nnUNetTrainer')
-    parser.add_argument('-c', type=str, required=False,
-                        help='nnU-Net configuration that should be used for prediction. Config must be located '
-                             'in the plans specified with -p')
-    parser.add_argument('-m', type=str, required=True,
-                        help='Resampling mode to use between "normal" and "no_resampling"')
-    
-    args = parser.parse_args()
-    assert args.m in ["normal", "no_resampling"], f'Invalid mode (-m) argument : {args.m} should be either "normal" or "no_resampling".'
-
-    from pathlib import Path
-    from glob import glob
-    import shutil
-
-    model_folder = Path(get_output_folder(args.d, args.tr, args.p, args.c))
-    plans_in_folder = [Path(p).absolute().resolve() for p in glob((model_folder / "plans*.json").absolute().resolve().as_posix())]
-
-    default_plan = (model_folder / "plans.json").absolute().resolve()
-    default_resampling_plan = (model_folder / "plans_default_resampling.json").absolute().resolve()
-    no_resampling_plan = (model_folder / "plans_no_resampling.json").absolute().resolve()
-
-    # If we do not have all the version of the plans, we generate them
-    missing_plans = [p for p in [default_plan, default_resampling_plan, no_resampling_plan] if p not in plans_in_folder]
-    if missing_plans:
-        print(f"Missing plans: {[p.name for p in missing_plans]}\nThey will be generated.")
-        shutil.copy(default_plan, default_resampling_plan)
-        import json
-        with open(default_resampling_plan, "r") as f:
-            json_dict = convert_to_no_resampling(json.load(f))
-        with open(no_resampling_plan, "w") as f:
-            json.dump(json_dict, f, indent=4)
-    
-    if args.m == "normal":
-        shutil.copy(default_resampling_plan, default_plan)
-    else:
-        shutil.copy(no_resampling_plan, default_plan)
 
 if __name__ == '__main__':
     ########################## predict a bunch of files
