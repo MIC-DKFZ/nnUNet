@@ -1016,6 +1016,28 @@ def predict_entry_point():
     #                           part_id=args.part_id,
     #                           device=device)
 
+CONVERT_TABLE = {
+    "resampling_fn_data": "no_resampling_hack",
+    "resampling_fn_seg": "no_resampling_hack",
+    "resampling_fn_data_kwargs": {},
+    "resampling_fn_seg_kwargs": {},
+    "resampling_fn_probabilities": "no_resampling_hack",
+    "resampling_fn_probabilities_kwargs": {},
+}
+def convert_to_no_resampling(plan : dict) -> dict:
+    """
+    We convert every field of a "classic resampling plan dict" to values in order to disable resampling.
+    """
+    for k in plan.keys():
+        if k in CONVERT_TABLE.keys():
+            plan[k] = CONVERT_TABLE[k]
+            continue
+
+        if isinstance(plan[k], dict):
+            plan[k] = convert_to_no_resampling(plan[k])
+
+    return plan
+
 def switch_resampling_mode():
     import argparse
     parser = argparse.ArgumentParser(description='Use this to switch the targeted model to prediction mode without doing the resampling.')
@@ -1042,14 +1064,22 @@ def switch_resampling_mode():
     plans_in_folder = [Path(p).absolute().resolve() for p in glob((model_folder / "plans*.json").absolute().resolve().as_posix())]
 
     default_plan = (model_folder / "plans.json").absolute().resolve()
-    resampling_plan = (model_folder / "plans_resampling.json").absolute().resolve()
+    default_resampling_plan = (model_folder / "plans_default_resampling.json").absolute().resolve()
     no_resampling_plan = (model_folder / "plans_no_resampling.json").absolute().resolve()
 
     # If we do not have all the version of the file, we generate them
-
-    print([p in plans_in_folder for p in [default_plan, resampling_plan, no_resampling_plan]])
-    if not all([p in plans_in_folder for p in [default_plan, resampling_plan, no_resampling_plan]]):
-        shutil.copy(default_plan, model_folder / "plans_resampling.json")
+    print([default_plan, default_resampling_plan, no_resampling_plan])
+    print([p in plans_in_folder for p in [default_plan, default_resampling_plan, no_resampling_plan]])
+    if not all([p in plans_in_folder for p in [default_plan, default_resampling_plan, no_resampling_plan]]):
+        shutil.copy(default_plan, default_resampling_plan)
+        import json
+        with open(default_resampling_plan, "r") as f:
+            json_dict = convert_to_no_resampling(json.load(f))
+        with open(no_resampling_plan, "w") as f:
+            json.dump(json_dict, f, indent=4)
+    
+    print([default_plan, default_resampling_plan, no_resampling_plan])
+    print([p in plans_in_folder for p in [default_plan, default_resampling_plan, no_resampling_plan]])
     print(model_folder)
 
 if __name__ == '__main__':
