@@ -25,7 +25,7 @@ def load_and_convert_case(input_image: str, input_seg: str, output_image: str, o
     mask = binary_fill_holes(mask)
     seg[mask] = 0
     io.imsave(output_seg, seg, check_contrast=False)
-    shutil.copy(input_image, output_image)
+    shutil.copyfile(input_image, output_image)
 
 
 if __name__ == "__main__":

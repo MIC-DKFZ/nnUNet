@@ -27,11 +27,11 @@ def convert_autopet(autopet_base_dir:str = '/media/isensee/My Book1/AutoPET/nift
             identifier = f"{pat}_{pa}"
             identifiers.append(identifier)
             if not isfile(join(imagestr, f'{identifier}_0000.nii.gz')):
-                shutil.copy(join(autopet_base_dir, pat, pa, 'CTres.nii.gz'), join(imagestr, f'{identifier}_0000.nii.gz'))
+                shutil.copyfile(join(autopet_base_dir, pat, pa, 'CTres.nii.gz'), join(imagestr, f'{identifier}_0000.nii.gz'))
             if not isfile(join(imagestr, f'{identifier}_0001.nii.gz')):
-                shutil.copy(join(autopet_base_dir, pat, pa, 'SUV.nii.gz'), join(imagestr, f'{identifier}_0001.nii.gz'))
+                shutil.copyfile(join(autopet_base_dir, pat, pa, 'SUV.nii.gz'), join(imagestr, f'{identifier}_0001.nii.gz'))
             if not isfile(join(imagestr, f'{identifier}.nii.gz')):
-                shutil.copy(join(autopet_base_dir, pat, pa, 'SEG.nii.gz'), join(labelstr, f'{identifier}.nii.gz'))
+                shutil.copyfile(join(autopet_base_dir, pat, pa, 'SEG.nii.gz'), join(labelstr, f'{identifier}.nii.gz'))
 
     generate_dataset_json(out_base, {0: "CT", 1:"CT"},
                           labels={

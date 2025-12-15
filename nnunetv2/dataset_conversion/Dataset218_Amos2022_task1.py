@@ -29,20 +29,20 @@ def convert_amos_task1(amos_base_dir: str, nnunet_dataset_id: int = 218):
     for tr in training_identifiers:
         if int(tr.split("_")[-1]) <= 410: # these are the CT images
             tr_ctr += 1
-            shutil.copy(join(amos_base_dir, 'imagesTr', tr + '.nii.gz'), join(imagestr, f'{tr}_0000.nii.gz'))
-            shutil.copy(join(amos_base_dir, 'labelsTr', tr + '.nii.gz'), join(labelstr, f'{tr}.nii.gz'))
+            shutil.copyfile(join(amos_base_dir, 'imagesTr', tr + '.nii.gz'), join(imagestr, f'{tr}_0000.nii.gz'))
+            shutil.copyfile(join(amos_base_dir, 'labelsTr', tr + '.nii.gz'), join(labelstr, f'{tr}.nii.gz'))
 
     test_identifiers = [i['image'].split('/')[-1][:-7] for i in dataset_json_source['test']]
     for ts in test_identifiers:
         if int(ts.split("_")[-1]) <= 500: # these are the CT images
-            shutil.copy(join(amos_base_dir, 'imagesTs', ts + '.nii.gz'), join(imagests, f'{ts}_0000.nii.gz'))
+            shutil.copyfile(join(amos_base_dir, 'imagesTs', ts + '.nii.gz'), join(imagests, f'{ts}_0000.nii.gz'))
 
     val_identifiers = [i['image'].split('/')[-1][:-7] for i in dataset_json_source['validation']]
     for vl in val_identifiers:
         if int(vl.split("_")[-1]) <= 409: # these are the CT images
             tr_ctr += 1
-            shutil.copy(join(amos_base_dir, 'imagesVa', vl + '.nii.gz'), join(imagestr, f'{vl}_0000.nii.gz'))
-            shutil.copy(join(amos_base_dir, 'labelsVa', vl + '.nii.gz'), join(labelstr, f'{vl}.nii.gz'))
+            shutil.copyfile(join(amos_base_dir, 'imagesVa', vl + '.nii.gz'), join(imagestr, f'{vl}_0000.nii.gz'))
+            shutil.copyfile(join(amos_base_dir, 'labelsVa', vl + '.nii.gz'), join(labelstr, f'{vl}.nii.gz'))
 
     generate_dataset_json(out_base, {0: "CT"}, labels={v: int(k) for k,v in dataset_json_source['labels'].items()},
                           num_training_cases=tr_ctr, file_ending='.nii.gz',

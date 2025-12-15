@@ -47,10 +47,10 @@ if __name__ == '__main__':
             target_name = f'{seq}_image_{i:03d}'
             # we still need the '_0000' suffix for images! Otherwise we would not be able to support multiple input
             # channels distributed over separate files
-            shutil.copy(join(images_dir, im), join(imagestr, target_name + '_0000.tif'))
+            shutil.copyfile(join(images_dir, im), join(imagestr, target_name + '_0000.tif'))
             # spacing file!
             save_json({'spacing': spacing}, join(imagestr, target_name + '.json'))
-            shutil.copy(join(seg_dir, se), join(labelstr, target_name + '.tif'))
+            shutil.copyfile(join(seg_dir, se), join(labelstr, target_name + '.tif'))
             # spacing file!
             save_json({'spacing': spacing}, join(labelstr, target_name + '.json'))
 
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         images = subfiles(images_dir, suffix='.tif', sort=True, join=False)
         for i, im in enumerate(images):
             target_name = f'{seq}_image_{i:03d}'
-            shutil.copy(join(images_dir, im), join(imagests, target_name + '_0000.tif'))
+            shutil.copyfile(join(images_dir, im), join(imagests, target_name + '_0000.tif'))
             # spacing file!
             save_json({'spacing': spacing}, join(imagests, target_name + '.json'))
 

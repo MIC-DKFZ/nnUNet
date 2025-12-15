@@ -32,8 +32,8 @@ if __name__ == '__main__':
     maybe_mkdir_p(labelsTr)
 
     for case in cases:
-        shutil.copy(join(base, case, 'ct.nii.gz'), join(imagesTr, case + '_0000.nii.gz'))
-        shutil.copy(join(base, case, 'combined_labels.nii.gz'), join(labelsTr, case + '.nii.gz'))
+        shutil.copyfile(join(base, case, 'ct.nii.gz'), join(imagesTr, case + '_0000.nii.gz'))
+        shutil.copyfile(join(base, case, 'combined_labels.nii.gz'), join(labelsTr, case + '.nii.gz'))
 
     labels = {
         "background": 0,

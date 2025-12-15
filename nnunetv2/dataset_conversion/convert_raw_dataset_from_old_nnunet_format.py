@@ -25,7 +25,7 @@ def convert(source_folder, target_dataset_name):
         shutil.copytree(join(source_folder, 'imagesVal'), join(nnUNet_raw, target_dataset_name, 'imagesVal'))
     if isdir(join(source_folder, 'labelsVal')):
         shutil.copytree(join(source_folder, 'labelsVal'), join(nnUNet_raw, target_dataset_name, 'labelsVal'))
-    shutil.copy(join(source_folder, 'dataset.json'), join(nnUNet_raw, target_dataset_name))
+    shutil.copyfile(join(source_folder, 'dataset.json'), join(nnUNet_raw, target_dataset_name))
 
     dataset_json = load_json(join(nnUNet_raw, target_dataset_name, 'dataset.json'))
     del dataset_json['tensorImageSize']

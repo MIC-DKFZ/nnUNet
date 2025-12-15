@@ -53,16 +53,16 @@ def copy_files(src_data_folder: Path, train_dir: Path, labels_dir: Path, test_di
             if file.suffix == ".gz" and "_gt" not in file.name and "_4d" not in file.name:
                 # The stem is 'patient.nii', and the suffix is '.gz'.
                 # We split the stem and append _0000 to the patient part.
-                shutil.copy(file, train_dir / f"{file.stem.split('.')[0]}_0000.nii.gz")
+                shutil.copyfile(file, train_dir / f"{file.stem.split('.')[0]}_0000.nii.gz")
                 num_training_cases += 1
             elif file.suffix == ".gz" and "_gt" in file.name:
-                shutil.copy(file, labels_dir / file.name.replace("_gt", ""))
+                shutil.copyfile(file, labels_dir / file.name.replace("_gt", ""))
 
     # Copy test files.
     for patient_dir in patients_test:
         for file in patient_dir.iterdir():
             if file.suffix == ".gz" and "_gt" not in file.name and "_4d" not in file.name:
-                shutil.copy(file, test_dir / f"{file.stem.split('.')[0]}_0000.nii.gz")
+                shutil.copyfile(file, test_dir / f"{file.stem.split('.')[0]}_0000.nii.gz")
 
     return num_training_cases
 

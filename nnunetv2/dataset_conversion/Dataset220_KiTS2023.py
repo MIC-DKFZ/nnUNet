@@ -18,8 +18,8 @@ def convert_kits2023(kits_base_dir: str, nnunet_dataset_id: int = 220):
 
     cases = subdirs(kits_base_dir, prefix='case_', join=False)
     for tr in cases:
-        shutil.copy(join(kits_base_dir, tr, 'imaging.nii.gz'), join(imagestr, f'{tr}_0000.nii.gz'))
-        shutil.copy(join(kits_base_dir, tr, 'segmentation.nii.gz'), join(labelstr, f'{tr}.nii.gz'))
+        shutil.copyfile(join(kits_base_dir, tr, 'imaging.nii.gz'), join(imagestr, f'{tr}_0000.nii.gz'))
+        shutil.copyfile(join(kits_base_dir, tr, 'segmentation.nii.gz'), join(labelstr, f'{tr}.nii.gz'))
 
     generate_dataset_json(out_base, {0: "CT"},
                           labels={
