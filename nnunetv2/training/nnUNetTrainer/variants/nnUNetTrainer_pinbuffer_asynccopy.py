@@ -285,15 +285,15 @@ class nnUNetTrainer_pinbuffer_asynccopy(nnUNetTrainer):
         else:
             mt_gen_train = PinnedBufferNonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
                                                         num_processes=allowed_num_processes,
-                                                        num_cached=6,
-                                                                    pinned_pool_size=3,
+                                                        num_cached=12,
+                                                                    pinned_pool_size=6,
                                                                     seeds=None,
                                                         pin_memory=self.device.type == 'cuda', wait_time=0.02,
                                                                     liveness_check_interval=5)
             mt_gen_val = PinnedBufferNonDetMultiThreadedAugmenter(data_loader=dl_val,
                                                       transform=None, num_processes=max(1, allowed_num_processes // 2),
-                                                                  pinned_pool_size=3,
-                                                      num_cached=6, seeds=None,
+                                                                  pinned_pool_size=6,
+                                                      num_cached=12, seeds=None,
                                                       pin_memory=self.device.type == 'cuda',
                                                       wait_time=0.02,
                                                                   liveness_check_interval=5)
