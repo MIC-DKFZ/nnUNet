@@ -231,7 +231,7 @@ class FlarePredictor(nnUNetPredictor):
             # check for infs
             if torch.any(torch.isinf(predicted_logits)):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
-2                                'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
+                                'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
                                 'predicted_logits to fp32')
         except Exception as e:
             del predicted_logits, n_predictions, prediction, gaussian, workon

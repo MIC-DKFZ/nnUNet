@@ -2,6 +2,7 @@ import inspect
 import multiprocessing
 import os
 import shutil
+import signal
 import sys
 import warnings
 from copy import deepcopy
@@ -87,22 +88,37 @@ class nnUNetTrainer(object):
         # https://www.osnews.com/images/comics/wtfm.jpg
         # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
 
-        self.is_ddp = dist.is_available() and dist.is_initialized()
-        self.local_rank = 0 if not self.is_ddp else dist.get_rank()
+        if torch.cuda.is_available():
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
 
-        self.device = device
+        self.is_ddp = dist.is_available() and dist.is_initialized()
 
         # print what device we are using
         if self.is_ddp:  # implicitly it's clear that we use cuda in this case
-            print(f"I am local rank {self.local_rank}. {device_count()} GPUs are available. The world size is "
-                  f"{dist.get_world_size()}."
-                  f"Setting device to {self.device}")
+            assert device.type == 'cuda', f'DDP only works with CUDA devices. You have {device.type}'
+
+            self.local_rank = int(os.environ["LOCAL_RANK"])
+            self.global_rank = int(os.environ["RANK"])
+            self.world_size = int(os.environ['WORLD_SIZE'])
+
             self.device = torch.device(type='cuda', index=self.local_rank)
+            torch.cuda.set_device(self.device)
+
+            print(f"The world size is {self.world_size}. I am global rank {self.global_rank}."
+                  f"I am local rank {self.local_rank}. {device_count()} GPUs are available."
+                  f"Setting device to {self.device}")
         else:
-            if self.device.type == 'cuda':
-                # we might want to let the user pick this but for now please pick the correct GPU with CUDA_VISIBLE_DEVICES=X
-                self.device = torch.device(type='cuda', index=0)
+            if device == 'cuda':
+                # we still prefer people use CUDA_VISIBLE_DEVICES=X
+                torch.cuda.set_device(device)
+            self.device = device
+
             print(f"Using device: {self.device}")
+
+            self.local_rank = 0
+            self.global_rank = 0
+            self.world_size = 1
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
         # would also pickle the network etc. Bad, bad. Instead we just reinstantiate and then load the checkpoint we
@@ -197,6 +213,10 @@ class nnUNetTrainer(object):
                                "#######################################################################\n",
                                also_print_to_console=True, add_timestamp=False)
 
+        # used to detect if we have received a termination signal because the cluster job is running into timeout -> triggers graceful axit during training
+        self.exit_training_flag = False
+        signal.signal(signal.SIGUSR1, self.exit_training)
+
     def initialize(self):
         if not self.was_initialized:
             ## DDP batch size and oversampling can differ between workers and needs adaptation
@@ -214,16 +234,23 @@ class nnUNetTrainer(object):
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
             ).to(self.device)
+
+            self.optimizer, self.lr_scheduler = self.configure_optimizers()
+
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
                 self.network = torch.compile(self.network)
 
-            self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
             if self.is_ddp:
                 self.network = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.network)
-                self.network = DDP(self.network, device_ids=[self.local_rank])
+                self.network = DDP(
+                    self.network,
+                    device_ids=[self.local_rank],
+                    output_device=self.local_rank,
+                    static_graph=True,
+                    find_unused_parameters=False)
 
             self.loss = self._build_loss()
 
@@ -267,7 +294,7 @@ class nnUNetTrainer(object):
 
     def _save_debug_information(self):
         # saving some debug information
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             dct = {}
             for k in self.__dir__():
                 if not k.startswith("__"):
@@ -349,23 +376,19 @@ class nnUNetTrainer(object):
             self.batch_size = self.configuration_manager.batch_size
         else:
             # batch size is distributed over DDP workers and we need to change oversample_percent for each worker
-
-            world_size = dist.get_world_size()
-            my_rank = dist.get_rank()
-
             global_batch_size = self.configuration_manager.batch_size
-            assert global_batch_size >= world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
+            assert global_batch_size >= self.world_size, 'Cannot run DDP if the batch size is smaller than the number of ' \
                                                     'GPUs... Duh.'
 
-            batch_size_per_GPU = [global_batch_size // world_size] * world_size
+            batch_size_per_GPU = [global_batch_size // self.world_size] * self.world_size
             batch_size_per_GPU = [batch_size_per_GPU[i] + 1
-                                  if (batch_size_per_GPU[i] * world_size + i) < global_batch_size
+                                  if (batch_size_per_GPU[i] * self.world_size + i) < global_batch_size
                                   else batch_size_per_GPU[i]
                                   for i in range(len(batch_size_per_GPU))]
             assert sum(batch_size_per_GPU) == global_batch_size
 
-            sample_id_low = 0 if my_rank == 0 else np.sum(batch_size_per_GPU[:my_rank])
-            sample_id_high = np.sum(batch_size_per_GPU[:my_rank + 1])
+            sample_id_low = 0 if self.global_rank == 0 else np.sum(batch_size_per_GPU[:self.global_rank])
+            sample_id_high = np.sum(batch_size_per_GPU[:self.global_rank + 1])
 
             # This is how oversampling is determined in DataLoader
             # round(self.batch_size * (1 - self.oversample_foreground_percent))
@@ -380,12 +403,12 @@ class nnUNetTrainer(object):
             elif sample_id_low / global_batch_size > (1 - self.oversample_foreground_percent):
                 oversample_percent = 1.0
             else:
-                oversample_percent = sum(oversample[sample_id_low:sample_id_high]) / batch_size_per_GPU[my_rank]
+                oversample_percent = sum(oversample[sample_id_low:sample_id_high]) / batch_size_per_GPU[self.global_rank]
 
-            print("worker", my_rank, "oversample", oversample_percent)
-            print("worker", my_rank, "batch_size", batch_size_per_GPU[my_rank])
+            print("global rank", self.global_rank, "oversample", oversample_percent)
+            print("global rank", self.global_rank, "batch_size", batch_size_per_GPU[self.global_rank])
 
-            self.batch_size = batch_size_per_GPU[my_rank]
+            self.batch_size = batch_size_per_GPU[self.global_rank]
             self.oversample_foreground_percent = oversample_percent
 
     def _build_loss(self):
@@ -409,7 +432,7 @@ class nnUNetTrainer(object):
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
             weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
-            if self.is_ddp and not self._do_i_compile():
+            if self.is_ddp:
                 # very strange and stupid interaction. DDP crashes and complains about unused parameters due to
                 # weights[-1] = 0. Interestingly this crash doesn't happen with torch.compile enabled. Strange stuff.
                 # Anywho, the simple fix is to set a very low weight to this.
@@ -468,7 +491,7 @@ class nnUNetTrainer(object):
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
 
     def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             timestamp = time()
             dt_object = datetime.fromtimestamp(timestamp)
 
@@ -496,7 +519,7 @@ class nnUNetTrainer(object):
             print(*args)
 
     def print_plans(self):
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             dct = deepcopy(self.plans_manager.plans)
             del dct['configurations']
             self.print_to_log_file(f"\nThis is the configuration used by this "
@@ -515,7 +538,7 @@ class nnUNetTrainer(object):
             self.print_to_log_file("Unable to plot network architecture: nnUNet_compile is enabled!")
             return
 
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             try:
                 # raise NotImplementedError('hiddenlayer no longer works and we do not have a viable alternative :-(')
                 # pip install git+https://github.com/saugatkandel/hiddenlayer.git
@@ -547,6 +570,8 @@ class nnUNetTrainer(object):
                 # self.print_to_log_file("\n")
             finally:
                 empty_cache(self.device)
+        if self.is_ddp:
+            dist.barrier()
 
     def do_split(self):
         """
@@ -908,7 +933,7 @@ class nnUNetTrainer(object):
         empty_cache(self.device)
 
         # maybe unpack
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             self.dataset_class.unpack_dataset(
                 self.preprocessed_dataset_folder,
                 overwrite_existing=False,
@@ -942,7 +967,7 @@ class nnUNetTrainer(object):
         self.current_epoch += 1
 
         # now we can delete latest
-        if self.local_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
+        if self.global_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
             os.remove(join(self.output_folder, "checkpoint_latest.pth"))
 
         # shut down dataloaders
@@ -1006,7 +1031,7 @@ class nnUNetTrainer(object):
         outputs = collate_outputs(train_outputs)
 
         if self.is_ddp:
-            losses_tr = [None for _ in range(dist.get_world_size())]
+            losses_tr = [None for _ in range(self.world_size)]
             dist.all_gather_object(losses_tr, outputs['loss'])
             loss_here = np.vstack(losses_tr).mean()
         else:
@@ -1091,21 +1116,19 @@ class nnUNetTrainer(object):
         fn = np.sum(outputs_collated['fn_hard'], 0)
 
         if self.is_ddp:
-            world_size = dist.get_world_size()
-
-            tps = [None for _ in range(world_size)]
+            tps = [None for _ in range(self.world_size)]
             dist.all_gather_object(tps, tp)
             tp = np.vstack([i[None] for i in tps]).sum(0)
 
-            fps = [None for _ in range(world_size)]
+            fps = [None for _ in range(self.world_size)]
             dist.all_gather_object(fps, fp)
             fp = np.vstack([i[None] for i in fps]).sum(0)
 
-            fns = [None for _ in range(world_size)]
+            fns = [None for _ in range(self.world_size)]
             dist.all_gather_object(fns, fn)
             fn = np.vstack([i[None] for i in fns]).sum(0)
 
-            losses_val = [None for _ in range(world_size)]
+            losses_val = [None for _ in range(self.world_size)]
             dist.all_gather_object(losses_val, outputs_collated['loss'])
             loss_here = np.vstack(losses_val).mean()
         else:
@@ -1131,8 +1154,8 @@ class nnUNetTrainer(object):
             f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 
         # handling periodic checkpointing
-        current_epoch = self.current_epoch
-        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+        save_latest_checkpoint = (self.current_epoch + 1) % self.save_every == 0 and self.current_epoch != (self.num_epochs - 1)
+        if save_latest_checkpoint:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
@@ -1141,13 +1164,22 @@ class nnUNetTrainer(object):
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
+
+        if self.exit_training_flag:
+            self.print_to_log_file("Epoch ended and termination signal received. Let's exit gracefully.")
+            if not save_latest_checkpoint:
+                self.print_to_log_file("Saving latest checkpoint...")
+                self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
+            self.print_to_log_file("Now lets raise the keyboard into the sky and interrupt this madness. Expecting "
+                                   "either the user or an automated script to continue this training.")
+            sys.exit(0)
 
         self.current_epoch += 1
 
     def save_checkpoint(self, filename: str) -> None:
-        if self.local_rank == 0:
+        if self.global_rank == 0:
             if not self.disable_checkpointing:
                 if self.is_ddp:
                     mod = self.network.module
@@ -1239,9 +1271,9 @@ class nnUNetTrainer(object):
             # the validation keys across the workers.
             _, val_keys = self.do_split()
             if self.is_ddp:
-                last_barrier_at_idx = len(val_keys) // dist.get_world_size() - 1
+                last_barrier_at_idx = len(val_keys) // self.world_size - 1
 
-                val_keys = val_keys[self.local_rank:: dist.get_world_size()]
+                val_keys = val_keys[self.global_rank:: self.world_size]
                 # we cannot just have barriers all over the place because the number of keys each GPU receives can be
                 # different
 
@@ -1278,7 +1310,7 @@ class nnUNetTrainer(object):
                     warnings.simplefilter("ignore")
                     data = torch.from_numpy(data)
 
-                self.print_to_log_file(f'{k}, shape {data.shape}, rank {self.local_rank}')
+                self.print_to_log_file(f'{k}, shape {data.shape}, global rank {self.global_rank}')
                 output_filename_truncated = join(validation_output_folder, k)
 
                 prediction = predictor.predict_sliding_window_return_logits(data)
@@ -1341,7 +1373,12 @@ class nnUNetTrainer(object):
         if self.is_ddp:
             dist.barrier()
 
-        if self.local_rank == 0:
+        if self.global_rank == 0:
+            # running metric computation only on rank 0, but using more processes if we are distributed and have more
+            # than one local GPU. Unfortunately all other ranks will have to wait for this. Should not take too long
+            # in practice though.
+            # We also switch this to number of DA workers rather than default_num_processes
+            local_world_size = torch.cuda.device_count() if self.is_ddp and torch.cuda.is_available() else 1
             metrics = compute_metrics_on_folder(join(self.preprocessed_dataset_folder_base, 'gt_segmentations'),
                                                 validation_output_folder,
                                                 join(validation_output_folder, 'summary.json'),
@@ -1350,8 +1387,7 @@ class nnUNetTrainer(object):
                                                 self.label_manager.foreground_regions if self.label_manager.has_regions else
                                                 self.label_manager.foreground_labels,
                                                 self.label_manager.ignore_label, chill=True,
-                                                num_processes=default_num_processes * dist.get_world_size() if
-                                                self.is_ddp else default_num_processes)
+                                                num_processes=get_allowed_n_proc_DA() * local_world_size)
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
                                    also_print_to_console=True)
@@ -1381,3 +1417,7 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()
+
+    def exit_training(self, *args, **kwargs):
+        self.print_to_log_file("Received exit signal. Terminating after finishing epoch.")
+        self.exit_training_flag = True
