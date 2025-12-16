@@ -180,122 +180,126 @@ class nnUNetDataLoader(DataLoader):
         return bbox_lbs, bbox_ubs
 
     def generate_train_batch(self):
-        selected_keys = self.get_indices()
+        try:
+            selected_keys = self.get_indices()
 
-        # Preallocate and reuse per worker pre-transform buffers (CPU)
-        data_all, seg_all = self._get_pre_buffers()
+            # Preallocate and reuse per worker pre-transform buffers (CPU)
+            data_all, seg_all = self._get_pre_buffers()
 
-        for j, i in enumerate(selected_keys):
-            force_fg = self.get_do_oversample(j)
+            for j, i in enumerate(selected_keys):
+                force_fg = self.get_do_oversample(j)
 
-            # data/seg/seg_prev can be numpy arrays or blosc2 arrays/memmaps
-            data, seg, seg_prev, properties = self._data.load_case(i)
+                # data/seg/seg_prev can be numpy arrays or blosc2 arrays/memmaps
+                data, seg, seg_prev, properties = self._data.load_case(i)
 
-            shape = data.shape[1:]
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties["class_locations"])
-            bbox = [[a, b] for a, b in zip(bbox_lbs, bbox_ubs)]
+                shape = data.shape[1:]
+                bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties["class_locations"])
+                bbox = [[a, b] for a, b in zip(bbox_lbs, bbox_ubs)]
 
-            # Crop+pad returns NumPy. Copy into preallocated torch buffers explicitly.
-            data_np = crop_and_pad_nd(data, bbox, 0)
-            data_all[j].copy_(torch.as_tensor(data_np, dtype=torch.float32))
+                # Crop+pad returns NumPy. Copy into preallocated torch buffers explicitly.
+                data_np = crop_and_pad_nd(data, bbox, 0)
+                data_all[j].copy_(torch.as_tensor(data_np, dtype=torch.float32))
 
-            seg_np = crop_and_pad_nd(seg, bbox, -1)
-            seg_t = torch.as_tensor(seg_np, dtype=torch.int16)  # (Cseg, *spatial)
-            seg_all[j, :seg_t.shape[0]].copy_(seg_t)
+                seg_np = crop_and_pad_nd(seg, bbox, -1)
+                seg_t = torch.as_tensor(seg_np, dtype=torch.int16)  # (Cseg, *spatial)
+                seg_all[j, :seg_t.shape[0]].copy_(seg_t)
 
-            if seg_prev is not None:
-                prev_np = crop_and_pad_nd(seg_prev, bbox, -1)
-                prev_t = torch.as_tensor(prev_np, dtype=torch.int16)
+                if seg_prev is not None:
+                    prev_np = crop_and_pad_nd(seg_prev, bbox, -1)
+                    prev_t = torch.as_tensor(prev_np, dtype=torch.int16)
 
-                # Normalize seg_prev to (*spatial) and write into the reserved extra channel.
-                if prev_t.ndim == seg_t.ndim:
-                    if prev_t.shape[0] == 1:
-                        prev_t = prev_t[0]
-                    else:
-                        raise RuntimeError(
-                            f"seg_prev has {prev_t.shape[0]} channels, but seg_shape reserves only one extra channel"
-                        )
-                elif prev_t.ndim != seg_t.ndim - 1:
-                    raise RuntimeError(
-                        f"Unexpected seg_prev ndim {prev_t.ndim}. Expected {seg_t.ndim - 1} (no channel) "
-                        f"or {seg_t.ndim} (singleton channel)."
-                    )
-
-                seg_all[j, seg_t.shape[0]].copy_(prev_t)
-
-        if self.patch_size_was_2d:
-            data_all = data_all[:, :, 0]
-            seg_all = seg_all[:, :, 0]
-
-        if self.transforms is None:
-            return {"data": data_all, "target": seg_all, "keys": selected_keys}
-
-        with torch.no_grad():
-            with threadpool_limits(limits=1, user_api=None):
-                pre_data, pre_seg = data_all, seg_all  # CPU tensors
-
-                # Probe first sample to determine output structure.
-                tmp0 = self.transforms(image=pre_data[0], segmentation=pre_seg[0])
-                img0 = tmp0["image"]
-                seg0 = tmp0["segmentation"]
-
-                # Lazily allocate or reuse persistent post-transform buffers.
-                # Images
-                img_sig = (img0.dtype, tuple(img0.shape))
-                if getattr(self, "_post_images_buf", None) is None or getattr(self, "_post_images_sig",
-                                                                              None) != img_sig:
-                    self._post_images_buf = torch.empty(
-                        (self.batch_size, *img0.shape), dtype=img0.dtype, device="cpu"
-                    )
-                    self._post_images_sig = img_sig
-
-                out_images = self._post_images_buf
-                out_images[0].copy_(img0)
-
-                # Segmentation: tensor or list of tensors
-                if isinstance(seg0, list):
-                    seg_sig = ("list", tuple((s.dtype, tuple(s.shape)) for s in seg0))
-                    if getattr(self, "_post_segs_buf", None) is None or getattr(self, "_post_segs_sig",
-                                                                                None) != seg_sig:
-                        self._post_segs_buf = [
-                            torch.empty((self.batch_size, *s.shape), dtype=s.dtype, device="cpu") for s in seg0
-                        ]
-                        self._post_segs_sig = seg_sig
-
-                    out_segs = self._post_segs_buf
-                    for k, s0 in enumerate(seg0):
-                        out_segs[k][0].copy_(s0)
-                else:
-                    seg_sig = ("tensor", seg0.dtype, tuple(seg0.shape))
-                    if getattr(self, "_post_segs_buf", None) is None or getattr(self, "_post_segs_sig",
-                                                                                None) != seg_sig:
-                        self._post_segs_buf = torch.empty(
-                            (self.batch_size, *seg0.shape), dtype=seg0.dtype, device="cpu"
-                        )
-                        self._post_segs_sig = seg_sig
-
-                    out_segs = self._post_segs_buf
-                    out_segs[0].copy_(seg0)
-
-                # Fill remaining samples into persistent buffers.
-                for b in range(1, self.batch_size):
-                    tmp = self.transforms(image=pre_data[b], segmentation=pre_seg[b])
-
-                    out_images[b].copy_(tmp["image"])
-
-                    segb = tmp["segmentation"]
-                    if isinstance(out_segs, list):
-                        if not isinstance(segb, list) or len(segb) != len(out_segs):
-                            raise RuntimeError("Transform returned inconsistent segmentation structure across batch")
-                        for k in range(len(out_segs)):
-                            out_segs[k][b].copy_(segb[k])
-                    else:
-                        if isinstance(segb, list):
+                    # Normalize seg_prev to (*spatial) and write into the reserved extra channel.
+                    if prev_t.ndim == seg_t.ndim:
+                        if prev_t.shape[0] == 1:
+                            prev_t = prev_t[0]
+                        else:
                             raise RuntimeError(
-                                "Transform returned list segmentation for later sample but tensor for first sample")
-                        out_segs[b].copy_(segb)
+                                f"seg_prev has {prev_t.shape[0]} channels, but seg_shape reserves only one extra channel"
+                            )
+                    elif prev_t.ndim != seg_t.ndim - 1:
+                        raise RuntimeError(
+                            f"Unexpected seg_prev ndim {prev_t.ndim}. Expected {seg_t.ndim - 1} (no channel) "
+                            f"or {seg_t.ndim} (singleton channel)."
+                        )
 
-                return {"data": out_images, "target": out_segs, "keys": selected_keys}
+                    seg_all[j, seg_t.shape[0]].copy_(prev_t)
+
+            if self.patch_size_was_2d:
+                data_all = data_all[:, :, 0]
+                seg_all = seg_all[:, :, 0]
+
+            if self.transforms is None:
+                return {"data": data_all, "target": seg_all, "keys": selected_keys}
+
+            with torch.no_grad():
+                with threadpool_limits(limits=1, user_api=None):
+                    pre_data, pre_seg = data_all, seg_all  # CPU tensors
+
+                    # Probe first sample to determine output structure.
+                    tmp0 = self.transforms(image=pre_data[0], segmentation=pre_seg[0])
+                    img0 = tmp0["image"]
+                    seg0 = tmp0["segmentation"]
+
+                    # Lazily allocate or reuse persistent post-transform buffers.
+                    # Images
+                    img_sig = (img0.dtype, tuple(img0.shape))
+                    if getattr(self, "_post_images_buf", None) is None or getattr(self, "_post_images_sig",
+                                                                                  None) != img_sig:
+                        self._post_images_buf = torch.empty(
+                            (self.batch_size, *img0.shape), dtype=img0.dtype, device="cpu"
+                        )
+                        self._post_images_sig = img_sig
+
+                    out_images = self._post_images_buf
+                    out_images[0].copy_(img0)
+
+                    # Segmentation: tensor or list of tensors
+                    if isinstance(seg0, list):
+                        seg_sig = ("list", tuple((s.dtype, tuple(s.shape)) for s in seg0))
+                        if getattr(self, "_post_segs_buf", None) is None or getattr(self, "_post_segs_sig",
+                                                                                    None) != seg_sig:
+                            self._post_segs_buf = [
+                                torch.empty((self.batch_size, *s.shape), dtype=s.dtype, device="cpu") for s in seg0
+                            ]
+                            self._post_segs_sig = seg_sig
+
+                        out_segs = self._post_segs_buf
+                        for k, s0 in enumerate(seg0):
+                            out_segs[k][0].copy_(s0)
+                    else:
+                        seg_sig = ("tensor", seg0.dtype, tuple(seg0.shape))
+                        if getattr(self, "_post_segs_buf", None) is None or getattr(self, "_post_segs_sig",
+                                                                                    None) != seg_sig:
+                            self._post_segs_buf = torch.empty(
+                                (self.batch_size, *seg0.shape), dtype=seg0.dtype, device="cpu"
+                            )
+                            self._post_segs_sig = seg_sig
+
+                        out_segs = self._post_segs_buf
+                        out_segs[0].copy_(seg0)
+
+                    # Fill remaining samples into persistent buffers.
+                    for b in range(1, self.batch_size):
+                        tmp = self.transforms(image=pre_data[b], segmentation=pre_seg[b])
+
+                        out_images[b].copy_(tmp["image"])
+
+                        segb = tmp["segmentation"]
+                        if isinstance(out_segs, list):
+                            if not isinstance(segb, list) or len(segb) != len(out_segs):
+                                raise RuntimeError("Transform returned inconsistent segmentation structure across batch")
+                            for k in range(len(out_segs)):
+                                out_segs[k][b].copy_(segb[k])
+                        else:
+                            if isinstance(segb, list):
+                                raise RuntimeError(
+                                    "Transform returned list segmentation for later sample but tensor for first sample")
+                            out_segs[b].copy_(segb)
+
+                    return {"data": out_images, "target": out_segs, "keys": selected_keys}
+        except Exception as e:
+            print('EXCEPTION:', e)
+            raise e
 
 
 if __name__ == '__main__':
