@@ -107,7 +107,7 @@ def run_intranode_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disa
     os.environ["LOCAL_RANK"] = str(rank)  # single-node, so local_rank == rank
 
     torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
-    dist.init_process_group("nccl", rank=rank, world_size=world_size, device_id=f"cuda:{rank}")
+    dist.init_process_group("nccl", rank=rank, world_size=world_size, device_id=torch.device('cuda', dist.get_rank()))
 
     try:
         nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p)
@@ -173,7 +173,7 @@ def run_training(dataset_name_or_id: Union[str, int],
             local_rank = int(os.environ["LOCAL_RANK"])
             device = torch.device('cuda', local_rank)
             torch.cuda.set_device(device)
-            dist.init_process_group(backend='nccl', init_method='env://', device_id=f"cuda:{local_rank}")
+            dist.init_process_group(backend='nccl', init_method='env://', device_id=torch.device('cuda', local_rank))
             print(f"Torchrun active. [rank {os.environ['RANK']}] using cuda:{local_rank}")
 
         try:
