@@ -92,6 +92,7 @@ class CUDAPrefetcher:
             self._next_gpu_batch = None
             self._next_event = None
 
+
 class nnUNetTrainer_pinbuffer_asynccopy(nnUNetTrainer):
     def train_step(self, batch: dict) -> dict:
         data = batch["data"]
