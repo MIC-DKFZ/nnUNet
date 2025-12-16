@@ -295,13 +295,13 @@ class nnUNetTrainer_pinbuffer_asynccopy(nnUNetTrainer):
                                                         num_cached=12,
                                                                     pinned_pool_size=6,
                                                                     seeds=None,
-                                                        pin_memory=False, wait_time=0.02,  # self.device.type == 'cuda'
+                                                        pin_memory=self.device.type == 'cuda', wait_time=0.02,
                                                                     liveness_check_interval=5)
             mt_gen_val = PinnedBufferNonDetMultiThreadedAugmenter(data_loader=dl_val,
                                                       transform=None, num_processes=max(1, allowed_num_processes // 2),
                                                                   pinned_pool_size=6,
                                                       num_cached=12, seeds=None,
-                                                      pin_memory=False,
+                                                      pin_memory=self.device.type == 'cuda',
                                                       wait_time=0.02,
                                                                   liveness_check_interval=5)
         # # let's get this party started
