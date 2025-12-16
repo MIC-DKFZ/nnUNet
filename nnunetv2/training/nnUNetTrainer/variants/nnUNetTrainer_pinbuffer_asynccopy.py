@@ -6,6 +6,7 @@ from batchgenerators.dataloading.single_threaded_augmenter import SingleThreaded
 from batchgenerators.dataloading.pinned_buffer_nondet_mta import PinnedBufferNonDetMultiThreadedAugmenter
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
 from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
+from batchgeneratorsv2.transforms.utils.compose import TimedComposeTransforms
 
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
@@ -259,6 +260,7 @@ class nnUNetTrainer_pinbuffer_asynccopy(nnUNetTrainer):
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
+        tr_transforms = TimedComposeTransforms(tr_transforms.transforms, print_every=1000, p_write=1/20)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,

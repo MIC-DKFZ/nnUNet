@@ -58,7 +58,6 @@ class nnUNetDataLoader(DataLoader):
                 self.need_to_pad[d] += pad_sides[d]
         self.num_channels = None
         self.pad_sides = pad_sides
-        self.data_shape, self.seg_shape = self.determine_shapes()
         self.sampling_probabilities = sampling_probabilities
         self.annotated_classes_key = tuple([-1] + label_manager.all_labels)
         self.has_ignore = label_manager.has_ignore_label
@@ -128,18 +127,6 @@ class nnUNetDataLoader(DataLoader):
     def _probabilistic_oversampling(self, sample_idx: int) -> bool:
         # print('YEAH BOIIIIII')
         return np.random.uniform() < self.oversample_foreground_percent
-
-    def determine_shapes(self):
-        # load one case
-        data, seg, seg_prev, properties = self._data.load_case(self._data.identifiers[0])
-        num_color_channels = data.shape[0]
-
-        data_shape = (self.batch_size, num_color_channels, *self.patch_size)
-        channels_seg = seg.shape[0]
-        if seg_prev is not None:
-            channels_seg += 1
-        seg_shape = (self.batch_size, channels_seg, *self.patch_size)
-        return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
                  overwrite_class: Union[int, Tuple[int, ...]] = None, verbose: bool = False):
