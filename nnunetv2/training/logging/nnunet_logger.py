@@ -5,6 +5,23 @@ matplotlib.use('agg')
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import Any
+from pathlib import Path
+import shutil
+import os
+
+try:
+    import wandb
+except:
+    wandb = None
+
+
+def get_cluster_job_id():
+    job_id = None
+    if "LSB_JOBID" in os.environ:
+        job_id = os.environ["LSB_JOBID"]
+    if "SLURM_JOB_ID" in os.environ:
+        job_id = os.environ["SLURM_JOB_ID"]
+    return job_id
 
 
 class MetaLogger(object):
@@ -14,16 +31,20 @@ class MetaLogger(object):
     plotting progress, and checkpointing.
     """
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, output_folder, resume, verbose: bool = False):
         """Initialize the meta logger.
 
         Args:
-            verbose: If True, enables verbose logging in the local logger.
+            output_folder: The output folder.
+            resume: Whether to resume training if possible.
+            verbose: Whether to enable verbose logging in the local logger.
         """
-        self.loggers = {}
-        local_logger = LocalLogger(verbose)
-        self.local_logger_key = local_logger.get_logger_key()
-        self.loggers[self.local_logger_key] = local_logger
+        self.output_folder = output_folder
+        self.resume = resume
+        self.loggers = []
+        self.local_logger = LocalLogger(verbose)
+        if self._is_logger_enabled("nnUNet_wandb_enabled"):
+            self.loggers.append(WandbLogger(output_folder, resume))
 
     def update_config(self, config: dict):
         """Add a new or update an existing experiment configuration to the logger.
@@ -31,7 +52,7 @@ class MetaLogger(object):
         Args:
             config: Logger configuration options.
         """
-        for logger in self.loggers.values():
+        for logger in self.loggers:
             logger.update_config(config)
 
     def log(self, key: str, value: Any, step: int):
@@ -42,8 +63,20 @@ class MetaLogger(object):
             value: Value to log.
             step: Step index (typically epoch).
         """
-        for logger in self.loggers.values():
-            logger.log(key, value, step)
+        self.local_logger.log(key, value, step)
+        if isinstance(value, list):
+            for i, val in enumerate(value):
+                for logger in self.loggers:
+                    logger.log(f"{key}/class_{i+1}", val, step)
+        else:
+            for logger in self.loggers:
+                logger.log(key, value, step)
+        
+        # handle the ema_fg_dice special case! It is automatically logged when we add a new mean_fg_dice
+        if key == 'mean_fg_dice':
+            new_ema_pseudo_dice = self.get_value('ema_fg_dice', step=step-1) * 0.9 + 0.1 * value \
+                if len(self.get_value('ema_fg_dice', step=None)) > 0 else value
+            self.log('ema_fg_dice', new_ema_pseudo_dice, step)
 
     def log_summary(self, key: str, value: Any):
         """Log a summary value. These are usually values that are not logged every step but only once. 
@@ -53,7 +86,7 @@ class MetaLogger(object):
             key: Metric or field name.
             value: Value to summarize.
         """
-        for logger in self.loggers.values():
+        for logger in self.loggers:
             logger.log_summary(key, value)
 
     def get_value(self, key: str, step: Any):
@@ -66,7 +99,7 @@ class MetaLogger(object):
         Returns:
             The logged value or list of values from the local logger.
         """
-        return self.loggers[self.local_logger_key].get_value(key, step)
+        return self.local_logger.get_value(key, step)
 
     def plot_progress_png(self, output_folder: str):
         """Write a progress plot PNG using local logger data.
@@ -74,7 +107,7 @@ class MetaLogger(object):
         Args:
             output_folder: Directory where the plot image is saved.
         """
-        self.loggers[self.local_logger_key].plot_progress_png(output_folder)
+        self.local_logger.plot_progress_png(output_folder)
 
     def get_checkpoint(self):
         """Return the local logger checkpoint data.
@@ -82,7 +115,7 @@ class MetaLogger(object):
         Returns:
             The checkpoint payload used to restore logging state.
         """
-        return self.loggers[self.local_logger_key].get_checkpoint()
+        return self.local_logger.get_checkpoint()
 
     def load_checkpoint(self, checkpoint: dict):
         """Restore the local logger from a checkpoint payload.
@@ -90,7 +123,16 @@ class MetaLogger(object):
         Args:
             checkpoint: Checkpoint data returned by `get_checkpoint`.
         """
-        self.loggers[self.local_logger_key].load_checkpoint(checkpoint)
+        self.local_logger.load_checkpoint(checkpoint)
+
+    def _is_logger_enabled(self, env_var):
+        env_var_result = str(os.getenv(env_var, "0"))
+        if env_var_result in ("0", "False", "false"):
+            return False
+        elif env_var_result in ("1", "True", "true"):
+            return True
+        else:
+            raise RuntimeError("nnU-Net logger environement variable has the wrong value. Must be '0' (disabled) or '1'(enabled).")
 
 
 class LocalLogger:
@@ -115,12 +157,6 @@ class LocalLogger:
         self.verbose = verbose
         # shut up, this logging is great
 
-    def get_logger_key(self):
-        return "local"
-    
-    def update_config(self, config: dict):
-        pass
-
     def log(self, key, value, epoch: int):
         """
         sometimes shit gets messed up. We try to catch that here
@@ -137,15 +173,6 @@ class LocalLogger:
                                                                        'lists length is off by more than 1'
             print(f'maybe some logging issue!? logging {key} and {value}')
             self.my_fantastic_logging[key][epoch] = value
-
-        # handle the ema_fg_dice special case! It is automatically logged when we add a new mean_fg_dice
-        if key == 'mean_fg_dice':
-            new_ema_pseudo_dice = self.my_fantastic_logging['ema_fg_dice'][epoch - 1] * 0.9 + 0.1 * value \
-                if len(self.my_fantastic_logging['ema_fg_dice']) > 0 else value
-            self.log('ema_fg_dice', new_ema_pseudo_dice, epoch)
-
-    def log_summary(self, key, value):
-        pass
 
     def get_value(self, key, step):
         if step is not None:
@@ -203,3 +230,66 @@ class LocalLogger:
 
     def load_checkpoint(self, checkpoint: dict):
         self.my_fantastic_logging = checkpoint
+
+
+class WandbLogger:
+    """Weights & Biases logger for nnU-Net training runs.
+
+    Environment Variables:
+        nnUNet_wandb_enabled: Whether W&B logger is enabled (default: 0 -> Disabled)
+        nnUNet_wandb_project: W&B project name (default: "nnunet").
+        nnUNet_wandb_mode: W&B mode, e.g. "online" or "offline" (default: "online").
+    """
+
+    def __init__(self, output_folder, resume):
+        """Initialize a W&B run and handle resume behavior.
+
+        Args:
+            output_folder: Directory where W&B run data is stored.
+            resume: Whether to resume a previous W&B run if present.
+            verbose: Unused verbosity flag (kept for interface compatibility).
+        """
+        self.output_folder = Path(output_folder)
+        self.resume = resume
+        self.project = os.getenv("nnUNet_wandb_project", "nnunet")
+        self.mode = os.getenv("nnUNet_wandb_mode", "online")
+
+        wandb_id = None
+        if (self.output_folder / "wandb").is_dir():
+            if self.resume:
+                wandb_dir = self.output_folder / "wandb" / "latest-run"
+                wandb_filename = next(filename for filename in wandb_dir.iterdir() if filename.suffix == ".wandb")
+                wandb_id = wandb_filename.stem[4:]
+            else:
+                shutil.rmtree(str(self.output_folder / "wandb"))
+
+        _resume = "allow" if self.resume else "never"
+        self.run = wandb.init(project=self.project, dir=str(self.output_folder), id=wandb_id, mode=self.mode, resume=_resume)
+        self.run.config.update({"JobID": get_cluster_job_id()})
+    
+    def update_config(self, config: dict):
+        """Update W&B config with training metadata.
+
+        Args:
+            config: Configuration values to merge into the run config.
+        """
+        self.run.config.update(config)
+
+    def log(self, key, value, step: int):
+        """Log a scalar value to W&B.
+
+        Args:
+            key: Metric or field name.
+            value: Value to log.
+            step: Step index (typically epoch).
+        """
+        self.run.log({key: value}, step=step)
+
+    def log_summary(self, key, value):
+        """Write a summary value to W&B.
+
+        Args:
+            key: Metric or field name.
+            value: Summary value to store.
+        """
+        self.run.summary[key] = value

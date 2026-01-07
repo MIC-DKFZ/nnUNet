@@ -52,7 +52,7 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
-from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
+from nnunetv2.training.logging.nnunet_logger import MetaLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
@@ -112,6 +112,8 @@ class nnUNetTrainer(object):
             self.my_init_kwargs[k] = locals()[k]
 
         ###  Saving all the init args into class variables for later access
+        continue_training = plans.pop("continue_training")
+        logger_config = {"plans": plans, "configuration": configuration, "fold": fold, "dataset": dataset_json}
         self.plans_manager = PlansManager(plans)
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
         self.configuration_name = configuration
@@ -171,7 +173,8 @@ class nnUNetTrainer(object):
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
-        self.logger = nnUNetLogger()
+        self.logger = MetaLogger(self.output_folder, continue_training)
+        self.logger.update_config(logger_config)
 
         ### placeholders
         self.dataloader_train = self.dataloader_val = None  # see on_train_start
@@ -233,6 +236,19 @@ class nnUNetTrainer(object):
             # if self._do_i_compile():
             #     self.loss = torch.compile(self.loss)
             self.was_initialized = True
+
+            logger_config_hparas = {
+                "initial_lr": self.initial_lr,
+                "weight_decay": self.weight_decay,
+                "oversample_foreground_percent": self.oversample_foreground_percent,
+                "probabilistic_oversampling": self.probabilistic_oversampling,
+                "num_iterations_per_epoch": self.num_iterations_per_epoch,
+                "num_val_iterations_per_epoch": self.num_val_iterations_per_epoch,
+                "num_epochs": self.num_epochs,
+                "enable_deep_supervision": self.enable_deep_supervision,
+                "batch_size": self.configuration_manager.batch_size
+                }
+            self.logger.update_config({"hparas": logger_config_hparas})
         else:
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
                                "That should not happen.")
