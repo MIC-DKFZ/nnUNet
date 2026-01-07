@@ -281,6 +281,11 @@ class nnUNetTrainer(object):
                 if k in ['dataloader_train', 'dataloader_val']:
                     if hasattr(getattr(self, k), 'generator'):
                         dct[k + '.generator'] = str(getattr(self, k).generator)
+                        if hasattr(getattr(self, k).generator, 'transforms'):
+                            try:
+                                dct[k + '.generator.transforms'] = str(getattr(self, k).generator.transforms)
+                            except Exception as e:
+                                dct[k + '.generator.transforms'] = f"Could not stringify generator.transforms: {e}"
                     if hasattr(getattr(self, k), 'num_processes'):
                         dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
                     if hasattr(getattr(self, k), 'transform'):
