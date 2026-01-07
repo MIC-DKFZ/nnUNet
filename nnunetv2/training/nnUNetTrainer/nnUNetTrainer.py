@@ -1123,12 +1123,12 @@ class nnUNetTrainer(object):
     def on_epoch_end(self):
         self.logger.log('epoch_end_timestamps', time(), self.current_epoch)
 
-        self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
-        self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('train_loss', np.round(self.logger.get_value('train_losses', step=-1), decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.logger.get_value('val_losses', step=-1), decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
-                                               self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
+                                               self.logger.get_value('dice_per_class_or_region', step=-1)])
         self.print_to_log_file(
-            f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+            f"Epoch time: {np.round(self.logger.get_value('epoch_end_timestamps', step=-1) - self.logger.get_value('epoch_start_timestamps', step=-1), decimals=2)} s")
 
         # handling periodic checkpointing
         current_epoch = self.current_epoch
@@ -1136,8 +1136,8 @@ class nnUNetTrainer(object):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
-        if self._best_ema is None or self.logger.my_fantastic_logging['ema_fg_dice'][-1] > self._best_ema:
-            self._best_ema = self.logger.my_fantastic_logging['ema_fg_dice'][-1]
+        if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
+            self._best_ema = self.logger.get_value('ema_fg_dice', step=-1)
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
@@ -1356,6 +1356,9 @@ class nnUNetTrainer(object):
                                                 self.label_manager.ignore_label, chill=True,
                                                 num_processes=default_num_processes * dist.get_world_size() if
                                                 self.is_ddp else default_num_processes)
+            for label in metrics["mean"]:
+                self.logger.log_summary(f"final_val/class_{label}_dice", metrics["mean"][label]["Dice"])
+            self.logger.log_summary("final_val/foreground_dice", metrics['foreground_mean']["Dice"])
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
                                    also_print_to_console=True)

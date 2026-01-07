@@ -4,9 +4,96 @@ from batchgenerators.utilities.file_and_folder_operations import join
 matplotlib.use('agg')
 import seaborn as sns
 import matplotlib.pyplot as plt
+from typing import Any
 
 
-class nnUNetLogger(object):
+class MetaLogger(object):
+    """A meta logger that bundles multiple loggers behind a single interface.
+
+    The default configuration includes a local logger used for reading values,
+    plotting progress, and checkpointing.
+    """
+
+    def __init__(self, verbose: bool = False):
+        """Initialize the meta logger.
+
+        Args:
+            verbose: If True, enables verbose logging in the local logger.
+        """
+        self.loggers = {}
+        local_logger = LocalLogger(verbose)
+        self.local_logger_key = local_logger.get_logger_key()
+        self.loggers[self.local_logger_key] = local_logger
+
+    def update_config(self, config: dict):
+        """Add a new or update an existing experiment configuration to the logger.
+
+        Args:
+            config: Logger configuration options.
+        """
+        for logger in self.loggers.values():
+            logger.update_config(config)
+
+    def log(self, key: str, value: Any, step: int):
+        """Log a value for a given step.
+
+        Args:
+            key: Metric or field name.
+            value: Value to log.
+            step: Step index (typically epoch).
+        """
+        for logger in self.loggers.values():
+            logger.log(key, value, step)
+
+    def log_summary(self, key: str, value: Any):
+        """Log a summary value. These are usually values that are not logged every step but only once. 
+        This can be for example the final validation Dice.
+
+        Args:
+            key: Metric or field name.
+            value: Value to summarize.
+        """
+        for logger in self.loggers.values():
+            logger.log_summary(key, value)
+
+    def get_value(self, key: str, step: Any):
+        """Fetch a logged value from the local logger.
+
+        Args:
+            key: Metric or field name.
+            step: Step index to retrieve, or None to return all values.
+
+        Returns:
+            The logged value or list of values from the local logger.
+        """
+        return self.loggers[self.local_logger_key].get_value(key, step)
+
+    def plot_progress_png(self, output_folder: str):
+        """Write a progress plot PNG using local logger data.
+
+        Args:
+            output_folder: Directory where the plot image is saved.
+        """
+        self.loggers[self.local_logger_key].plot_progress_png(output_folder)
+
+    def get_checkpoint(self):
+        """Return the local logger checkpoint data.
+
+        Returns:
+            The checkpoint payload used to restore logging state.
+        """
+        return self.loggers[self.local_logger_key].get_checkpoint()
+
+    def load_checkpoint(self, checkpoint: dict):
+        """Restore the local logger from a checkpoint payload.
+
+        Args:
+            checkpoint: Checkpoint data returned by `get_checkpoint`.
+        """
+        self.loggers[self.local_logger_key].load_checkpoint(checkpoint)
+
+
+class LocalLogger:
     """
     This class is really trivial. Don't expect cool functionality here. This is my makeshift solution to problems
     arising from out-of-sync epoch numbers and numbers of logged loss values. It also simplifies the trainer class a
@@ -27,6 +114,12 @@ class nnUNetLogger(object):
         }
         self.verbose = verbose
         # shut up, this logging is great
+
+    def get_logger_key(self):
+        return "local"
+    
+    def update_config(self, config: dict):
+        pass
 
     def log(self, key, value, epoch: int):
         """
@@ -50,6 +143,15 @@ class nnUNetLogger(object):
             new_ema_pseudo_dice = self.my_fantastic_logging['ema_fg_dice'][epoch - 1] * 0.9 + 0.1 * value \
                 if len(self.my_fantastic_logging['ema_fg_dice']) > 0 else value
             self.log('ema_fg_dice', new_ema_pseudo_dice, epoch)
+
+    def log_summary(self, key, value):
+        pass
+
+    def get_value(self, key, step):
+        if step is not None:
+            return self.my_fantastic_logging[key][step]
+        else:
+            return self.my_fantastic_logging[key]
 
     def plot_progress_png(self, output_folder):
         # we infer the epoch form our internal logging
