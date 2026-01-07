@@ -286,7 +286,7 @@ class nnUNetTrainer(object):
                             try:
                                 dct[k + '.generator.transforms'] = str(dl.generator.transforms)
                             except Exception as e:
-                                dct[k + '.generator.transforms'] = f"Could not stringify generator.transforms: {e}"
+                                dct[k + '.generator.transforms'] = f"Could not stringify generator.transforms: {type(e).__name__}: {e}"
                     if hasattr(dl, 'num_processes'):
                         dct[k + '.num_processes'] = str(dl.num_processes)
                     if hasattr(dl, 'transform'):
