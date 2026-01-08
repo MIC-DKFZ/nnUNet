@@ -157,7 +157,7 @@ def run_training(dataset_name_or_id: Union[str, int],
             try:
                 fold = int(fold)
             except ValueError as e:
-                print(f'Unable to convert given value for fold to int: {fold}. Fold must bei either "all" or an integer!')
+                print(f'Unable to convert given value for fold to int: {fold}. Fold must be either "all" or an integer!')
                 raise e
 
     if val_with_best:
