@@ -117,7 +117,7 @@ def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkp
     if disable_checkpointing:
         nnunet_trainer.disable_checkpointing = disable_checkpointing
 
-    assert not (c and val), f'Cannot set --c and --val flag at the same time.'
+    assert not (c and val), f'Cannot set --c and --val flag at the same time. Dummy.'
 
     maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights)
 
@@ -195,7 +195,7 @@ def run_training(dataset_name_or_id: Union[str, int],
         if disable_checkpointing:
             nnunet_trainer.disable_checkpointing = disable_checkpointing
 
-        assert not (continue_training and only_run_validation), f'Cannot set --c and --val flag at the same time.'
+        assert not (continue_training and only_run_validation), f'Cannot set --c and --val flag at the same time. Dummy.'
 
         maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, pretrained_weights)
 
