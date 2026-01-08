@@ -249,6 +249,9 @@ class WandbLogger:
             resume: Whether to resume a previous W&B run if present.
             verbose: Unused verbosity flag (kept for interface compatibility).
         """
+        if wandb is None:
+            raise RuntimeError("W&B is not installed. Please install W&B with 'pip install wandb' before using the WandbLogger.")
+
         self.output_folder = Path(output_folder)
         self.resume = resume
         self.project = os.getenv("nnUNet_wandb_project", "nnunet")
