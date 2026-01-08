@@ -269,6 +269,7 @@ class WandbLogger:
         _resume = "allow" if self.resume else "never"
         self.run = wandb.init(project=self.project, dir=str(self.output_folder), id=wandb_id, mode=self.mode, resume=_resume)
         self.run.config.update({"JobID": get_cluster_job_id()})
+        self.wandb_init_step = self.run.step
     
     def update_config(self, config: dict):
         """Update W&B config with training metadata.
@@ -286,6 +287,9 @@ class WandbLogger:
             value: Value to log.
             step: Step index (typically epoch).
         """
+        self.log_summary("current_epoch", step)
+        if self.resume and step < self.wandb_init_step:
+            return
         self.run.log({key: value}, step=step)
 
     def log_summary(self, key, value):
