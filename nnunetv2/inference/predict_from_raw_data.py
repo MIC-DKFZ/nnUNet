@@ -87,7 +87,7 @@ class nnUNetPredictor(object):
         for i, f in enumerate(use_folds):
             f = int(f) if f != 'all' else f
             checkpoint = torch.load(join(model_training_output_dir, f'fold_{f}', checkpoint_name),
-                                    map_location=torch.device('cpu'))
+                                    map_location=torch.device('cpu'), weights_only=False)
             if i == 0:
                 trainer_name = checkpoint['trainer_name']
                 configuration_name = checkpoint['init_args']['configuration']
