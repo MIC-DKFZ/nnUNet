@@ -167,8 +167,8 @@ class nnUNetDataLoader(DataLoader):
     def generate_train_batch(self):
         selected_keys = self.get_indices()
         # preallocate memory for data and seg
-        data_all = np.zeros(self.data_shape, dtype=np.float32)
-        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+        data_all = np.empty(self.data_shape, dtype=np.float32)
+        seg_all = np.empty(self.seg_shape, dtype=np.int16)
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
