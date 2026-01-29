@@ -39,6 +39,10 @@ def get_allowed_n_proc_DA():
             use_this = 28
         elif hostname.startswith('hdf19-gpu') or hostname.startswith('e071-gpu'):
             use_this = 12
+        elif 'superh200' in hostname.lower():
+            use_this = 48
+        elif 'superl40s' in hostname.lower():
+            use_this = 28
         else:
             use_this = 12  # default value
 
