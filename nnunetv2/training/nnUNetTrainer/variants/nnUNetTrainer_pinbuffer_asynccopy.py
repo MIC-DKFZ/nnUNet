@@ -3,7 +3,6 @@ from typing import Union, Tuple, List
 import numpy as np
 import torch
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
-from batchgenerators.dataloading.pinned_buffer_nondet_mta import PinnedBufferNonDetMultiThreadedAugmenter
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
 from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
 from batchgeneratorsv2.transforms.utils.compose import TimedComposeTransforms
@@ -17,6 +16,11 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.helpers import dummy_context
 from torch import autocast
 
+try:
+    from batchgenerators.dataloading.pinned_buffer_nondet_mta import PinnedBufferNonDetMultiThreadedAugmenter
+except ImportError:
+    PinnedBufferNonDetMultiThreadedAugmenter = None
+    print('You need the feature/MTA_rework branch of batchgenerators')
 
 class CUDAPrefetcher:
     """
