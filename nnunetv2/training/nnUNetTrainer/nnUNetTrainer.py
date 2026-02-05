@@ -1074,7 +1074,7 @@ class nnUNetTrainer(object):
         else:
             # no need for softmax
             output_seg = output.argmax(1)[:, None]
-            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
+            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float16)
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
             del output_seg
 
@@ -1352,8 +1352,12 @@ class nnUNetTrainer(object):
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file_truncated = join(output_folder, k)
 
-                        # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
-                        #                   self.dataset_json)
+                        # resample_and_save(prediction, target_shape, output_file_truncated, self.plans_manager,
+                        #          self.configuration_manager,
+                        #          properties,
+                        #          self.dataset_json,
+                        #          default_num_processes,
+                        #          dataset_class)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
                                 (prediction, target_shape, output_file_truncated, self.plans_manager,
