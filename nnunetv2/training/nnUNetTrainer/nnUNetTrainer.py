@@ -1262,7 +1262,7 @@ class nnUNetTrainer(object):
                                         self.dataset_json, self.__class__.__name__,
                                         self.inference_allowed_mirroring_axes)
 
-        with DDP.no_sync() if self.is_ddp else dummy_context():
+        with self.network.no_sync() if self.is_ddp else dummy_context():
             with multiprocessing.get_context("spawn").Pool(default_num_processes) as segmentation_export_pool:
                 worker_list = [i for i in segmentation_export_pool._pool]
                 validation_output_folder = join(self.output_folder, 'validation')
