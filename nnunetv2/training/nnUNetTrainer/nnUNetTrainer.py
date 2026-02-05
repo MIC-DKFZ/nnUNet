@@ -1381,7 +1381,7 @@ class nnUNetTrainer(object):
                                                     self.label_manager.foreground_regions if self.label_manager.has_regions else
                                                     self.label_manager.foreground_labels,
                                                     self.label_manager.ignore_label, chill=True,
-                                                    num_processes=get_allowed_n_proc_DA() * local_world_size)
+                                                    num_processes=get_allowed_n_proc_DA())
                 self.print_to_log_file("Validation complete", also_print_to_console=True)
                 self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
                                        also_print_to_console=True)
