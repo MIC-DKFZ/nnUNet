@@ -5,7 +5,6 @@ import torch
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
 from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
-from batchgeneratorsv2.transforms.utils.compose import TimedComposeTransforms
 
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
@@ -21,6 +20,12 @@ try:
 except ImportError:
     PinnedBufferNonDetMultiThreadedAugmenter = None
     print('You need the feature/MTA_rework branch of batchgenerators')
+
+try:
+    from batchgeneratorsv2.transforms.utils.compose import TimedComposeTransforms
+except ImportError:
+    TimedComposeTransforms = None
+    print('You need the master branch of batchgenerators_torch / batchgeneratorsv2')
 
 class CUDAPrefetcher:
     """
