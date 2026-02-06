@@ -7,7 +7,9 @@ import warnings
 from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
+from tqdm import tqdm
 from typing import Tuple, Union, List
+
 
 import numpy as np
 import torch
@@ -52,6 +54,11 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
+
+# Etienne: for gpu augmentation
+from nnunetv2.training.dataloading.threaded_gpu_augmenter import ThreadedGPUAugmenter
+
+
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
@@ -69,7 +76,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'), gpu_augmentation: bool = True):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
@@ -117,6 +124,8 @@ class nnUNetTrainer(object):
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
+
+        self.gpu_augmentation = gpu_augmentation
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -188,6 +197,9 @@ class nnUNetTrainer(object):
         self.disable_checkpointing = False
 
         self.was_initialized = False
+        if self.gpu_augmentation:
+            self.num_repeats = 1
+            self.num_iterations_per_epoch //= self.num_repeats
 
         self.print_to_log_file("\n#######################################################################\n"
                                "Please cite the following paper when using nnU-Net:\n"
@@ -647,6 +659,8 @@ class nnUNetTrainer(object):
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
 
+
+
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
                                                         is_cascaded=self.is_cascaded,
@@ -662,18 +676,23 @@ class nnUNetTrainer(object):
                                  self.configuration_manager.patch_size,
                                  self.label_manager,
                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                 sampling_probabilities=None, pad_sides=None, transforms=None if self.gpu_augmentation else tr_transforms,
                                  probabilistic_oversampling=self.probabilistic_oversampling)
         dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
                                   self.configuration_manager.patch_size,
                                   self.configuration_manager.patch_size,
                                   self.label_manager,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                  sampling_probabilities=None, pad_sides=None, transforms=None if self.gpu_augmentation else val_transforms,
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
+
         allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
+        print("Allowed Num Processes: ", allowed_num_processes)
+        if self.gpu_augmentation:
+            mt_gen_train = ThreadedGPUAugmenter(dl_tr, tr_transforms, 8)
+            mt_gen_val = ThreadedGPUAugmenter(dl_val, val_transforms, 8)
+        elif allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
         else:
@@ -717,7 +736,8 @@ class nnUNetTrainer(object):
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
                 p_rotation=0.2,
                 rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
-                bg_style_seg_sampling=False  # , mode_seg='nearest'
+                bg_style_seg_sampling=False,
+                mode_seg='nearest'
             )
         )
 
@@ -1366,19 +1386,22 @@ class nnUNetTrainer(object):
     def run_training(self):
         self.on_train_start()
 
+        # self.num_iterations_per_epoch = 10
+        # self.num_val_iterations_per_epoch = 10
+
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
             self.on_train_epoch_start()
             train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
+            for batch_id in tqdm(range(self.num_iterations_per_epoch)):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
+                for batch_id in tqdm(range(self.num_val_iterations_per_epoch)):
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
                 self.on_validation_epoch_end(val_outputs)
 

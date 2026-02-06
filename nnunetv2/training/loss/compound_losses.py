@@ -25,7 +25,7 @@ class DC_and_CE_loss(nn.Module):
         self.weight_ce = weight_ce
         self.ignore_label = ignore_label
 
-        self.ce = RobustCrossEntropyLoss(**ce_kwargs)
+        self.ce = RobustCrossEntropyLoss(ignore_index=-1, **ce_kwargs) # etienne: this has change recently it seems? todo: rebuild the preproc dataset and check if you still have -1 label
         self.dc = dice_class(apply_nonlin=softmax_helper_dim1, **soft_dice_kwargs)
 
     def forward(self, net_output: torch.Tensor, target: torch.Tensor):
@@ -49,6 +49,8 @@ class DC_and_CE_loss(nn.Module):
 
         dc_loss = self.dc(net_output, target_dice, loss_mask=mask) \
             if self.weight_dice != 0 else 0
+
+        assert target.max() < net_output.shape[1]
         ce_loss = self.ce(net_output, target[:, 0]) \
             if self.weight_ce != 0 and (self.ignore_label is None or num_fg > 0) else 0
 

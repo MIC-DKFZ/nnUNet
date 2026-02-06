@@ -15,6 +15,21 @@ from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
+from time import time
+from functools import wraps
+
+
+def timing(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        dt = 0
+        t1 = time()
+        result = f(*args, **kwargs)
+        t2 = time()
+        dt = t2-t1
+        print(f"{f}: {dt:.6f}")
+        return result
+    return wrap
 
 class nnUNetDataLoader(DataLoader):
     def __init__(self,
@@ -166,7 +181,6 @@ class nnUNetDataLoader(DataLoader):
 
     def generate_train_batch(self):
         selected_keys = self.get_indices()
-        # preallocate memory for data and seg
         data_all = np.zeros(self.data_shape, dtype=np.float32)
         seg_all = np.zeros(self.seg_shape, dtype=np.int16)
 
@@ -177,6 +191,7 @@ class nnUNetDataLoader(DataLoader):
 
             data, seg, seg_prev, properties = self._data.load_case(i)
 
+            # t1_ = time()
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
             # self._data.load_case(i) (see nnUNetDataset.load_case)
             shape = data.shape[1:]
@@ -186,8 +201,8 @@ class nnUNetDataLoader(DataLoader):
 
             # use ACVL utils for that. Cleaner.
             data_all[j] = crop_and_pad_nd(data, bbox, 0)
-
             seg_cropped = crop_and_pad_nd(seg, bbox, -1)
+
             if seg_prev is not None:
                 seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
             seg_all[j] = seg_cropped
