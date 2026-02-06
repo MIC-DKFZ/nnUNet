@@ -83,14 +83,17 @@ nnUNetv2_convert_MSD_dataset = "nnunetv2.dataset_conversion.convert_MSD_dataset:
 
 [project.optional-dependencies]
 dev = [
-    "black",
-    "ruff",
     "pre-commit"
 ]
 
 [build-system]
 requires = ["setuptools>=67.8.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+select = ["E", "F", "W"]
 
 [tool.codespell]
 skip = '.git,*.pdf,*.svg'
