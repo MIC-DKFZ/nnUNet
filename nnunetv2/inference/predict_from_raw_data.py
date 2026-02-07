@@ -128,6 +128,56 @@ class nnUNetPredictor(object):
             print('Using torch.compile')
             self.network = torch.compile(self.network)
 
+    def initialize_from_paths(self, dataset_path: str, plans_path: str, weights_path: str):
+        """
+        A more flexible method for initialize_from_trained_model_folder
+        """
+        dataset_json = load_json(dataset_path)
+        plans = load_json(plans_path)
+        plans_manager = PlansManager(plans)
+
+        checkpoint = torch.load(weights_path, map_location=torch.device('cpu'), weights_only=False)
+        trainer_name = checkpoint['trainer_name']
+        configuration_name = checkpoint['init_args']['configuration']
+        inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
+            'inference_allowed_mirroring_axes' in checkpoint.keys() else None
+        parameters = [checkpoint['network_weights']]
+
+        configuration_manager = plans_manager.get_configuration(configuration_name)
+        # restore network
+        num_input_channels = determine_num_input_channels(plans_manager, configuration_manager, dataset_json)
+        trainer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
+                                                    trainer_name, 'nnunetv2.training.nnUNetTrainer')
+        if trainer_class is None:
+            raise RuntimeError(f'Unable to locate trainer class {trainer_name} in nnunetv2.training.nnUNetTrainer. '
+                               f'Please place it there (in any .py file)!')
+        network = trainer_class.build_network_architecture(
+            configuration_manager.network_arch_class_name,
+            configuration_manager.network_arch_init_kwargs,
+            configuration_manager.network_arch_init_kwargs_req_import,
+            num_input_channels,
+            plans_manager.get_label_manager(dataset_json).num_segmentation_heads,
+            enable_deep_supervision=False
+        )
+
+        self.plans_manager = plans_manager
+        self.configuration_manager = configuration_manager
+        self.list_of_parameters = parameters
+
+        # initialize network with first set of parameters, also see https://github.com/MIC-DKFZ/nnUNet/issues/2520
+        network.load_state_dict(parameters[0])
+
+        self.network = network
+
+        self.dataset_json = dataset_json
+        self.trainer_name = trainer_name
+        self.allowed_mirroring_axes = inference_allowed_mirroring_axes
+        self.label_manager = plans_manager.get_label_manager(dataset_json)
+        if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
+                and not isinstance(self.network, OptimizedModule):
+            print('Using torch.compile')
+            self.network = torch.compile(self.network)
+
     def manual_initialization(self, network: nn.Module, plans_manager: PlansManager,
                               configuration_manager: ConfigurationManager, parameters: Optional[List[dict]],
                               dataset_json: dict, trainer_name: str,
