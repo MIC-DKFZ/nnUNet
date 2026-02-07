@@ -38,6 +38,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
+    
     if nnunet_trainer is None:
         raise RuntimeError(f'Could not find requested nnunet trainer {trainer_name} in '
                            f'nnunetv2.training.nnUNetTrainer ('
@@ -113,7 +114,7 @@ def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkp
     torch.cuda.set_device(torch.device('cuda', dist.get_rank()))
 
     nnunet_trainer = get_trainer_from_args(dataset_name_or_id, configuration, fold, tr, p)
-
+    print(f"trainer: {nnunet_trainer}")
     if disable_checkpointing:
         nnunet_trainer.disable_checkpointing = disable_checkpointing
 
@@ -275,4 +276,5 @@ if __name__ == '__main__':
     # reduces the number of threads used for compiling. More threads don't help and can cause problems
     os.environ['TORCHINDUCTOR_COMPILE_THREADS'] = '1'
     # multiprocessing.set_start_method("spawn")
+    print("STARTING nnUNet TRAINING")
     run_training_entry()

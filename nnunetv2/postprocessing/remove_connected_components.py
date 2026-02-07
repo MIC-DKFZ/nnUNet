@@ -66,7 +66,7 @@ def determine_postprocessing(folder_predictions: str,
     If plans_file_or_dict or dataset_json_file_or_dict are None, we will look for them in input_folder
     """
     output_folder = join(folder_predictions, 'postprocessed')
-
+    print(f"inside determine_postprocessing")
     if plans_file_or_dict is None:
         expected_plans_file = join(folder_predictions, 'plans.json')
         if not isfile(expected_plans_file):
@@ -113,9 +113,10 @@ def determine_postprocessing(folder_predictions: str,
     # we save the postprocessing functions in here
     pp_fns = []
     pp_fn_kwargs = []
-
+    print(f"before poolpaty")
     # pool party!
     with multiprocessing.get_context("spawn").Pool(num_processes) as pool:
+        print(f"inside poolparty")
         # now let's see whether removing all but the largest foreground region improves the scores
         output_here = join(output_folder, 'temp', 'keep_largest_fg')
         maybe_mkdir_p(output_here)
@@ -254,6 +255,7 @@ def apply_postprocessing_to_folder(input_folder: str,
     """
     If plans_file_or_dict or dataset_json_file_or_dict are None, we will look for them in input_folder
     """
+    print(f"inside apply_postprocessing_to_folder 123")
     if plans_file_or_dict is None:
         expected_plans_file = join(input_folder, 'plans.json')
         if not isfile(expected_plans_file):
@@ -295,6 +297,7 @@ def apply_postprocessing_to_folder(input_folder: str,
 
 
 def entry_point_determine_postprocessing_folder():
+    print(f"inside entry_point_determine_postprocessing_folder")
     parser = argparse.ArgumentParser('Writes postprocessing.pkl and postprocessing.json in input_folder.')
     parser.add_argument('-i', type=str, required=True, help='Input folder')
     parser.add_argument('-ref', type=str, required=True, help='Folder with gt labels')
@@ -315,6 +318,7 @@ def entry_point_determine_postprocessing_folder():
 
 
 def entry_point_apply_postprocessing():
+    print(f"inside entry_point_apply_postprocessing")
     parser = argparse.ArgumentParser('Apples postprocessing specified in pp_pkl_file to input folder.')
     parser.add_argument('-i', type=str, required=True, help='Input folder')
     parser.add_argument('-o', type=str, required=True, help='Output folder')

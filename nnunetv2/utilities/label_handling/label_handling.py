@@ -49,6 +49,7 @@ class LabelManager(object):
             self.inference_nonlin = inference_nonlin
 
     def _sanity_check(self, label_dict: dict):
+        print(f"label dict: {label_dict}")
         if not 'background' in label_dict.keys():
             raise RuntimeError('Background label not declared (remember that this should be label 0!)')
         bg_label = label_dict['background']

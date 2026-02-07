@@ -35,6 +35,7 @@ from nnunetv2.utilities.label_handling.label_handling import determine_num_input
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
+# Set nnU-Net environment variables to match your WSL file paths
 
 class nnUNetPredictor(object):
     def __init__(self,
@@ -868,6 +869,7 @@ def predict_entry_point_modelfolder():
 
 
 def predict_entry_point():
+
     import argparse
     parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
                                                  'you want to manually specify a folder containing a trained nnU-Net '
