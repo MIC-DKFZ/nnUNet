@@ -26,8 +26,13 @@ from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
-def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected_labels: List[int]) -> bool:
-    rw = readerclass()
+def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], 
+                  expected_labels: List[int], dataset_json: dict) -> bool:
+    if 'image_reader_writer_kwargs' in dataset_json.keys():
+        kwargs = dataset_json['image_reader_writer_kwargs']
+    else:
+        kwargs = {}
+    rw = readerclass(**kwargs)
     seg, properties = rw.read_seg(label_file)
     found_labels = np.sort(pd.unique(seg.ravel()))  # np.unique(seg)
     unexpected_labels = [i for i in found_labels if i not in expected_labels]
@@ -42,8 +47,12 @@ def verify_labels(label_file: str, readerclass: Type[BaseReaderWriter], expected
 
 
 def check_cases(image_files: List[str], label_file: str, expected_num_channels: int,
-                readerclass: Type[BaseReaderWriter]) -> bool:
-    rw = readerclass()
+                readerclass: Type[BaseReaderWriter], dataset_json: dict) -> bool:
+    if 'image_reader_writer_kwargs' in dataset_json.keys():
+        kwargs = dataset_json['image_reader_writer_kwargs']
+    else:
+        kwargs = {}
+    rw = readerclass(**kwargs)
     ret = True
 
     images, properties_image = rw.read_images(image_files)
@@ -200,7 +209,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     with multiprocessing.get_context("spawn").Pool(num_processes) as p:
         result = p.starmap(
             verify_labels,
-            zip(labelfiles, [reader_writer_class] * len(labelfiles), [expected_labels] * len(labelfiles))
+            zip(labelfiles, [reader_writer_class] * len(labelfiles), [expected_labels] * len(labelfiles), [dataset_json] * len(labelfiles))
         )
         if not all(result):
             raise RuntimeError(
@@ -210,7 +219,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
         result = p.starmap(
             check_cases,
             zip(image_files, labelfiles, [num_modalities] * expected_num_training,
-                [reader_writer_class] * expected_num_training)
+                [reader_writer_class] * expected_num_training, [dataset_json] * expected_num_training)
         )
         if not all(result):
             raise RuntimeError(
