@@ -11,7 +11,7 @@ import os
 
 try:
     import wandb
-except:
+except ImportError:
     wandb = None
 
 
