@@ -656,7 +656,6 @@ class nnUNetTrainer(object):
                                                         ignore_label=self.label_manager.ignore_label)
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
         dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
                                  initial_patch_size,
                                  self.configuration_manager.patch_size,
