@@ -125,12 +125,14 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     assert isfile(join(folder, "dataset.json")), f"There needs to be a dataset.json file in folder, folder={folder}"
     dataset_json = load_json(join(folder, "dataset.json"))
 
+
     if not 'dataset' in dataset_json.keys():
         assert isdir(join(folder, "imagesTr")), f"There needs to be a imagesTr subfolder in folder, folder={folder}"
         assert isdir(join(folder, "labelsTr")), f"There needs to be a labelsTr subfolder in folder, folder={folder}"
 
     # make sure all required keys are there
     dataset_keys = list(dataset_json.keys())
+    print(f"dataset keys {dataset_keys}")
     required_keys = ['labels', "channel_names", "numTraining", "file_ending"]
     assert all([i in dataset_keys for i in required_keys]), 'not all required keys are present in dataset.json.' \
                                                             '\n\nRequired: \n%s\n\nPresent: \n%s\n\nMissing: ' \
@@ -141,12 +143,15 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
                                                              str([i for i in dataset_keys if i not in required_keys]))
 
     expected_num_training = dataset_json['numTraining']
+
     num_modalities = len(dataset_json['channel_names'].keys()
                          if 'channel_names' in dataset_json.keys()
                          else dataset_json['modality'].keys())
-    file_ending = dataset_json['file_ending']
 
+    file_ending = dataset_json['file_ending']
+    
     dataset = get_filenames_of_train_images_and_targets(folder, dataset_json)
+    print(f'size of datazet: {len(dataset)}')
 
     # check if the right number of training cases is present
     assert len(dataset) == expected_num_training, 'Did not find the expected number of training cases ' \
@@ -178,6 +183,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
         label_identifiers = [i[:-len(file_ending)] for i in labelfiles]
         labels_present = [i in label_identifiers for i in dataset.keys()]
         missing = [i for j, i in enumerate(dataset.keys()) if not labels_present[j]]
+  
         assert all(labels_present), f'not all training cases have a label file in labelsTr. Fix that. Missing: {missing}'
 
     labelfiles = [v['label'] for v in dataset.values()]

@@ -67,7 +67,8 @@ from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 
-class nnUNetTrainer(object):
+#class nnUNetTrainer(object):
+class nnUNetTrainer_2epochs(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
@@ -146,9 +147,9 @@ class nnUNetTrainer(object):
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
-        self.num_iterations_per_epoch = 250
+        self.num_iterations_per_epoch = 10 #250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 5 #500
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -205,7 +206,7 @@ class nnUNetTrainer(object):
 
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
-
+            print(f"Number of input channels: {self.num_input_channels}")
             self.network = self.build_network_architecture(
                 self.configuration_manager.network_arch_class_name,
                 self.configuration_manager.network_arch_init_kwargs,
@@ -214,6 +215,7 @@ class nnUNetTrainer(object):
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
             ).to(self.device)
+            print(f"Network architecture: {self.network.__class__.__name__}")
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
@@ -226,8 +228,10 @@ class nnUNetTrainer(object):
                 self.network = DDP(self.network, device_ids=[self.local_rank])
 
             self.loss = self._build_loss()
+            print(f"loss: {self.loss.__class__.__name__}")
 
             self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+            print(f"Dataset class: {self.dataset_class.__name__}")
 
             # torch 2.2.2 crashes upon compiling CE loss
             # if self._do_i_compile():
@@ -891,7 +895,9 @@ class nnUNetTrainer(object):
         mod.decoder.deep_supervision = enabled
 
     def on_train_start(self):
+        print("Starting training...")
         if not self.was_initialized:
+            print("Initializing...")
             self.initialize()
 
         # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
@@ -1013,7 +1019,7 @@ class nnUNetTrainer(object):
 
         self.logger.log('train_losses', loss_here, self.current_epoch)
 
-    def on_validation_epoch_start(self):
+    def train_step(self):
         self.network.eval()
 
     def validation_step(self, batch: dict) -> dict:
@@ -1364,6 +1370,8 @@ class nnUNetTrainer(object):
 
     def run_training(self):
         self.on_train_start()
+        print(f"done with on_train_start exiting...")
+        exit()
 
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
