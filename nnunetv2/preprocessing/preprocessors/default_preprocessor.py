@@ -63,8 +63,8 @@ class DefaultPreprocessor(object):
         shape_before_cropping = data.shape[1:]
         properties['shape_before_cropping'] = shape_before_cropping
         # this command will generate a segmentation. This is important because of the nonzero mask which we may need
-        data, seg, bbox = crop_to_nonzero(data, seg)
-        properties['bbox_used_for_cropping'] = bbox
+        #data, seg, bbox = crop_to_nonzero(data, seg)
+        properties['bbox_used_for_cropping'] = [[0, x] for x in data.shape]
         # print(data.shape, seg.shape)
         properties['shape_after_cropping_and_before_resampling'] = data.shape[1:]
 
