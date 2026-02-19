@@ -66,10 +66,37 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
+import random
+MASTER_SEED = 12345
+
+def seed_everything(seed: int):
+    """
+    Set the seed for reproducibility.
+    :param seed: The seed to set.
+    """
+    print(f"Setting seed to {seed} for reproducibility.")
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    # for distributed training
+    if dist.is_available() and dist.is_initialized():
+        dist.barrier()
+    
+    if torch.backends.cudnn.is_available():
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.enabled = True
+    
+    if torch.__version__ >= '2.0.0':
+        torch.use_deterministic_algorithms(True)
+
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
-                 device: torch.device = torch.device('cuda')):
+                 device: torch.device = torch.device('cuda'), deterministic: bool = False):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
 
         # apex predator of grug is complexity
@@ -86,7 +113,10 @@ class nnUNetTrainer(object):
         # OK OK I am guilty. But I tried.
         # https://www.osnews.com/images/comics/wtfm.jpg
         # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
-
+        self.deterministic = deterministic
+        if self.deterministic:
+            seed_everything(MASTER_SEED)
+            
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
 
@@ -661,7 +691,7 @@ class nnUNetTrainer(object):
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
-            ignore_label=self.label_manager.ignore_label)
+            ignore_label=self.label_manager.ignore_label, deterministic=self.deterministic)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
@@ -688,19 +718,43 @@ class nnUNetTrainer(object):
                                   probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
-            mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, None)
-        else:
-            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
-                                                        num_processes=allowed_num_processes,
-                                                        num_cached=max(6, allowed_num_processes // 2), seeds=None,
-                                                        pin_memory=self.device.type == 'cuda', wait_time=0.002)
-            mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
-                                                      transform=None, num_processes=max(1, allowed_num_processes // 2),
-                                                      num_cached=max(3, allowed_num_processes // 4), seeds=None,
-                                                      pin_memory=self.device.type == 'cuda',
-                                                      wait_time=0.002)
+        if not self.deterministic : 
+            if allowed_num_processes == 0:
+                mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
+                mt_gen_val = SingleThreadedAugmenter(dl_val, None)
+            else:
+                mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
+                                                            num_processes=allowed_num_processes,
+                                                            num_cached=max(6, allowed_num_processes // 2), seeds=None,
+                                                            pin_memory=self.device.type == 'cuda', wait_time=0.002)
+                mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
+                                                        transform=None, num_processes=max(1, allowed_num_processes // 2),
+                                                        num_cached=max(3, allowed_num_processes // 4), seeds=None,
+                                                        pin_memory=self.device.type == 'cuda',
+                                                        wait_time=0.002)
+        else : 
+            if allowed_num_processes == 0:
+                mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
+                mt_gen_val = SingleThreadedAugmenter(dl_val, None)
+            else:
+                print("Using deterministic data loading with seeds")
+                train_seeds = [MASTER_SEED + i for i in range(allowed_num_processes)]
+                
+                num_val_processes = max(1, allowed_num_processes // 2)
+                val_seeds = [MASTER_SEED + 1000 + i for i in range(num_val_processes)] # Use an offset to avoid overlap
+                print("Seeding using :", train_seeds, val_seeds)
+                mt_gen_train = MultiThreadedAugmenter(data_loader=dl_tr, transform=None,
+                                                    num_processes=allowed_num_processes,
+                                                    num_cached_per_queue=max(6, allowed_num_processes // 2), 
+                                                    seeds=train_seeds,
+                                                    pin_memory=self.device.type == 'cuda', wait_time=0.002)
+                
+                mt_gen_val = MultiThreadedAugmenter(data_loader=dl_val, transform=None, 
+                                                    num_processes=num_val_processes,
+                                                    num_cached_per_queue=max(3, allowed_num_processes // 4),
+                                                    seeds=val_seeds,
+                                                    pin_memory=self.device.type == 'cuda',
+                                                    wait_time=0.002)
         # # let's get this party started
         _ = next(mt_gen_train)
         _ = next(mt_gen_val)
@@ -718,6 +772,7 @@ class nnUNetTrainer(object):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
+            deterministic: bool = False
     ) -> BasicTransform:
         transforms = []
         if do_dummy_2d_data_aug:
@@ -739,6 +794,11 @@ class nnUNetTrainer(object):
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
 
+        if deterministic : 
+            benchmark = False
+        else:
+            benchmark = True
+            
         transforms.append(RandomTransform(
             GaussianNoiseTransform(
                 noise_variance=(0, 0.1),
@@ -751,7 +811,7 @@ class nnUNetTrainer(object):
                 blur_sigma=(0.5, 1.),
                 synchronize_channels=False,
                 synchronize_axes=False,
-                p_per_channel=0.5, benchmark=True
+                p_per_channel=0.5, benchmark=benchmark
             ), apply_probability=0.2
         ))
         transforms.append(RandomTransform(
