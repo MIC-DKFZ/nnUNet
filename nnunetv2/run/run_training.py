@@ -250,9 +250,17 @@ def run_training_entry():
                     help="Use this to set the device the training should run with. Available options are 'cuda' "
                          "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                          "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
+    parser.add_argument('--gpu_index', type=int, default=None, required=False,
+                        help="Index of the GPU to use.")
     args = parser.parse_args()
 
     assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
+    if args.gpu_index is not None:
+        assert args.device == 'cuda', 'The GPU index can only be selected when running on a GPU'
+
+        assert args.gpu_index < torch.cuda.device_count(), (f'Specified gpu index {args.gpu_index} is out of range of '
+                                                            f'available GPUs {torch.cuda.device_count()}')
+
     if args.device == 'cpu':
         # let's allow torch to use hella threads
         torch.set_num_threads(multiprocessing.cpu_count())
@@ -261,7 +269,7 @@ def run_training_entry():
         # multithreading in torch doesn't help nnU-Net if run on GPU
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
-        device = torch.device('cuda')
+        device = torch.device('cuda:'+str(args.gpu_index))
     else:
         device = torch.device('mps')
 
