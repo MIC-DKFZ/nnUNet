@@ -21,6 +21,7 @@ PLEASE READ documentation/setting_up_paths.md FOR INFORMATION TO HOW TO SET THIS
 nnUNet_raw = os.environ.get('nnUNet_raw')
 nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
 nnUNet_results = os.environ.get('nnUNet_results')
+nnUNet_extTrainer = os.environ.get("nnUNet_extTrainer")
 
 if nnUNet_raw is None:
     print("nnUNet_raw is not defined and nnU-Net can only be used on data for which preprocessed files "
