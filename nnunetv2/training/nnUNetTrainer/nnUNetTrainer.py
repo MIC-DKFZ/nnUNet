@@ -11,6 +11,7 @@ from typing import Tuple, Union, List
 
 import numpy as np
 import torch
+from tqdm import tqdm
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
 from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
@@ -148,7 +149,7 @@ class nnUNetTrainer(object):
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
-        self.num_iterations_per_epoch = 250
+        self.num_iterations_per_epoch = 250  # Will be updated based on dataset size, and batch size
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
@@ -634,6 +635,21 @@ class nnUNetTrainer(object):
                                         folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         dataset_val = self.dataset_class(self.preprocessed_dataset_folder, val_keys,
                                          folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
+        
+        # Update num_iterations_per_epoch based on dataset size and batch size
+        num_train_samples = len(tr_keys)
+        num_val_samples = len(val_keys)
+        global_batch_size = self.configuration_manager.batch_size
+        
+        # Calculate iterations per epoch to cover the entire dataset once
+        self.num_iterations_per_epoch = max(1, num_train_samples // global_batch_size)
+        self.num_val_iterations_per_epoch = max(1, num_val_samples // global_batch_size)
+
+        self.print_to_log_file(f"Number of training iterations per epoch: {self.num_iterations_per_epoch} "
+                               f"(training samples: {num_train_samples}, global batch size: {global_batch_size})")
+        self.print_to_log_file(f"Number of validation iterations per epoch: {self.num_val_iterations_per_epoch} "
+                               f"(validation samples: {num_val_samples})")
+        
         return dataset_tr, dataset_val
 
     def get_dataloaders(self):
@@ -1389,14 +1405,18 @@ class nnUNetTrainer(object):
 
             self.on_train_epoch_start()
             train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
+            for batch_id in tqdm(range(self.num_iterations_per_epoch), 
+                                desc=f'Epoch {epoch}/{self.num_epochs} - Training', 
+                                leave=False):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
             self.on_train_epoch_end(train_outputs)
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
+                for batch_id in tqdm(range(self.num_val_iterations_per_epoch), 
+                                    desc=f'Epoch {epoch}/{self.num_epochs} - Validation', 
+                                    leave=False):
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
                 self.on_validation_epoch_end(val_outputs)
 
