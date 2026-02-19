@@ -308,3 +308,6 @@ Please note that both computers must have nnU-Net installed along with all its d
 
 [//]: # ()
 [//]: # (Usability not good enough? Let us know!)
+
+## Full CLI Catalog
+A full CLI Catalog can be found [here](cli_catalog.md).
