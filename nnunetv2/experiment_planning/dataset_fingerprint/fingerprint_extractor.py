@@ -88,8 +88,12 @@ class DatasetFingerprintExtractor(object):
 
     @staticmethod
     def analyze_case(image_files: List[str], segmentation_file: str, reader_writer_class: Type[BaseReaderWriter],
-                     num_samples: int = 10000):
-        rw = reader_writer_class()
+                     dataset_json: dict, num_samples: int = 10000):
+        if 'image_reader_writer_kwargs' in dataset_json.keys():
+            kwargs = dataset_json['image_reader_writer_kwargs']
+        else:
+            kwargs = {}
+        rw = reader_writer_class(**kwargs)
         images, properties_images = rw.read_images(image_files)
         segmentation, properties_seg = rw.read_seg(segmentation_file)
 
@@ -132,7 +136,7 @@ class DatasetFingerprintExtractor(object):
                 for k in self.dataset.keys():
                     r.append(p.starmap_async(DatasetFingerprintExtractor.analyze_case,
                                              ((self.dataset[k]['images'], self.dataset[k]['label'], reader_writer_class,
-                                               num_foreground_samples_per_case),)))
+                                               self.dataset_json, num_foreground_samples_per_case),)))
                 remaining = list(range(len(self.dataset)))
                 # p is pretty nifti. If we kill workers they just respawn but don't do any work.
                 # So we need to store the original pool of workers.

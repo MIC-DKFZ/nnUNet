@@ -130,7 +130,12 @@ class DefaultPreprocessor(object):
         if isinstance(dataset_json, str):
             dataset_json = load_json(dataset_json)
 
-        rw = plans_manager.image_reader_writer_class()
+        if 'image_reader_writer_kwargs' in dataset_json.keys():
+            kwargs = dataset_json['image_reader_writer_kwargs']
+        else:
+            kwargs = {}
+
+        rw = plans_manager.image_reader_writer_class(**kwargs)
 
         # load image(s)
         data, data_properties = rw.read_images(image_files)
