@@ -52,7 +52,7 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
-from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
+from nnunetv2.training.logging.nnunet_logger import MetaLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
@@ -112,6 +112,8 @@ class nnUNetTrainer(object):
             self.my_init_kwargs[k] = locals()[k]
 
         ###  Saving all the init args into class variables for later access
+        continue_training = plans.pop("continue_training")
+        logger_config = {"plans": plans, "configuration": configuration, "fold": fold, "dataset": dataset_json}
         self.plans_manager = PlansManager(plans)
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
         self.configuration_name = configuration
@@ -171,7 +173,8 @@ class nnUNetTrainer(object):
         self.log_file = join(self.output_folder, "training_log_%d_%d_%d_%02.0d_%02.0d_%02.0d.txt" %
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
-        self.logger = nnUNetLogger()
+        self.logger = MetaLogger(self.output_folder, continue_training)
+        self.logger.update_config(logger_config)
 
         ### placeholders
         self.dataloader_train = self.dataloader_val = None  # see on_train_start
@@ -233,6 +236,19 @@ class nnUNetTrainer(object):
             # if self._do_i_compile():
             #     self.loss = torch.compile(self.loss)
             self.was_initialized = True
+
+            logger_config_hparas = {
+                "initial_lr": self.initial_lr,
+                "weight_decay": self.weight_decay,
+                "oversample_foreground_percent": self.oversample_foreground_percent,
+                "probabilistic_oversampling": self.probabilistic_oversampling,
+                "num_iterations_per_epoch": self.num_iterations_per_epoch,
+                "num_val_iterations_per_epoch": self.num_val_iterations_per_epoch,
+                "num_epochs": self.num_epochs,
+                "enable_deep_supervision": self.enable_deep_supervision,
+                "batch_size": self.configuration_manager.batch_size
+                }
+            self.logger.update_config({"hparas": logger_config_hparas})
         else:
             raise RuntimeError("You have called self.initialize even though the trainer was already initialized. "
                                "That should not happen.")
@@ -656,7 +672,6 @@ class nnUNetTrainer(object):
                                                         ignore_label=self.label_manager.ignore_label)
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
         dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
                                  initial_patch_size,
                                  self.configuration_manager.patch_size,
@@ -1049,7 +1064,7 @@ class nnUNetTrainer(object):
         else:
             # no need for softmax
             output_seg = output.argmax(1)[:, None]
-            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
+            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float16)
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
             del output_seg
 
@@ -1123,12 +1138,12 @@ class nnUNetTrainer(object):
     def on_epoch_end(self):
         self.logger.log('epoch_end_timestamps', time(), self.current_epoch)
 
-        self.print_to_log_file('train_loss', np.round(self.logger.my_fantastic_logging['train_losses'][-1], decimals=4))
-        self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
+        self.print_to_log_file('train_loss', np.round(self.logger.get_value('train_losses', step=-1), decimals=4))
+        self.print_to_log_file('val_loss', np.round(self.logger.get_value('val_losses', step=-1), decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
-                                               self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
+                                               self.logger.get_value('dice_per_class_or_region', step=-1)])
         self.print_to_log_file(
-            f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
+            f"Epoch time: {np.round(self.logger.get_value('epoch_end_timestamps', step=-1) - self.logger.get_value('epoch_start_timestamps', step=-1), decimals=2)} s")
 
         # handling periodic checkpointing
         current_epoch = self.current_epoch
@@ -1136,8 +1151,8 @@ class nnUNetTrainer(object):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
-        if self._best_ema is None or self.logger.my_fantastic_logging['ema_fg_dice'][-1] > self._best_ema:
-            self._best_ema = self.logger.my_fantastic_logging['ema_fg_dice'][-1]
+        if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
+            self._best_ema = self.logger.get_value('ema_fg_dice', step=-1)
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
@@ -1320,8 +1335,12 @@ class nnUNetTrainer(object):
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file_truncated = join(output_folder, k)
 
-                        # resample_and_save(prediction, target_shape, output_file, self.plans_manager, self.configuration_manager, properties,
-                        #                   self.dataset_json)
+                        # resample_and_save(prediction, target_shape, output_file_truncated, self.plans_manager,
+                        #          self.configuration_manager,
+                        #          properties,
+                        #          self.dataset_json,
+                        #          default_num_processes,
+                        #          dataset_class)
                         results.append(segmentation_export_pool.starmap_async(
                             resample_and_save, (
                                 (prediction, target_shape, output_file_truncated, self.plans_manager,
@@ -1352,6 +1371,9 @@ class nnUNetTrainer(object):
                                                 self.label_manager.ignore_label, chill=True,
                                                 num_processes=default_num_processes * dist.get_world_size() if
                                                 self.is_ddp else default_num_processes)
+            for label in metrics["mean"]:
+                self.logger.log_summary(f"final_val/class_{label}_dice", metrics["mean"][label]["Dice"])
+            self.logger.log_summary("final_val/foreground_dice", metrics['foreground_mean']["Dice"])
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
                                    also_print_to_console=True)

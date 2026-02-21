@@ -36,7 +36,7 @@ class nnUNetDataLoader(DataLoader):
                          False, True, sampling_probabilities)
 
         if len(patch_size) == 2:
-            final_patch_size = (1, *patch_size)
+            final_patch_size = (1, *final_patch_size)
             patch_size = (1, *patch_size)
             self.patch_size_was_2d = True
         else:
@@ -81,11 +81,16 @@ class nnUNetDataLoader(DataLoader):
         data, seg, seg_prev, properties = self._data.load_case(self._data.identifiers[0])
         num_color_channels = data.shape[0]
 
-        data_shape = (self.batch_size, num_color_channels, *self.patch_size)
+        if self.patch_size_was_2d:
+            spatial_shape = self.final_patch_size[1:]
+        else:
+            spatial_shape = self.final_patch_size
+
+        data_shape = (self.batch_size, num_color_channels, *spatial_shape)
         channels_seg = seg.shape[0]
         if seg_prev is not None:
             channels_seg += 1
-        seg_shape = (self.batch_size, channels_seg, *self.patch_size)
+        seg_shape = (self.batch_size, channels_seg, *spatial_shape)
         return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
@@ -166,54 +171,55 @@ class nnUNetDataLoader(DataLoader):
 
     def generate_train_batch(self):
         selected_keys = self.get_indices()
-        # preallocate memory for data and seg
-        data_all = np.empty(self.data_shape, dtype=np.float32)
-        seg_all = np.empty(self.seg_shape, dtype=np.int16)
+        # preallocate output tensors in final patch size and write transformed samples directly
+        data_all = torch.empty(self.data_shape, dtype=torch.float32)
+        seg_all = None
 
-        for j, i in enumerate(selected_keys):
-            # oversampling foreground will improve stability of model training, especially if many patches are empty
-            # (Lung for example)
-            force_fg = self.get_do_oversample(j)
+        with torch.no_grad():
+            with threadpool_limits(limits=1, user_api=None):
+                for j, i in enumerate(selected_keys):
+                    # oversampling foreground will improve stability of model training, especially if many patches are empty
+                    # (Lung for example)
+                    force_fg = self.get_do_oversample(j)
 
-            data, seg, seg_prev, properties = self._data.load_case(i)
+                    data, seg, seg_prev, properties = self._data.load_case(i)
 
-            # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
-            # self._data.load_case(i) (see nnUNetDataset.load_case)
-            shape = data.shape[1:]
+                    # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
+                    # self._data.load_case(i) (see nnUNetDataset.load_case)
+                    shape = data.shape[1:]
 
-            bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
-            bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
+                    bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
+                    bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
-            # use ACVL utils for that. Cleaner.
-            data_all[j] = crop_and_pad_nd(data, bbox, 0)
+                    data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0)).float()
+                    seg_cropped = torch.from_numpy(crop_and_pad_nd(seg, bbox, -1)).to(torch.int16)
+                    if seg_prev is not None:
+                        seg_prev_cropped = torch.from_numpy(crop_and_pad_nd(seg_prev, bbox, -1)).to(torch.int16)
+                        seg_cropped = torch.cat((seg_cropped, seg_prev_cropped[None]), dim=0)
 
-            seg_cropped = crop_and_pad_nd(seg, bbox, -1)
-            if seg_prev is not None:
-                seg_cropped = np.vstack((seg_cropped, crop_and_pad_nd(seg_prev, bbox, -1)[None]))
-            seg_all[j] = seg_cropped
+                    if self.patch_size_was_2d:
+                        data_cropped = data_cropped[:, 0]
+                        seg_cropped = seg_cropped[:, 0]
 
-        if self.patch_size_was_2d:
-            data_all = data_all[:, :, 0]
-            seg_all = seg_all[:, :, 0]
-
-        if self.transforms is not None:
-            with torch.no_grad():
-                with threadpool_limits(limits=1, user_api=None):
-                    data_all = torch.from_numpy(data_all).float()
-                    seg_all = torch.from_numpy(seg_all).to(torch.int16)
-                    images = []
-                    segs = []
-                    for b in range(self.batch_size):
-                        tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
-                        images.append(tmp['image'])
-                        segs.append(tmp['segmentation'])
-                    data_all = torch.stack(images)
-                    if isinstance(segs[0], list):
-                        seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
+                    if self.transforms is not None:
+                        transformed = self.transforms(**{'image': data_cropped, 'segmentation': seg_cropped})
+                        data_sample = transformed['image']
+                        seg_sample = transformed['segmentation']
                     else:
-                        seg_all = torch.stack(segs)
-                    del segs, images
-            return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
+                        data_sample = data_cropped
+                        seg_sample = seg_cropped
+
+                    data_all[j] = data_sample
+
+                    if isinstance(seg_sample, list):
+                        if seg_all is None:
+                            seg_all = [torch.empty((self.batch_size, *s.shape), dtype=s.dtype) for s in seg_sample]
+                        for s_idx, s in enumerate(seg_sample):
+                            seg_all[s_idx][j] = s
+                    else:
+                        if seg_all is None:
+                            seg_all = torch.empty((self.batch_size, *seg_sample.shape), dtype=seg_sample.dtype)
+                        seg_all[j] = seg_sample
 
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
