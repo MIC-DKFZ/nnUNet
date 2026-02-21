@@ -63,7 +63,7 @@ def resample_torch_simple(
                     #     result[i] = F.interpolate((data[None] == u).float() * 1000, new_shape, mode='trilinear', antialias=False)[0]
                     # result = unique_values[result.argmax(0)]
 
-                    result_tmp = torch.zeros((len(unique_values), data.shape[0], *new_shape), dtype=torch.float16,
+                    result_tmp = torch.empty((len(unique_values), data.shape[0], *new_shape), dtype=torch.float16,
                                              device=device)
                     scale_factor = 1000
                     done_mask = torch.zeros_like(result, dtype=torch.bool, device=device)
