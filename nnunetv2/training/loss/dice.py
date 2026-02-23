@@ -40,8 +40,8 @@ class SoftDiceLoss(nn.Module):
         if self.clip_tp is not None:
             tp = torch.clip(tp, min=self.clip_tp , max=None)
 
-        nominator = 2 * tp
-        denominator = 2 * tp + fp + fn
+        nominator =  tp
+        denominator = tp + fp + fn
 
         dc = (nominator + self.smooth) / (torch.clip(denominator + self.smooth, 1e-8))
 
@@ -113,7 +113,7 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
             sum_pred = sum_pred.sum(0, dtype=torch.float32)
             sum_gt = sum_gt.sum(0, dtype=torch.float32)
 
-        dc = (2 * intersect + self.smooth) / (sum_gt + sum_pred + float(self.smooth)).clamp_min(1e-8)
+        dc = ( intersect + self.smooth) / (sum_gt + sum_pred + float(self.smooth)).clamp_min(1e-8)
 
         dc = dc.mean()
         return -dc
