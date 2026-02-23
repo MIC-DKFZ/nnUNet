@@ -53,7 +53,7 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import MetaLogger
-from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.compound_losses import DC_CE_FNR_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
@@ -144,7 +144,7 @@ class nnUNetTrainer(object):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2
+        self.initial_lr = 1e-3
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
@@ -412,9 +412,26 @@ class nnUNetTrainer(object):
                                    use_ignore_label=self.label_manager.ignore_label is not None,
                                    dice_class=MemoryEfficientSoftDiceLoss)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+            loss = DC_CE_FNR_loss(
+                soft_dice_kwargs={
+                    'batch_dice': self.configuration_manager.batch_dice,
+                    'smooth': 1e-5,
+                    'do_bg': False,
+                    'ddp': self.is_ddp
+                },
+                ce_kwargs={},
+                soft_fpr_kwargs={
+                    'batch_dice': self.configuration_manager.batch_dice,
+                    'smooth': 1e-5,
+                    'do_bg': False,
+                    'ddp': self.is_ddp
+                },
+                weight_ce=1,
+                weight_dice=1,
+                weight_fpr=1,   
+                ignore_label=self.label_manager.ignore_label,
+                dice_class=MemoryEfficientSoftDiceLoss)
+            self.print_to_log_file(f"Using custom DC_CE_FNR_loss with weight_fpr={1}")
 
         if self._do_i_compile():
             loss.dc = torch.compile(loss.dc)
@@ -1149,6 +1166,17 @@ class nnUNetTrainer(object):
         current_epoch = self.current_epoch
         if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
+
+        # handling periodic checkpointing
+        current_epoch = self.current_epoch
+        
+        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+            filename = join(
+                self.output_folder,
+                f'checkpoint_epoch_{current_epoch + 1}.pth'
+            )
+            self.print_to_log_file(f"Saving periodic checkpoint: {filename}")
+            self.save_checkpoint(filename)
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
         if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
