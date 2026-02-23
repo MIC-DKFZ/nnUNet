@@ -3,6 +3,8 @@ from typing import Callable
 import torch
 from nnunetv2.utilities.ddp_allgather import AllGatherGrad
 from torch import nn
+import logging
+
 
 
 class SoftFPRLoss(nn.Module):
@@ -49,6 +51,8 @@ class SoftFPRLoss(nn.Module):
                 fpr = fpr[:, 1:]
 
         fpr = fpr.mean()
+        logging.info(f"fpr computed is {fpr.item():.6f}")
+
 
         return fpr
 
@@ -108,6 +112,7 @@ class MemoryEfficientSoftFPRLoss(nn.Module):
         fpr = (sum_fp + self.smooth) / (sum_fp + sum_tn + self.smooth).clamp_min(1e-8)
 
         fpr = fpr.mean()
+        logging.info(f"fpr computed is {fpr.item():.6f}")
 
         return fpr
 
