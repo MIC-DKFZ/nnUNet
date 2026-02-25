@@ -433,7 +433,7 @@ class nnUNetTrainer(object):
                 weight_fpr=1,   
                 ignore_label=self.label_manager.ignore_label,
                 dice_class=MemoryEfficientSoftDiceLoss)
-            self.print_to_log_file(f"Using custom DC_CE_FNR_loss with weight_fpr={1}",also_print_to_console=True)
+            self.print_to_log_file(f"Using custom DC_CE_FNR_loss with weight_fpr={1} and loss{loss}",also_print_to_console=True)
         
 
         if self._do_i_compile():
