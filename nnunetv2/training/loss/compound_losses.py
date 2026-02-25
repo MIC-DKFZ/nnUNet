@@ -7,33 +7,7 @@ from torch import nn
 import logging
 
 class DC_CE_FNR_loss(nn.Module):
-    def print_to_log_file(self, *args, also_print_to_console=True, add_timestamp=True):
-        if self.local_rank == 0:
-            timestamp = time()
-            dt_object = datetime.fromtimestamp(timestamp)
-
-            if add_timestamp:
-                args = (f"{dt_object}:", *args)
-
-            successful = False
-            max_attempts = 5
-            ctr = 0
-            while not successful and ctr < max_attempts:
-                try:
-                    with open(self.log_file, 'a+') as f:
-                        for a in args:
-                            f.write(str(a))
-                            f.write(" ")
-                        f.write("\n")
-                    successful = True
-                except IOError:
-                    print(f"{datetime.fromtimestamp(timestamp)}: failed to log: ", sys.exc_info())
-                    sleep(0.5)
-                    ctr += 1
-            if also_print_to_console:
-                print(*args)
-        elif also_print_to_console:
-            print(*args)
+    
     def __init__(self,
                  soft_dice_kwargs,
                  ce_kwargs,
@@ -64,7 +38,7 @@ class DC_CE_FNR_loss(nn.Module):
             self.fpr = fpr_class(apply_nonlin=softmax_helper_dim1, **soft_fpr_kwargs)
         else:
             self.fpr = None
-    def forward(self, net_output: torch.Tensor, target: torch.Tensor):
+    def forward(self, net_output: torch.Tensor, target: torch.Tensor, return_components=False):
 
         if self.ignore_label is not None:
             assert target.shape[1] == 1
@@ -94,8 +68,13 @@ class DC_CE_FNR_loss(nn.Module):
             self.weight_dice * dc_loss +
             self.weight_fpr * fpr_loss
         )
-    
-        self.print_to_log_file(f"loss computed ce{ce_loss},dice{dc_loss},fpr{fpr_loss}",also_print_to_console=True)
+        if return_components:
+            return result, {
+                "ce": ce_loss.detach(),
+                "dice": dc_loss.detach(),
+                "fpr": fpr_loss.detach()
+            }
+
     
         return result
 
