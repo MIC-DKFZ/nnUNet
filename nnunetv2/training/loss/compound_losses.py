@@ -68,7 +68,7 @@ class DC_CE_FNR_loss(nn.Module):
             self.weight_fpr * fpr_loss
         )
     
-        logging.info(f"CE: {ce_loss.item():.4f}, Dice: {dc_loss.item():.4f}, FPR: {fpr_loss.item():.4f}")
+        self.print_to_log_file(f"loss computed ce{ce_loss},dice{dc_loss},fpr{fpr_loss}",also_print_to_console=True)
     
         return result
 
