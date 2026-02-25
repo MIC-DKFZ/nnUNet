@@ -53,7 +53,7 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import MetaLogger
-from nnunetv2.training.loss.compound_losses import DC_CE_FNR_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
@@ -152,7 +152,7 @@ class nnUNetTrainer(object):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
-        self.enable_deep_supervision = False
+        self.enable_deep_supervision = True
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -411,30 +411,10 @@ class nnUNetTrainer(object):
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None,
                                    dice_class=MemoryEfficientSoftDiceLoss)
-            self.print_to_log_file("dc and bce loss is used",also_print_to_console=True)
-
         else:
-            loss = DC_CE_FNR_loss(
-                soft_dice_kwargs={
-                    'batch_dice': self.configuration_manager.batch_dice,
-                    'smooth': 1e-5,
-                    'do_bg': False,
-                    'ddp': self.is_ddp
-                },
-                ce_kwargs={},
-                soft_fpr_kwargs={
-                    'batch_dice': self.configuration_manager.batch_dice,
-                    'smooth': 1e-5,
-                    'do_bg': False,
-                    'ddp': self.is_ddp
-                },
-                weight_ce=1,
-                weight_dice=1,
-                weight_fpr=1,   
-                ignore_label=self.label_manager.ignore_label,
-                dice_class=MemoryEfficientSoftDiceLoss)
-            self.print_to_log_file(f"Using custom DC_CE_FNR_loss with weight_fpr={1} and loss{loss}",also_print_to_console=True)
-        
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                  ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
 
         if self._do_i_compile():
             loss.dc = torch.compile(loss.dc)
@@ -457,9 +437,6 @@ class nnUNetTrainer(object):
             weights = weights / weights.sum()
             # now wrap the loss
             loss = DeepSupervisionWrapper(loss, weights)
-            
-
-        
 
         return loss
 
@@ -1026,14 +1003,7 @@ class nnUNetTrainer(object):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             # del data
-            l, components = self.loss(output, target, return_components=True)
-
-        self.print_to_log_file(
-            f"CE: {components['ce'].item():.4f}, "
-            f"Dice: {components['dice'].item():.4f}, "
-            f"FPR: {components['fpr'].item():.4f}",
-            also_print_to_console=False
-        )
+            l = self.loss(output, target)
 
         if self.grad_scaler is not None:
             self.grad_scaler.scale(l).backward()
@@ -1179,17 +1149,6 @@ class nnUNetTrainer(object):
         current_epoch = self.current_epoch
         if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
-
-        # handling periodic checkpointing
-        current_epoch = self.current_epoch
-        
-        if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
-            filename = join(
-                self.output_folder,
-                f'checkpoint_epoch_{current_epoch + 1}.pth'
-            )
-            self.print_to_log_file(f"Saving periodic checkpoint: {filename}")
-            self.save_checkpoint(filename)
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
         if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
