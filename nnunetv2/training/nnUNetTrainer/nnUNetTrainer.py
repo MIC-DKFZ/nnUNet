@@ -1026,7 +1026,14 @@ class nnUNetTrainer(object):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             # del data
-            l = self.loss(output, target)
+            l, components = self.loss(output, target, return_components=True)
+
+        self.print_to_log_file(
+            f"CE: {components['ce'].item():.4f}, "
+            f"Dice: {components['dice'].item():.4f}, "
+            f"FPR: {components['fpr'].item():.4f}",
+            also_print_to_console=False
+        )
 
         if self.grad_scaler is not None:
             self.grad_scaler.scale(l).backward()
