@@ -1161,6 +1161,7 @@ class nnUNetTrainer(object):
         self.print_to_log_file('val_loss', np.round(self.logger.get_value('val_losses', step=-1), decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
                                                self.logger.get_value('dice_per_class_or_region', step=-1)])
+        
         self.print_to_log_file(
             f"Epoch time: {np.round(self.logger.get_value('epoch_end_timestamps', step=-1) - self.logger.get_value('epoch_start_timestamps', step=-1), decimals=2)} s")
 
