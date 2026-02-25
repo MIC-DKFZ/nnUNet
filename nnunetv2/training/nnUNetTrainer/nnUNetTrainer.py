@@ -411,7 +411,7 @@ class nnUNetTrainer(object):
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None,
                                    dice_class=MemoryEfficientSoftDiceLoss)
-            self.print_to_log_file("dc and bce loss is used")
+            self.print_to_log_file("dc and bce loss is used",also_print_to_console=True)
 
         else:
             loss = DC_CE_FNR_loss(
@@ -433,7 +433,7 @@ class nnUNetTrainer(object):
                 weight_fpr=1,   
                 ignore_label=self.label_manager.ignore_label,
                 dice_class=MemoryEfficientSoftDiceLoss)
-            self.print_to_log_file(f"Using custom DC_CE_FNR_loss with weight_fpr={1}")
+            self.print_to_log_file(f"Using custom DC_CE_FNR_loss with weight_fpr={1}",also_print_to_console=True)
         
 
         if self._do_i_compile():
@@ -459,7 +459,7 @@ class nnUNetTrainer(object):
             loss = DeepSupervisionWrapper(loss, weights)
             self.print_to_log_file(f"deep supervisionev was used")
 
-        self.print_to_log_file(f"loss={loss}")
+        self.print_to_log_file(f"loss={loss}",also_print_to_console=True)
 
         return loss
 
