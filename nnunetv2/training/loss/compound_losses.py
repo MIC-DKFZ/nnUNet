@@ -63,19 +63,8 @@ class DC_CE_FNR_loss(nn.Module):
         else:
             fpr_loss = 0
     
-        result = (
-            self.weight_ce * ce_loss +
-            self.weight_dice * dc_loss +
-            self.weight_fpr * fpr_loss
-        )
-        if return_components:
-            return result, {
-                "ce": ce_loss.detach(),
-                "dice": dc_loss.detach(),
-                "fpr": fpr_loss.detach()
-            }
+        result = (self.weight_fpr * fpr_loss)    
 
-    
         return result
 
 class DC_and_BCE_loss(nn.Module):
