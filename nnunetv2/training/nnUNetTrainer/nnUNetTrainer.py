@@ -433,7 +433,7 @@ class nnUNetTrainer(object):
                 ignore_label=self.label_manager.ignore_label,
                 dice_class=MemoryEfficientSoftDiceLoss
             )
-                self.print_to_log_file("DC_CE_FNR_loss function implemented",also_print_to_console=True, add_timestamp=False)
+            self.print_to_log_file("DC_CE_FNR_loss function implemented",also_print_to_console=True, add_timestamp=False)
 
         if self._do_i_compile():
             loss.dc = torch.compile(loss.dc)
