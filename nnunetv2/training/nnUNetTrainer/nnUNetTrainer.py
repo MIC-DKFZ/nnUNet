@@ -457,9 +457,9 @@ class nnUNetTrainer(object):
             weights = weights / weights.sum()
             # now wrap the loss
             loss = DeepSupervisionWrapper(loss, weights)
-            self.print_to_log_file(f"deep supervisionev was used")
+            
 
-        self.print_to_log_file(f"loss={loss}",also_print_to_console=True)
+        
 
         return loss
 
