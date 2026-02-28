@@ -10,7 +10,7 @@ if __name__ == "__main__":
     mamamia_data_dir = "/mnt/cnet/PinkCC/dataset/MAMA-MIA"
     images_dir = join(mamamia_data_dir, "images")
     segmentations_dir = join(mamamia_data_dir, "segmentations", "expert")
-    csv_path = "/Users/az-r-ow/Developer/PinkCC/dataset/train_test_splits.csv"
+    csv_path = join(mamamia_data_dir, "train_test_splits.csv")
 
     task_id = 974
     task_name = "MAMAMIA"
@@ -39,16 +39,18 @@ if __name__ == "__main__":
     # Process training cases
     for case in train_cases:
         case = case.strip()  # Remove any whitespace
-        # Copy all 4 modality files
-        for modality_idx in range(4):
-            src_file = join(images_dir, case, f"{case}_{modality_idx:04d}.nii.gz")
-            dst_file = join(imagestr, f"{case}_{modality_idx:04d}.nii.gz")
+        # Copy only T1 first post-contrast (modality 1)
+        modality_idx = 1
+        src_file = join(images_dir, case, f"{case}_{modality_idx:04d}.nii.gz")
+        dst_file = join(
+            imagestr, f"{case}_0000.nii.gz"
+        )  # nnUNet expects _0000 for single channel
 
-            if not isfile(src_file):
-                print(f"Warning: Missing file {src_file}")
-                continue
+        if not isfile(src_file):
+            print(f"Warning: Missing file {src_file}")
+            continue
 
-            shutil.copy(src_file, dst_file)
+        shutil.copy(src_file, dst_file)
 
         # Copy segmentation
         src_seg = join(segmentations_dir, f"{case}.nii.gz")
@@ -63,16 +65,18 @@ if __name__ == "__main__":
     # Process test cases
     for case in test_cases:
         case = case.strip()  # Remove any whitespace
-        # Copy all 4 modality files
-        for modality_idx in range(4):
-            src_file = join(images_dir, case, f"{case}_{modality_idx:04d}.nii.gz")
-            dst_file = join(imagests, f"{case}_{modality_idx:04d}.nii.gz")
+        # Copy only T1 first post-contrast (modality 1)
+        modality_idx = 1
+        src_file = join(images_dir, case, f"{case}_{modality_idx:04d}.nii.gz")
+        dst_file = join(
+            imagests, f"{case}_0000.nii.gz"
+        )  # nnUNet expects _0000 for single channel
 
-            if not isfile(src_file):
-                print(f"Warning: Missing file {src_file}")
-                continue
+        if not isfile(src_file):
+            print(f"Warning: Missing file {src_file}")
+            continue
 
-            shutil.copy(src_file, dst_file)
+        shutil.copy(src_file, dst_file)
 
         # Copy segmentation
         src_seg = join(segmentations_dir, f"{case}.nii.gz")
@@ -88,10 +92,7 @@ if __name__ == "__main__":
     generate_dataset_json(
         out_base,
         channel_names={
-            0: "DCE_pre_contrast",
-            1: "DCE_post_contrast_1",
-            2: "DCE_post_contrast_2",
-            3: "DCE_post_contrast_3",
+            0: "T1_DCE_post_contrast_1",
         },
         labels={
             "background": 0,
