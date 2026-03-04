@@ -13,7 +13,9 @@
 #    limitations under the License.
 import math
 import multiprocessing
+import os
 import shutil
+import time
 from time import sleep
 from typing import Tuple
 
@@ -275,64 +277,6 @@ class DefaultPreprocessor(object):
 
         return class_locs
 
-    # @staticmethod
-    # def _sample_foreground_locations(seg: np.ndarray, classes_or_regions: Union[List[int], List[Tuple[int, ...]]],
-    #                                  seed: int = 1234, verbose: bool = False):
-    #     num_samples = 10000
-    #     min_percent_coverage = 0.01  # at least 1% of the class voxels need to be selected, otherwise it may be too
-    #     # sparse
-    #     rndst = np.random.RandomState(seed)
-    #     class_locs = {}
-    #     foreground_mask = seg != 0
-    #     foreground_coords = np.argwhere(foreground_mask)
-    #     seg = seg[foreground_mask]
-    #     del foreground_mask
-    #     unique_labels = pd.unique(seg.ravel())
-    #
-    #     # We don't need more than 1e7 foreground samples. That's insanity. Cap here
-    #     if len(foreground_coords) > 1e7:
-    #         take_every = math.floor(len(foreground_coords) / 1e7)
-    #         # keep computation time reasonable
-    #         if verbose:
-    #             print(f'Subsampling foreground pixels 1:{take_every} for computational reasons')
-    #         foreground_coords = foreground_coords[::take_every]
-    #         seg = seg[::take_every]
-    #
-    #     for c in classes_or_regions:
-    #         k = c if not isinstance(c, list) else tuple(c)
-    #
-    #         # check if any of the labels are in seg, if not skip c
-    #         if isinstance(c, (tuple, list)):
-    #             if not any([ci in unique_labels for ci in c]):
-    #                 class_locs[k] = []
-    #                 continue
-    #         else:
-    #             if c not in unique_labels:
-    #                 class_locs[k] = []
-    #                 continue
-    #
-    #         if isinstance(c, (tuple, list)):
-    #             mask = seg == c[0]
-    #             for cc in c[1:]:
-    #                 mask = mask | (seg == cc)
-    #             all_locs = foreground_coords[mask]
-    #         else:
-    #             mask = seg == c
-    #             all_locs = foreground_coords[mask]
-    #         if len(all_locs) == 0:
-    #             class_locs[k] = []
-    #             continue
-    #         target_num_samples = min(num_samples, len(all_locs))
-    #         target_num_samples = max(target_num_samples, int(np.ceil(len(all_locs) * min_percent_coverage)))
-    #
-    #         selected = all_locs[rndst.choice(len(all_locs), target_num_samples, replace=False)]
-    #         class_locs[k] = selected
-    #         if verbose:
-    #             print(c, target_num_samples)
-    #         seg = seg[~mask]
-    #         foreground_coords = foreground_coords[~mask]
-    #     return class_locs
-
     def _normalize(self, data: np.ndarray, seg: np.ndarray, configuration_manager: ConfigurationManager,
                    foreground_intensity_properties_per_channel: dict) -> np.ndarray:
         for c in range(data.shape[0]):
@@ -380,8 +324,8 @@ class DefaultPreprocessor(object):
 
         dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
 
-        # identifiers = [os.path.basename(i[:-len(dataset_json['file_ending'])]) for i in seg_fnames]
-        # output_filenames_truncated = [join(output_directory, i) for i in identifiers]
+        # Fix for Windows: prevent OMP duplicate library crash in worker processes
+        os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
 
         # multiprocessing magic.
         r = []
@@ -396,24 +340,35 @@ class DefaultPreprocessor(object):
                                            plans_manager, configuration_manager,
                                            dataset_json),)))
 
-            with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
+            last_progress_time = time.time()
+            with tqdm(desc="Preprocessing cases", total=len(dataset), disable=not self.verbose) as pbar:
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
                     if not all_alive:
-                        raise RuntimeError('Some background worker is 6 feet under. Yuck. \n'
-                                           'OK jokes aside.\n'
-                                           'One of your background processes is missing. This could be because of '
-                                           'an error (look for an error message) or because it was killed '
-                                           'by your OS due to running out of RAM. If you don\'t see '
-                                           'an error message, out of RAM is likely the problem. In that case '
-                                           'reducing the number of workers might help')
+                        raise RuntimeError(
+                            'A background worker has failed. This could be due to:\n'
+                            '1. An error in processing a case (check above for error messages)\n'
+                            '2. Running out of RAM - try reducing num_processes\n'
+                            '3. A corrupted input file\n'
+                            'Try running with num_processes=1 to identify the problematic case.'
+                        )
                     done = [i for i in remaining if r[i].ready()]
-                    # get done so that errors can be raised
-                    _ = [r[i].get() for i in done]
-                    for _ in done:
-                        r[_].get()  # allows triggering errors
+                    for i in done:
+                        r[i].get()  # trigger any errors from worker (single call, no duplicate)
                         pbar.update()
+                        last_progress_time = time.time()  # reset watchdog timer
                     remaining = [i for i in remaining if i not in done]
+
+                    # Watchdog: if no progress for 5 minutes, raise a helpful error
+                    if time.time() - last_progress_time > 300:
+                        raise RuntimeError(
+                            'Preprocessing appears to be stuck - no progress for 5 minutes.\n'
+                            'Possible causes:\n'
+                            '1. A corrupted or unreadable image file\n'
+                            '2. Insufficient RAM - try reducing num_processes\n'
+                            '3. Silent worker crash on Windows\n'
+                            'Try running with num_processes=1 to identify the problematic file.'
+                        )
                     sleep(0.1)
 
     def modify_seg_fn(self, seg: np.ndarray, plans_manager: PlansManager, dataset_json: dict,
