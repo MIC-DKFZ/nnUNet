@@ -1309,8 +1309,10 @@ class nnUNetTrainer(object):
                     )
                 )
                 # for debug purposes
-                # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
-                #      self.dataset_json, output_filename_truncated, save_probabilities)
+                # export_prediction_from_logits(
+                #     prediction, properties, self.configuration_manager, self.plans_manager,
+                #      self.dataset_json, output_filename_truncated, save_probabilities
+                # )
 
                 # if needed, export the softmax prediction for the next stage
                 if next_stages is not None:

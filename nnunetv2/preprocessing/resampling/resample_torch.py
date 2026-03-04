@@ -116,6 +116,8 @@ def resample_torch_fornnunet(
 
     do_separate_z, axis = determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing,
                                                       separate_z_anisotropy_threshold)
+    if not isinstance(axis, (tuple, list)):
+        axis = (axis,)
     # print('shape', data.shape, 'current_spacing', current_spacing, 'new_spacing', new_spacing, 'do_separate_z', do_separate_z, 'axis', axis)
 
     if do_separate_z:
