@@ -47,7 +47,6 @@ dependencies = [
     "nibabel",
     "matplotlib",
     "seaborn",
-    "imagecodecs",
     "yacs",
     "batchgeneratorsv2>=0.3.0",
     "einops",
