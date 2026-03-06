@@ -41,8 +41,8 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
             if self.crashed_with_runtime_error:
                 fastest_epoch = 'Not enough VRAM!'
             else:
-                epoch_times = [i - j for i, j in zip(self.logger.my_fantastic_logging['epoch_end_timestamps'],
-                                                     self.logger.my_fantastic_logging['epoch_start_timestamps'])]
+                epoch_times = [i - j for i, j in zip(self.logger.get_value('epoch_end_timestamps', step=None),
+                                                     self.logger.get_value('epoch_start_timestamps', step=None))]
                 fastest_epoch = min(epoch_times)
 
             benchmark_result_file = join(self.output_folder, 'benchmark_result.json')

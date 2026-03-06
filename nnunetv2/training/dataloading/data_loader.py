@@ -36,7 +36,7 @@ class nnUNetDataLoader(DataLoader):
                          False, True, sampling_probabilities)
 
         if len(patch_size) == 2:
-            final_patch_size = (1, *patch_size)
+            final_patch_size = (1, *final_patch_size)
             patch_size = (1, *patch_size)
             self.patch_size_was_2d = True
         else:
@@ -58,65 +58,13 @@ class nnUNetDataLoader(DataLoader):
                 self.need_to_pad[d] += pad_sides[d]
         self.num_channels = None
         self.pad_sides = pad_sides
+        self.data_shape, self.seg_shape = self.determine_shapes()
         self.sampling_probabilities = sampling_probabilities
         self.annotated_classes_key = tuple([-1] + label_manager.all_labels)
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
         self.transforms = transforms
-
-        # persistent output buffers (per worker process)
-        self._data_buffer: Union[torch.Tensor, None] = None
-        self._seg_buffer: Union[torch.Tensor, List[torch.Tensor], None] = None
-
-    def _maybe_init_output_buffers(self,
-                                   img_t: torch.Tensor,
-                                   seg_out):
-        """
-        Initialize (or re-initialize) persistent output buffers using the shapes/dtypes/devices
-        of img_t and seg_out. This assumes consistency across batches within a worker process.
-        """
-        device = img_t.device
-        img_dtype = img_t.dtype
-
-        # Data buffer: (B, C, *spatial)
-        expected_data_shape = (self.batch_size, img_t.shape[0], *img_t.shape[1:])
-        if (getattr(self, "_data_buffer", None) is None or
-                tuple(self._data_buffer.shape) != expected_data_shape or
-                self._data_buffer.dtype != img_dtype or
-                self._data_buffer.device != device):
-            self._data_buffer = torch.empty(expected_data_shape, dtype=img_dtype, device=device)
-
-        # Seg buffer: tensor or list[tensor]
-        if isinstance(seg_out, list):
-            need_new = (
-                    getattr(self, "_seg_buffer", None) is None or
-                    not isinstance(self._seg_buffer, list) or
-                    len(self._seg_buffer) != len(seg_out)
-            )
-            if need_new:
-                self._seg_buffer = [None] * len(seg_out)
-
-            new_bufs = []
-            for k, s in enumerate(seg_out):
-                expected_seg_shape = (self.batch_size, s.shape[0], *s.shape[1:])
-                buf_k = self._seg_buffer[k]
-                if (buf_k is None or
-                        tuple(buf_k.shape) != expected_seg_shape or
-                        buf_k.dtype != s.dtype or
-                        buf_k.device != s.device):
-                    buf_k = torch.empty(expected_seg_shape, dtype=s.dtype, device=s.device)
-                new_bufs.append(buf_k)
-            self._seg_buffer = new_bufs
-        else:
-            seg_dtype = seg_out.dtype
-            expected_seg_shape = (self.batch_size, seg_out.shape[0], *seg_out.shape[1:])
-            if (getattr(self, "_seg_buffer", None) is None or
-                    isinstance(self._seg_buffer, list) or
-                    tuple(self._seg_buffer.shape) != expected_seg_shape or
-                    self._seg_buffer.dtype != seg_dtype or
-                    self._seg_buffer.device != seg_out.device):
-                self._seg_buffer = torch.empty(expected_seg_shape, dtype=seg_dtype, device=seg_out.device)
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
@@ -127,6 +75,23 @@ class nnUNetDataLoader(DataLoader):
     def _probabilistic_oversampling(self, sample_idx: int) -> bool:
         # print('YEAH BOIIIIII')
         return np.random.uniform() < self.oversample_foreground_percent
+
+    def determine_shapes(self):
+        # load one case
+        data, seg, seg_prev, properties = self._data.load_case(self._data.identifiers[0])
+        num_color_channels = data.shape[0]
+
+        if self.patch_size_was_2d:
+            spatial_shape = self.final_patch_size[1:]
+        else:
+            spatial_shape = self.final_patch_size
+
+        data_shape = (self.batch_size, num_color_channels, *spatial_shape)
+        channels_seg = seg.shape[0]
+        if seg_prev is not None:
+            channels_seg += 1
+        seg_shape = (self.batch_size, channels_seg, *spatial_shape)
+        return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
                  overwrite_class: Union[int, Tuple[int, ...]] = None, verbose: bool = False):
@@ -206,72 +171,57 @@ class nnUNetDataLoader(DataLoader):
 
     def generate_train_batch(self):
         selected_keys = self.get_indices()
+        # preallocate output tensors in final patch size and write transformed samples directly
+        data_all = torch.empty(self.data_shape, dtype=torch.float32)
+        seg_all = None
 
-        # Transforms path: single-pass per sample + persistent torch buffers
         with torch.no_grad():
             with threadpool_limits(limits=1, user_api=None):
+                for j, i in enumerate(selected_keys):
+                    # oversampling foreground will improve stability of model training, especially if many patches are empty
+                    # (Lung for example)
+                    force_fg = self.get_do_oversample(j)
 
-                out_data = None
-                out_seg = None  # tensor or list of tensors
+                    data, seg, seg_prev, properties = self._data.load_case(i)
 
-                for b, key in enumerate(selected_keys):
-                    force_fg = self.get_do_oversample(b)
-
-                    data, seg, seg_prev, properties = self._data.load_case(key)
+                    # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
+                    # self._data.load_case(i) (see nnUNetDataset.load_case)
                     shape = data.shape[1:]
 
                     bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
-                    bbox = [[lb, ub] for lb, ub in zip(bbox_lbs, bbox_ubs)]
+                    bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
-                    # crop/pad in numpy (crop_and_pad_nd operates on numpy)
-                    data_np = crop_and_pad_nd(data, bbox, 0).astype(np.float32, copy=False)
-                    seg_np = crop_and_pad_nd(seg, bbox, -1).astype(np.int16, copy=False)
-
+                    data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0)).float()
+                    seg_cropped = torch.from_numpy(crop_and_pad_nd(seg, bbox, -1)).to(torch.int16)
                     if seg_prev is not None:
-                        seg_prev_np = crop_and_pad_nd(seg_prev, bbox, -1).astype(np.int16, copy=False)
-                        seg_np = np.vstack((seg_np, seg_prev_np[None]))
+                        seg_prev_cropped = torch.from_numpy(crop_and_pad_nd(seg_prev, bbox, -1)).to(torch.int16)
+                        seg_cropped = torch.cat((seg_cropped, seg_prev_cropped[None]), dim=0)
 
-                    # handle pseudo-2D
                     if self.patch_size_was_2d:
-                        data_np = data_np[:, 0]  # (c, x, y)
-                        seg_np = seg_np[:, 0]
-
-                    # convert per-sample to torch
-                    data_t = torch.from_numpy(data_np)
-                    seg_t = torch.from_numpy(seg_np)
+                        data_cropped = data_cropped[:, 0]
+                        seg_cropped = seg_cropped[:, 0]
 
                     if self.transforms is not None:
-                        # transform per sample
-                        tmp = self.transforms(**{'image': data_t, 'segmentation': seg_t})
-                        img_t = tmp['image']
-                        seg_out = tmp['segmentation']
+                        transformed = self.transforms(**{'image': data_cropped, 'segmentation': seg_cropped})
+                        data_sample = transformed['image']
+                        seg_sample = transformed['segmentation']
                     else:
-                        img_t = data_t
-                        seg_out = seg_t
+                        data_sample = data_cropped
+                        seg_sample = seg_cropped
 
-                    # lazy init/re-init output buffers based on first transformed sample
-                    if out_data is None:
-                        # out buffers must match transformed shapes (expected to be final_patch_size)
-                        self._maybe_init_output_buffers(img_t, seg_out)
-                        out_data = self._data_buffer
-                        out_seg = self._seg_buffer
+                    data_all[j] = data_sample
 
-                    # write into buffers (no list accumulation, no stack)
-                    out_data[b].copy_(img_t)
-
-                    if isinstance(seg_out, list):
-                        assert isinstance(out_seg, list)
-                        for k, s in enumerate(seg_out):
-                            out_seg[k][b].copy_(s)
+                    if isinstance(seg_sample, list):
+                        if seg_all is None:
+                            seg_all = [torch.empty((self.batch_size, *s.shape), dtype=s.dtype) for s in seg_sample]
+                        for s_idx, s in enumerate(seg_sample):
+                            seg_all[s_idx][j] = s
                     else:
-                        assert isinstance(out_seg, torch.Tensor)
-                        out_seg[b].copy_(seg_out)
+                        if seg_all is None:
+                            seg_all = torch.empty((self.batch_size, *seg_sample.shape), dtype=seg_sample.dtype)
+                        seg_all[j] = seg_sample
 
-                return {
-                    'data': out_data.clone(),
-                    'target': [torch.clone(i) for i in out_seg] if isinstance(out_seg, (tuple, list)) else out_seg.clone(),
-                    'keys': selected_keys
-                }
+        return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
 
 if __name__ == '__main__':
