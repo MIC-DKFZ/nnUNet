@@ -98,6 +98,7 @@ Read these:
 - [Usage instructions](documentation/how_to_use_nnunet.md)
 
 Additional information:
+- [Contributing to nnU-Net](CONTRIBUTING.md)
 - [Learning from sparse annotations (scribbles, slices)](documentation/ignore_label.md)
 - [Region-based training](documentation/region_based_training.md)
 - [Manual data splits](documentation/manual_data_splits.md)
