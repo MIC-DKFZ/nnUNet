@@ -503,12 +503,16 @@ class ExperimentPlanner(object):
                     join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
 
         # json is ###. I hate it... "Object of type int64 is not JSON serializable"
+        image_reader_writer_kwargs = {} 
+        if "image_reader_writer_kwargs" in self.dataset_json.keys():
+            self.dataset_json['image_reader_writer_kwargs']
         plans = {
             'dataset_name': self.dataset_name,
             'plans_name': self.plans_identifier,
             'original_median_spacing_after_transp': [float(i) for i in median_spacing],
             'original_median_shape_after_transp': [int(round(i)) for i in median_shape],
             'image_reader_writer': self.determine_reader_writer().__name__,
+            'image_reader_writer_kwargs': image_reader_writer_kwargs,
             'transpose_forward': [int(i) for i in transpose_forward],
             'transpose_backward': [int(i) for i in transpose_backward],
             'configurations': {'2d': plan_2d},
