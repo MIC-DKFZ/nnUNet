@@ -15,6 +15,7 @@ import math
 import multiprocessing
 import shutil
 from time import sleep
+from turtle import done
 from typing import Tuple
 
 import SimpleITK
@@ -408,10 +409,8 @@ class DefaultPreprocessor(object):
                                            'an error message, out of RAM is likely the problem. In that case '
                                            'reducing the number of workers might help')
                     done = [i for i in remaining if r[i].ready()]
-                    # get done so that errors can be raised
-                    _ = [r[i].get() for i in done]
-                    for _ in done:
-                        r[_].get()  # allows triggering errors
+                    for i in done:
+                        r[i].get()  # trigger any errors from worker (single call, no duplicate)
                         pbar.update()
                     remaining = [i for i in remaining if i not in done]
                     sleep(0.1)
