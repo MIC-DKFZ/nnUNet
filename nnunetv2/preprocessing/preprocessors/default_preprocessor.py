@@ -39,6 +39,7 @@ from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 class DefaultPreprocessor(object):
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
+        self.show_progress_bar = True
         """
         Everything we need is in the plans. Those are given when run() is called
         """
@@ -364,11 +365,6 @@ class DefaultPreprocessor(object):
         plans_manager = PlansManager(plans)
         configuration_manager = plans_manager.get_configuration(configuration_name)
 
-        if self.verbose:
-            print(f'Preprocessing the following configuration: {configuration_name}')
-        if self.verbose:
-            print(configuration_manager)
-
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
 
@@ -397,7 +393,8 @@ class DefaultPreprocessor(object):
                                            plans_manager, configuration_manager,
                                            dataset_json),)))
 
-            with tqdm(desc="Preprocessing cases", total=len(dataset), disable=not self.verbose) as pbar:
+            with tqdm(desc="Preprocessing cases", total=len(dataset),
+                      disable=not getattr(self, 'show_progress_bar', True)) as pbar:
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
                     if not all_alive:

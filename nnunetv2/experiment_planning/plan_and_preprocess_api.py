@@ -19,7 +19,8 @@ def extract_fingerprint_dataset(dataset_id: int,
                                 fingerprint_extractor_class: Type[
                                     DatasetFingerprintExtractor] = DatasetFingerprintExtractor,
                                 num_processes: int = default_num_processes, check_dataset_integrity: bool = False,
-                                clean: bool = True, verbose: bool = True):
+                                clean: bool = True, verbose: bool = True,
+                                show_progress_bar: bool = True):
     """
     Returns the fingerprint as a dictionary (additionally to saving it)
     """
@@ -30,12 +31,15 @@ def extract_fingerprint_dataset(dataset_id: int,
         verify_dataset_integrity(join(nnUNet_raw, dataset_name), num_processes)
 
     fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose)
+    if hasattr(fpe, 'show_progress_bar'):
+        fpe.show_progress_bar = show_progress_bar
     return fpe.run(overwrite_existing=clean)
 
 
 def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_name: str = 'DatasetFingerprintExtractor',
                          num_processes: int = default_num_processes, check_dataset_integrity: bool = False,
-                         clean: bool = True, verbose: bool = True):
+                         clean: bool = True, verbose: bool = True,
+                         show_progress_bar: bool = True):
     """
     clean = False will not actually run this. This is just a switch for use with nnUNetv2_plan_and_preprocess where
     we don't want to rerun fingerprint extraction every time.
@@ -45,7 +49,7 @@ def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_nam
                                                               current_module="nnunetv2.experiment_planning")
     for d in dataset_ids:
         extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
-                                    verbose)
+                                    verbose, show_progress_bar)
 
 
 def plan_experiment_dataset(dataset_id: int,
@@ -101,7 +105,8 @@ def preprocess_dataset(dataset_id: int,
                        plans_identifier: str = 'nnUNetPlans',
                        configurations: Union[Tuple[str], List[str]] = ('2d', '3d_fullres', '3d_lowres'),
                        num_processes: Union[int, Tuple[int, ...], List[int]] = (8, 4, 8),
-                       verbose: bool = False) -> None:
+                       verbose: bool = False,
+                       show_progress_bar: bool = True) -> None:
     if not isinstance(num_processes, list):
         num_processes = list(num_processes)
     if len(num_processes) == 1:
@@ -125,7 +130,10 @@ def preprocess_dataset(dataset_id: int,
                 f"dataset {dataset_name}. Skipping.")
             continue
         configuration_manager = plans_manager.get_configuration(c)
+        print(configuration_manager)
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+        if hasattr(preprocessor, 'show_progress_bar'):
+            preprocessor.show_progress_bar = show_progress_bar
         preprocessor.run(dataset_id, c, plans_identifier, num_processes=n)
 
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
@@ -145,6 +153,7 @@ def preprocess(dataset_ids: List[int],
                plans_identifier: str = 'nnUNetPlans',
                configurations: Union[Tuple[str], List[str]] = ('2d', '3d_fullres', '3d_lowres'),
                num_processes: Union[int, Tuple[int, ...], List[int]] = (8, 4, 8),
-               verbose: bool = False):
+               verbose: bool = False,
+               show_progress_bar: bool = True):
     for d in dataset_ids:
-        preprocess_dataset(d, plans_identifier, configurations, num_processes, verbose)
+        preprocess_dataset(d, plans_identifier, configurations, num_processes, verbose, show_progress_bar)

@@ -33,7 +33,9 @@ nnUNetv2_plan_and_preprocess -d DATASET_ID --verify_dataset_integrity
 ```
 
 Where `DATASET_ID` is the dataset id (duh). We recommend `--verify_dataset_integrity` whenever it's the first time 
-you run this command. This will check for some of the most common error sources!
+you run this command. This will check for some of the most common error sources! Fingerprint extraction and
+preprocessing show a progress bar by default. Use `--no_pbar` if you want to suppress it, for example in
+non-interactive cluster environments.
 
 You can also process several datasets at once by giving `-d 1 2 3 [...]`. If you already know what U-Net configuration 
 you need you can also specify that with `-c 3d_fullres` (make sure to adapt -np in this case!). For more information 
@@ -45,7 +47,8 @@ Once the command is completed there will be a dataset_fingerprint.json file as w
 
 [Optional]
 If you prefer to keep things separate, you can also use `nnUNetv2_extract_fingerprint`, `nnUNetv2_plan_experiment` 
-and `nnUNetv2_preprocess` (in that order). 
+and `nnUNetv2_preprocess` (in that order). `nnUNetv2_extract_fingerprint` and `nnUNetv2_preprocess` also support
+`--no_pbar`.
 
 ### Model training
 #### Overview

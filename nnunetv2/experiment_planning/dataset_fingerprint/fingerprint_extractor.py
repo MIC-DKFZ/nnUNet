@@ -26,6 +26,7 @@ class DatasetFingerprintExtractor(object):
         """
         dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
         self.verbose = verbose
+        self.show_progress_bar = True
 
         self.dataset_name = dataset_name
         self.input_folder = join(nnUNet_raw, dataset_name)
@@ -137,7 +138,8 @@ class DatasetFingerprintExtractor(object):
                 # p is pretty nifti. If we kill workers they just respawn but don't do any work.
                 # So we need to store the original pool of workers.
                 workers = [j for j in p._pool]
-                with tqdm(desc="Extracting dataset fingerprint", total=len(self.dataset), disable=not self.verbose) as pbar:
+                with tqdm(desc="Extracting dataset fingerprint", total=len(self.dataset),
+                          disable=not getattr(self, 'show_progress_bar', True)) as pbar:
                     while len(remaining) > 0:
                         all_alive = all([j.is_alive() for j in workers])
                         if not all_alive:
