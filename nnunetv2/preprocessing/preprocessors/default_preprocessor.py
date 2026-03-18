@@ -397,7 +397,7 @@ class DefaultPreprocessor(object):
                                            plans_manager, configuration_manager,
                                            dataset_json),)))
 
-            with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
+            with tqdm(desc="Preprocessing cases", total=len(dataset), disable=not self.verbose) as pbar:
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
                     if not all_alive:
