@@ -89,9 +89,10 @@ if __name__ == "__main__":
         # 'nnUNetTrainerUMambaEnc': ('nnUNetPlans',),
         # 'nnUNetTrainer_fasterDA': ('nnUNetPlans', 'nnUNetResEncUNetLPlans'),
         # 'nnUNetTrainer_noDummy2DDA': ('nnUNetResEncUNetMPlans', ),
-        'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
-        'nnUNetTrainerDA5': ('nnUNetResEncUNetMPlans',),
-        'nnUNetTrainer_DASegOrd0': ('nnUNetResEncUNetMPlans',),
+        # 'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
+        # 'nnUNetTrainerDA5': ('nnUNetResEncUNetMPlans',),
+        # 'nnUNetTrainer_DASegOrd0': ('nnUNetResEncUNetMPlans',),
+        'nnUNetTrainerDA5Segord0': ('nnUNetResEncUNetMPlans',),
         # 'nnUNetTrainer_probabilisticOversampling_033': ('nnUNetResEncUNetMPlans', ),
         # 'nnUNetTrainer_probabilisticOversampling_010': ('nnUNetResEncUNetMPlans',),
         # BN
