@@ -4,7 +4,8 @@ import numpy as np
 import torch
 from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
-from batchgenerators.transforms.abstract_transforms import AbstractTransform, Compose
+from batchgenerators.transforms.abstract_transforms import AbstractTransform
+from batchgenerators.transforms.abstract_transforms import Compose
 from batchgenerators.transforms.color_transforms import BrightnessTransform, ContrastAugmentationTransform, \
     GammaTransform
 from batchgenerators.transforms.local_transforms import BrightnessGradientAdditiveTransform, LocalGammaTransform
@@ -34,6 +35,57 @@ from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.helpers import dummy_context
+
+
+class TensorToNumpy(AbstractTransform):
+    def __init__(self, keys=None, cast_to=None):
+        """
+        Converts torch tensors to numpy ndarrays.
+
+        :param keys: specify keys to be converted. If None then all tensor values will be converted.
+                     Can be a key (string) or a list/tuple of keys.
+        :param cast_to: optional numpy dtype as string, e.g. 'float32', 'float16', 'int64', 'bool'
+        """
+        if keys is not None and not isinstance(keys, (list, tuple)):
+            keys = [keys]
+        self.keys = keys
+        self.cast_to = cast_to
+
+    def cast(self, array: np.ndarray):
+        if self.cast_to is not None:
+            try:
+                array = array.astype(self.cast_to, copy=False)
+            except TypeError:
+                raise ValueError(f"Unknown value for cast_to: {self.cast_to}")
+        return array
+
+    def _to_numpy(self, tensor):
+        import torch
+
+        if isinstance(tensor, torch.Tensor):
+            # Important: detach + move to CPU before numpy conversion
+            array = tensor.detach().cpu().numpy()
+            return self.cast(array)
+        return tensor
+
+    def __call__(self, **data_dict):
+        import torch
+
+        if self.keys is None:
+            for key, val in data_dict.items():
+                if isinstance(val, torch.Tensor):
+                    data_dict[key] = self._to_numpy(val)
+                elif isinstance(val, (list, tuple)) and all(isinstance(i, torch.Tensor) for i in val):
+                    data_dict[key] = [self._to_numpy(i) for i in val]
+        else:
+            for key in self.keys:
+                val = data_dict[key]
+                if isinstance(val, torch.Tensor):
+                    data_dict[key] = self._to_numpy(val)
+                elif isinstance(val, (list, tuple)) and all(isinstance(i, torch.Tensor) for i in val):
+                    data_dict[key] = [self._to_numpy(i) for i in val]
+
+        return data_dict
 
 
 class nnUNetTrainerDA5(nnUNetTrainer):
@@ -94,6 +146,7 @@ class nnUNetTrainerDA5(nnUNetTrainer):
         valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
 
         tr_transforms = []
+        tr_transforms.append(TensorToNumpy())
         tr_transforms.append(RenameTransform('target', 'seg', True))
 
         if do_dummy_2d_data_aug:
@@ -300,6 +353,8 @@ class nnUNetTrainerDA5(nnUNetTrainer):
             ignore_label: int = None,
     ) -> AbstractTransform:
         val_transforms = []
+        val_transforms.append(TensorToNumpy())
+
         val_transforms.append(RenameTransform('target', 'seg', True))
         val_transforms.append(RemoveLabelTransform(-1, 0))
 
