@@ -89,9 +89,14 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         affine_seg = properties_seg['nibabel_stuff']['original_affine']
         if not np.allclose(affine_image, affine_seg):
             print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
-                  'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
-                  'nnUNetv2_plot_overlay_pngs to verify if everything is OK!\n'
-                  % (affine_image, affine_seg, image_files, label_file))
+                'Image files: %s. \nSeg file: %s.\n'
+                'How to fix: Copy the image header to the segmentation using nibabel:\n'
+                '    import nibabel as nib\n'
+                '    img = nib.load("your_image.nii.gz")\n'
+                '    seg = nib.load("your_segmentation.nii.gz")\n'
+                '    seg_fixed = nib.Nifti1Image(seg.get_fdata(), img.affine, img.header)\n'
+                '    nib.save(seg_fixed, "your_segmentation_fixed.nii.gz")\n'
+                % (affine_image, affine_seg, image_files, label_file))
 
     # sitk checks
     if 'sitk_stuff' in properties_image.keys():
@@ -101,14 +106,26 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         origin_seg = properties_seg['sitk_stuff']['origin']
         if not np.allclose(origin_image, origin_seg):
             print('Warning: Origin mismatch between segmentation and corresponding images. \nOrigin images: %s. '
-                  '\nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-                  (origin_image, origin_seg, image_files, label_file))
+                '\nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n'
+                'How to fix: Copy the image header to the segmentation using SimpleITK:\n'
+                '    import SimpleITK as sitk\n'
+                '    seg = sitk.ReadImage("your_segmentation.nii.gz")\n'
+                '    img = sitk.ReadImage("your_image.nii.gz")\n'
+                '    seg.CopyInformation(img)\n'
+                '    sitk.WriteImage(seg, "your_segmentation_fixed.nii.gz")\n'
+                % (origin_image, origin_seg, image_files, label_file))
         direction_image = properties_image['sitk_stuff']['direction']
         direction_seg = properties_seg['sitk_stuff']['direction']
         if not np.allclose(direction_image, direction_seg):
             print('Warning: Direction mismatch between segmentation and corresponding images. \nDirection images: %s. '
-                  '\nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-                  (direction_image, direction_seg, image_files, label_file))
+                '\nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n'
+                'How to fix: Copy the image header to the segmentation using SimpleITK:\n'
+                '    import SimpleITK as sitk\n'
+                '    seg = sitk.ReadImage("your_segmentation.nii.gz")\n'
+                '    img = sitk.ReadImage("your_image.nii.gz")\n'
+                '    seg.CopyInformation(img)\n'
+                '    sitk.WriteImage(seg, "your_segmentation_fixed.nii.gz")\n'
+                % (direction_image, direction_seg, image_files, label_file))
 
     return ret
 
