@@ -98,7 +98,7 @@ if __name__ == '__main__':
     }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
 
-    datasets = [3, 5, 8, 10, 17, 27, 55, 220, 223, 226]
+    datasets = [3, 5, 8, 10, 17, 27, 55, 220, 223, 226, 219]
     # datasets = [3, 4, 5, 8, 10, 17, 27, 55, 220, 223]
     collect_results(use_these_trainers, datasets, all_results_file)
 
