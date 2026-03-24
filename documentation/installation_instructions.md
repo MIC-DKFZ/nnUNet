@@ -1,5 +1,9 @@
 # System requirements
 
+Prefer the consolidated setup guide for the recommended path:
+
+- [Installation and setup](getting-started/installation-and-setup.md)
+
 ## Operating System
 nnU-Net has been tested on Linux (Ubuntu 18.04, 20.04, 22.04; centOS, RHEL), Windows and MacOS! It should work out of the box!
 

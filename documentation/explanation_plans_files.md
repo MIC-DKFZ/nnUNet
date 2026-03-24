@@ -1,5 +1,9 @@
 # Modifying the nnU-Net Configurations
 
+Prefer the consolidated reference page for the recommended path:
+
+- [Plans and configuration reference](reference/plans-and-configuration.md)
+
 nnU-Net provides unprecedented out-of-the-box segmentation performance for essentially any dataset we have evaluated 
 it on. That said, there is always room for improvements. A fool-proof strategy for squeezing out the last bit of 
 performance is to start with the default nnU-Net, and then further tune it manually to a concrete dataset at hand.

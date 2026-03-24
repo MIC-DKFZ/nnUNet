@@ -1,5 +1,9 @@
 # Intensity normalization in nnU-Net 
 
+Prefer the migrated explanation page for the recommended path:
+
+- [Intensity normalization](explanation/intensity-normalization.md)
+
 The type of intensity normalization applied in nnU-Net can be controlled via the `channel_names` (former `modalities`)
 entry in the dataset.json. Just like the old nnU-Net, per-channel z-scoring as well as dataset-wide z-scoring based on 
 foreground intensities are supported. However, there have been a few additions as well.

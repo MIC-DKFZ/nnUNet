@@ -1,5 +1,9 @@
 # nnU-Netv2 benchmarks
 
+Prefer the migrated how-to page for the recommended path:
+
+- [Run benchmarks](how-to/run-benchmarks.md)
+
 Does your system run like it should? Is your epoch time longer than expected? What epoch times should you expect?
 
 Look no further for we have the solution here!
@@ -112,4 +116,3 @@ of allowed open files. `ulimit -n` gives your current limit (Linux only). It sho
 Increasing that to 65535 works well for me. See here for how to change these limits: 
 [Link](https://kupczynski.info/posts/ubuntu-18-10-ulimits/) 
 (works for Ubuntu 18, google for your OS!).
-

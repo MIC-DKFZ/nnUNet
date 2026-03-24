@@ -1,5 +1,9 @@
 # Setting up Paths
 
+Prefer the consolidated setup guide for the recommended path:
+
+- [Installation and setup](getting-started/installation-and-setup.md)
+
 nnU-Net relies on environment variables to know where raw data, preprocessed data and trained model weights are stored. 
 To use the full functionality of nnU-Net, the following three environment variables must be set:
 

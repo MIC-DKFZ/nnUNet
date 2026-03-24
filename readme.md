@@ -4,9 +4,6 @@ Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looki
 
 Coming from V1? Check out the [TLDR Migration Guide](documentation/tldr_migration_guide_from_v1.md). Reading the rest of the documentation is still strongly recommended ;-)
 
-## **2025-10-23 There seems to be a [severe performance regression with torch 2.9.0 and 3D convs](https://github.com/pytorch/pytorch/issues/166122) (when using AMP). Please use torch 2.8.0 or lower with nnU-Net!**
-
-
 ## **2024-04-18 UPDATE: New residual encoder UNet presets available!**
 Residual encoder UNet presets substantially improve segmentation performance.
 They ship for a variety of GPU memory targets. It's all awesome stuff, promised! 
@@ -91,26 +88,20 @@ memory constraint.
 - **Empirical parameters** are essentially trial-and-error. For example the selection of the best U-net configuration 
 for the given dataset (2D, 3D full resolution, 3D low resolution, 3D cascade) and the optimization of the postprocessing strategy.
 
-## How to get started?
-Read these:
-- [Installation instructions](documentation/installation_instructions.md)
-- [Dataset conversion](documentation/dataset_format.md)
-- [Usage instructions](documentation/how_to_use_nnunet.md)
+## Documentation
+Start with the [documentation home](documentation/README.md).
 
-Additional information:
+Recommended entry points:
+- New users: [Getting Started](documentation/getting-started/README.md)
+- Task-focused instructions: [How-to Guides](documentation/how-to/README.md)
+- Formats and configuration details: [Reference](documentation/reference/README.md)
+- Concepts and rationale: [Explanation](documentation/explanation/README.md)
+- Challenge-specific writeups: [Case Studies](documentation/case-studies/README.md)
+
+Other useful links:
 - [Contributing to nnU-Net](CONTRIBUTING.md)
-- [Learning from sparse annotations (scribbles, slices)](documentation/ignore_label.md)
-- [Region-based training](documentation/region_based_training.md)
-- [Manual data splits](documentation/manual_data_splits.md)
-- [Pretraining and finetuning](documentation/pretraining_and_finetuning.md)
-- [Intensity Normalization in nnU-Net](documentation/explanation_normalization.md)
-- [Training logging (Local + Weights & Biases)](documentation/explanation_logging.md)
-- [Manually editing nnU-Net configurations](documentation/explanation_plans_files.md)
-- [Extending nnU-Net](documentation/extending_nnunet.md)
-- [What is different in V2?](documentation/changelog.md)
-
-Competitions:
-- [AutoPET II](documentation/competitions/AutoPETII.md)
+- [TLDR Migration Guide from V1](documentation/tldr_migration_guide_from_v1.md)
+- [Residual Encoder Presets in nnU-Net](documentation/resenc_presets.md)
 
 [//]: # (- [Ignore label]&#40;documentation/ignore_label.md&#41;)
 

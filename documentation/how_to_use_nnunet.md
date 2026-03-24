@@ -1,3 +1,13 @@
+## Recommended split guides
+
+This legacy page is still available, but the workflow is now split into smaller task pages:
+
+- [Prepare a dataset](how-to/prepare-a-dataset.md)
+- [Plan and preprocess](how-to/plan-and-preprocess.md)
+- [Train models](how-to/train-models.md)
+- [Find the best configuration](how-to/find-best-configuration.md)
+- [Run inference](how-to/run-inference.md)
+
 ## **2024-04-18 UPDATE: New residual encoder UNet presets available!**
 The recommended nnU-Net presets have changed! See [here](resenc_presets.md) how to unlock them!
 

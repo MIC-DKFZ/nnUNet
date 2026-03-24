@@ -1,5 +1,9 @@
 # Logging in nnU-Net v2
 
+Prefer the migrated reference page for the recommended path:
+
+- [Logging reference](reference/logging.md)
+
 ## Introduction
 
 Logging in nnU-Net is intentionally simple and centralized in

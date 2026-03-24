@@ -1,4 +1,9 @@
 # Data format for Inference 
+
+Prefer the consolidated reference page for the recommended path:
+
+- [Dataset and input format reference](reference/dataset-format.md)
+
 Read the documentation on the overall [data format](dataset_format.md) first!
 
 The data format for inference must match the one used for the raw data (**specifically, the images must be in exactly 

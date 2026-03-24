@@ -1,5 +1,9 @@
 # How to set environment variables
 
+Prefer the consolidated setup guide for the recommended path:
+
+- [Installation and setup](getting-started/installation-and-setup.md)
+
 nnU-Net requires some environment variables so that it always knows where the raw data, preprocessed data and trained 
 models are. Depending on the operating system, these environment variables need to be set in different ways.
 
