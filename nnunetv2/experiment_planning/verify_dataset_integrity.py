@@ -88,10 +88,13 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         affine_image = properties_image['nibabel_stuff']['original_affine']
         affine_seg = properties_seg['nibabel_stuff']['original_affine']
         if not np.allclose(affine_image, affine_seg):
-            print('WARNING: Affine is not the same for image and seg! \nAffine image: %s \nAffine seg: %s\n'
-                  'Image files: %s. \nSeg file: %s.\nThis can be a problem but doesn\'t have to be. Please run '
-                  'nnUNetv2_plot_overlay_pngs to verify if everything is OK!\n'
-                  % (affine_image, affine_seg, image_files, label_file))
+            print('Warning: Affine mismatch between segmentation and corresponding images. '
+                '\nAffine image: %s \nAffine seg: %s\n'
+                'Image files: %s. \nSeg file: %s.\n'
+                'This is a warning only and will not cause a crash. Please verify that your '
+                'segmentation and image are correctly aligned by running: '
+                'nnUNetv2_plot_overlay_pngs\n'
+                % (affine_image, affine_seg, image_files, label_file))
 
     # sitk checks
     if 'sitk_stuff' in properties_image.keys():
@@ -100,15 +103,21 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         origin_image = properties_image['sitk_stuff']['origin']
         origin_seg = properties_seg['sitk_stuff']['origin']
         if not np.allclose(origin_image, origin_seg):
-            print('Warning: Origin mismatch between segmentation and corresponding images. \nOrigin images: %s. '
-                  '\nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-                  (origin_image, origin_seg, image_files, label_file))
+            print('Warning: Origin mismatch between segmentation and corresponding images. '
+                '\nOrigin images: %s. \nOrigin seg: %s. \nImage files: %s. \nSeg file: %s\n'
+                'This is a warning only and will not cause a crash. Please verify that your '
+                'segmentation and image are correctly aligned by running: '
+                'nnUNetv2_plot_overlay_pngs\n'
+                % (origin_image, origin_seg, image_files, label_file))
         direction_image = properties_image['sitk_stuff']['direction']
         direction_seg = properties_seg['sitk_stuff']['direction']
         if not np.allclose(direction_image, direction_seg):
-            print('Warning: Direction mismatch between segmentation and corresponding images. \nDirection images: %s. '
-                  '\nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n' %
-                  (direction_image, direction_seg, image_files, label_file))
+            print('Warning: Direction mismatch between segmentation and corresponding images. '
+                '\nDirection images: %s. \nDirection seg: %s. \nImage files: %s. \nSeg file: %s\n'
+                'This is a warning only and will not cause a crash. Please verify that your '
+                'segmentation and image are correctly aligned by running: '
+                'nnUNetv2_plot_overlay_pngs\n'
+                % (direction_image, direction_seg, image_files, label_file))
 
     return ret
 
