@@ -6,35 +6,41 @@ from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMu
 from batchgenerators.dataloading.single_threaded_augmenter import SingleThreadedAugmenter
 from batchgenerators.transforms.abstract_transforms import AbstractTransform
 from batchgenerators.transforms.abstract_transforms import Compose
-from batchgenerators.transforms.color_transforms import BrightnessTransform, ContrastAugmentationTransform, \
-    GammaTransform
-from batchgenerators.transforms.local_transforms import BrightnessGradientAdditiveTransform, LocalGammaTransform
-from batchgenerators.transforms.noise_transforms import MedianFilterTransform, GaussianBlurTransform, \
-    GaussianNoiseTransform, BlankRectangleTransform, SharpeningTransform
-from batchgenerators.transforms.resample_transforms import SimulateLowResolutionTransform
-from batchgenerators.transforms.spatial_transforms import SpatialTransform, Rot90Transform, TransposeAxesTransform, \
-    MirrorTransform
-from batchgenerators.transforms.utility_transforms import OneOfTransform, RemoveLabelTransform, RenameTransform, \
+from batchgenerators.transforms.spatial_transforms import SpatialTransform
+from batchgenerators.transforms.utility_transforms import RemoveLabelTransform, RenameTransform, \
     NumpyToTensor
 from batchgeneratorsv2.helpers.scalar_type import RandomScalar
-from torch import autocast
+from batchgeneratorsv2.transforms.base.basic_transform import BasicTransform
+from batchgeneratorsv2.transforms.intensity.brightness import BrightnessAdditiveTransform
+from batchgeneratorsv2.transforms.intensity.contrast import ContrastTransform, BGContrast
+from batchgeneratorsv2.transforms.intensity.gamma import GammaTransform
+from batchgeneratorsv2.transforms.intensity.gaussian_noise import GaussianNoiseTransform
+from batchgeneratorsv2.transforms.local.brightness_gradient import BrightnessGradientAdditiveTransform
+from batchgeneratorsv2.transforms.local.local_gamma import LocalGammaTransform
+from batchgeneratorsv2.transforms.nnunet.random_binary_operator import ApplyRandomBinaryOperatorTransform
+from batchgeneratorsv2.transforms.nnunet.remove_connected_components import \
+    RemoveRandomConnectedComponentFromOneHotEncodingTransform
+from batchgeneratorsv2.transforms.nnunet.seg_to_onehot import MoveSegAsOneHotToDataTransform
+from batchgeneratorsv2.transforms.noise.blank_rectangle import BlankRectangleTransform
+from batchgeneratorsv2.transforms.noise.gaussian_blur import GaussianBlurTransform
+from batchgeneratorsv2.transforms.noise.median_filter import MedianFilterTransform
+from batchgeneratorsv2.transforms.noise.sharpen import SharpeningTransform
+from batchgeneratorsv2.transforms.spatial.low_resolution import SimulateLowResolutionTransform
+from batchgeneratorsv2.transforms.spatial.mirroring import MirrorTransform
+from batchgeneratorsv2.transforms.spatial.rot90 import Rot90Transform
+from batchgeneratorsv2.transforms.spatial.spatial import SpatialTransform
+from batchgeneratorsv2.transforms.spatial.transpose import TransposeAxesTransform
+from batchgeneratorsv2.transforms.utils.compose import ComposeTransforms
+from batchgeneratorsv2.transforms.utils.deep_supervision_downsampling import DownsampleSegForDSTransform
+from batchgeneratorsv2.transforms.utils.nnunet_masking import MaskImageTransform
+from batchgeneratorsv2.transforms.utils.pseudo2d import Convert3DTo2DTransform, Convert2DTo3DTransform
+from batchgeneratorsv2.transforms.utils.random import RandomTransform, OneOfTransform
+from batchgeneratorsv2.transforms.utils.remove_label import RemoveLabelTansform
+from batchgeneratorsv2.transforms.utils.seg_to_regions import ConvertSegmentationToRegionsTransform
 
 from nnunetv2.configuration import ANISO_THRESHOLD
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
-from nnunetv2.training.data_augmentation.custom_transforms.cascade_transforms import MoveSegAsOneHotToData, \
-    ApplyRandomBinaryOperatorTransform, RemoveRandomConnectedComponentFromOneHotEncodingTransform
-from nnunetv2.training.data_augmentation.custom_transforms.deep_supervision_donwsampling import \
-    DownsampleSegForDSTransform2
-from nnunetv2.training.data_augmentation.custom_transforms.masking import MaskTransform
-from nnunetv2.training.data_augmentation.custom_transforms.region_based_training import \
-    ConvertSegmentationToRegionsTransform
-from nnunetv2.training.data_augmentation.custom_transforms.transforms_for_dummy_2d import Convert3DTo2DTransform, \
-    Convert2DTo3DTransform
-from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
-from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
-from nnunetv2.utilities.helpers import dummy_context
 
 
 class TensorToNumpy(AbstractTransform):
@@ -141,379 +147,186 @@ class nnUNetTrainerDA5(nnUNetTrainer):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
-    ) -> AbstractTransform:
-        matching_axes = np.array([sum([i == j for j in patch_size]) for i in patch_size])
-        valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
-
-        tr_transforms = []
-        tr_transforms.append(TensorToNumpy())
-        tr_transforms.append(RenameTransform('target', 'seg', True))
+    ) -> BasicTransform:
+        transforms = []
 
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
-            tr_transforms.append(Convert3DTo2DTransform())
+            transforms.append(Convert3DTo2DTransform())
             patch_size_spatial = patch_size[1:]
         else:
             patch_size_spatial = patch_size
             ignore_axes = None
 
-        tr_transforms.append(
+        transforms.append(
             SpatialTransform(
-                patch_size_spatial,
-                patch_center_dist_from_border=None,
-                do_elastic_deform=False,
-                do_rotation=True,
-                angle_x=rotation_for_DA,
-                angle_y=rotation_for_DA,
-                angle_z=rotation_for_DA,
-                p_rot_per_axis=0.5,
-                do_scale=True,
-                scale=(0.7, 1.43),
-                border_mode_data="constant",
-                border_cval_data=0,
-                order_data=3,
-                border_mode_seg="constant",
-                border_cval_seg=-1,
-                order_seg=1,
-                random_crop=False,
-                p_el_per_sample=0.2,
-                p_scale_per_sample=0.2,
-                p_rot_per_sample=0.4,
-                independent_scale_for_each_axis=True,
+                patch_size_spatial, patch_center_dist_from_border=0, random_crop=False,
+                p_elastic_deform=0,
+                p_rotation=0.4, rotation=rotation_for_DA, p_rot_per_axis=0.5,
+                p_scaling=0.2, scaling=(0.7, 1.43),
+                p_synchronize_scaling_across_axes=0,
+                bg_style_seg_sampling=False,
+                border_mode_seg='constant',
+                padding_value_seg=-1,
             )
         )
 
         if do_dummy_2d_data_aug:
-            tr_transforms.append(Convert2DTo3DTransform())
+            transforms.append(Convert2DTo3DTransform())
 
+        matching_axes = np.array([sum([i == j for j in patch_size]) for i in patch_size])
+        valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
         if np.any(matching_axes > 1):
-            tr_transforms.append(
-                Rot90Transform(
-                    (0, 1, 2, 3), axes=valid_axes, data_key='data', label_key='seg', p_per_sample=0.5
-                ),
+            transforms.append(
+                RandomTransform(
+                    Rot90Transform(
+                        num_axis_combinations=1,
+                        num_rot_per_combination=(0, 1, 2, 3),
+                        allowed_axes=set(valid_axes)
+                    ), apply_probability=0.5
+                )
+            )
+            transforms.append(
+                RandomTransform(
+                    TransposeAxesTransform(allowed_axes=set(valid_axes)),
+                    apply_probability=0.5
+                )
             )
 
-        if np.any(matching_axes > 1):
-            tr_transforms.append(
-                TransposeAxesTransform(valid_axes, data_key='data', label_key='seg', p_per_sample=0.5)
-            )
-
-        tr_transforms.append(OneOfTransform([
-            MedianFilterTransform(
-                (2, 8),
-                same_for_each_channel=False,
-                p_per_sample=0.2,
-                p_per_channel=0.5
+        transforms.append(OneOfTransform([
+            RandomTransform(
+                MedianFilterTransform((2, 8), p_same_for_each_channel=0, p_per_channel=0.5),
+                apply_probability=0.2
             ),
-            GaussianBlurTransform((0.3, 1.5),
-                                  different_sigma_per_channel=True,
-                                  p_per_sample=0.2,
-                                  p_per_channel=0.5)
+            RandomTransform(
+                GaussianBlurTransform((0.3, 1.5), synchronize_channels=False,
+                                      synchronize_axes=True, p_per_channel=0.5),
+                apply_probability=0.2
+            ),
         ]))
 
-        tr_transforms.append(GaussianNoiseTransform(p_per_sample=0.1))
-
-        tr_transforms.append(BrightnessTransform(0,
-                                                 0.5,
-                                                 per_channel=True,
-                                                 p_per_sample=0.1,
-                                                 p_per_channel=0.5
-                                                 )
-                             )
-
-        tr_transforms.append(OneOfTransform(
-            [
-                ContrastAugmentationTransform(
-                    contrast_range=(0.5, 2),
-                    preserve_range=True,
-                    per_channel=True,
-                    data_key='data',
-                    p_per_sample=0.2,
-                    p_per_channel=0.5
-                ),
-                ContrastAugmentationTransform(
-                    contrast_range=(0.5, 2),
-                    preserve_range=False,
-                    per_channel=True,
-                    data_key='data',
-                    p_per_sample=0.2,
-                    p_per_channel=0.5
-                ),
-            ]
+        transforms.append(RandomTransform(
+            GaussianNoiseTransform(noise_variance=(0, 0.1), p_per_channel=1, synchronize_channels=True),
+            apply_probability=0.1
         ))
 
-        tr_transforms.append(
-            SimulateLowResolutionTransform(zoom_range=(0.25, 1),
-                                           per_channel=True,
-                                           p_per_channel=0.5,
-                                           order_downsample=0,
-                                           order_upsample=3,
-                                           p_per_sample=0.15,
-                                           ignore_axes=ignore_axes
-                                           )
-        )
+        transforms.append(RandomTransform(
+            BrightnessAdditiveTransform(mu=0, sigma=0.5, synchronize_channels=False, p_per_channel=0.5),
+            apply_probability=0.1
+        ))
 
-        tr_transforms.append(
-            GammaTransform((0.7, 1.5), invert_image=True, per_channel=True, retain_stats=True, p_per_sample=0.1))
-        tr_transforms.append(
-            GammaTransform((0.7, 1.5), invert_image=True, per_channel=True, retain_stats=True, p_per_sample=0.1))
+        transforms.append(OneOfTransform([
+            RandomTransform(
+                ContrastTransform(
+                    contrast_range=BGContrast((0.5, 2)),
+                    preserve_range=True, synchronize_channels=False, p_per_channel=0.5
+                ), apply_probability=0.2
+            ),
+            RandomTransform(
+                ContrastTransform(
+                    contrast_range=BGContrast((0.5, 2)),
+                    preserve_range=False, synchronize_channels=False, p_per_channel=0.5
+                ), apply_probability=0.2
+            ),
+        ]))
+
+        transforms.append(RandomTransform(
+            SimulateLowResolutionTransform(
+                scale=(0.25, 1), synchronize_channels=False, synchronize_axes=True,
+                ignore_axes=ignore_axes, p_per_channel=0.5
+            ), apply_probability=0.15
+        ))
+
+        transforms.append(RandomTransform(
+            GammaTransform(
+                gamma=BGContrast((0.7, 1.5)), p_invert_image=1,
+                synchronize_channels=False, p_per_channel=1, p_retain_stats=1
+            ), apply_probability=0.1
+        ))
+        transforms.append(RandomTransform(
+            GammaTransform(
+                gamma=BGContrast((0.7, 1.5)), p_invert_image=1,
+                synchronize_channels=False, p_per_channel=1, p_retain_stats=1
+            ), apply_probability=0.1
+        ))
 
         if mirror_axes is not None and len(mirror_axes) > 0:
-            tr_transforms.append(MirrorTransform(mirror_axes))
+            transforms.append(MirrorTransform(allowed_axes=mirror_axes))
 
-        tr_transforms.append(
-            BlankRectangleTransform([[max(1, p // 10), p // 3] for p in patch_size],
-                                    rectangle_value=np.mean,
-                                    num_rectangles=(1, 5),
-                                    force_square=False,
-                                    p_per_sample=0.4,
-                                    p_per_channel=0.5
-                                    )
-        )
+        transforms.append(RandomTransform(
+            BlankRectangleTransform(
+                rectangle_size=[[max(1, p // 10), p // 3] for p in patch_size],
+                rectangle_value=torch.mean,
+                num_rectangles=(1, 5),
+                force_square=False, p_per_channel=0.5
+            ), apply_probability=0.4
+        ))
 
-        tr_transforms.append(
+        transforms.append(RandomTransform(
             BrightnessGradientAdditiveTransform(
-                _brightnessadditive_localgamma_transform_scale,
-                (-0.5, 1.5),
+                scale=_brightnessadditive_localgamma_transform_scale,
+                loc=(-0.5, 1.5),
                 max_strength=_brightness_gradient_additive_max_strength,
-                mean_centered=False,
-                same_for_all_channels=False,
-                p_per_sample=0.3,
-                p_per_channel=0.5
-            )
-        )
+                mean_centered=False, same_for_all_channels=False, p_per_channel=0.5
+            ), apply_probability=0.3
+        ))
 
-        tr_transforms.append(
+        transforms.append(RandomTransform(
             LocalGammaTransform(
-                _brightnessadditive_localgamma_transform_scale,
-                (-0.5, 1.5),
-                _local_gamma_gamma,
-                same_for_all_channels=False,
-                p_per_sample=0.3,
-                p_per_channel=0.5
-            )
-        )
+                scale=_brightnessadditive_localgamma_transform_scale,
+                loc=(-0.5, 1.5),
+                gamma=_local_gamma_gamma,
+                same_for_all_channels=False, p_per_channel=0.5
+            ), apply_probability=0.3
+        ))
 
-        tr_transforms.append(
+        transforms.append(RandomTransform(
             SharpeningTransform(
-                strength=(0.1, 1),
-                same_for_each_channel=False,
-                p_per_sample=0.2,
-                p_per_channel=0.5
-            )
-        )
+                strength=(0.1, 1), p_same_for_each_channel=0, p_per_channel=0.5
+            ), apply_probability=0.2
+        ))
 
         if use_mask_for_norm is not None and any(use_mask_for_norm):
-            tr_transforms.append(MaskTransform([i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
-                                               mask_idx_in_seg=0, set_outside_to=0))
+            transforms.append(MaskImageTransform(
+                apply_to_channels=[i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
+                channel_idx_in_seg=0, set_outside_to=0,
+            ))
 
-        tr_transforms.append(RemoveLabelTransform(-1, 0))
+        transforms.append(RemoveLabelTansform(-1, 0))
 
         if is_cascaded:
-            if ignore_label is not None:
-                raise NotImplementedError('ignore label not yet supported in cascade')
-            assert foreground_labels is not None, 'We need all_labels for cascade augmentations'
-            use_labels = [i for i in foreground_labels if i != 0]
-            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
-            tr_transforms.append(ApplyRandomBinaryOperatorTransform(
-                channel_idx=list(range(-len(use_labels), 0)),
-                p_per_sample=0.4,
-                key="data",
-                strel_size=(1, 8),
-                p_per_label=1))
-            tr_transforms.append(
+            assert foreground_labels is not None, 'We need foreground_labels for cascade augmentations'
+            transforms.append(MoveSegAsOneHotToDataTransform(
+                source_channel_idx=1, all_labels=foreground_labels, remove_channel_from_source=True
+            ))
+            transforms.append(RandomTransform(
+                ApplyRandomBinaryOperatorTransform(
+                    channel_idx=list(range(-len(foreground_labels), 0)),
+                    strel_size=(1, 8),
+                ), apply_probability=0.4
+            ))
+            transforms.append(RandomTransform(
                 RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-                    channel_idx=list(range(-len(use_labels), 0)),
-                    key="data",
-                    p_per_sample=0.2,
+                    channel_idx=list(range(-len(foreground_labels), 0)),
                     fill_with_other_class_p=0,
-                    dont_do_if_covers_more_than_x_percent=0.15))
-
-        tr_transforms.append(RenameTransform('seg', 'target', True))
-
-        if regions is not None:
-            # the ignore label must also be converted
-            tr_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
-                                                                       if ignore_label is not None else regions,
-                                                                       'target', 'target'))
-
-        if deep_supervision_scales is not None:
-            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
-                                                              output_key='target'))
-        tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
-        tr_transforms = Compose(tr_transforms)
-        return tr_transforms
-
-    @staticmethod
-    def get_validation_transforms(
-            deep_supervision_scales: Union[List, Tuple, None],
-            is_cascaded: bool = False,
-            foreground_labels: Union[Tuple[int, ...], List[int]] = None,
-            regions: List[Union[List[int], Tuple[int, ...], int]] = None,
-            ignore_label: int = None,
-    ) -> AbstractTransform:
-        val_transforms = []
-        val_transforms.append(TensorToNumpy())
-
-        val_transforms.append(RenameTransform('target', 'seg', True))
-        val_transforms.append(RemoveLabelTransform(-1, 0))
-
-        if is_cascaded:
-            val_transforms.append(MoveSegAsOneHotToData(1, foreground_labels, 'seg', 'data'))
-
-        val_transforms.append(RenameTransform('seg', 'target', True))
+                    dont_do_if_covers_more_than_x_percent=0.15,
+                ), apply_probability=0.2
+            ))
 
         if regions is not None:
-            # the ignore label must also be converted
-            val_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
-                                                                        if ignore_label is not None else regions,
-                                                                        'target', 'target'))
+            transforms.append(ConvertSegmentationToRegionsTransform(
+                regions=list(regions) + [ignore_label] if ignore_label is not None else regions,
+                channel_in_seg=0
+            ))
 
         if deep_supervision_scales is not None:
-            val_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
-                                                               output_key='target'))
+            transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
 
-        val_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
-        val_transforms = Compose(val_transforms)
-        return val_transforms
-
-    def get_dataloaders(self):
-        # we use the patch size to determine whether we need 2D or 3D dataloaders. We also use it to determine whether
-        # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
-        patch_size = self.configuration_manager.patch_size
-
-        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
-        # outputs?
-        deep_supervision_scales = self._get_deep_supervision_scales()
-
-        (
-            rotation_for_DA,
-            do_dummy_2d_data_aug,
-            initial_patch_size,
-            mirror_axes,
-        ) = self.configure_rotation_dummyDA_mirroring_and_inital_patch_size()
-
-        # training pipeline
-        tr_transforms = self.get_training_transforms(
-            patch_size, rotation_for_DA, deep_supervision_scales, mirror_axes, do_dummy_2d_data_aug,
-            use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
-            is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
-            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
-            ignore_label=self.label_manager.ignore_label)
-
-        # validation pipeline
-        val_transforms = self.get_validation_transforms(deep_supervision_scales,
-                                                        is_cascaded=self.is_cascaded,
-                                                        foreground_labels=self.label_manager.foreground_labels,
-                                                        regions=self.label_manager.foreground_regions if
-                                                        self.label_manager.has_regions else None,
-                                                        ignore_label=self.label_manager.ignore_label)
-
-        dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
-        # we set transforms=None because this trainer still uses batchgenerators which expects transforms to be passed to
-        dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
-                                 initial_patch_size,
-                                 self.configuration_manager.patch_size,
-                                 self.label_manager,
-                                 oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=None,
-                                 probabilistic_oversampling=self.probabilistic_oversampling)
-        dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.label_manager,
-                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=None,
-                                  probabilistic_oversampling=self.probabilistic_oversampling)
-
-        allowed_num_processes = get_allowed_n_proc_DA()
-        if allowed_num_processes == 0:
-            mt_gen_train = SingleThreadedAugmenter(dl_tr, tr_transforms)
-            mt_gen_val = SingleThreadedAugmenter(dl_val, val_transforms)
-        else:
-            mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=tr_transforms,
-                                                        num_processes=allowed_num_processes, num_cached=6, seeds=None,
-                                                        pin_memory=self.device.type == 'cuda', wait_time=0.02)
-            mt_gen_val = NonDetMultiThreadedAugmenter(data_loader=dl_val,
-                                                      transform=val_transforms,
-                                                      num_processes=max(1, allowed_num_processes // 2),
-                                                      num_cached=3, seeds=None, pin_memory=self.device.type == 'cuda',
-                                                      wait_time=0.02)
-        # # let's get this party started
-        _ = next(mt_gen_train)
-        _ = next(mt_gen_val)
-        return mt_gen_train, mt_gen_val
-
-    def validation_step(self, batch: dict) -> dict:
-        data = batch['data']
-        target = batch['target']
-
-        data = data.to(self.device, non_blocking=True)
-        if isinstance(target, list):
-            target = [i.to(self.device, non_blocking=True) for i in target]
-        else:
-            target = target.to(self.device, non_blocking=True)
-
-        # Autocast can be annoying
-        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
-        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
-        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
-            output = self.network(data)
-            del data
-            l = self.loss(output, target)
-
-        # we only need the output with the highest output resolution (if DS enabled)
-        if self.enable_deep_supervision:
-            output = output[0]
-            target = target[0]
-
-        # the following is needed for online evaluation. Fake dice (green line)
-        axes = [0] + list(range(2, output.ndim))
-
-        if self.label_manager.has_regions:
-            predicted_segmentation_onehot = (torch.sigmoid(output) > 0.5).long()
-        else:
-            # no need for softmax
-            output_seg = output.argmax(1)[:, None]
-            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float16)
-            predicted_segmentation_onehot.scatter_(1, output_seg, 1)
-            del output_seg
-
-        if self.label_manager.has_ignore_label:
-            if not self.label_manager.has_regions:
-                mask = target != self.label_manager.ignore_label
-                # CAREFUL that you don't rely on target after this line!
-                target[target == self.label_manager.ignore_label] = 0
-            else:
-                if target.dtype == torch.bool:
-                    mask = ~target[:, -1:]
-                else:
-                    mask = (1 - target[:, -1:]).bool()
-                # CAREFUL that you don't rely on target after this line!
-                target = target[:, :-1].bool()
-        else:
-            mask = None
-
-        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
-
-        tp_hard = tp.detach().cpu().numpy()
-        fp_hard = fp.detach().cpu().numpy()
-        fn_hard = fn.detach().cpu().numpy()
-        if not self.label_manager.has_regions:
-            # if we train with regions all segmentation heads predict some kind of foreground. In conventional
-            # (softmax training) there needs tobe one output for the background. We are not interested in the
-            # background Dice
-            # [1:] in order to remove background
-            tp_hard = tp_hard[1:]
-            fp_hard = fp_hard[1:]
-            fn_hard = fn_hard[1:]
-
-        return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
+        return ComposeTransforms(transforms)
 
 
 class nnUNetTrainerDA5ord0(nnUNetTrainerDA5):
+    """DA5 variant with nearest-neighbor interpolation for both image and segmentation in SpatialTransform."""
     @staticmethod
     def get_training_transforms(
             patch_size: Union[np.ndarray, Tuple[int]],
@@ -526,207 +339,42 @@ class nnUNetTrainerDA5ord0(nnUNetTrainerDA5):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
-    ) -> AbstractTransform:
-        matching_axes = np.array([sum([i == j for j in patch_size]) for i in patch_size])
-        valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
-
-        tr_transforms = []
-        tr_transforms.append(RenameTransform('target', 'seg', True))
+    ) -> BasicTransform:
+        # surgically insert the modified SpatialTransform instead of repeating the whole ordeal
+        ret = nnUNetTrainerDA5.get_training_transforms(
+            patch_size=patch_size,
+            rotation_for_DA=rotation_for_DA,
+            deep_supervision_scales=deep_supervision_scales,
+            mirror_axes=mirror_axes,
+            do_dummy_2d_data_aug=do_dummy_2d_data_aug,
+            use_mask_for_norm=use_mask_for_norm,
+            is_cascaded=is_cascaded,
+            foreground_labels=foreground_labels,
+            regions=regions,
+            ignore_label=ignore_label,
+        )
+        assert isinstance(ret, ComposeTransforms)
 
         if do_dummy_2d_data_aug:
-            ignore_axes = (0,)
-            tr_transforms.append(Convert3DTo2DTransform())
             patch_size_spatial = patch_size[1:]
         else:
             patch_size_spatial = patch_size
-            ignore_axes = None
 
-        tr_transforms.append(
-            SpatialTransform(
-                patch_size_spatial,
-                patch_center_dist_from_border=None,
-                do_elastic_deform=False,
-                do_rotation=True,
-                angle_x=rotation_for_DA,
-                angle_y=rotation_for_DA,
-                angle_z=rotation_for_DA,
-                p_rot_per_axis=0.5,
-                do_scale=True,
-                scale=(0.7, 1.43),
-                border_mode_data="constant",
-                border_cval_data=0,
-                order_data=0,
-                border_mode_seg="constant",
-                border_cval_seg=-1,
-                order_seg=0,
-                random_crop=False,
-                p_el_per_sample=0.2,
-                p_scale_per_sample=0.2,
-                p_rot_per_sample=0.4,
-                independent_scale_for_each_axis=True,
-            )
+        sp_idx = np.where([isinstance(i, SpatialTransform) for i in ret.transforms])[0]
+        assert len(sp_idx) == 1, "SpatialTransform not found, aborting!"
+        ret.transforms[sp_idx[0]] = SpatialTransform(
+            patch_size_spatial, patch_center_dist_from_border=0, random_crop=False,
+            p_elastic_deform=0,
+            p_rotation=0.4, rotation=rotation_for_DA, p_rot_per_axis=0.5,
+            p_scaling=0.2, scaling=(0.7, 1.43),
+            p_synchronize_scaling_across_axes=0,
+            bg_style_seg_sampling=False,
+            border_mode_seg='constant',
+            padding_value_seg=-1,
+            mode_image='nearest',
+            mode_seg='nearest',
         )
-
-        if do_dummy_2d_data_aug:
-            tr_transforms.append(Convert2DTo3DTransform())
-
-        if np.any(matching_axes > 1):
-            tr_transforms.append(
-                Rot90Transform(
-                    (0, 1, 2, 3), axes=valid_axes, data_key='data', label_key='seg', p_per_sample=0.5
-                ),
-            )
-
-        if np.any(matching_axes > 1):
-            tr_transforms.append(
-                TransposeAxesTransform(valid_axes, data_key='data', label_key='seg', p_per_sample=0.5)
-            )
-
-        tr_transforms.append(OneOfTransform([
-            MedianFilterTransform(
-                (2, 8),
-                same_for_each_channel=False,
-                p_per_sample=0.2,
-                p_per_channel=0.5
-            ),
-            GaussianBlurTransform((0.3, 1.5),
-                                  different_sigma_per_channel=True,
-                                  p_per_sample=0.2,
-                                  p_per_channel=0.5)
-        ]))
-
-        tr_transforms.append(GaussianNoiseTransform(p_per_sample=0.1))
-
-        tr_transforms.append(BrightnessTransform(0,
-                                                 0.5,
-                                                 per_channel=True,
-                                                 p_per_sample=0.1,
-                                                 p_per_channel=0.5
-                                                 )
-                             )
-
-        tr_transforms.append(OneOfTransform(
-            [
-                ContrastAugmentationTransform(
-                    contrast_range=(0.5, 2),
-                    preserve_range=True,
-                    per_channel=True,
-                    data_key='data',
-                    p_per_sample=0.2,
-                    p_per_channel=0.5
-                ),
-                ContrastAugmentationTransform(
-                    contrast_range=(0.5, 2),
-                    preserve_range=False,
-                    per_channel=True,
-                    data_key='data',
-                    p_per_sample=0.2,
-                    p_per_channel=0.5
-                ),
-            ]
-        ))
-
-        tr_transforms.append(
-            SimulateLowResolutionTransform(zoom_range=(0.25, 1),
-                                           per_channel=True,
-                                           p_per_channel=0.5,
-                                           order_downsample=0,
-                                           order_upsample=3,
-                                           p_per_sample=0.15,
-                                           ignore_axes=ignore_axes
-                                           )
-        )
-
-        tr_transforms.append(
-            GammaTransform((0.7, 1.5), invert_image=True, per_channel=True, retain_stats=True, p_per_sample=0.1))
-        tr_transforms.append(
-            GammaTransform((0.7, 1.5), invert_image=True, per_channel=True, retain_stats=True, p_per_sample=0.1))
-
-        if mirror_axes is not None and len(mirror_axes) > 0:
-            tr_transforms.append(MirrorTransform(mirror_axes))
-
-        tr_transforms.append(
-            BlankRectangleTransform([[max(1, p // 10), p // 3] for p in patch_size],
-                                    rectangle_value=np.mean,
-                                    num_rectangles=(1, 5),
-                                    force_square=False,
-                                    p_per_sample=0.4,
-                                    p_per_channel=0.5
-                                    )
-        )
-
-        tr_transforms.append(
-            BrightnessGradientAdditiveTransform(
-                _brightnessadditive_localgamma_transform_scale,
-                (-0.5, 1.5),
-                max_strength=_brightness_gradient_additive_max_strength,
-                mean_centered=False,
-                same_for_all_channels=False,
-                p_per_sample=0.3,
-                p_per_channel=0.5
-            )
-        )
-
-        tr_transforms.append(
-            LocalGammaTransform(
-                _brightnessadditive_localgamma_transform_scale,
-                (-0.5, 1.5),
-                _local_gamma_gamma,
-                same_for_all_channels=False,
-                p_per_sample=0.3,
-                p_per_channel=0.5
-            )
-        )
-
-        tr_transforms.append(
-            SharpeningTransform(
-                strength=(0.1, 1),
-                same_for_each_channel=False,
-                p_per_sample=0.2,
-                p_per_channel=0.5
-            )
-        )
-
-        if use_mask_for_norm is not None and any(use_mask_for_norm):
-            tr_transforms.append(MaskTransform([i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
-                                               mask_idx_in_seg=0, set_outside_to=0))
-
-        tr_transforms.append(RemoveLabelTransform(-1, 0))
-
-        if is_cascaded:
-            if ignore_label is not None:
-                raise NotImplementedError('ignore label not yet supported in cascade')
-            assert foreground_labels is not None, 'We need all_labels for cascade augmentations'
-            use_labels = [i for i in foreground_labels if i != 0]
-            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
-            tr_transforms.append(ApplyRandomBinaryOperatorTransform(
-                channel_idx=list(range(-len(use_labels), 0)),
-                p_per_sample=0.4,
-                key="data",
-                strel_size=(1, 8),
-                p_per_label=1))
-            tr_transforms.append(
-                RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-                    channel_idx=list(range(-len(use_labels), 0)),
-                    key="data",
-                    p_per_sample=0.2,
-                    fill_with_other_class_p=0,
-                    dont_do_if_covers_more_than_x_percent=0.15))
-
-        tr_transforms.append(RenameTransform('seg', 'target', True))
-
-        if regions is not None:
-            # the ignore label must also be converted
-            tr_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
-                                                                       if ignore_label is not None else regions,
-                                                                       'target', 'target'))
-
-        if deep_supervision_scales is not None:
-            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
-                                                              output_key='target'))
-        tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
-        tr_transforms = Compose(tr_transforms)
-        return tr_transforms
+        return ret
 
 
 def _brightnessadditive_localgamma_transform_scale(x, y):
@@ -742,6 +390,8 @@ def _local_gamma_gamma():
 
 
 class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
+    """DA5 variant with nearest-neighbor interpolation for segmentation only in SpatialTransform."""
+
     @staticmethod
     def get_training_transforms(
             patch_size: Union[np.ndarray, Tuple[int]],
@@ -754,207 +404,41 @@ class nnUNetTrainerDA5Segord0(nnUNetTrainerDA5):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
-    ) -> AbstractTransform:
-        matching_axes = np.array([sum([i == j for j in patch_size]) for i in patch_size])
-        valid_axes = list(np.where(matching_axes == np.max(matching_axes))[0])
-
-        tr_transforms = []
-        tr_transforms.append(RenameTransform('target', 'seg', True))
+    ) -> BasicTransform:
+        # surgically insert the modified SpatialTransform instead of repeating the whole ordeal
+        ret = nnUNetTrainerDA5.get_training_transforms(
+            patch_size=patch_size,
+            rotation_for_DA=rotation_for_DA,
+            deep_supervision_scales=deep_supervision_scales,
+            mirror_axes=mirror_axes,
+            do_dummy_2d_data_aug=do_dummy_2d_data_aug,
+            use_mask_for_norm=use_mask_for_norm,
+            is_cascaded=is_cascaded,
+            foreground_labels=foreground_labels,
+            regions=regions,
+            ignore_label=ignore_label,
+        )
+        assert isinstance(ret, ComposeTransforms)
 
         if do_dummy_2d_data_aug:
-            ignore_axes = (0,)
-            tr_transforms.append(Convert3DTo2DTransform())
             patch_size_spatial = patch_size[1:]
         else:
             patch_size_spatial = patch_size
-            ignore_axes = None
 
-        tr_transforms.append(
-            SpatialTransform(
-                patch_size_spatial,
-                patch_center_dist_from_border=None,
-                do_elastic_deform=False,
-                do_rotation=True,
-                angle_x=rotation_for_DA,
-                angle_y=rotation_for_DA,
-                angle_z=rotation_for_DA,
-                p_rot_per_axis=0.5,
-                do_scale=True,
-                scale=(0.7, 1.43),
-                border_mode_data="constant",
-                border_cval_data=0,
-                order_data=3,
-                border_mode_seg="constant",
-                border_cval_seg=-1,
-                order_seg=0,
-                random_crop=False,
-                p_el_per_sample=0.2,
-                p_scale_per_sample=0.2,
-                p_rot_per_sample=0.4,
-                independent_scale_for_each_axis=True,
-            )
+        sp_idx = np.where([isinstance(i, SpatialTransform) for i in ret.transforms])[0]
+        assert len(sp_idx) == 1, "SpatialTransform not found, aborting!"
+        ret.transforms[sp_idx[0]] = SpatialTransform(
+            patch_size_spatial, patch_center_dist_from_border=0, random_crop=False,
+            p_elastic_deform=0,
+            p_rotation=0.4, rotation=rotation_for_DA, p_rot_per_axis=0.5,
+            p_scaling=0.2, scaling=(0.7, 1.43),
+            p_synchronize_scaling_across_axes=0,
+            bg_style_seg_sampling=False,
+            border_mode_seg='constant',
+            padding_value_seg=-1,
+            mode_seg='nearest'
         )
-
-        if do_dummy_2d_data_aug:
-            tr_transforms.append(Convert2DTo3DTransform())
-
-        if np.any(matching_axes > 1):
-            tr_transforms.append(
-                Rot90Transform(
-                    (0, 1, 2, 3), axes=valid_axes, data_key='data', label_key='seg', p_per_sample=0.5
-                ),
-            )
-
-        if np.any(matching_axes > 1):
-            tr_transforms.append(
-                TransposeAxesTransform(valid_axes, data_key='data', label_key='seg', p_per_sample=0.5)
-            )
-
-        tr_transforms.append(OneOfTransform([
-            MedianFilterTransform(
-                (2, 8),
-                same_for_each_channel=False,
-                p_per_sample=0.2,
-                p_per_channel=0.5
-            ),
-            GaussianBlurTransform((0.3, 1.5),
-                                  different_sigma_per_channel=True,
-                                  p_per_sample=0.2,
-                                  p_per_channel=0.5)
-        ]))
-
-        tr_transforms.append(GaussianNoiseTransform(p_per_sample=0.1))
-
-        tr_transforms.append(BrightnessTransform(0,
-                                                 0.5,
-                                                 per_channel=True,
-                                                 p_per_sample=0.1,
-                                                 p_per_channel=0.5
-                                                 )
-                             )
-
-        tr_transforms.append(OneOfTransform(
-            [
-                ContrastAugmentationTransform(
-                    contrast_range=(0.5, 2),
-                    preserve_range=True,
-                    per_channel=True,
-                    data_key='data',
-                    p_per_sample=0.2,
-                    p_per_channel=0.5
-                ),
-                ContrastAugmentationTransform(
-                    contrast_range=(0.5, 2),
-                    preserve_range=False,
-                    per_channel=True,
-                    data_key='data',
-                    p_per_sample=0.2,
-                    p_per_channel=0.5
-                ),
-            ]
-        ))
-
-        tr_transforms.append(
-            SimulateLowResolutionTransform(zoom_range=(0.25, 1),
-                                           per_channel=True,
-                                           p_per_channel=0.5,
-                                           order_downsample=0,
-                                           order_upsample=3,
-                                           p_per_sample=0.15,
-                                           ignore_axes=ignore_axes
-                                           )
-        )
-
-        tr_transforms.append(
-            GammaTransform((0.7, 1.5), invert_image=True, per_channel=True, retain_stats=True, p_per_sample=0.1))
-        tr_transforms.append(
-            GammaTransform((0.7, 1.5), invert_image=True, per_channel=True, retain_stats=True, p_per_sample=0.1))
-
-        if mirror_axes is not None and len(mirror_axes) > 0:
-            tr_transforms.append(MirrorTransform(mirror_axes))
-
-        tr_transforms.append(
-            BlankRectangleTransform([[max(1, p // 10), p // 3] for p in patch_size],
-                                    rectangle_value=np.mean,
-                                    num_rectangles=(1, 5),
-                                    force_square=False,
-                                    p_per_sample=0.4,
-                                    p_per_channel=0.5
-                                    )
-        )
-
-        tr_transforms.append(
-            BrightnessGradientAdditiveTransform(
-                _brightnessadditive_localgamma_transform_scale,
-                (-0.5, 1.5),
-                max_strength=_brightness_gradient_additive_max_strength,
-                mean_centered=False,
-                same_for_all_channels=False,
-                p_per_sample=0.3,
-                p_per_channel=0.5
-            )
-        )
-
-        tr_transforms.append(
-            LocalGammaTransform(
-                _brightnessadditive_localgamma_transform_scale,
-                (-0.5, 1.5),
-                _local_gamma_gamma,
-                same_for_all_channels=False,
-                p_per_sample=0.3,
-                p_per_channel=0.5
-            )
-        )
-
-        tr_transforms.append(
-            SharpeningTransform(
-                strength=(0.1, 1),
-                same_for_each_channel=False,
-                p_per_sample=0.2,
-                p_per_channel=0.5
-            )
-        )
-
-        if use_mask_for_norm is not None and any(use_mask_for_norm):
-            tr_transforms.append(MaskTransform([i for i in range(len(use_mask_for_norm)) if use_mask_for_norm[i]],
-                                               mask_idx_in_seg=0, set_outside_to=0))
-
-        tr_transforms.append(RemoveLabelTransform(-1, 0))
-
-        if is_cascaded:
-            if ignore_label is not None:
-                raise NotImplementedError('ignore label not yet supported in cascade')
-            assert foreground_labels is not None, 'We need all_labels for cascade augmentations'
-            use_labels = [i for i in foreground_labels if i != 0]
-            tr_transforms.append(MoveSegAsOneHotToData(1, use_labels, 'seg', 'data'))
-            tr_transforms.append(ApplyRandomBinaryOperatorTransform(
-                channel_idx=list(range(-len(use_labels), 0)),
-                p_per_sample=0.4,
-                key="data",
-                strel_size=(1, 8),
-                p_per_label=1))
-            tr_transforms.append(
-                RemoveRandomConnectedComponentFromOneHotEncodingTransform(
-                    channel_idx=list(range(-len(use_labels), 0)),
-                    key="data",
-                    p_per_sample=0.2,
-                    fill_with_other_class_p=0,
-                    dont_do_if_covers_more_than_x_percent=0.15))
-
-        tr_transforms.append(RenameTransform('seg', 'target', True))
-
-        if regions is not None:
-            # the ignore label must also be converted
-            tr_transforms.append(ConvertSegmentationToRegionsTransform(list(regions) + [ignore_label]
-                                                                       if ignore_label is not None else regions,
-                                                                       'target', 'target'))
-
-        if deep_supervision_scales is not None:
-            tr_transforms.append(DownsampleSegForDSTransform2(deep_supervision_scales, 0, input_key='target',
-                                                              output_key='target'))
-        tr_transforms.append(NumpyToTensor(['data', 'target'], 'float'))
-        tr_transforms = Compose(tr_transforms)
-        return tr_transforms
+        return ret
 
 
 class nnUNetTrainerDA5_10epochs(nnUNetTrainerDA5):

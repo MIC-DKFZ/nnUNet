@@ -95,7 +95,8 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
 if __name__ == '__main__':
     use_these_trainers = {
         'nnUNetTrainer': ('nnUNetResEncUNetMPlans', ),
-        'nnUNetTrainerDA5': ('nnUNetResEncUNetMPlans', ),
+        'nnUNetTrainerDA5': ('nnUNetResEncUNetMPlans',),
+        'nnUNetTrainerDA5Segord0': ('nnUNetResEncUNetMPlans',),
     }
     all_results_file= join(nnUNet_results, 'customDecResults.csv')
 
@@ -115,6 +116,6 @@ if __name__ == '__main__':
 
     folds = (0, 1, 2, 3, 4)
     configs = ("3d_fullres", )
-    output_file = join(nnUNet_results, 'summary_cv.csv')
+    output_file = join(nnUNet_results, 'summary_5fold.csv')
     summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
 
