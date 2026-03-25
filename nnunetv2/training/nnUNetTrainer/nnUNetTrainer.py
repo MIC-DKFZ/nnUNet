@@ -41,7 +41,12 @@ from torch import autocast, nn
 from torch import distributed as dist
 from torch._dynamo import OptimizedModule
 from torch.cuda import device_count
-from torch import GradScaler
+try:
+   from torch import GradScaler           # torch >= 2.3
+   TORCH_HAS_OLD_GRADSCALER = False
+except ImportError:
+   from torch.cuda.amp import GradScaler  # torch < 2.3
+   TORCH_HAS_OLD_GRADSCALER = True
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
@@ -178,7 +183,7 @@ class nnUNetTrainer(object):
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self.build_network_architecture()
         self.optimizer = self.lr_scheduler = None  # -> self.initialize
-        self.grad_scaler = GradScaler("cuda") if self.device.type == 'cuda' else None
+        self.grad_scaler = (GradScaler("cuda") if not TORCH_HAS_OLD_GRADSCALER else GradScaler()) if self.device.type == 'cuda' else None
         self.loss = None  # -> self.initialize
 
         ### Simple logging. Don't take that away from me!
@@ -322,12 +327,18 @@ class nnUNetTrainer(object):
                         # print(k)
                         pass
                 if k in ['dataloader_train', 'dataloader_val']:
-                    if hasattr(getattr(self, k), 'generator'):
-                        dct[k + '.generator'] = str(getattr(self, k).generator)
-                    if hasattr(getattr(self, k), 'num_processes'):
-                        dct[k + '.num_processes'] = str(getattr(self, k).num_processes)
-                    if hasattr(getattr(self, k), 'transform'):
-                        dct[k + '.transform'] = str(getattr(self, k).transform)
+                    dl = getattr(self, k)
+                    if hasattr(dl, 'generator'):
+                        dct[k + '.generator'] = str(dl.generator)
+                        if hasattr(dl.generator, 'transforms'):
+                            try:
+                                dct[k + '.generator.transforms'] = str(dl.generator.transforms)
+                            except Exception as e:
+                                dct[k + '.generator.transforms'] = f"Could not stringify generator.transforms: {type(e).__name__}: {e}"
+                    if hasattr(dl, 'num_processes'):
+                        dct[k + '.num_processes'] = str(dl.num_processes)
+                    if hasattr(dl, 'transform'):
+                        dct[k + '.transform'] = str(dl.transform)
             import subprocess
             hostname = subprocess.getoutput(['hostname'])
             dct['hostname'] = hostname
@@ -757,7 +768,9 @@ class nnUNetTrainer(object):
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
                 p_rotation=0.2,
                 rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
-                bg_style_seg_sampling=False  # , mode_seg='nearest'
+                bg_style_seg_sampling=False,
+                border_mode_seg='constant',
+                padding_value_seg=-1,
             )
         )
 

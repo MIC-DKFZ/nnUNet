@@ -11,18 +11,16 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-import math
 import multiprocessing
 import shutil
 from time import sleep
 from typing import Tuple
+from typing import Union
 
 import SimpleITK
 import numpy as np
-import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 from tqdm import tqdm
-from typing import Union
 
 import nnunetv2
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
@@ -38,6 +36,7 @@ from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 class DefaultPreprocessor(object):
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
+        self.show_progress_bar = True
         """
         Everything we need is in the plans. Those are given when run() is called
         """
@@ -363,11 +362,6 @@ class DefaultPreprocessor(object):
         plans_manager = PlansManager(plans)
         configuration_manager = plans_manager.get_configuration(configuration_name)
 
-        if self.verbose:
-            print(f'Preprocessing the following configuration: {configuration_name}')
-        if self.verbose:
-            print(configuration_manager)
-
         dataset_json_file = join(nnUNet_preprocessed, dataset_name, 'dataset.json')
         dataset_json = load_json(dataset_json_file)
 
@@ -396,7 +390,8 @@ class DefaultPreprocessor(object):
                                            plans_manager, configuration_manager,
                                            dataset_json),)))
 
-            with tqdm(desc=None, total=len(dataset), disable=self.verbose) as pbar:
+            with tqdm(desc="Preprocessing cases", total=len(dataset),
+                      disable=not getattr(self, 'show_progress_bar', True)) as pbar:
                 while len(remaining) > 0:
                     all_alive = all([j.is_alive() for j in workers])
                     if not all_alive:
@@ -408,10 +403,8 @@ class DefaultPreprocessor(object):
                                            'an error message, out of RAM is likely the problem. In that case '
                                            'reducing the number of workers might help')
                     done = [i for i in remaining if r[i].ready()]
-                    # get done so that errors can be raised
-                    _ = [r[i].get() for i in done]
-                    for _ in done:
-                        r[_].get()  # allows triggering errors
+                    for i in done:
+                        r[i].get()  # trigger any errors from worker (single call, no duplicate)
                         pbar.update()
                     remaining = [i for i in remaining if i not in done]
                     sleep(0.1)

@@ -58,13 +58,13 @@ class nnUNetDataLoader(DataLoader):
                 self.need_to_pad[d] += pad_sides[d]
         self.num_channels = None
         self.pad_sides = pad_sides
-        self.data_shape, self.seg_shape = self.determine_shapes()
         self.sampling_probabilities = sampling_probabilities
         self.annotated_classes_key = tuple([-1] + label_manager.all_labels)
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
         self.transforms = transforms
+        self.data_shape, self.seg_shape = self.determine_shapes()
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
@@ -82,9 +82,9 @@ class nnUNetDataLoader(DataLoader):
         num_color_channels = data.shape[0]
 
         if self.patch_size_was_2d:
-            spatial_shape = self.final_patch_size[1:]
+            spatial_shape = self.final_patch_size[1:] if self.transforms is not None else self.patch_size[1:]
         else:
-            spatial_shape = self.final_patch_size
+            spatial_shape = self.final_patch_size if self.transforms is not None else self.patch_size
 
         data_shape = (self.batch_size, num_color_channels, *spatial_shape)
         channels_seg = seg.shape[0]

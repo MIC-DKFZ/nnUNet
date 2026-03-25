@@ -2,6 +2,13 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.experiment_planning.plan_and_preprocess_api import extract_fingerprints, plan_experiments, preprocess
 
 
+def _add_logging_args(parser):
+    parser.add_argument('--verbose', required=False, action='store_true',
+                        help='Set this to print a lot of stuff. Useful for debugging.')
+    parser.add_argument('--no_pbar', required=False, action='store_true',
+                        help='Set this flag to disable the progress bar. Recommended for cluster/HPC environments.')
+
+
 def extract_fingerprint_entry():
     import argparse
     parser = argparse.ArgumentParser()
@@ -20,11 +27,10 @@ def extract_fingerprint_entry():
     parser.add_argument("--clean", required=False, default=False, action="store_true",
                         help='[OPTIONAL] Set this flag to overwrite existing fingerprints. If this flag is not set and a '
                              'fingerprint already exists, the fingerprint extractor will not run.')
-    parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
-                             'Recommended for cluster environments')
+    _add_logging_args(parser)
     args, unrecognized_args = parser.parse_known_args()
-    extract_fingerprints(args.d, args.fpe, args.np, args.verify_dataset_integrity, args.clean, args.verbose)
+    extract_fingerprints(args.d, args.fpe, args.np, args.verify_dataset_integrity, args.clean, args.verbose,
+                         show_progress_bar=not args.no_pbar)
 
 
 def plan_experiment_entry():
@@ -91,16 +97,15 @@ def preprocess_entry():
                              "RAM available. Image resampling takes up a lot of RAM. MONITOR RAM USAGE AND "
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 processes for 2d, 4 "
                              "for 3d_fullres, 8 for 3d_lowres and 4 for everything else")
-    parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
-                             'Recommended for cluster environments')
+    _add_logging_args(parser)
     args, unrecognized_args = parser.parse_known_args()
     if args.np is None:
         default_np = {"2d": 8, "3d_fullres": 4, "3d_lowres": 8}
         np = [default_np[c] if c in default_np.keys() else 4 for c in args.c]
     else:
         np = args.np
-    preprocess(args.d, args.plans_name, configurations=args.c, num_processes=np, verbose=args.verbose)
+    preprocess(args.d, args.plans_name, configurations=args.c, num_processes=np, verbose=args.verbose,
+               show_progress_bar=not args.no_pbar)
 
 
 def plan_and_preprocess_entry():
@@ -170,14 +175,13 @@ def plan_and_preprocess_entry():
                              "RAM available. Image resampling takes up a lot of RAM. MONITOR RAM USAGE AND "
                              "DECREASE -np IF YOUR RAM FILLS UP TOO MUCH!. Default: 8 processes for 2d, 4 "
                              "for 3d_fullres, 8 for 3d_lowres and 4 for everything else")
-    parser.add_argument('--verbose', required=False, action='store_true',
-                        help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
-                             'Recommended for cluster environments')
+    _add_logging_args(parser)
     args = parser.parse_args()
 
     # fingerprint extraction
     print("Fingerprint extraction...")
-    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose)
+    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose,
+                         show_progress_bar=not args.no_pbar)
 
     # experiment planning
     print('Experiment planning...')
@@ -193,7 +197,7 @@ def plan_and_preprocess_entry():
     # preprocessing
     if not args.no_pp:
         print('Preprocessing...')
-        preprocess(args.d, plans_identifier, args.c, np, args.verbose)
+        preprocess(args.d, plans_identifier, args.c, np, args.verbose, show_progress_bar=not args.no_pbar)
 
 
 if __name__ == '__main__':

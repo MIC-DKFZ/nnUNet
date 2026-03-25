@@ -77,7 +77,7 @@ def preprocessing_iterator_fromfiles(list_of_lists: List[List[str]],
     abort_event = manager.Event()
     for i in range(num_processes):
         event = manager.Event()
-        queue = Manager().Queue(maxsize=1)
+        queue = manager.Queue(maxsize=1)
         pr = context.Process(target=preprocess_fromfiles_save_to_queue,
                      args=(
                          list_of_lists[i::num_processes],

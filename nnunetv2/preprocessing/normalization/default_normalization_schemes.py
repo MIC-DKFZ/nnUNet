@@ -32,8 +32,13 @@ class ZScoreNormalization(ImageNormalization):
         here seg is used to store the zero valued region. The value for that region in the segmentation is -1 by
         default.
         """
+        eps = 1e-8 if not self.target_dtype == np.float16 else 1e-4
         image = image.astype(self.target_dtype, copy=False)
-        if self.use_mask_for_norm is not None and self.use_mask_for_norm:
+        if self.use_mask_for_norm:
+            assert seg is not None, ("use_mask_for_norm is set, please provide a mask for the nonzero areas of the "
+                                     "image via seg. The mask will be computed as `mask = seg >= 0`. You can use "
+                                     "create_nonzero_mask from nnunetv2/preprocessing/cropping")
+        if seg is not None and self.use_mask_for_norm:
             # negative values in the segmentation encode the 'outside' region (think zero values around the brain as
             # in BraTS). We want to run the normalization only in the brain region, so we need to mask the image.
             # The default nnU-net sets use_mask_for_norm to True if cropping to the nonzero region substantially
@@ -41,12 +46,12 @@ class ZScoreNormalization(ImageNormalization):
             mask = seg >= 0
             mean = image[mask].mean()
             std = image[mask].std()
-            image[mask] = (image[mask] - mean) / (max(std, 1e-8))
+            image[mask] = (image[mask] - mean) / (max(std, eps))
         else:
             mean = image.mean()
             std = image.std()
             image -= mean
-            image /= (max(std, 1e-8))
+            image /= (max(std, eps))
         return image
 
 
@@ -55,6 +60,7 @@ class CTNormalization(ImageNormalization):
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        eps = 1e-8 if not self.target_dtype == np.float16 else 1e-4
         mean_intensity = self.intensityproperties['mean']
         std_intensity = self.intensityproperties['std']
         lower_bound = self.intensityproperties['percentile_00_5']
@@ -63,7 +69,7 @@ class CTNormalization(ImageNormalization):
         image = image.astype(self.target_dtype, copy=False)
         np.clip(image, lower_bound, upper_bound, out=image)
         image -= mean_intensity
-        image /= max(std_intensity, 1e-8)
+        image /= max(std_intensity, eps)
         return image
 
 
@@ -78,9 +84,10 @@ class RescaleTo01Normalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        eps = 1e-8 if not self.target_dtype == np.float16 else 1e-4
         image = image.astype(self.target_dtype, copy=False)
         image -= image.min()
-        image /= np.clip(image.max(), a_min=1e-8, a_max=None)
+        image /= np.clip(image.max(), a_min=eps, a_max=None)
         return image
 
 
