@@ -279,11 +279,13 @@ class PlansManager(object):
 
     @lru_cache(maxsize=1)
     def _image_reader_writer_class(self) -> Type[BaseReaderWriter]:
-        return recursive_find_reader_writer_by_name(self.plans['image_reader_writer'])
+        return recursive_find_reader_writer_by_name(
+            self.plans['image_reader_writer']
+        )(**self.plans.get('image_reader_writer_kwargs', {}))
 
     @property
     def image_reader_writer_class(self) -> Type[BaseReaderWriter]:
-        return self._image_reader_writer_class(**self.plans['image_reader_writer_kwargs'])
+        return self._image_reader_writer_class
     
     @property
     def transpose_forward(self) -> List[int]:

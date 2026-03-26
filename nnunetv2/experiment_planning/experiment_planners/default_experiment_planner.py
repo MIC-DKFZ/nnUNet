@@ -505,7 +505,7 @@ class ExperimentPlanner(object):
         # json is ###. I hate it... "Object of type int64 is not JSON serializable"
         image_reader_writer_kwargs = {} 
         if "image_reader_writer_kwargs" in self.dataset_json.keys():
-            self.dataset_json['image_reader_writer_kwargs']
+            image_reader_writer_kwargs = self.dataset_json['image_reader_writer_kwargs']
         plans = {
             'dataset_name': self.dataset_name,
             'plans_name': self.plans_identifier,
