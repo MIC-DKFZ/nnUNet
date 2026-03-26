@@ -60,5 +60,7 @@ class nnUNetTrainerBenchmark_5epochs_noDataLoading(nnUNetTrainerBenchmark_5epoch
                 self.on_epoch_end()
 
             self.on_train_end()
-        except RuntimeError:
+        except RuntimeError as e:
             self.crashed_with_runtime_error = True
+            self.on_train_end()
+            self.print_to_log_file(f"An Exception occurred: {e}")
