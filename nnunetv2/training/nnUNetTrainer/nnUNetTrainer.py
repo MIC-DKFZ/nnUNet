@@ -1388,9 +1388,21 @@ class nnUNetTrainer(object):
                                                 self.is_ddp else default_num_processes)
             for label in metrics["mean"]:
                 self.logger.log_summary(f"final_val/class_{label}_dice", metrics["mean"][label]["Dice"])
+                self.logger.log_summary(f"final_val/class_{label}_assd", metrics["mean"][label]["ASSD"])
+                self.logger.log_summary(f"final_val/class_{label}_hd95", metrics["mean"][label]["HD95"])
+                self.logger.log_summary(f"final_val/class_{label}_rve", metrics["mean"][label]["RVE"])
             self.logger.log_summary("final_val/foreground_dice", metrics['foreground_mean']["Dice"])
+            self.logger.log_summary("final_val/foreground_assd", metrics['foreground_mean']["ASSD"])
+            self.logger.log_summary("final_val/foreground_hd95", metrics['foreground_mean']["HD95"])
+            self.logger.log_summary("final_val/foreground_rve", metrics['foreground_mean']["RVE"])
             self.print_to_log_file("Validation complete", also_print_to_console=True)
             self.print_to_log_file("Mean Validation Dice: ", (metrics['foreground_mean']["Dice"]),
+                                   also_print_to_console=True)
+            self.print_to_log_file("Mean Validation ASSD: ", (metrics['foreground_mean']["ASSD"]),
+                                   also_print_to_console=True)
+            self.print_to_log_file("Mean Validation HD95: ", (metrics['foreground_mean']["HD95"]),
+                                   also_print_to_console=True)
+            self.print_to_log_file("Mean Validation RVE: ", (metrics['foreground_mean']["RVE"]),
                                    also_print_to_console=True)
 
         self.set_deep_supervision_enabled(True)
