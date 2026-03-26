@@ -165,10 +165,12 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
             assd, hd95 = _compute_assd_hd95(mask_ref, mask_pred, spacing)
             results['metrics'][r]['ASSD'] = assd
             results['metrics'][r]['HD95'] = hd95
-            if (fn + tp) == 0:
-                results['metrics'][r]['RVE'] = np.nan
+            vol_pred = float(np.sum(mask_pred))
+            vol_ref = float(np.sum(mask_ref))
+            if vol_ref == 0.0:
+                results['metrics'][r]['RVE'] = 0.0 if vol_pred == 0.0 else np.inf
             else:
-                results['metrics'][r]['RVE'] = ((fp + tp) - (fn + tp)) / (fn + tp) * 100.0
+                results['metrics'][r]['RVE'] = ((vol_pred - vol_ref) / vol_ref) * 100.0
         results['metrics'][r]['FP'] = fp
         results['metrics'][r]['TP'] = tp
         results['metrics'][r]['FN'] = fn
