@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 import os
+import warnings
 
 """
 PLEASE READ documentation/setting_up_paths.md FOR INFORMATION TO HOW TO SET THIS UP
@@ -22,18 +23,49 @@ nnUNet_raw = os.environ.get('nnUNet_raw')
 nnUNet_preprocessed = os.environ.get('nnUNet_preprocessed')
 nnUNet_results = os.environ.get('nnUNet_results')
 
-if nnUNet_raw is None:
-    print("nnUNet_raw is not defined and nnU-Net can only be used on data for which preprocessed files "
-          "are already present on your system. nnU-Net cannot be used for experiment planning and preprocessing like "
-          "this. If this is not intended, please read documentation/setting_up_paths.md for information on how to set "
-          "this up properly.")
+_SETTING_UP_PATHS_DOC = 'documentation/setting_up_paths.md'
+_DEFAULT_USAGE_BY_ENV_VAR = {
+    'nnUNet_raw': 'experiment planning and preprocessing',
+    'nnUNet_preprocessed': 'preprocessing and training',
+    'nnUNet_results': 'training and inference',
+}
 
-if nnUNet_preprocessed is None:
-    print("nnUNet_preprocessed is not defined and nnU-Net can not be used for preprocessing "
-          "or training. If this is not intended, please read documentation/setting_up_paths.md for information on how "
-          "to set this up.")
 
-if nnUNet_results is None:
-    print("nnUNet_results is not defined and nnU-Net cannot be used for training or "
-          "inference. If this is not intended behavior, please read documentation/setting_up_paths.md for information "
-          "on how to set this up.")
+def _build_missing_path_message(env_var_name: str, required_for: str = None) -> str:
+    message = f"Environment variable '{env_var_name}' is not set."
+    if required_for is not None:
+        message += f" It is required for {required_for}."
+    message += f" Please configure it according to {_SETTING_UP_PATHS_DOC}"
+    return message
+
+
+def _warn_if_missing(env_var_name: str, current_value: str) -> None:
+    if current_value is None:
+        warnings.warn(
+            _build_missing_path_message(env_var_name, _DEFAULT_USAGE_BY_ENV_VAR[env_var_name]),
+            stacklevel=1,
+        )
+
+
+def get_required_path(env_var_name: str, required_for: str = None) -> str:
+    value = os.environ.get(env_var_name)
+    if value is None:
+        raise EnvironmentError(_build_missing_path_message(env_var_name, required_for))
+    return value
+
+
+def require_raw_dataset_path(required_for: str = None) -> str:
+    return get_required_path('nnUNet_raw', required_for)
+
+
+def require_preprocessed_dataset_path(required_for: str = None) -> str:
+    return get_required_path('nnUNet_preprocessed', required_for)
+
+
+def require_results_path(required_for: str = None) -> str:
+    return get_required_path('nnUNet_results', required_for)
+
+
+_warn_if_missing('nnUNet_raw', nnUNet_raw)
+_warn_if_missing('nnUNet_preprocessed', nnUNet_preprocessed)
+_warn_if_missing('nnUNet_results', nnUNet_results)
