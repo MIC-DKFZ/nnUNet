@@ -8,7 +8,10 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.experiment_planning.dataset_fingerprint.fingerprint_extractor import DatasetFingerprintExtractor
 from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+from nnunetv2.paths import (
+    require_preprocessed_dataset_path,
+    require_raw_dataset_path,
+)
 from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
@@ -26,9 +29,11 @@ def extract_fingerprint_dataset(dataset_id: int,
     """
     dataset_name = convert_id_to_dataset_name(dataset_id)
     print(dataset_name)
+    raw_dir = require_raw_dataset_path('dataset fingerprint extraction')
+    require_preprocessed_dataset_path('dataset fingerprint extraction')
 
     if check_dataset_integrity:
-        verify_dataset_integrity(join(nnUNet_raw, dataset_name), num_processes)
+        verify_dataset_integrity(join(raw_dir, dataset_name), num_processes)
 
     fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose)
     if hasattr(fpe, 'show_progress_bar'):
@@ -119,8 +124,10 @@ def preprocess_dataset(dataset_id: int,
             f'{len(num_processes)}')
 
     dataset_name = convert_id_to_dataset_name(dataset_id)
+    raw_dir = require_raw_dataset_path('preprocessing')
+    preprocessed_dir = require_preprocessed_dataset_path('preprocessing')
     print(f'Preprocessing dataset {dataset_name}')
-    plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
+    plans_file = join(preprocessed_dir, dataset_name, plans_identifier + '.json')
     plans_manager = PlansManager(plans_file)
     for n, c in zip(num_processes, configurations):
         print(f'Configuration: {c}...')
@@ -139,13 +146,13 @@ def preprocess_dataset(dataset_id: int,
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
     # longer there (useful for compute cluster where only the preprocessed data is available)
     from distutils.file_util import copy_file
-    maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
-    dataset_json = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
-    dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
+    maybe_mkdir_p(join(preprocessed_dir, dataset_name, 'gt_segmentations'))
+    dataset_json = load_json(join(raw_dir, dataset_name, 'dataset.json'))
+    dataset = get_filenames_of_train_images_and_targets(join(raw_dir, dataset_name), dataset_json)
     # only copy files that are newer than the ones already present
     for k in dataset:
         copy_file(dataset[k]['label'],
-                  join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']),
+                  join(preprocessed_dir, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']),
                   update=True)
 
 

@@ -8,7 +8,7 @@ import torch.cuda
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
-from nnunetv2.paths import nnUNet_preprocessed
+from nnunetv2.paths import require_preprocessed_dataset_path, require_results_path
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
@@ -59,7 +59,8 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                              f'input: {dataset_name_or_id}')
 
     # initialize nnunet trainer
-    preprocessed_dataset_folder_base = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id))
+    preprocessed_dir = require_preprocessed_dataset_path('training')
+    preprocessed_dataset_folder_base = join(preprocessed_dir, maybe_convert_to_dataset_name(dataset_name_or_id))
     plans_file = join(preprocessed_dataset_folder_base, plans_identifier + '.json')
     plans = load_json(plans_file)
     plans["continue_training"] = continue_training
@@ -148,6 +149,8 @@ def run_training(dataset_name_or_id: Union[str, int],
                  disable_checkpointing: bool = False,
                  val_with_best: bool = False,
                  device: torch.device = torch.device('cuda')):
+    require_preprocessed_dataset_path('training')
+    require_results_path('training')
     if plans_identifier == 'nnUNetPlans':
         print("\n############################\n"
               "INFO: You are using the old nnU-Net default plans. We have updated our recommendations. "
