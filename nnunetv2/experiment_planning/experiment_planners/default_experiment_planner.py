@@ -499,7 +499,7 @@ class ExperimentPlanner(object):
 
         # instead of writing all that into the plans we just copy the original file. More files, but less crowded
         # per file.
-        shutil.copy(join(self.raw_dataset_folder, 'dataset.json'),
+        shutil.copyfile(join(self.raw_dataset_folder, 'dataset.json'),
                     join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
 
         # json is ###. I hate it... "Object of type int64 is not JSON serializable"
@@ -573,7 +573,7 @@ class ExperimentPlanner(object):
 
 def _maybe_copy_splits_file(splits_file: str, target_fname: str):
     if not isfile(target_fname):
-        shutil.copy(splits_file, target_fname)
+        shutil.copyfile(splits_file, target_fname)
     else:
         # split already exists, do not copy, but check that the splits match.
         # This code allows target_fname to contain more splits than splits_file. This is OK.

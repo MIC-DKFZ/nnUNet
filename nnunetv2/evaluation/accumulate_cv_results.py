@@ -26,8 +26,8 @@ def accumulate_cv_results(trained_model_folder,
     dataset_json = load_json(join(trained_model_folder, 'dataset.json'))
     plans_manager = PlansManager(join(trained_model_folder, 'plans.json'))
     rw = plans_manager.image_reader_writer_class()
-    shutil.copy(join(trained_model_folder, 'dataset.json'), join(merged_output_folder, 'dataset.json'))
-    shutil.copy(join(trained_model_folder, 'plans.json'), join(merged_output_folder, 'plans.json'))
+    shutil.copyfile(join(trained_model_folder, 'dataset.json'), join(merged_output_folder, 'dataset.json'))
+    shutil.copyfile(join(trained_model_folder, 'plans.json'), join(merged_output_folder, 'plans.json'))
 
     did_we_copy_something = False
     for f in folds:
@@ -39,7 +39,7 @@ def accumulate_cv_results(trained_model_folder,
             if overwrite and isfile(join(merged_output_folder, pf)):
                 raise RuntimeError(f'More than one of your folds has a prediction for case {pf}')
             if overwrite or not isfile(join(merged_output_folder, pf)):
-                shutil.copy(join(expected_validation_folder, pf), join(merged_output_folder, pf))
+                shutil.copyfile(join(expected_validation_folder, pf), join(merged_output_folder, pf))
                 did_we_copy_something = True
 
     if did_we_copy_something or not isfile(join(merged_output_folder, 'summary.json')):

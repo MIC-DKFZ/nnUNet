@@ -43,10 +43,10 @@ if __name__ == '__main__':
         seg_file = join(base, c + '-label.nii.gz')
         if not isfile(seg_file):
             # test case
-            shutil.copy(img_file, join(imagesTs, c + '_0000.nii.gz'))
+            shutil.copyfile(img_file, join(imagesTs, c + '_0000.nii.gz'))
             continue
         n_tr += 1
-        shutil.copy(img_file, join(imagesTr, c + '_0000.nii.gz'))
+        shutil.copyfile(img_file, join(imagesTr, c + '_0000.nii.gz'))
 
         # we must open seg and map -1 to 5
         seg_itk = sitk.ReadImage(seg_file)
@@ -126,7 +126,7 @@ if __name__ == '__main__':
             raise RuntimeError(f'Missing image file for identifier {identifiers}')
         seg_file = join(base, c + '-rib-seg.nii.gz')
         n_tr += 1
-        shutil.copy(seg_file, join(labelsTr, c + '.nii.gz'))
+        shutil.copyfile(seg_file, join(labelsTr, c + '.nii.gz'))
         dataset[c] = {
             'images': [img_file],
             'label': join('labelsTr', c + '.nii.gz')

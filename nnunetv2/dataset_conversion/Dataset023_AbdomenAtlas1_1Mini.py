@@ -27,8 +27,8 @@ if __name__ == '__main__':
         if not isfile(join(base, case, 'ct.nii.gz')):
             print(f'Skipping case {case} due to missing image')
             continue
-        shutil.copy(join(base, case, 'ct.nii.gz'), join(imagesTr, case + '_0000.nii.gz'))
-        shutil.copy(join(base, case, 'combined_labels.nii.gz'), join(labelsTr, case + '.nii.gz'))
+        shutil.copyfile(join(base, case, 'ct.nii.gz'), join(imagesTr, case + '_0000.nii.gz'))
+        shutil.copyfile(join(base, case, 'combined_labels.nii.gz'), join(labelsTr, case + '.nii.gz'))
 
     class_map = {1: 'aorta', 2: 'gall_bladder', 3: 'kidney_left', 4: 'kidney_right', 5: 'liver',
                  6: 'pancreas', 7: 'postcava', 8: 'spleen', 9: 'stomach', 10: 'adrenal_gland_left',

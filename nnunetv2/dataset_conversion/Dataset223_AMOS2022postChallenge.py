@@ -24,29 +24,29 @@ if __name__ == '__main__':
     source_files = nifti_files(source, join=False)
     train_identifiers += source_files
     for s in source_files:
-        shutil.copy(join(source, s), join(imagesTr, s[:-7] + '_0000.nii.gz'))
+        shutil.copyfile(join(source, s), join(imagesTr, s[:-7] + '_0000.nii.gz'))
 
     source = join(downloaded_amos_dir, 'imagesVa')
     source_files = nifti_files(source, join=False)
     train_identifiers += source_files
     for s in source_files:
-        shutil.copy(join(source, s), join(imagesTr, s[:-7] + '_0000.nii.gz'))
+        shutil.copyfile(join(source, s), join(imagesTr, s[:-7] + '_0000.nii.gz'))
 
     source = join(downloaded_amos_dir, 'imagesTs')
     source_files = nifti_files(source, join=False)
     for s in source_files:
-        shutil.copy(join(source, s), join(imagesTs, s[:-7] + '_0000.nii.gz'))
+        shutil.copyfile(join(source, s), join(imagesTs, s[:-7] + '_0000.nii.gz'))
 
     # copy labels
     source = join(downloaded_amos_dir, 'labelsTr')
     source_files = nifti_files(source, join=False)
     for s in source_files:
-        shutil.copy(join(source, s), join(labelsTr, s))
+        shutil.copyfile(join(source, s), join(labelsTr, s))
 
     source = join(downloaded_amos_dir, 'labelsVa')
     source_files = nifti_files(source, join=False)
     for s in source_files:
-        shutil.copy(join(source, s), join(labelsTr, s))
+        shutil.copyfile(join(source, s), join(labelsTr, s))
 
     old_dataset_json = load_json(join(downloaded_amos_dir, 'dataset.json'))
     new_labels = {v: k for k, v in old_dataset_json['labels'].items()}

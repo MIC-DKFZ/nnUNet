@@ -15,7 +15,7 @@ def split_4d_nifti(filename, output_folder):
     dim = img_itk.GetDimension()
     file_base = os.path.basename(filename)
     if dim == 3:
-        shutil.copy(filename, join(output_folder, file_base[:-7] + "_0000.nii.gz"))
+        shutil.copyfile(filename, join(output_folder, file_base[:-7] + "_0000.nii.gz"))
         return
     elif dim != 4:
         raise RuntimeError("Unexpected dimensionality: %d of file %s, cannot split" % (dim, filename))
@@ -99,7 +99,7 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
         source_images = [i for i in subfiles(labelsTr, suffix='.nii.gz', join=False) if
                          not i.startswith('.') and not i.startswith('_')]
         for s in source_images:
-            shutil.copy(join(labelsTr, s), join(target_labelsTr, s))
+            shutil.copyfile(join(labelsTr, s), join(target_labelsTr, s))
 
         [i.get() for i in results]
 

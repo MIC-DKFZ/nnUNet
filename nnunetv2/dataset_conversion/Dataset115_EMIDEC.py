@@ -14,13 +14,13 @@ def copy_files(src_data_dir: Path, src_test_dir: Path, train_dir: Path, labels_d
     for patient in patients_train:
         train_file = patient / "Images" / f"{patient.name}.nii.gz"
         label_file = patient / "Contours" / f"{patient.name}.nii.gz"
-        shutil.copy(train_file, train_dir / f"{train_file.stem.split('.')[0]}_0000.nii.gz")
-        shutil.copy(label_file, labels_dir)
+        shutil.copyfile(train_file, train_dir / f"{train_file.stem.split('.')[0]}_0000.nii.gz")
+        shutil.copyfile(label_file, labels_dir)
 
     # Copy test files.
     for patient in patients_test:
         test_file = patient / "Images" / f"{patient.name}.nii.gz"
-        shutil.copy(test_file, test_dir / f"{test_file.stem.split('.')[0]}_0000.nii.gz")
+        shutil.copyfile(test_file, test_dir / f"{test_file.stem.split('.')[0]}_0000.nii.gz")
 
     return len(patients_train)
 

@@ -923,7 +923,7 @@ class nnUNetTrainer(object):
         save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'), sort_keys=False)
 
         # we don't really need the fingerprint but its still handy to have it with the others
-        shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
+        shutil.copyfile(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
                     join(self.output_folder_base, 'dataset_fingerprint.json'))
 
         # produces a pdf in output folder
