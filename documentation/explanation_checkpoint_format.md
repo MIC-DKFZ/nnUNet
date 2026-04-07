@@ -19,7 +19,7 @@ Inference loaders need only the first file plus the JSON sidecar. Resume-from-ch
 
 ## Why this layout
 
-- **Safety.** safetensors does not execute pickled Python on load, so distributing trained models no longer requires the consumer to trust your `.pth`.
+- **Safety.** safetensors does not execute pickled Python on load, so distributing trained models no longer requires the consumer to trust your `.pth`. This matters more than it used to: **CVE-2025-32434** (CVSS 9.3, fixed in PyTorch 2.6.0) demonstrated a remote-code-execution path through `torch.load` that bypassed even `weights_only=True`. nnU-Net checkpoints are dicts containing optimizer state and arbitrary `init_args`, so every legacy `.pth` load goes through the unsafe `weights_only=False` path. The safetensors format sidesteps the pickle attack surface entirely. Anyone distributing trained models to third parties should set `nnUNet_save_pth=0` and ship only the safetensors layout.
 - **Speed.** safetensors loads faster than `torch.load`, especially for the inference path that only needs the network weights.
 - **Portability.** Non-PyTorch loaders (e.g. the MLX inference port for Apple Silicon) can read the weights file directly without going through `torch.load`. The `weight_layout` metadata entry tells them how the conv tensor axes are ordered.
 - **Round-trip fidelity.** The recursive flatten/merge in `nnunetv2/utilities/checkpoint_io.py` walks arbitrary nested optimizer state, so warmed Adam buffers (`exp_avg`, `exp_avg_sq`, `step`) and grad_scaler scale tensors come back byte-equal.
