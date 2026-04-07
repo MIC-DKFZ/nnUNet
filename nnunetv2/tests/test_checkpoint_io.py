@@ -20,6 +20,7 @@ import torch.nn as nn
 
 from nnunetv2.utilities.checkpoint_io import (
     WEIGHT_LAYOUT_TORCH,
+    _inference_meta_json_path,
     _trainer_state_json_path,
     _trainer_state_tensors_path,
     _weights_path,
@@ -115,15 +116,69 @@ def _assert_optimizer_states_equal(a: dict, b: dict) -> None:
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_save_creates_three_files(tmp_path: Path) -> None:
+def test_save_creates_four_files(tmp_path: Path) -> None:
+    """Full checkpoint with optimizer state writes weights + inference meta
+    + trainer-state pair."""
     ckpt = _build_warm_checkpoint()
     pth = tmp_path / "checkpoint_final.pth"
     save_checkpoint(ckpt, pth)
 
     assert _weights_path(pth).exists()
+    assert _inference_meta_json_path(pth).exists()
     assert _trainer_state_tensors_path(pth).exists()
     assert _trainer_state_json_path(pth).exists()
     assert not pth.exists()  # we don't write .pth ourselves
+
+
+def test_inference_meta_isolated_from_trainer_state(tmp_path: Path) -> None:
+    """The inference metadata JSON must be small and must not leak training
+    history (logging, optimizer skeleton). It is the file shipped to third
+    parties; bloat or leakage here is a regression."""
+    ckpt = _build_warm_checkpoint()
+    pth = tmp_path / "checkpoint_final.pth"
+    save_checkpoint(ckpt, pth)
+
+    with open(_inference_meta_json_path(pth)) as f:
+        inference_meta = json.load(f)
+
+    assert "init_args" in inference_meta
+    assert "trainer_name" in inference_meta
+    assert "inference_allowed_mirroring_axes" in inference_meta
+    # These belong to trainer state, not inference metadata.
+    for forbidden in ("logging", "optimizer_state", "grad_scaler_state",
+                      "current_epoch", "_best_ema"):
+        assert forbidden not in inference_meta, \
+            f"inference metadata leaked trainer-state field {forbidden!r}"
+
+    with open(_trainer_state_json_path(pth)) as f:
+        trainer_state = json.load(f)
+    assert "logging" in trainer_state
+    assert "optimizer_state" in trainer_state
+    assert "current_epoch" in trainer_state
+    # And conversely, trainer state shouldn't duplicate inference metadata.
+    for forbidden in ("init_args", "trainer_name",
+                      "inference_allowed_mirroring_axes"):
+        assert forbidden not in trainer_state, \
+            f"trainer state leaked inference-metadata field {forbidden!r}"
+
+
+def test_inference_only_artifact(tmp_path: Path) -> None:
+    """A checkpoint with no optimizer state writes exactly two files
+    (weights + inference meta), suitable for distribution."""
+    ckpt = _build_warm_checkpoint()
+    ckpt["optimizer_state"] = None
+    ckpt["grad_scaler_state"] = None
+    pth = tmp_path / "checkpoint_final.pth"
+    save_checkpoint(ckpt, pth)
+
+    assert _weights_path(pth).exists()
+    assert _inference_meta_json_path(pth).exists()
+    assert not _trainer_state_tensors_path(pth).exists()
+    assert not _trainer_state_json_path(pth).exists()
+
+    loaded = load_checkpoint(pth)
+    assert loaded["optimizer_state"] is None
+    assert loaded["init_args"]["configuration"] == "3d_fullres"
 
 
 def test_metadata_records_weight_layout(tmp_path: Path) -> None:

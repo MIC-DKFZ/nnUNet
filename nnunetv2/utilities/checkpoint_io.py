@@ -50,13 +50,29 @@ def _weights_path(pth: PathLike) -> Path:
     return Path(pth).with_suffix(".safetensors")
 
 
+def _inference_meta_json_path(pth: PathLike) -> Path:
+    """Inference-side metadata: init_args, trainer_name, mirroring axes.
+
+    Pairs with the network weights .safetensors file. Both together are the
+    full distribution artifact for a pretrained model.
+    """
+    return Path(pth).with_suffix(".json")
+
+
 def _trainer_state_tensors_path(pth: PathLike) -> Path:
     p = Path(pth)
     return p.with_name(p.stem + ".trainer_state.safetensors")
 
 
 def _trainer_state_json_path(pth: PathLike) -> Path:
-    return Path(pth).with_suffix(".json")
+    """Trainer Python state: epoch, _best_ema, logging history, and the
+    optimizer/grad_scaler skeletons with tensor placeholders.
+
+    Pairs with the trainer_state .safetensors file. Both together are
+    needed to resume training; neither is needed for inference.
+    """
+    p = Path(pth)
+    return p.with_name(p.stem + ".trainer_state.json")
 
 
 # ---------------------------------------------------------------------------
@@ -108,15 +124,25 @@ def _restore_optimizer_int_keys(optimizer_state: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def save_checkpoint(checkpoint: dict, filename: PathLike) -> None:
-    """Save an nnU-Net checkpoint as safetensors + JSON.
+    """Save an nnU-Net checkpoint as safetensors + JSON sidecars.
 
-    Writes three files alongside ``filename`` (which is conventionally a .pth
-    path; the suffix is used only to derive sibling paths).
+    Writes up to four files alongside ``filename`` (which is conventionally a
+    .pth path; the suffix is used only to derive sibling paths):
+
+      <base>.safetensors                -- network weights (inference artifact)
+      <base>.json                       -- inference metadata (small, distributable)
+      <base>.trainer_state.safetensors  -- optimizer + grad_scaler tensors
+      <base>.trainer_state.json         -- trainer Python state + skeletons
+
+    Distribution = first two files. Resume = all four. The trainer-state
+    pair is omitted entirely if the checkpoint has no optimizer or scaler
+    state (e.g. an inference-only checkpoint converted from .pth weights).
     """
     pth = Path(filename)
     weights_path = _weights_path(pth)
-    state_path = _trainer_state_tensors_path(pth)
-    meta_path = _trainer_state_json_path(pth)
+    inference_meta_path = _inference_meta_json_path(pth)
+    state_tensors_path = _trainer_state_tensors_path(pth)
+    state_json_path = _trainer_state_json_path(pth)
 
     # 1. Network weights — flat dict[str, Tensor], no recursion needed.
     network_weights = checkpoint["network_weights"]
@@ -133,25 +159,9 @@ def save_checkpoint(checkpoint: dict, filename: PathLike) -> None:
         },
     )
 
-    # 2. Optimizer + grad_scaler tensors and skeletons.
-    trainer_tensors: dict[str, torch.Tensor] = {}
-    optimizer_skeleton = None
-    if checkpoint.get("optimizer_state") is not None:
-        optimizer_skeleton = _split(
-            checkpoint["optimizer_state"], "optimizer", trainer_tensors
-        )
-
-    grad_scaler_skeleton = None
-    if checkpoint.get("grad_scaler_state") is not None:
-        grad_scaler_skeleton = _split(
-            checkpoint["grad_scaler_state"], "grad_scaler", trainer_tensors
-        )
-
-    if trainer_tensors:
-        save_file(trainer_tensors, str(state_path))
-
-    # 3. JSON sidecar with everything Python.
-    metadata = {
+    # 2. Inference metadata — what predict_from_raw_data needs and nothing
+    # more. This is the file that ships with a distributed model.
+    inference_meta = {
         "format_version": FORMAT_VERSION,
         "weight_layout": WEIGHT_LAYOUT_TORCH,
         "trainer_name": checkpoint.get("trainer_name"),
@@ -159,14 +169,44 @@ def save_checkpoint(checkpoint: dict, filename: PathLike) -> None:
         "inference_allowed_mirroring_axes": checkpoint.get(
             "inference_allowed_mirroring_axes"
         ),
+    }
+    with open(inference_meta_path, "w") as f:
+        json.dump(inference_meta, f, indent=2, default=str)
+
+    # 3 + 4. Trainer state: tensors flattened into one safetensors file,
+    # everything Python (including skeletons with tensor placeholders) into
+    # the paired JSON file. Both omitted if there is no trainer state.
+    has_optimizer = checkpoint.get("optimizer_state") is not None
+    has_grad_scaler = checkpoint.get("grad_scaler_state") is not None
+    if not (has_optimizer or has_grad_scaler):
+        return
+
+    trainer_tensors: dict[str, torch.Tensor] = {}
+    optimizer_skeleton = None
+    if has_optimizer:
+        optimizer_skeleton = _split(
+            checkpoint["optimizer_state"], "optimizer", trainer_tensors
+        )
+
+    grad_scaler_skeleton = None
+    if has_grad_scaler:
+        grad_scaler_skeleton = _split(
+            checkpoint["grad_scaler_state"], "grad_scaler", trainer_tensors
+        )
+
+    if trainer_tensors:
+        save_file(trainer_tensors, str(state_tensors_path))
+
+    trainer_state = {
+        "format_version": FORMAT_VERSION,
         "current_epoch": checkpoint.get("current_epoch"),
         "_best_ema": checkpoint.get("_best_ema"),
         "logging": checkpoint.get("logging"),
         "optimizer_state": optimizer_skeleton,
         "grad_scaler_state": grad_scaler_skeleton,
     }
-    with open(meta_path, "w") as f:
-        json.dump(metadata, f, indent=2, default=str)
+    with open(state_json_path, "w") as f:
+        json.dump(trainer_state, f, indent=2, default=str)
 
 
 # Backwards-compat alias for the old function name used in earlier drafts of
@@ -205,12 +245,14 @@ def load_checkpoint(
     """
     pth = Path(filename)
     weights_path = _weights_path(pth)
-    state_path = _trainer_state_tensors_path(pth)
-    meta_path = _trainer_state_json_path(pth)
+    inference_meta_path = _inference_meta_json_path(pth)
+    state_tensors_path = _trainer_state_tensors_path(pth)
+    state_json_path = _trainer_state_json_path(pth)
 
     if weights_path.exists():
         return _load_safetensors(
-            weights_path, state_path, meta_path, map_location, load_optimizer
+            weights_path, state_tensors_path, inference_meta_path,
+            state_json_path, map_location, load_optimizer,
         )
 
     if pth.exists():
@@ -231,8 +273,9 @@ def _device_str(map_location) -> str:
 
 def _load_safetensors(
     weights_path: Path,
-    state_path: Path,
-    meta_path: Path,
+    state_tensors_path: Path,
+    inference_meta_path: Path,
+    state_json_path: Path,
     map_location,
     load_optimizer: bool,
 ) -> dict:
@@ -240,40 +283,49 @@ def _load_safetensors(
 
     network_weights = load_file(str(weights_path), device=device)
 
-    if not meta_path.exists():
-        # Inference-only artifact (e.g. converted from a pth that had no
-        # metadata). Return what we can.
-        return {
-            "network_weights": network_weights,
-            "optimizer_state": None,
-            "grad_scaler_state": None,
-        }
-
-    with open(meta_path) as f:
-        metadata = json.load(f)
-
     checkpoint: dict = {
         "network_weights": network_weights,
-        "trainer_name": metadata.get("trainer_name"),
-        "init_args": metadata.get("init_args"),
-        "inference_allowed_mirroring_axes": metadata.get(
-            "inference_allowed_mirroring_axes"
-        ),
-        "current_epoch": metadata.get("current_epoch"),
-        "_best_ema": metadata.get("_best_ema"),
-        "logging": metadata.get("logging"),
+        "trainer_name": None,
+        "init_args": None,
+        "inference_allowed_mirroring_axes": None,
+        "current_epoch": None,
+        "_best_ema": None,
+        "logging": None,
         "optimizer_state": None,
         "grad_scaler_state": None,
     }
 
-    if load_optimizer and state_path.exists():
-        trainer_tensors = load_file(str(state_path), device=device)
-        if metadata.get("optimizer_state") is not None:
-            opt = _merge(metadata["optimizer_state"], trainer_tensors)
+    # Inference metadata sidecar — small, distribution-friendly.
+    if inference_meta_path.exists():
+        with open(inference_meta_path) as f:
+            inference_meta = json.load(f)
+        checkpoint["trainer_name"] = inference_meta.get("trainer_name")
+        checkpoint["init_args"] = inference_meta.get("init_args")
+        checkpoint["inference_allowed_mirroring_axes"] = inference_meta.get(
+            "inference_allowed_mirroring_axes"
+        )
+
+    if not load_optimizer:
+        return checkpoint
+
+    # Trainer-state pair: optional. Absent on distribution-only artifacts.
+    if not state_json_path.exists():
+        return checkpoint
+
+    with open(state_json_path) as f:
+        trainer_state = json.load(f)
+    checkpoint["current_epoch"] = trainer_state.get("current_epoch")
+    checkpoint["_best_ema"] = trainer_state.get("_best_ema")
+    checkpoint["logging"] = trainer_state.get("logging")
+
+    if state_tensors_path.exists():
+        trainer_tensors = load_file(str(state_tensors_path), device=device)
+        if trainer_state.get("optimizer_state") is not None:
+            opt = _merge(trainer_state["optimizer_state"], trainer_tensors)
             checkpoint["optimizer_state"] = _restore_optimizer_int_keys(opt)
-        if metadata.get("grad_scaler_state") is not None:
+        if trainer_state.get("grad_scaler_state") is not None:
             checkpoint["grad_scaler_state"] = _merge(
-                metadata["grad_scaler_state"], trainer_tensors
+                trainer_state["grad_scaler_state"], trainer_tensors
             )
 
     return checkpoint

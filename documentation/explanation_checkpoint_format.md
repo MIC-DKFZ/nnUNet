@@ -8,14 +8,15 @@ page explains what gets written, why, and how to interoperate with the legacy
 
 For a checkpoint named `checkpoint_final.pth`, the trainer writes:
 
-| File | Contents |
-|---|---|
-| `checkpoint_final.safetensors` | Network weights only. Inference artifact. Has a `weight_layout=torch_ncdhw` entry in the safetensors metadata header. |
-| `checkpoint_final.trainer_state.safetensors` | Optimizer and grad_scaler tensors, flattened with dotted keys (`optimizer.state.<param_id>.<buffer_name>`). |
-| `checkpoint_final.json` | Everything Python: `init_args`, `trainer_name`, `inference_allowed_mirroring_axes`, `current_epoch`, `_best_ema`, `logging`, plus skeletons for the optimizer and grad_scaler dicts with tensor placeholders. |
-| `checkpoint_final.pth` | *(optional)* Legacy PyTorch pickle. Written by default; opt out with `nnUNet_save_pth=0`. |
+| File | Group | Contents |
+|---|---|---|
+| `checkpoint_final.safetensors` | inference | Network weights only. Has a `weight_layout=torch_ncdhw` entry in the safetensors metadata header. |
+| `checkpoint_final.json` | inference | Inference metadata: `init_args`, `trainer_name`, `inference_allowed_mirroring_axes`. Small. |
+| `checkpoint_final.trainer_state.safetensors` | trainer state | Optimizer and grad_scaler tensors, flattened with dotted keys (`optimizer.state.<param_id>.<buffer_name>`). |
+| `checkpoint_final.trainer_state.json` | trainer state | Trainer Python state: `current_epoch`, `_best_ema`, `logging`, plus skeletons for the optimizer and grad_scaler dicts with tensor placeholders. |
+| `checkpoint_final.pth` | *(legacy)* | Legacy PyTorch pickle. Written by default; opt out with `nnUNet_save_pth=0`. |
 
-Inference loaders need only the first file plus the JSON sidecar. Resume-from-checkpoint needs all three of the new files (or just the `.pth`).
+The two **inference** files are the full distribution artifact for a pretrained model: ship them and a third party can run inference. The two **trainer state** files are needed to resume training and contain no information that an inference user needs (or that you may want to expose — `logging` carries the full training-loss history, which can fingerprint a dataset). The trainer-state pair is omitted entirely if a checkpoint has no optimizer state, e.g. an inference-only artifact converted from a `.pth` that contained only weights.
 
 ## Why this layout
 
