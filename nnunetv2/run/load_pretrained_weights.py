@@ -16,10 +16,12 @@ def load_pretrained_weights(network, fname, verbose=False):
     nnUNetTrainer.save_checkpoint takes care of that!
 
     """
+    from nnunetv2.utilities.checkpoint_io import load_checkpoint
     if dist.is_initialized():
-        saved_model = torch.load(fname, map_location=torch.device('cuda', dist.get_rank()), weights_only=False)
+        saved_model = load_checkpoint(fname, map_location=torch.device('cuda', dist.get_rank()),
+                                      load_optimizer=False)
     else:
-        saved_model = torch.load(fname, weights_only=False)
+        saved_model = load_checkpoint(fname, load_optimizer=False)
     pretrained_dict = saved_model['network_weights']
 
     skip_strings_in_pretrained = [
