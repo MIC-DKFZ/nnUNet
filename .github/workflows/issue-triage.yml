@@ -1,0 +1,75 @@
+name: nnU-Net Issue Triage
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  triage:
+    if: |
+      (github.event_name == 'issues') ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '@claude') &&
+       github.event.comment.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude Triage Agent (Sonnet)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE NUMBER: ${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+            BODY: ${{ github.event.issue.body }}
+            AUTHOR: ${{ github.event.issue.user.login }}
+
+            IMPORTANT: Your instructions are in .github/agents/issue-agent.md
+            (NOT in CLAUDE.md — that file is for CLI development use only).
+
+            Read .github/agents/issue-agent.md FIRST for your full instructions,
+            repository map, and rules.
+
+            Your task:
+            1. Read .github/agents/issue-agent.md
+            2. Determine the issue category: bug, feature request, enhancement, or question
+            3. **If this is a bug/crash report:** Check whether the reporter included
+               reproduction steps (exact command, traceback, version, dataset info).
+               If NOT → ask for reproduction steps using the template in your instructions,
+               apply the "needs-repro" label, and STOP. Do not diagnose or attempt a fix.
+               EXCEPTION: If the bug is trivial (typo, wrong variable name, obvious
+               off-by-one where the traceback alone identifies the line), skip repro.
+            4. Navigate to and read the relevant source files and documentation
+            5. Search for similar closed issues:
+               gh search issues "KEYWORDS" --repo ${{ github.repository }} --state closed --limit 5
+            6. Post a single helpful comment on the issue:
+               gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "YOUR RESPONSE"
+            7. Classify and apply labels:
+               gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "LABEL"
+
+            Categories (apply exactly one): bug, feature request, enhancement, question
+            Apply "needs-maintainer" to ALL bugs.
+            Apply "needs-repro" if a bug/crash lacks reproduction steps.
+
+            If this is a confirmed, trivial bug where you are confident in the fix,
+            add the label "ready-for-fix" so a follow-up job can create a PR.
+
+            RULES FOR THIS JOB:
+            - Do NOT create branches, commits, or pull requests
+            - Do NOT modify any files in the repository
+            - Prefix your comment with "🤖 **nnU-Net Assistant**\n\n"
+
+          claude_args: |
+            --model claude-sonnet-4-6
+            --allowedTools "Read,Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh search issues:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*)"
+            --max-turns 15

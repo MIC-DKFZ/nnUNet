@@ -1,0 +1,63 @@
+name: nnU-Net Complex Issue Analysis
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  deep-analysis:
+    if: |
+      github.event.label.name == 'needs-maintainer' &&
+      contains(join(github.event.issue.labels.*.name, ','), 'bug')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude Deep Analysis (Opus)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE NUMBER: ${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+            BODY: ${{ github.event.issue.body }}
+
+            You are a senior engineer analyzing a complex bug in nnU-Net.
+            Read .github/agents/issue-agent.md for the repository map.
+            (Do NOT read CLAUDE.md — that file is for CLI development use only.)
+
+            The Sonnet triage agent flagged this as too complex for automated
+            diagnosis. Your task is to provide a DEEP technical analysis:
+
+            1. Read .github/agents/issue-agent.md and all issue comments:
+               gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --comments
+            2. Trace the code path involved in the reported bug
+            3. Read ALL relevant source files — not just the entry point
+            4. Identify the root cause or the most likely candidates
+            5. Post a detailed analysis comment with:
+               - Root cause (or ranked hypotheses if uncertain)
+               - Affected code paths with file:line references
+               - Suggested fix approach for the maintainers
+               - Whether this is safe to auto-fix via PR or needs human review
+
+            If after analysis the fix turns out to be straightforward, add the
+            "ready-for-fix" label so the bug-fix workflow can create a PR.
+
+            Post your comment using:
+            gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "YOUR ANALYSIS"
+
+            Prefix your comment with "🔬 **nnU-Net Deep Analysis**\n\n"
+
+            Do NOT create branches, commits, or pull requests in this job.
+
+          claude_args: |
+            --model claude-opus-4-6
+            --allowedTools "Read,Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh issue view:*),Bash(gh search issues:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*)"
+            --max-turns 25

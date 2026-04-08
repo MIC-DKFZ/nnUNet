@@ -1,0 +1,76 @@
+name: nnU-Net Bug Fix PR
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  create-fix-pr:
+    if: github.event.label.name == 'ready-for-fix'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude Fix Agent (Opus)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            ISSUE NUMBER: ${{ github.event.issue.number }}
+            TITLE: ${{ github.event.issue.title }}
+            BODY: ${{ github.event.issue.body }}
+
+            You are the nnU-Net Bug Fix Agent. Read .github/agents/issue-agent.md
+            for the repository map and architecture.
+            (Do NOT read CLAUDE.md — that file is for CLI development use only.)
+
+            This issue has been triaged and confirmed as a fixable bug. Your task:
+
+            1. Read .github/agents/issue-agent.md to understand the codebase layout
+            2. Read the issue and all comments to understand the bug:
+               gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --comments
+            3. Navigate to the relevant source files and understand the root cause
+            4. Create a fix branch:
+               git checkout -b fix/issue-${{ github.event.issue.number }}-SHORT-DESC
+            5. Make the MINIMAL change required to fix the bug — nothing more
+            6. Commit with message:
+               git add -A && git commit -m "fix: DESCRIPTION (fixes #${{ github.event.issue.number }})"
+            7. Push the branch and open a PR:
+               git push origin HEAD
+               gh pr create \
+                 --title "fix: DESCRIPTION" \
+                 --body "Fixes #${{ github.event.issue.number }}
+
+               ## What was broken
+               ...
+
+               ## What this fixes
+               ...
+
+               ## How to verify
+               ..." \
+                 --repo ${{ github.repository }}
+            8. Add the "has-fix-pr" label to the issue:
+               gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "has-fix-pr"
+            9. Remove the "ready-for-fix" label:
+               gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --remove-label "ready-for-fix"
+
+            STRICT RULES:
+            - Fix ONLY the specific bug described in the issue
+            - Do NOT refactor surrounding code
+            - Do NOT add features or improvements
+            - Do NOT modify unrelated files
+            - Keep the diff as small as possible
+
+          claude_args: |
+            --model claude-opus-4-6
+            --allowedTools "Read,Write,Bash(git:*),Bash(gh pr create:*),Bash(gh issue edit:*),Bash(gh issue view:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(ls:*),Bash(python:*)"
+            --max-turns 25
