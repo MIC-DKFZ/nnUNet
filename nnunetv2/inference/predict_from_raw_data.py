@@ -107,7 +107,8 @@ class nnUNetPredictor(object):
             configuration_manager.network_arch_init_kwargs_req_import,
             num_input_channels,
             plans_manager.get_label_manager(dataset_json).num_segmentation_heads,
-            enable_deep_supervision=False
+            enable_deep_supervision=False,
+            patch_size=tuple(configuration_manager.patch_size)
         )
 
         self.plans_manager = plans_manager

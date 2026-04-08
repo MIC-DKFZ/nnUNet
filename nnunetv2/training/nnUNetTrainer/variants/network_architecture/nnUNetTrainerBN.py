@@ -1,4 +1,4 @@
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Optional
 from dynamic_network_architectures.building_blocks.helper import get_matching_batchnorm
 from torch import nn
 
@@ -12,7 +12,8 @@ class nnUNetTrainerBN(nnUNetTrainer):
                                    arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
                                    num_input_channels: int,
                                    num_output_channels: int,
-                                   enable_deep_supervision: bool = True) -> nn.Module:
+                                   enable_deep_supervision: bool = True,
+                                   patch_size: Optional[Tuple[int, ...]] = None) -> nn.Module:
 
         if 'norm_op' not in arch_init_kwargs.keys():
             raise RuntimeError("'norm_op' not found in arch_init_kwargs. This does not look like an architecture "
@@ -28,5 +29,7 @@ class nnUNetTrainerBN(nnUNetTrainer):
                                                         arch_init_kwargs,
                                                         arch_init_kwargs_req_import,
                                                         num_input_channels,
-                                                        num_output_channels, enable_deep_supervision)
+                                                        num_output_channels,
+                                                        enable_deep_supervision,
+                                                        patch_size=patch_size)
 

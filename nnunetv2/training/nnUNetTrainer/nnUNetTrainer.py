@@ -7,7 +7,7 @@ import warnings
 from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Optional
 
 import numpy as np
 import torch
@@ -220,7 +220,8 @@ class nnUNetTrainer(object):
                 self.configuration_manager.network_arch_init_kwargs_req_import,
                 self.num_input_channels,
                 self.label_manager.num_segmentation_heads,
-                self.enable_deep_supervision
+                self.enable_deep_supervision,
+                patch_size=tuple(self.configuration_manager.patch_size)
             ).to(self.device)
             # compile network for free speedup
             if self._do_i_compile():
@@ -333,7 +334,8 @@ class nnUNetTrainer(object):
                                    arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
                                    num_input_channels: int,
                                    num_output_channels: int,
-                                   enable_deep_supervision: bool = True) -> nn.Module:
+                                   enable_deep_supervision: bool = True,
+                                   patch_size: Optional[Tuple[int, ...]] = None) -> nn.Module:
         """
         This is where you build the architecture according to the plans. There is no obligation to use
         get_network_from_plans, this is just a utility we use for the nnU-Net default architectures. You can do what
@@ -352,6 +354,8 @@ class nnUNetTrainer(object):
         the number of outputs is != the number of classes. Also there is the ignore label for which no output
         should be generated. label_manager takes care of all that for you.)
 
+        patch_size is provided for custom architectures (like PRIMUS) that need it to construct the network.
+        Default architectures ignore this parameter.
         """
         return get_network_from_plans(
             architecture_class_name,

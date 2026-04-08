@@ -1,5 +1,4 @@
-from abc import abstractmethod
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
 import torch
 from torch import nn, autocast
 from dynamic_network_architectures.architectures.primus import Primus
@@ -29,15 +28,15 @@ class AbstractPrimus(nnUNetTrainer_warmup):
         self.weight_decay = 5e-2
         self.enable_deep_supervision = False
 
-    @abstractmethod
+    @staticmethod
     def build_network_architecture(
-        self,
         architecture_class_name: str,
         arch_init_kwargs: dict,
         arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
+        patch_size: Optional[Tuple[int, ...]] = None,
     ) -> nn.Module:
         raise NotImplementedError()
 
@@ -120,14 +119,15 @@ class AbstractPrimus(nnUNetTrainer_warmup):
 
 class nnUNet_Primus_S_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
         architecture_class_name: str,
         arch_init_kwargs: dict,
         arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
+        patch_size: Optional[Tuple[int, ...]] = None,
     ) -> nn.Module:
         # this architecture will crash if the patch size is not divisible by 8!
         model = Primus(
@@ -137,7 +137,7 @@ class nnUNet_Primus_S_Trainer(AbstractPrimus):
             num_output_channels,
             12,
             6,
-            self.configuration_manager.patch_size,
+            patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
@@ -147,14 +147,15 @@ class nnUNet_Primus_S_Trainer(AbstractPrimus):
 
 class nnUNet_Primus_B_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
         architecture_class_name: str,
         arch_init_kwargs: dict,
         arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
+        patch_size: Optional[Tuple[int, ...]] = None,
     ) -> nn.Module:
         # this architecture will crash if the patch size is not divisible by 8!
         model = Primus(
@@ -164,7 +165,7 @@ class nnUNet_Primus_B_Trainer(AbstractPrimus):
             num_output_channels,
             12,
             12,
-            self.configuration_manager.patch_size,
+            patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
@@ -174,14 +175,15 @@ class nnUNet_Primus_B_Trainer(AbstractPrimus):
 
 class nnUNet_Primus_M_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
         architecture_class_name: str,
         arch_init_kwargs: dict,
         arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
+        patch_size: Optional[Tuple[int, ...]] = None,
     ) -> nn.Module:
         # this architecture will crash if the patch size is not divisible by 8!
         model = Primus(
@@ -191,7 +193,7 @@ class nnUNet_Primus_M_Trainer(AbstractPrimus):
             num_output_channels,
             16,
             12,
-            self.configuration_manager.patch_size,
+            patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
@@ -244,14 +246,15 @@ class nnUNet_Trainer_BS8(nnUNetTrainer):
 
 class nnUNet_Primus_L_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
         architecture_class_name: str,
         arch_init_kwargs: dict,
         arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
+        patch_size: Optional[Tuple[int, ...]] = None,
     ) -> nn.Module:
         # this architecture will crash if the patch size is not divisible by 8!
         model = Primus(
@@ -261,7 +264,7 @@ class nnUNet_Primus_L_Trainer(AbstractPrimus):
             num_output_channels,
             24,
             16,
-            self.configuration_manager.patch_size,
+            patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
