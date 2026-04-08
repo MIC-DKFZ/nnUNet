@@ -9,12 +9,19 @@ on:
 jobs:
   triage:
     if: |
-      (github.event_name == 'issues') ||
-      (github.event_name == 'issue_comment' &&
-       contains(github.event.comment.body, '@claude') &&
-       github.event.comment.user.type != 'Bot')
+      github.actor != 'claude[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      (
+        github.event_name == 'issues' ||
+        (github.event_name == 'issue_comment' &&
+         contains(github.event.comment.body, '@claude') &&
+         github.event.comment.user.type != 'Bot' &&
+         github.event.comment.user.login != 'claude[bot]' &&
+         github.event.comment.user.login != 'github-actions[bot]')
+      )
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: read
       issues: write
       id-token: write
@@ -26,6 +33,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
 
           prompt: |
             REPO: ${{ github.repository }}
@@ -73,3 +81,39 @@ jobs:
             --model claude-sonnet-4-6
             --allowedTools "Read,Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh search issues:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*)"
             --max-turns 15
+
+      - name: Read Final Labels
+        id: labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo 'labels<<EOF'
+            gh issue view "$ISSUE_NUMBER" --repo "$REPOSITORY" --json labels --jq '.labels[].name'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch Bug Fix Workflow
+        if: contains(steps.labels.outputs.labels, 'ready-for-fix')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh workflow run bug-fix-pr.yml --repo "$REPOSITORY" -f issue_number="$ISSUE_NUMBER"
+
+      - name: Dispatch Deep Analysis Workflow
+        if: |
+          contains(steps.labels.outputs.labels, 'needs-maintainer') &&
+          contains(steps.labels.outputs.labels, 'bug') &&
+          !contains(steps.labels.outputs.labels, 'ready-for-fix') &&
+          !contains(steps.labels.outputs.labels, 'needs-repro') &&
+          !contains(steps.labels.outputs.labels, 'needs-info')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh workflow run complex-analysis.yml --repo "$REPOSITORY" -f issue_number="$ISSUE_NUMBER"

@@ -3,12 +3,25 @@ name: nnU-Net Complex Issue Analysis
 on:
   issues:
     types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to analyze
+        required: true
+        type: string
 
 jobs:
   deep-analysis:
     if: |
-      github.event.label.name == 'needs-maintainer' &&
-      contains(join(github.event.issue.labels.*.name, ','), 'bug')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.label.name == 'needs-maintainer' &&
+       contains(join(github.event.issue.labels.*.name, ','), 'bug') &&
+       !contains(join(github.event.issue.labels.*.name, ','), 'ready-for-fix') &&
+       !contains(join(github.event.issue.labels.*.name, ','), 'needs-repro') &&
+       !contains(join(github.event.issue.labels.*.name, ','), 'needs-info') &&
+       github.actor != 'claude[bot]' &&
+       github.actor != 'github-actions[bot]')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,13 +35,12 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           allowed_bots: claude,claude[bot],github-actions[bot]
 
           prompt: |
             REPO: ${{ github.repository }}
-            ISSUE NUMBER: ${{ github.event.issue.number }}
-            TITLE: ${{ github.event.issue.title }}
-            BODY: ${{ github.event.issue.body }}
+            ISSUE NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
 
             You are a senior engineer analyzing a complex bug in nnU-Net.
             Read .github/agents/issue-agent.md for the repository map.
@@ -38,7 +50,7 @@ jobs:
             diagnosis. Your task is to provide a DEEP technical analysis:
 
             1. Read .github/agents/issue-agent.md and all issue comments:
-               gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --comments
+               gh issue view ${{ github.event.inputs.issue_number || github.event.issue.number }} --repo ${{ github.repository }} --comments
             2. Trace the code path involved in the reported bug
             3. Read ALL relevant source files — not just the entry point
             4. Identify the root cause or the most likely candidates
@@ -52,7 +64,7 @@ jobs:
             "ready-for-fix" label so the bug-fix workflow can create a PR.
 
             Post your comment using:
-            gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "YOUR ANALYSIS"
+            gh issue comment ${{ github.event.inputs.issue_number || github.event.issue.number }} --repo ${{ github.repository }} --body "YOUR ANALYSIS"
 
             Prefix your comment with "🔬 **nnU-Net Deep Analysis**\n\n"
 
