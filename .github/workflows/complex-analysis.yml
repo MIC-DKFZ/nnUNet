@@ -24,6 +24,7 @@ jobs:
        github.actor != 'github-actions[bot]')
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: read
       issues: write
       id-token: write
@@ -74,3 +75,25 @@ jobs:
             --model claude-opus-4-6
             --allowedTools "Read,Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh issue view:*),Bash(gh search issues:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*)"
             --max-turns 25
+
+      - name: Read Final Labels
+        id: labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo 'labels<<EOF'
+            gh issue view "$ISSUE_NUMBER" --repo "$REPOSITORY" --json labels --jq '.labels[].name'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch Bug Fix Workflow
+        if: contains(steps.labels.outputs.labels, 'ready-for-fix')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh workflow run bug-fix-pr.yml --repo "$REPOSITORY" -f issue_number="$ISSUE_NUMBER"
