@@ -22,6 +22,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_bots: claude,claude[bot],github-actions[bot]
 
           prompt: |
             REPO: ${{ github.repository }}
