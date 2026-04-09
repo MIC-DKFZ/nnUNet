@@ -839,7 +839,7 @@ class nnUNetTrainer(object):
                     ApplyRandomBinaryOperatorTransform(
                         channel_idx=list(range(-len(foreground_labels), 0)),
                         strel_size=(1, 8),
-                        p_per_label=1
+                        p_per_label=0.5
                     ), apply_probability=0.4
                 )
             )
@@ -849,7 +849,7 @@ class nnUNetTrainer(object):
                         channel_idx=list(range(-len(foreground_labels), 0)),
                         fill_with_other_class_p=0,
                         dont_do_if_covers_more_than_x_percent=0.15,
-                        p_per_label=1
+                        p_per_label=0.5
                     ), apply_probability=0.2
                 )
             )

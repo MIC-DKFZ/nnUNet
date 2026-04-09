@@ -12,6 +12,7 @@ jobs:
       github.actor != 'claude[bot]' &&
       github.actor != 'github-actions[bot]' &&
       github.event.issue.state != 'closed' &&
+      !github.event.issue.pull_request &&
       (
         github.event_name == 'issues' ||
         (github.event_name == 'issue_comment' &&

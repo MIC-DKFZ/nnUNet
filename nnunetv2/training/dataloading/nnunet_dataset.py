@@ -189,6 +189,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             chunks_seg=None,
             blocks_seg=None
     ):
+        if isfile(output_filename_truncated + '.b2nd'):
+            os.remove(output_filename_truncated + '.b2nd')
         blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg)
 
     @staticmethod

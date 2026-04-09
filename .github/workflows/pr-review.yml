@@ -3,6 +3,8 @@ name: nnU-Net PR Review
 on:
   pull_request:
     types: [opened]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -18,7 +20,14 @@ jobs:
        github.event.pull_request.draft == false &&
        github.event.pull_request.user.login != 'claude[bot]' &&
        github.event.pull_request.user.login != 'github-actions[bot]' &&
-       !startsWith(github.event.pull_request.head.ref, 'fix/issue-'))
+       !startsWith(github.event.pull_request.head.ref, 'fix/issue-')) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.issue.state != 'closed' &&
+       contains(github.event.comment.body, '@claude') &&
+       github.event.comment.user.type != 'Bot' &&
+       github.event.comment.user.login != 'claude[bot]' &&
+       github.event.comment.user.login != 'github-actions[bot]')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,8 +46,8 @@ jobs:
 
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
-            PR AUTHOR: ${{ github.event.pull_request.user.login || 'unknown' }}
+            PR NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }}
+            PR AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login || 'unknown' }}
 
             You are the nnU-Net PR Reviewer.
 
@@ -49,13 +58,13 @@ jobs:
             1. Read .github/agents/pr-review-agent.md for your full review instructions
             2. Read CONTRIBUTING.md for the project's contribution guidelines
             3. Read the PR description and any linked issues:
-               gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --repo ${{ github.repository }}
+               gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }} --repo ${{ github.repository }}
             4. Read the full diff:
-               gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --repo ${{ github.repository }}
+               gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }} --repo ${{ github.repository }}
             5. Navigate to changed files and read surrounding context
             6. Cross-check the PR against CONTRIBUTING.md guidelines
             7. Post a single review:
-               gh pr review ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --repo ${{ github.repository }} --event COMMENT --body "YOUR REVIEW"
+               gh pr review ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }} --repo ${{ github.repository }} --event COMMENT --body "YOUR REVIEW"
 
             RULES:
             - Always use --event COMMENT (never APPROVE or REQUEST_CHANGES)
