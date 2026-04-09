@@ -214,13 +214,32 @@ class nnUNetTrainer(object):
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
 
-            self.network = self.build_network_architecture(
-                self.plans_manager,
-                self.configuration_manager,
-                self.num_input_channels,
-                self.label_manager.num_segmentation_heads,
-                self.enable_deep_supervision
-            ).to(self.device)
+            sig = inspect.signature(self.build_network_architecture)
+            if 'plans_manager' in sig.parameters:
+                self.network = self.build_network_architecture(
+                    self.plans_manager,
+                    self.configuration_manager,
+                    self.num_input_channels,
+                    self.label_manager.num_segmentation_heads,
+                    self.enable_deep_supervision
+                ).to(self.device)
+            else:
+                warnings.warn(
+                    f"Trainer {self.__class__.__name__} uses the old build_network_architecture signature. "
+                    "Please update to the new signature: "
+                    "build_network_architecture(plans_manager, configuration_manager, "
+                    "num_input_channels, num_output_channels, enable_deep_supervision). "
+                    "The old signature will be removed in a future version.",
+                    DeprecationWarning, stacklevel=2,
+                )
+                self.network = self.build_network_architecture(
+                    self.configuration_manager.network_arch_class_name,
+                    self.configuration_manager.network_arch_init_kwargs,
+                    self.configuration_manager.network_arch_init_kwargs_req_import,
+                    self.num_input_channels,
+                    self.label_manager.num_segmentation_heads,
+                    self.enable_deep_supervision
+                ).to(self.device)
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
