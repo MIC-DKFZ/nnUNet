@@ -69,7 +69,7 @@ from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
-from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
 class nnUNetTrainer(object):
@@ -215,9 +215,8 @@ class nnUNetTrainer(object):
                                                                    self.dataset_json)
 
             self.network = self.build_network_architecture(
-                self.configuration_manager.network_arch_class_name,
-                self.configuration_manager.network_arch_init_kwargs,
-                self.configuration_manager.network_arch_init_kwargs_req_import,
+                self.plans_manager,
+                self.configuration_manager,
                 self.num_input_channels,
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
@@ -328,9 +327,8 @@ class nnUNetTrainer(object):
             save_json(dct, join(self.output_folder, "debug.json"))
 
     @staticmethod
-    def build_network_architecture(architecture_class_name: str,
-                                   arch_init_kwargs: dict,
-                                   arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+    def build_network_architecture(plans_manager: PlansManager,
+                                   configuration_manager: ConfigurationManager,
                                    num_input_channels: int,
                                    num_output_channels: int,
                                    enable_deep_supervision: bool = True) -> nn.Module:
@@ -354,9 +352,9 @@ class nnUNetTrainer(object):
 
         """
         return get_network_from_plans(
-            architecture_class_name,
-            arch_init_kwargs,
-            arch_init_kwargs_req_import,
+            configuration_manager.network_arch_class_name,
+            configuration_manager.network_arch_init_kwargs,
+            configuration_manager.network_arch_init_kwargs_req_import,
             num_input_channels,
             num_output_channels,
             allow_init=True,

@@ -5,6 +5,7 @@ from torch import nn, autocast
 from dynamic_network_architectures.architectures.primus import Primus
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.training.nnUNetTrainer.variants.lr_schedule.nnUNetTrainer_warmup import nnUNetTrainer_warmup
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.training.lr_scheduler.warmup import Lin_incr_LRScheduler, PolyLRScheduler_offset
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
@@ -29,12 +30,11 @@ class AbstractPrimus(nnUNetTrainer_warmup):
         self.weight_decay = 5e-2
         self.enable_deep_supervision = False
 
+    @staticmethod
     @abstractmethod
     def build_network_architecture(
-        self,
-        architecture_class_name: str,
-        arch_init_kwargs: dict,
-        arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
@@ -120,11 +120,10 @@ class AbstractPrimus(nnUNetTrainer_warmup):
 
 class nnUNet_Primus_S_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
-        architecture_class_name: str,
-        arch_init_kwargs: dict,
-        arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
@@ -137,7 +136,7 @@ class nnUNet_Primus_S_Trainer(AbstractPrimus):
             num_output_channels,
             12,
             6,
-            self.configuration_manager.patch_size,
+            configuration_manager.patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
@@ -147,11 +146,10 @@ class nnUNet_Primus_S_Trainer(AbstractPrimus):
 
 class nnUNet_Primus_B_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
-        architecture_class_name: str,
-        arch_init_kwargs: dict,
-        arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
@@ -164,7 +162,7 @@ class nnUNet_Primus_B_Trainer(AbstractPrimus):
             num_output_channels,
             12,
             12,
-            self.configuration_manager.patch_size,
+            configuration_manager.patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
@@ -174,11 +172,10 @@ class nnUNet_Primus_B_Trainer(AbstractPrimus):
 
 class nnUNet_Primus_M_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
-        architecture_class_name: str,
-        arch_init_kwargs: dict,
-        arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
@@ -191,7 +188,7 @@ class nnUNet_Primus_M_Trainer(AbstractPrimus):
             num_output_channels,
             16,
             12,
-            self.configuration_manager.patch_size,
+            configuration_manager.patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
@@ -244,11 +241,10 @@ class nnUNet_Trainer_BS8(nnUNetTrainer):
 
 class nnUNet_Primus_L_Trainer(AbstractPrimus):
 
+    @staticmethod
     def build_network_architecture(
-        self,
-        architecture_class_name: str,
-        arch_init_kwargs: dict,
-        arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
@@ -261,7 +257,7 @@ class nnUNet_Primus_L_Trainer(AbstractPrimus):
             num_output_channels,
             24,
             16,
-            self.configuration_manager.patch_size,
+            configuration_manager.patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
