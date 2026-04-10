@@ -19,7 +19,10 @@ jobs:
          contains(github.event.comment.body, '@claude') &&
          github.event.comment.user.type != 'Bot' &&
          github.event.comment.user.login != 'claude[bot]' &&
-         github.event.comment.user.login != 'github-actions[bot]')
+         github.event.comment.user.login != 'github-actions[bot]' &&
+         (github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR'))
       )
     runs-on: ubuntu-latest
     permissions:
