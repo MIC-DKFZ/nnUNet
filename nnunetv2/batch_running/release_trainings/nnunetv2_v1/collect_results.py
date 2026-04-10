@@ -57,7 +57,7 @@ def summarize(input_file, output_file, folds: Tuple[int, ...], configs: Tuple[st
             for c in valid_configs[d]:
                 f.write(",%d_%s" % (convert_dataset_name_to_id(d), c[:4]))
         f.write(',mean\n')
-        valid_entries = txt[:, 4] == nnUNet_results
+        valid_entries = txt[:, 4] == nnUNet_results.require()
         for t in trainers.keys():
             trainer_locs = valid_entries & (txt[:, 2] == t)
             for pl in trainers[t]:
@@ -110,4 +110,3 @@ if __name__ == '__main__':
     configs = ("3d_fullres", "3d_lowres")
     output_file = join(nnUNet_results, 'customDecResults_summaryfold0.csv')
     summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
-
