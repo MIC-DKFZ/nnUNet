@@ -191,7 +191,12 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
     ):
         if isfile(output_filename_truncated + '.b2nd'):
             os.remove(output_filename_truncated + '.b2nd')
-        blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg)
+        kwargs = {}
+        if chunks_seg is not None:
+            kwargs['chunks'] = chunks_seg
+        if blocks_seg is not None:
+            kwargs['blocks'] = blocks_seg
+        blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', **kwargs)
 
     @staticmethod
     def get_identifiers(folder: str) -> List[str]:
