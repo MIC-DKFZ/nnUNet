@@ -48,6 +48,7 @@ class FlarePredictor(nnUNetPredictor):
                  ):
         super().__init__(tile_step_size, use_gaussian, use_mirroring, perform_everything_on_device, device, verbose,
                          verbose_preprocessing, allow_tqdm)
+        self.use_openvino = True
         if self.device == torch.device('cuda') or self.device == 'cuda':
             raise RuntimeError('CUDA is not supported for this task')
 
