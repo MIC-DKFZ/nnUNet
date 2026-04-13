@@ -21,12 +21,9 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Download and extract weights and download example file
-      # use python instead of curl to avoid the need to install curl (more difficult for macos)
+      # use python for everything to be cross-platform (avoids issues with curl, unzip, and path separators on Windows)
       run: |
-        mkdir -p $HOME/github_actions_nnunet/results
-        python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset300_body_6mm_1559subj.zip', '$HOME/github_actions_nnunet/results/tmp_download_file.zip')"
-        unzip -o $HOME/github_actions_nnunet/results/tmp_download_file.zip -d $HOME/github_actions_nnunet/results
-        rm $HOME/github_actions_nnunet/results/tmp_download_file.zip
+        python -c "import os, urllib.request, zipfile; d = os.path.join(os.path.expanduser('~'), 'github_actions_nnunet', 'results'); os.makedirs(d, exist_ok=True); z = os.path.join(d, 'tmp.zip'); urllib.request.urlretrieve('https://github.com/wasserth/TotalSegmentator/releases/download/v2.0.0-weights/Dataset300_body_6mm_1559subj.zip', z); zipfile.ZipFile(z).extractall(d); os.remove(z)"
 
     - name: Install dependencies on Ubuntu
       if: runner.os == 'Linux'
