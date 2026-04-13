@@ -3,8 +3,6 @@ name: nnU-Net Issue Triage
 on:
   issues:
     types: [opened]
-  issue_comment:
-    types: [created]
 
 jobs:
   triage:
@@ -12,24 +10,11 @@ jobs:
       github.actor != 'claude[bot]' &&
       github.actor != 'github-actions[bot]' &&
       github.event.issue.state != 'closed' &&
-      !github.event.issue.pull_request &&
-      (
-        github.event_name == 'issues' ||
-        (github.event_name == 'issue_comment' &&
-         contains(github.event.comment.body, '@claude') &&
-         github.event.comment.user.type != 'Bot' &&
-         github.event.comment.user.login != 'claude[bot]' &&
-         github.event.comment.user.login != 'github-actions[bot]' &&
-         (github.event.comment.author_association == 'OWNER' ||
-          github.event.comment.author_association == 'MEMBER' ||
-          github.event.comment.author_association == 'COLLABORATOR'))
-      )
+      !github.event.issue.pull_request
     runs-on: ubuntu-latest
     permissions:
-      actions: write
       contents: read
       issues: write
-      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -39,6 +24,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          allowed_non_write_users: ${{ github.event.issue.user.login }}
 
           prompt: |
             REPO: ${{ github.repository }}
@@ -74,10 +60,10 @@ jobs:
             Apply "needs-maintainer" to ALL bugs.
             Apply "needs-repro" if a bug/crash lacks reproduction steps.
 
-            If this is a confirmed, trivial bug where you are confident in the fix,
-            add the label "ready-for-fix" so a follow-up job can create a PR.
-
             RULES FOR THIS JOB:
+            - This workflow handles untrusted issue-open events with limited permissions
+            - Do NOT add the "ready-for-fix" label in this workflow
+            - Do NOT trigger, dispatch, or suggest running other workflows
             - Do NOT create branches, commits, or pull requests
             - Do NOT modify any files in the repository
             - Prefix your comment with "🤖 **nnU-Net Assistant**\n\n"
@@ -86,39 +72,3 @@ jobs:
             --model claude-sonnet-4-6
             --allowedTools "Read,Bash(gh issue comment:*),Bash(gh issue edit:*),Bash(gh search issues:*),Bash(find:*),Bash(grep:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*)"
             --max-turns 15
-
-      - name: Read Final Labels
-        id: labels
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          {
-            echo 'labels<<EOF'
-            gh issue view "$ISSUE_NUMBER" --repo "$REPOSITORY" --json labels --jq '.labels[].name'
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch Bug Fix Workflow
-        if: contains(steps.labels.outputs.labels, 'ready-for-fix')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          gh workflow run bug-fix-pr.yml --repo "$REPOSITORY" -f issue_number="$ISSUE_NUMBER"
-
-      - name: Dispatch Deep Analysis Workflow
-        if: |
-          contains(steps.labels.outputs.labels, 'needs-maintainer') &&
-          contains(steps.labels.outputs.labels, 'bug') &&
-          !contains(steps.labels.outputs.labels, 'ready-for-fix') &&
-          !contains(steps.labels.outputs.labels, 'needs-repro') &&
-          !contains(steps.labels.outputs.labels, 'needs-info')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
-          gh workflow run complex-analysis.yml --repo "$REPOSITORY" -f issue_number="$ISSUE_NUMBER"
