@@ -88,6 +88,9 @@ dev = [
     "pre-commit"
 ]
 
+[tool.setuptools.packages.find]
+include = ["nnunetv2*"]
+
 [build-system]
 requires = ["setuptools>=67.8.0"]
 build-backend = "setuptools.build_meta"
