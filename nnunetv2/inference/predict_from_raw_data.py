@@ -195,7 +195,7 @@ class nnUNetPredictor(object):
         caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']) + 5)] for i in
                    list_of_lists_or_source_folder]
         print(
-            f'I am processing {part_id} out of {num_parts} (max process ID is {num_parts - 1}, we start counting with 0!)')
+            f'I am process {part_id} out of {num_parts} (max process ID is {num_parts - 1}, we start counting with 0!)')
         print(f'There are {len(caseids)} cases that I would like to predict')
 
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
@@ -405,28 +405,45 @@ class nnUNetPredictor(object):
                 if ofile is not None:
                     print('sending off prediction to background worker for resampling and export')
                     r.append(
-                        export_pool.starmap_async(
+                        export_pool.apply_async(
                             export_prediction_from_logits,
-                            ((prediction, properties, self.configuration_manager, self.plans_manager,
-                              self.dataset_json, ofile, save_probabilities),)
+                            (prediction, properties, self.configuration_manager, self.plans_manager,
+                             self.dataset_json, ofile, save_probabilities)
                         )
                     )
                 else:
                     print('sending off prediction to background worker for resampling')
                     r.append(
-                        export_pool.starmap_async(
-                            convert_predicted_logits_to_segmentation_with_correct_shape, (
-                                (prediction, self.plans_manager,
-                                 self.configuration_manager, self.label_manager,
-                                 properties,
-                                 save_probabilities),)
+                        export_pool.apply_async(
+                            convert_predicted_logits_to_segmentation_with_correct_shape,
+                            (prediction, self.plans_manager,
+                             self.configuration_manager, self.label_manager,
+                             properties,
+                             save_probabilities)
                         )
                     )
                 if ofile is not None:
                     print(f'done with {os.path.basename(ofile)}')
                 else:
                     print(f'\nDone with image of shape {data.shape}:')
-            ret = [i.get()[0] for i in r]
+
+            print("GPU prediction completed. Waiting for remaining segmentation exports to finish...")
+            ret = [None] * len(r)
+            with tqdm(desc="Collecting results", total=len(r),
+                      disable=not self.allow_tqdm) as pbar:
+                for i, result in enumerate(r):
+                    while True:
+                        all_alive = all([j.is_alive() for j in worker_list])
+                        if not all_alive:
+                            raise RuntimeError('Segmentation export worker died. It was likely killed by '
+                                               'your OS because of insufficient available CPU RAM.')
+                        try:
+                            ret[i] = result.get(timeout=0.1)
+                            break
+                        except multiprocessing.TimeoutError:
+                            pass
+                    pbar.update()
+            print("Segmentation export complete.")
 
         if isinstance(data_iterator, MultiThreadedAugmenter):
             data_iterator._finish()
