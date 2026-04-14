@@ -11,10 +11,6 @@ from tqdm import tqdm
 def download_and_install_from_url(url):
     nnUNet_results.require()
     print('Downloading pretrained model from url:', url)
-    import http.client
-    http.client.HTTPConnection._http_vsn = 10
-    http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
-
     import os
     home = os.path.expanduser('~')
     random_number = int(time() * 1e7)
