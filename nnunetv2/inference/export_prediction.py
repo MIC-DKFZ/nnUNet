@@ -34,7 +34,7 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
     # return value of resampling_fn_probabilities can be ndarray or Tensor but that does not matter because
     # apply_inference_nonlin will convert to torch
     if not return_probabilities:
-        # this has a faster computation path because we can skip the softmax in regular (not region based) trainig
+        # this has a faster computation path because we can skip the softmax in regular (not region based) training
         segmentation = label_manager.convert_logits_to_segmentation(predicted_logits)
     else:
         predicted_probabilities = label_manager.apply_inference_nonlin(predicted_logits)

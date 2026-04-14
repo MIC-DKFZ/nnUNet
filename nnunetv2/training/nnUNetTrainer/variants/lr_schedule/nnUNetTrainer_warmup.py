@@ -52,7 +52,7 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
             self.print_to_log_file("train whole net, default schedule")
             if self.training_stage == "warmup_all":
                 # we can keep the existing optimizer and don't need to create a new one. This will allow us to keep
-                # the accumulated momentum terms which already point in a useful driection
+                # the accumulated momentum terms which already point in a useful direction
                 optimizer = self.optimizer
             else:
                 optimizer = torch.optim.SGD(

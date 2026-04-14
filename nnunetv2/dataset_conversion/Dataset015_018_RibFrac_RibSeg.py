@@ -18,7 +18,7 @@ if __name__ == '__main__':
     (https://drive.google.com/file/d/1ZZGGrhd0y1fLyOZGo_Y-wlVUP4lkHVgm/view?usp=sharing) and extract in to that same 
     folder (seg only, files end with -rib-seg.nii.gz)
     """
-    # extracted traiing.zip file is here
+    # extracted training.zip file is here
     base = '/home/isensee/Downloads/RibFrac_all'
 
     files = nifti_files(base, join=False)

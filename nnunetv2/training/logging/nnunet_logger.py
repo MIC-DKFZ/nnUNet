@@ -132,7 +132,7 @@ class MetaLogger(object):
         elif env_var_result in ("1", "True", "true"):
             return True
         else:
-            raise RuntimeError("nnU-Net logger environement variable has the wrong value. Must be '0' (disabled) or '1'(enabled).")
+            raise RuntimeError("nnU-Net logger environment variable has the wrong value. Must be '0' (disabled) or '1'(enabled).")
 
 
 class LocalLogger:

@@ -9,7 +9,7 @@ if __name__ == '__main__':
     """
     
     """
-    # extracted traiing.zip file is here
+    # extracted training.zip file is here
     base = '/home/isensee/Downloads/'
     target_dataset_id = 21
     target_dataset_name = f'Dataset{target_dataset_id:03.0f}_CTAAorta'
