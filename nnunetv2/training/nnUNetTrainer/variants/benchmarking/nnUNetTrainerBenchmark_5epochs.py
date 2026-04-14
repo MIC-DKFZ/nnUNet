@@ -27,6 +27,8 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
     def run_training(self):
         try:
             super().run_training()
+        except KeyboardInterrupt as ki:
+            raise ki
         except RuntimeError as e:
             self.crashed_with_runtime_error = True
             self.on_train_end()
