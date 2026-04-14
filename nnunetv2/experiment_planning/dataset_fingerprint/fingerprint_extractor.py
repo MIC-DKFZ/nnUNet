@@ -87,10 +87,14 @@ class DatasetFingerprintExtractor(object):
 
         return intensities_per_channel, intensity_statistics_per_channel
 
-    @staticmethod
-    def analyze_case(image_files: List[str], segmentation_file: str, reader_writer_class: Type[BaseReaderWriter],
-                     num_samples: int = 10000):
-        rw = reader_writer_class()
+    @classmethod
+    def analyze_case(cls, image_files: List[str], segmentation_file: str, reader_writer_class: Type[BaseReaderWriter],
+                     dataset_json: dict, num_samples: int = 10000):
+        if 'image_reader_writer_kwargs' in dataset_json.keys():
+            kwargs = dataset_json['image_reader_writer_kwargs']
+        else:
+            kwargs = {}
+        rw = reader_writer_class(**kwargs)
         images, properties_images = rw.read_images(image_files)
         segmentation, properties_seg = rw.read_seg(segmentation_file)
 
@@ -101,7 +105,7 @@ class DatasetFingerprintExtractor(object):
         data_cropped, seg_cropped, bbox = crop_to_nonzero(images, segmentation)
 
         foreground_intensities_per_channel, foreground_intensity_stats_per_channel = \
-            DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
+            cls.collect_foreground_intensities(seg_cropped, data_cropped,
                                                                        num_samples=num_samples)
 
         spacing = properties_images['spacing']
@@ -131,9 +135,9 @@ class DatasetFingerprintExtractor(object):
             r = []
             with multiprocessing.get_context("spawn").Pool(self.num_processes) as p:
                 for k in self.dataset.keys():
-                    r.append(p.starmap_async(DatasetFingerprintExtractor.analyze_case,
+                    r.append(p.starmap_async(self.__class__.analyze_case,
                                              ((self.dataset[k]['images'], self.dataset[k]['label'], reader_writer_class,
-                                               num_foreground_samples_per_case),)))
+                                               self.dataset_json, num_foreground_samples_per_case),)))
                 remaining = list(range(len(self.dataset)))
                 # p is pretty nifti. If we kill workers they just respawn but don't do any work.
                 # So we need to store the original pool of workers.
@@ -156,7 +160,7 @@ class DatasetFingerprintExtractor(object):
                         remaining = [i for i in remaining if i not in done]
                         sleep(0.1)
 
-            # results = ptqdm(DatasetFingerprintExtractor.analyze_case,
+            # results = ptqdm(self.__class__.analyze_case,
             #                 (training_images_per_case, training_labels_per_case),
             #                 processes=self.num_processes, zipped=True, reader_writer_class=reader_writer_class,
             #                 num_samples=num_foreground_samples_per_case, disable=self.verbose)
