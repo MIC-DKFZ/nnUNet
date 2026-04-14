@@ -142,8 +142,19 @@ def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: 
     if isinstance(segmentation, torch.Tensor):
         segmentation = segmentation.cpu().numpy()
 
-    if dataset_class is None:
-        nnUNetDatasetBlosc2.save_seg(segmentation.astype(dtype=np.uint8 if len(label_manager.foreground_labels) < 255 else np.uint16), output_file)
+    if dataset_class is None or dataset_class == nnUNetDatasetBlosc2:
+        block_size, chunk_size = nnUNetDatasetBlosc2.comp_blosc2_params(
+            (1, *segmentation.shape),
+            tuple(configuration_manager.patch_size),
+            bytes_per_pixel=1 if len(label_manager.foreground_labels) < 255 else 2
+        )
+        block_size = [int(i) for i in block_size[1:]]
+        chunk_size = [int(i) for i in chunk_size[1:]]
+        nnUNetDatasetBlosc2.save_seg(
+            segmentation.astype(dtype=np.uint8 if len(label_manager.foreground_labels) < 255 else np.uint16),
+            output_file,
+            chunks_seg=chunk_size,
+            blocks_seg=block_size)
     else:
         dataset_class.save_seg(segmentation.astype(dtype=np.uint8 if len(label_manager.foreground_labels) < 255 else np.uint16), output_file)
     torch.set_num_threads(old_threads)

@@ -295,6 +295,7 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
                 break
         # better safe than sorry
         chunk_size = [min(i, j) for i, j in zip(image_size, chunk_size)]
+        block_size = [min(i, j) for i, j in zip(chunk_size, block_size)]
 
         # print(image_size, chunk_size, block_size)
         return tuple(block_size), tuple(chunk_size)
