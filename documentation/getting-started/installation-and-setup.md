@@ -39,6 +39,19 @@ cd nnUNet
 pip install -e .
 ```
 
+On **Intel (non-Apple-Silicon) macOS**, add the `intel_macos` extra to pin compatible
+versions of torch and numpy:
+
+```bash
+pip install "nnunetv2[intel_macos]"
+```
+
+or with an editable install:
+
+```bash
+pip install -e ".[intel_macos]"
+```
+
 ## 4. Create the three storage locations
 
 nnU-Net needs three locations:

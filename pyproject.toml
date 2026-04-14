@@ -87,6 +87,10 @@ dev = [
     "ruff",
     "pre-commit"
 ]
+intel_macos = [
+    "torch<2.3",
+    "numpy<2",
+]
 
 [tool.setuptools.packages.find]
 include = ["nnunetv2*"]

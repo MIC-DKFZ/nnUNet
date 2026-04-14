@@ -70,6 +70,18 @@ install the latest version with support for your hardware (cuda, mps, cpu).
           cd nnUNet
           pip install -e .
           ```
+    3) For **Intel (non-Apple-Silicon) macOS**, use the `intel_macos` extra to pin compatible
+       versions of torch and numpy:
+
+       ```bash
+       pip install "nnunetv2[intel_macos]"
+       ```
+
+       or with an editable install:
+
+       ```bash
+       pip install -e ".[intel_macos]"
+       ```
 3) nnU-Net needs to know where you intend to save raw data, preprocessed data and trained models. For this you need to
    set a few environment variables. Please follow the instructions [here](setting_up_paths.md).
 4) (OPTIONAL) Install [hiddenlayer](https://github.com/waleedka/hiddenlayer). hiddenlayer enables nnU-net to generate
