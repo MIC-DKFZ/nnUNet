@@ -40,6 +40,7 @@ class FlarePredictor(nnUNetPredictor):
                  tile_step_size: float = 0.5,
                  use_gaussian: bool = True,
                  use_mirroring: bool = True,
+                 use_openvino: bool = True,
                  perform_everything_on_device: bool = False,
                  device: torch.device = torch.device('cpu'),
                  verbose: bool = False,
@@ -48,19 +49,20 @@ class FlarePredictor(nnUNetPredictor):
                  ):
         super().__init__(tile_step_size, use_gaussian, use_mirroring, perform_everything_on_device, device, verbose,
                          verbose_preprocessing, allow_tqdm)
-        self.use_openvino = True
+        self.use_openvino = use_openvino
         if self.device == torch.device('cuda') or self.device == 'cuda':
             raise RuntimeError('CUDA is not supported for this task')
 
     def initialize_from_trained_model_folder(self, model_training_output_dir: str,
                                              use_folds: Union[Tuple[Union[int, str]], None],
-                                             checkpoint_name: str = 'checkpoint_final.pth',
-                                             save_model: bool = True):
+                                             checkpoint_name: str = 'checkpoint_final.pth'):
         """
         This is used when making predictions with a trained model
         """
         if use_folds is None:
             use_folds = nnUNetPredictor.auto_detect_available_folds(model_training_output_dir, checkpoint_name)
+
+        save_model = self.use_openvino and os.path.isfile(f"{model_training_output_dir}/model.xml")
 
         dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
         plans = load_json(join(model_training_output_dir, 'plans.json'))
@@ -441,7 +443,7 @@ class FlarePredictor(nnUNetPredictor):
                                         save_or_return_probabilities)
 
 
-def predict_flare(input_dir, output_dir, model_folder, save_model):
+def predict_flare(input_dir, output_dir, model_folder, use_openvino=True):
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
@@ -450,8 +452,8 @@ def predict_flare(input_dir, output_dir, model_folder, save_model):
     for input_file, output_file in zip(input_files, output_files):
         print(f"Predicting {input_file.name}")
         start = time()
-        predictor = FlarePredictor(tile_step_size=0.5, use_mirroring=False, device=torch.device("cpu"))
-        predictor.initialize_from_trained_model_folder(model_folder, ("all",), save_model=save_model)
+        predictor = FlarePredictor(tile_step_size=0.5, use_mirroring=False, device=torch.device("cpu"), use_openvino=use_openvino)
+        predictor.initialize_from_trained_model_folder(model_folder, ("all",))
         rw = predictor.plans_manager.image_reader_writer_class()
         image, props = rw.read_images([input_file,])
         _ = predictor.predict_single_npy_array(image, props, None, output_file, False)
@@ -463,6 +465,6 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", default="/workspace/inputs")
     parser.add_argument("-o", "--output", default="/workspace/outputs")
     parser.add_argument("-m", "--model", default="/opt/app/_trained_model")
-    parser.add_argument("-save_model", action="store_true")
+    parser.add_argument("-no_openvino", action="store_true")
     args = parser.parse_args()
-    predict_flare(args.input, args.output, args.model, args.save_model)
+    predict_flare(args.input, args.output, args.model, not args.no_openvino)
