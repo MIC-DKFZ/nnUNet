@@ -13,7 +13,7 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: [--fix]
+        # args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/codespell-project/codespell
