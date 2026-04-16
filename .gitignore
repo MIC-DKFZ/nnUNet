@@ -117,3 +117,24 @@ ENV/
 
 CLAUDE.md
 AGENTS.md
+
+# nnUNet 大数据目录（根据你的实际路径调整）
+nnUNet_raw/*/imagesTr/
+nnUNet_raw/*/labelsTr/
+nnUNet_raw/*/imagesTs/
+nnUNet_preprocessed/
+nnUNet_results/
+
+# 模型检查点（非常大，通常几百MB-几GB）
+*.pth
+checkpoint_*.pth
+*.ckpt
+
+# 训练过程中的临时文件
+*.pkl
+progress.png
+training_log_*.txt
+debug_*.json
+
+# 数据集元数据（如果想保留 plans.json 和 dataset.json，注释掉下面这行）
+# nnUNet_preprocessed/*/

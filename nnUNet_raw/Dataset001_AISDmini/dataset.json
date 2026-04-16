@@ -1,0 +1,12 @@
+{
+    "channel_names": {
+        "0": "NCCT"
+    },
+    "labels": {
+        "background": 0,
+        "acute_infarct": 1
+    },
+    "numTraining": 5,
+    "file_ending": ".nii.gz",
+    "overwrite_image_reader_writer": "SimpleITKIO"
+}

@@ -3,7 +3,7 @@
 Click [here](https://github.com/MIC-DKFZ/nnUNet/tree/nnunetv1) if you were looking for the old one instead.
 
 Coming from V1? Check out the [TLDR Migration Guide](documentation/tldr_migration_guide_from_v1.md). Reading the rest of the documentation is still strongly recommended ;-)
-
+Check out：请查看
 ## **2025-10-23 There seems to be a [severe performance regression with torch 2.9.0 and 3D convs](https://github.com/pytorch/pytorch/issues/166122) (when using AMP). Please use torch 2.8.0 or lower with nnU-Net!**
 
 
