@@ -1213,7 +1213,12 @@ class nnUNetTrainer(object):
                     'trainer_name': self.__class__.__name__,
                     'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
                 }
-                torch.save(checkpoint, filename)
+                # Canonical format: safetensors weights + trainer state + JSON sidecar.
+                from nnunetv2.utilities.checkpoint_io import save_checkpoint as _save_ckpt
+                _save_ckpt(checkpoint, filename)
+                # Legacy .pth (default on; set nnUNet_save_pth=0 to disable).
+                if int(os.environ.get("nnUNet_save_pth", "1")):
+                    torch.save(checkpoint, filename)
             else:
                 self.print_to_log_file('No checkpoint written, checkpointing is disabled')
 
@@ -1222,7 +1227,11 @@ class nnUNetTrainer(object):
             self.initialize()
 
         if isinstance(filename_or_checkpoint, str):
-            checkpoint = torch.load(filename_or_checkpoint, map_location=self.device, weights_only=False)
+            from nnunetv2.utilities.checkpoint_io import load_checkpoint as _load_ckpt
+            checkpoint = _load_ckpt(filename_or_checkpoint, map_location=self.device,
+                                    load_optimizer=True)
+        else:
+            checkpoint = filename_or_checkpoint
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
