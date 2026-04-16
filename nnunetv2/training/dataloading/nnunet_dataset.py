@@ -157,8 +157,18 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             chunks_seg=None,
             blocks_seg=None,
             clevel: int = 8,
-            codec=blosc2.Codec.ZSTD
+            codec=blosc2.Codec.LZ4HC
     ):
+        if chunks is None or blocks is None:
+            from warnings import warn
+            blocks, chunks = nnUNetDatasetBlosc2.comp_blosc2_params(data.shape, (128, 128, 128))
+            warn(f'Warning: Received empty chunks or blocks. Computed with comp_blosc2_params. This is bad because we '
+                 f'do not know the access pattern here (patch size). This should be fixed and not ignored. '
+                 f'Raise an issue at github.com/MIC-DKFZ/nnUNet\n'
+                 f'data shape: {data.shape}\n'
+                 f'chunks {chunks}\n'
+                 f'blocks {blocks}\n')
+
         blosc2.set_nthreads(1)
         if chunks_seg is None:
             chunks_seg = chunks
@@ -208,8 +218,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             image_size: Tuple[int, int, int, int],
             patch_size: Union[Tuple[int, int], Tuple[int, int, int]],
             bytes_per_pixel: int = 4,  # 4 byte are float32
-            l1_cache_size_per_core_in_bytes=32768,  # 1 Kibibyte (KiB) = 2^10 Byte;  32 KiB = 32768 Byte
-            l3_cache_size_per_core_in_bytes=1441792,
+            l1_cache_size_per_core_in_bytes=32768 * 4,
+            l3_cache_size_per_core_in_bytes=1441792 * 4,
             # 1 Mibibyte (MiB) = 2^20 Byte = 1.048.576 Byte; 1.375MiB = 1441792 Byte
             safety_factor: float = 0.8  # we dont will the caches to the brim. 0.8 means we target 80% of the caches
     ):
@@ -240,13 +250,10 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         Returns:
             The recommended block and the chunk size.
         """
-        # Fabians code is ugly, but eh
-
-        num_channels = image_size[0]
         if len(patch_size) == 2:
             patch_size = [1, *patch_size]
         patch_size = np.array(patch_size)
-        block_size = np.array((num_channels, *[2 ** (max(0, math.ceil(math.log2(i)))) for i in patch_size]))
+        block_size = np.array((1, *[2 ** (max(0, math.ceil(math.log2(i)))) for i in patch_size]))
 
         # shrink the block size until it fits in L1
         estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
@@ -290,8 +297,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
                 chunk_size[picked_axis + 1] -= block_size[picked_axis + 1]
                 break
         # better safe than sorry
-        chunk_size = [min(i, j) for i, j in zip(image_size, chunk_size)]
-        block_size = [min(i, j) for i, j in zip(chunk_size, block_size)]
+        chunk_size = [int(min(i, j)) for i, j in zip(image_size, chunk_size)]
+        block_size = [int(min(i, j)) for i, j in zip(chunk_size, block_size)]
 
         # print(image_size, chunk_size, block_size)
         return tuple(block_size), tuple(chunk_size)
