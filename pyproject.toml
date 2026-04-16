@@ -99,8 +99,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py312"
 select = ["E", "F", "W"]
+ignore = ["F403", "F405", "E501", "E741", "E722"]
 
 [tool.codespell]
 skip = '.git,*.pdf,*.svg'

@@ -102,4 +102,3 @@ class RGBTo01Normalization(ImageNormalization):
         image = image.astype(self.target_dtype, copy=False)
         image /= 255.
         return image
-

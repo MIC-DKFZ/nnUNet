@@ -4,8 +4,8 @@ For the general inference workflow, including exporting and installing your own 
 
 - [Run inference](how-to/run-inference.md)
 
-**Important:** Pretrained weights from nnU-Net v1 are NOT compatible with V2. You will need to retrain with the new 
-version. But honestly, you already have a fully trained model with which you can run inference (in v1), so 
+**Important:** Pretrained weights from nnU-Net v1 are NOT compatible with V2. You will need to retrain with the new
+version. But honestly, you already have a fully trained model with which you can run inference (in v1), so
 just continue using that!
 
 Not yet available for V2 :-(

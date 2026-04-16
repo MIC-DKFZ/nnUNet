@@ -11,11 +11,11 @@ if __name__ == '__main__':
     """
     Download RibFrac dataset. Links are at https://ribfrac.grand-challenge.org/
     Download everything. Part1, 2, validation and test
-    Extract EVERYTHING into one folder so that all images and labels are in there. Don't worry they all have unique 
+    Extract EVERYTHING into one folder so that all images and labels are in there. Don't worry they all have unique
     file names.
-    
-    For RibSeg also download the dataset from https://github.com/M3DV/RibSeg 
-    (https://drive.google.com/file/d/1ZZGGrhd0y1fLyOZGo_Y-wlVUP4lkHVgm/view?usp=sharing) and extract in to that same 
+
+    For RibSeg also download the dataset from https://github.com/M3DV/RibSeg
+    (https://drive.google.com/file/d/1ZZGGrhd0y1fLyOZGo_Y-wlVUP4lkHVgm/view?usp=sharing) and extract in to that same
     folder (seg only, files end with -rib-seg.nii.gz)
     """
     # extracted training.zip file is here

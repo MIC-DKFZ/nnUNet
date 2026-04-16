@@ -4,37 +4,37 @@ Prefer the consolidated reference page for the recommended path:
 
 - [Plans and configuration reference](reference/plans-and-configuration.md)
 
-nnU-Net provides unprecedented out-of-the-box segmentation performance for essentially any dataset we have evaluated 
-it on. That said, there is always room for improvements. A fool-proof strategy for squeezing out the last bit of 
+nnU-Net provides unprecedented out-of-the-box segmentation performance for essentially any dataset we have evaluated
+it on. That said, there is always room for improvements. A fool-proof strategy for squeezing out the last bit of
 performance is to start with the default nnU-Net, and then further tune it manually to a concrete dataset at hand.
-**This guide is about changes to the nnU-Net configuration you can make via the plans files. It does not cover code 
+**This guide is about changes to the nnU-Net configuration you can make via the plans files. It does not cover code
 extensions of nnU-Net. For that, take a look [here](extending_nnunet.md)**
 
-In nnU-Net V2, plans files are SO MUCH MORE powerful than they were in v1. There are a lot more knobs that you can 
-turn without resorting to hacky solutions or even having to touch the nnU-Net code at all! And as an added bonus: 
-plans files are now also .json files and no longer require users to fiddle with pickle. Just open them in your text 
+In nnU-Net V2, plans files are SO MUCH MORE powerful than they were in v1. There are a lot more knobs that you can
+turn without resorting to hacky solutions or even having to touch the nnU-Net code at all! And as an added bonus:
+plans files are now also .json files and no longer require users to fiddle with pickle. Just open them in your text
 editor of choice!
 
 If overwhelmed, look at our [Examples](#examples)!
 
 # plans.json structure
 
-Plans have global and local settings. Global settings are applied to all configurations in that plans file while 
+Plans have global and local settings. Global settings are applied to all configurations in that plans file while
 local settings are attached to a specific configuration.
 
 ## Global settings
 
-- `foreground_intensity_properties_by_modality`: Intensity statistics of the foreground regions (all labels except 
+- `foreground_intensity_properties_by_modality`: Intensity statistics of the foreground regions (all labels except
 background and ignore label), computed over all training cases. Used by [CT normalization scheme](explanation_normalization.md).
-- `image_reader_writer`: Name of the image reader/writer class that should be used with this dataset. You might want 
-to change this if, for example, you would like to run inference with files that have a different file format. The 
+- `image_reader_writer`: Name of the image reader/writer class that should be used with this dataset. You might want
+to change this if, for example, you would like to run inference with files that have a different file format. The
 class that is named here must be located in nnunetv2.imageio!
-- `label_manager`: The name of the class that does label handling. Take a look at 
-nnunetv2.utilities.label_handling.LabelManager to see what it does. If you decide to change it, place your version 
+- `label_manager`: The name of the class that does label handling. Take a look at
+nnunetv2.utilities.label_handling.LabelManager to see what it does. If you decide to change it, place your version
 in nnunetv2.utilities.label_handling!
-- `transpose_forward`: nnU-Net transposes the input data so that the axes with the highest resolution (lowest spacing) 
-come last. This is because the 2D U-Net operates on the trailing dimensions (more efficient slicing due to internal 
-memory layout of arrays). Future work might move this setting to affect only individual configurations. 
+- `transpose_forward`: nnU-Net transposes the input data so that the axes with the highest resolution (lowest spacing)
+come last. This is because the 2D U-Net operates on the trailing dimensions (more efficient slicing due to internal
+memory layout of arrays). Future work might move this setting to affect only individual configurations.
 - transpose_backward is what numpy.transpose gets as new axis ordering.
 - `transpose_backward`: the axis ordering that inverts "transpose_forward"
 - \[`original_median_shape_after_transp`\]: just here for your information
@@ -44,11 +44,11 @@ memory layout of arrays). Future work might move this setting to affect only ind
 - \[`dataset_name`\]: do not change. This is the dataset these plans are intended for
 
 ## Local settings
-Plans also have a `configurations` key in which the actual configurations are stored. `configurations` are again a 
+Plans also have a `configurations` key in which the actual configurations are stored. `configurations` are again a
 dictionary, where the keys are the configuration names and the values are the local settings for each configuration.
 
-To better understand the components describing the network topology in our plans files, please read section 6.2 
-in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf) 
+To better understand the components describing the network topology in our plans files, please read section 6.2
+in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf)
 (page 13) of our paper!
 
 Local settings:
@@ -61,53 +61,53 @@ Local settings:
 - `batch_size`: batch size used for training
 - `batch_dice`: whether to use batch dice (pretend all samples in the batch are one image, compute dice loss over that)
 or not (each sample in the batch is a separate image, compute dice loss for each sample and average over samples)
-- `preprocessor_name`: Name of the preprocessor class used for running preprocessing. Class must be located in 
+- `preprocessor_name`: Name of the preprocessor class used for running preprocessing. Class must be located in
 nnunetv2.preprocessing.preprocessors
-- `use_mask_for_norm`: whether to use the nonzero mask for normalization or not (relevant for BraTS and the like, 
+- `use_mask_for_norm`: whether to use the nonzero mask for normalization or not (relevant for BraTS and the like,
 probably False for all other datasets). Interacts with ImageNormalization class
-- `normalization_schemes`: mapping of channel identifier to ImageNormalization class name. ImageNormalization 
+- `normalization_schemes`: mapping of channel identifier to ImageNormalization class name. ImageNormalization
 classes must be located in nnunetv2.preprocessing.normalization. Also see [here](explanation_normalization.md)
-- `resampling_fn_data`: name of resampling function to be used for resizing image data. resampling function must be 
+- `resampling_fn_data`: name of resampling function to be used for resizing image data. resampling function must be
 callable(data, current_spacing, new_spacing, **kwargs). It must be located in nnunetv2.preprocessing.resampling
 - `resampling_fn_data_kwargs`: kwargs for resampling_fn_data
-- `resampling_fn_probabilities`: name of resampling function to be used for resizing predicted class probabilities/logits. 
-resampling function must be `callable(data: Union[np.ndarray, torch.Tensor], current_spacing, new_spacing, **kwargs)`. It must be located in 
+- `resampling_fn_probabilities`: name of resampling function to be used for resizing predicted class probabilities/logits.
+resampling function must be `callable(data: Union[np.ndarray, torch.Tensor], current_spacing, new_spacing, **kwargs)`. It must be located in
 nnunetv2.preprocessing.resampling
 - `resampling_fn_probabilities_kwargs`: kwargs for resampling_fn_probabilities
-- `resampling_fn_seg`: name of resampling function to be used for resizing segmentation maps (integer: 0, 1, 2, 3, etc). 
-resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in 
+- `resampling_fn_seg`: name of resampling function to be used for resizing segmentation maps (integer: 0, 1, 2, 3, etc).
+resampling function must be callable(data, current_spacing, new_spacing, **kwargs). It must be located in
 nnunetv2.preprocessing.resampling
 - `resampling_fn_seg_kwargs`: kwargs for resampling_fn_seg
 - `network_arch_class_name`: UNet class name, can be used to integrate custom dynamic architectures
 - `UNet_base_num_features`: The number of starting features for the UNet architecture. Default is 32. Default: Features
-are doubled with each downsampling 
-- `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). The purpose is to 
-prevent parameters from exploding too much. 
-- `conv_kernel_sizes`: the convolutional kernel sizes used by nnU-Net in each stage of the encoder. The decoder 
-  mirrors the encoder and is therefore not explicitly listed here! The list is as long as `n_conv_per_stage_encoder` has 
+are doubled with each downsampling
+- `unet_max_num_features`: Maximum number of features (default: capped at 320 for 3D and 512 for 2d). The purpose is to
+prevent parameters from exploding too much.
+- `conv_kernel_sizes`: the convolutional kernel sizes used by nnU-Net in each stage of the encoder. The decoder
+  mirrors the encoder and is therefore not explicitly listed here! The list is as long as `n_conv_per_stage_encoder` has
   entries
-- `n_conv_per_stage_encoder`: number of convolutions used per stage (=at a feature map resolution in the encoder) in the encoder. 
+- `n_conv_per_stage_encoder`: number of convolutions used per stage (=at a feature map resolution in the encoder) in the encoder.
   Default is 2. The list has as many entries as the encoder has stages
 - `n_conv_per_stage_decoder`: number of convolutions used per stage in the decoder. Also see `n_conv_per_stage_encoder`
-- `num_pool_per_axis`: number of times each of the spatial axes is pooled in the network. Needed to know how to pad 
+- `num_pool_per_axis`: number of times each of the spatial axes is pooled in the network. Needed to know how to pad
   image sizes during inference (num_pool = 5 means input must be divisible by 2**5=32)
 - `pool_op_kernel_sizes`: the pooling kernel sizes (and at the same time strides) for each stage of the encoder
-- \[`median_image_size_in_voxels`\]: the median size of the images of the training set at the current target spacing. 
+- \[`median_image_size_in_voxels`\]: the median size of the images of the training set at the current target spacing.
 Do not modify this as this is not used. It is just here for your information.
 
 Special local settings:
 - `inherits_from`: configurations can inherit from each other. This makes it easy to add new configurations that only
 differ in a few local settings from another. If using this, remember to set a new `data_identifier` (if needed)!
-- `previous_stage`: if this configuration is part of a cascade, we need to know what the previous stage (for example 
+- `previous_stage`: if this configuration is part of a cascade, we need to know what the previous stage (for example
 the low resolution configuration) was. This needs to be specified here.
-- `next_stage`: if this configuration is part of a cascade, we need to know what possible subsequent stages are! This 
-is because we need to export predictions in the correct spacing when running the validation. `next_stage` can either 
+- `next_stage`: if this configuration is part of a cascade, we need to know what possible subsequent stages are! This
+is because we need to export predictions in the correct spacing when running the validation. `next_stage` can either
 be a string or a list of strings
 
 # Examples
 
 ## Increasing the batch size for large datasets
-If your dataset is large the training can benefit from larger batch_sizes. To do this, simply create a new 
+If your dataset is large the training can benefit from larger batch_sizes. To do this, simply create a new
 configuration in the `configurations` dict
 
     "configurations": {
@@ -131,8 +131,8 @@ If you would like to use a different preprocessor class then this can be specifi
       }
     }
 
-You need to run preprocessing for this new configuration: 
-`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_preprocesor` because it changes the preprocessing. Remember to 
+You need to run preprocessing for this new configuration:
+`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_preprocesor` because it changes the preprocessing. Remember to
 set a unique `data_identifier` whenever you make modifications to the preprocessed data!
 
 ## Change target spacing
@@ -145,12 +145,12 @@ set a unique `data_identifier` whenever you make modifications to the preprocess
       }
     }
 
-You need to run preprocessing for this new configuration: 
-`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_spacing` because it changes the preprocessing. Remember to 
+You need to run preprocessing for this new configuration:
+`nnUNetv2_preprocess -d DATASET_ID -c 3d_fullres_my_spacing` because it changes the preprocessing. Remember to
 set a unique `data_identifier` whenever you make modifications to the preprocessed data!
 
 ## Adding a cascade to a dataset where it does not exist
-Hippocampus is small. It doesn't have a cascade. It also doesn't really make sense to add a cascade here but hey for 
+Hippocampus is small. It doesn't have a cascade. It also doesn't really make sense to add a cascade here but hey for
 the sake of demonstration we can do that.
 We change the following things here:
 
@@ -184,6 +184,6 @@ This is how this would look like (comparisons with 3d_fullres given as reference
       }
     }
 
-To better understand the components describing the network topology in our plans files, please read section 6.2 
-in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf) 
+To better understand the components describing the network topology in our plans files, please read section 6.2
+in the [supplementary information](https://static-content.springer.com/esm/art%3A10.1038%2Fs41592-020-01008-z/MediaObjects/41592_2020_1008_MOESM1_ESM.pdf)
 (page 13) of our paper!

@@ -134,7 +134,7 @@ def verify_dataset_integrity(folder: str, num_processes: int = 8) -> None:
     assert isfile(join(folder, "dataset.json")), f"There needs to be a dataset.json file in folder, folder={folder}"
     dataset_json = load_json(join(folder, "dataset.json"))
 
-    if not 'dataset' in dataset_json.keys():
+    if 'dataset' not in dataset_json.keys():
         assert isdir(join(folder, "imagesTr")), f"There needs to be a imagesTr subfolder in folder, folder={folder}"
         assert isdir(join(folder, "labelsTr")), f"There needs to be a labelsTr subfolder in folder, folder={folder}"
 

@@ -27,4 +27,3 @@ class nnUNetTrainerBN(nnUNetTrainer):
         return nnUNetTrainer.build_network_architecture(plans_manager, configuration_manager,
                                                         num_input_channels,
                                                         num_output_channels, enable_deep_supervision)
-

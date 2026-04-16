@@ -194,7 +194,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
     else:
         # print("no resampling necessary")
         return data
-    
+
 
 if __name__ == '__main__':
     input_array = np.random.random((1, 42, 231, 142))

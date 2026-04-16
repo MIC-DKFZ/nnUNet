@@ -12,12 +12,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import multiprocessing
-from multiprocessing.pool import Pool
-from typing import Tuple, Union
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
+
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
@@ -25,8 +25,7 @@ from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class, nnUNetBaseDataset
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager
-from nnunetv2.utilities.utils import get_identifiers_from_splitted_dataset_folder, \
-    get_filenames_of_train_images_and_targets
+from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 color_cycle = (
     "000000",
@@ -88,8 +87,8 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
         uniques = np.sort(pd.unique(segmentation.ravel()))  # np.unique(segmentation)
         mapping = {i: c for c, i in enumerate(uniques)}
 
-    for l in mapping.keys():
-        image[segmentation == l] += overlay_intensity * np.array(hex_to_rgb(color_cycle[mapping[l]]))
+    for lb in mapping.keys():
+        image[segmentation == lb] += overlay_intensity * np.array(hex_to_rgb(color_cycle[mapping[lb]]))
 
     # rescale result to [0, 255]
     image = image / image.max() * 255
@@ -220,7 +219,8 @@ def generate_overlays_from_preprocessed(dataset_name_or_id: Union[int, str], out
                                         overlay_intensity: float = 0.6):
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     folder = join(nnUNet_preprocessed, dataset_name)
-    if not isdir(folder): raise RuntimeError("run preprocessing for that task first")
+    if not isdir(folder):
+        raise RuntimeError("run preprocessing for that task first")
 
     plans = load_json(join(folder, plans_identifier + '.json'))
     if configuration is None:

@@ -172,4 +172,3 @@ if __name__ == '__main__':
 
     ret_nosep = resample_torch_fornnunet(use, target_shape, spacing, spacing, is_seg)
     ret_sep = resample_torch_fornnunet(use, target_shape, spacing, spacing, is_seg, force_separate_z=False)
-

@@ -62,4 +62,3 @@ if __name__ == '__main__':
     convert_amos_task2(amos_base, args.d)
 
     # /home/isensee/Downloads/amos22/amos22/
-

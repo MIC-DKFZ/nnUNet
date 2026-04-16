@@ -37,4 +37,3 @@ def download_file(url: str, local_filename: str, chunk_size: Optional[int] = 819
             for chunk in r.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
     return local_filename
-

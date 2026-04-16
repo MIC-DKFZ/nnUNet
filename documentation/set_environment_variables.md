@@ -4,10 +4,10 @@ Prefer the consolidated setup guide for the recommended path:
 
 - [Installation and setup](getting-started/installation-and-setup.md)
 
-nnU-Net requires some environment variables so that it always knows where the raw data, preprocessed data and trained 
+nnU-Net requires some environment variables so that it always knows where the raw data, preprocessed data and trained
 models are. Depending on the operating system, these environment variables need to be set in different ways.
 
-Variables can either be set permanently (recommended!) or you can decide to set them every time you call nnU-Net. 
+Variables can either be set permanently (recommended!) or you can decide to set them every time you call nnU-Net.
 
 # Linux & MacOS
 
@@ -32,7 +32,7 @@ export nnUNet_results="/media/fabian/nnUNet_results"
 ```
 (Of course you need to adapt the paths to the actual folders you intend to use).
 
-Important: These variables will be deleted if you close your terminal! They will also only apply to the current 
+Important: These variables will be deleted if you close your terminal! They will also only apply to the current
 terminal window and DO NOT transfer to other terminals!
 
 Alternatively you can also just prefix them to your nnU-Net commands:
@@ -40,7 +40,7 @@ Alternatively you can also just prefix them to your nnU-Net commands:
 `nnUNet_results="/media/fabian/nnUNet_results" nnUNet_preprocessed="/media/fabian/nnUNet_preprocessed" nnUNetv2_train[...]`
 
 ## Verify that environment parameters are set
-You can always execute `echo ${nnUNet_raw}` etc to print the environment variables. This will return an empty string if 
+You can always execute `echo ${nnUNet_raw}` etc to print the environment variables. This will return an empty string if
 they were not set.
 
 # Windows
@@ -49,7 +49,7 @@ Useful links:
 - [https://phoenixnap.com](https://phoenixnap.com/kb/windows-set-environment-variable)
 
 ## Permanent
-See `Set Environment Variable in Windows via GUI` [here](https://phoenixnap.com/kb/windows-set-environment-variable). 
+See `Set Environment Variable in Windows via GUI` [here](https://phoenixnap.com/kb/windows-set-environment-variable).
 Or read about setx (command prompt).
 
 ## Temporary
@@ -71,7 +71,7 @@ set nnUNet_results=C:/Users/fabian/fabian/nnUNet_results
 
 (Of course you need to adapt the paths to the actual folders you intend to use).
 
-Important: These variables will be deleted if you close your session! They will also only apply to the current 
+Important: These variables will be deleted if you close your session! They will also only apply to the current
 window and DO NOT transfer to other sessions!
 
 ## Verify that environment parameters are set

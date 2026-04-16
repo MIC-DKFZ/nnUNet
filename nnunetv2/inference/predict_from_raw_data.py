@@ -61,7 +61,7 @@ class nnUNetPredictor(object):
         if device.type == 'cuda':
             torch.backends.cudnn.benchmark = True
         else:
-            print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
+            print('perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_device = False
         self.device = device
         self.perform_everything_on_device = perform_everything_on_device
@@ -534,7 +534,8 @@ class nnUNetPredictor(object):
         if len(self.list_of_parameters) > 1:
             prediction /= len(self.list_of_parameters)
 
-        if self.verbose: print('Prediction done')
+        if self.verbose:
+            print('Prediction done')
         torch.set_num_threads(n_threads)
         return prediction
 
@@ -549,7 +550,8 @@ class nnUNetPredictor(object):
                                  'discrepancy of 1 allowed).'
             steps = compute_steps_for_sliding_window(image_size[1:], self.configuration_manager.patch_size,
                                                      self.tile_step_size)
-            if self.verbose: print(f'n_steps {image_size[0] * len(steps[0]) * len(steps[1])}, image size is'
+            if self.verbose:
+                print(f'n_steps {image_size[0] * len(steps[0]) * len(steps[1])}, image size is'
                                    f' {image_size}, tile_size {self.configuration_manager.patch_size}, '
                                    f'tile_step_size {self.tile_step_size}\nsteps:\n{steps}')
             for d in range(image_size[0]):
@@ -561,7 +563,8 @@ class nnUNetPredictor(object):
         else:
             steps = compute_steps_for_sliding_window(image_size, self.configuration_manager.patch_size,
                                                      self.tile_step_size)
-            if self.verbose: print(
+            if self.verbose:
+                print(
                 f'n_steps {np.prod([len(i) for i in steps])}, image size is {image_size}, tile_size {self.configuration_manager.patch_size}, '
                 f'tile_step_size {self.tile_step_size}\nsteps:\n{steps}')
             for sx in steps[0]:
@@ -658,12 +661,12 @@ class nnUNetPredictor(object):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
                                    'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
                                    'predicted_logits to fp32')
+            return predicted_logits
         except Exception as e:
             del predicted_logits, n_predictions, prediction, gaussian, workon
             empty_cache(self.device)
             empty_cache(results_device)
             raise e
-        return predicted_logits
 
     @torch.inference_mode()
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) \
@@ -1021,18 +1024,18 @@ def predict_entry_point():
         args.f,
         checkpoint_name=args.chk
     )
-    
+
     run_sequential = args.nps == 0 and args.npp == 0
-    
+
     if run_sequential:
-        
+
         print("Running in non-multiprocessing mode")
         predictor.predict_from_files_sequential(args.i, args.o, save_probabilities=args.save_probabilities,
                                                 overwrite=not args.continue_prediction,
                                                 folder_with_segs_from_prev_stage=args.prev_stage_predictions)
-    
+
     else:
-        
+
         predictor.predict_from_files(args.i, args.o, save_probabilities=args.save_probabilities,
                                     overwrite=not args.continue_prediction,
                                     num_processes_preprocessing=args.npp,
@@ -1040,7 +1043,7 @@ def predict_entry_point():
                                     folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                                     num_parts=args.num_parts,
                                     part_id=args.part_id)
-    
+
     # r = predict_from_raw_data(args.i,
     #                           args.o,
     #                           model_folder,
@@ -1063,7 +1066,7 @@ def predict_entry_point():
 
 if __name__ == '__main__':
     ########################## predict a bunch of files
-    from nnunetv2.paths import nnUNet_results, nnUNet_raw
+    from nnunetv2.paths import nnUNet_results
 
     predictor = nnUNetPredictor(
         tile_step_size=0.5,
@@ -1099,5 +1102,3 @@ if __name__ == '__main__':
         [['/media/isensee/raw_data/nnUNet_raw/Dataset004_Hippocampus/imagesTs/hippocampus_002_0000.nii.gz'], ['/media/isensee/raw_data/nnUNet_raw/Dataset004_Hippocampus/imagesTs/hippocampus_005_0000.nii.gz']],
         '/home/isensee/temp/tmp', False, True, None
     )
-
-

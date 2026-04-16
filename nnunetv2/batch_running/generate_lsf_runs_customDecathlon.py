@@ -1,4 +1,3 @@
-from copy import deepcopy
 import numpy as np
 
 
@@ -36,7 +35,6 @@ if __name__ == "__main__":
         220: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         # 221: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
         223: ("2d", "3d_lowres", "3d_fullres", "3d_cascade_fullres"),
-        219: ("2d", "3d_fullres"),
         226: ("2d", "3d_fullres"),
         219: ("2d", "3d_fullres"),
     }
@@ -111,4 +109,3 @@ if __name__ == "__main__":
                             if additional_arguments is not None and len(additional_arguments) > 0:
                                 command += f' {additional_arguments}'
                             f.write(f'{command}\"\n')
-

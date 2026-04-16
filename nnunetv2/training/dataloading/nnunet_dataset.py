@@ -1,14 +1,10 @@
 import os
-import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from functools import lru_cache
 from typing import List, Union, Type, Tuple
 
 import numpy as np
 import blosc2
-import shutil
-from blosc2 import Filter, Codec
 
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile, write_pickle, subfiles
 from nnunetv2.configuration import default_num_processes

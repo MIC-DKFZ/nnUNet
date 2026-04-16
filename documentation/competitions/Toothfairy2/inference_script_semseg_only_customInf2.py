@@ -3,8 +3,6 @@ import gc
 import inspect
 import os
 from pathlib import Path
-from queue import Queue
-from threading import Thread
 from typing import Union, Tuple
 import warnings
 
@@ -18,11 +16,10 @@ from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.utilities.helpers import empty_cache, dummy_context
+from nnunetv2.utilities.helpers import empty_cache
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from torch._dynamo import OptimizedModule
-from torch.backends import cudnn
 from tqdm import tqdm
 
 
@@ -49,7 +46,8 @@ class CustomPredictor(nnUNetPredictor):
 
             predicted_logits = self.predict_preprocessed_image(data)
 
-            if self.verbose: print('Prediction done')
+            if self.verbose:
+                print('Prediction done')
 
             segmentation = self.convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits,
                                                                                             image_properties)
@@ -197,12 +195,12 @@ class CustomPredictor(nnUNetPredictor):
             with torch.no_grad():
                 pp = predicted_logits.to('cuda:0')
                 segmentation = pp.argmax(0).cpu()
-                del pp
         except RuntimeError:
             del segmentation, pp
+            pp = None
             torch.cuda.empty_cache()
             segmentation = predicted_logits.argmax(0)
-        del predicted_logits
+        del predicted_logits, pp
 
         # segmentation may be torch.Tensor but we continue with numpy
         if isinstance(segmentation, torch.Tensor):

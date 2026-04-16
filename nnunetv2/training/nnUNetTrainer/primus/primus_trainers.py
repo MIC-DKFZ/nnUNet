@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from typing import List, Tuple, Union
 import torch
 from torch import nn, autocast
 from dynamic_network_architectures.architectures.primus import Primus

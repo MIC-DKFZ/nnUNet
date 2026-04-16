@@ -47,4 +47,3 @@ if __name__ == '__main__':
     convert_kits2023(amos_base, args.d)
 
     # /media/isensee/raw_data/raw_datasets/kits23/dataset
-

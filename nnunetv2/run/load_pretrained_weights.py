@@ -66,5 +66,3 @@ def load_pretrained_weights(network, fname, verbose=False):
             print(key, 'shape', value.shape)
         print("################### Done ###################")
     mod.load_state_dict(model_dict)
-
-

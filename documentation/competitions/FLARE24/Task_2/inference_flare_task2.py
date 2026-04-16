@@ -3,7 +3,6 @@ import inspect
 import itertools
 import multiprocessing
 import numpy as np
-import os
 from os.path import join
 from pathlib import Path
 from time import time
@@ -79,7 +78,7 @@ class FlarePredictor(nnUNetPredictor):
                 configuration_name = checkpoint['init_args']['configuration']
                 inference_allowed_mirroring_axes = checkpoint['inference_allowed_mirroring_axes'] if \
                     'inference_allowed_mirroring_axes' in checkpoint.keys() else None
-        
+
             if save_model:
                 parameters.append(checkpoint['network_weights'])
 
@@ -174,7 +173,7 @@ class FlarePredictor(nnUNetPredictor):
                                                                                  seg_from_prev_stage_files,
                                                                                  output_filename_truncated,
                                                                                  num_processes_preprocessing)
-        
+
         return self.predict_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export)
 
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
@@ -221,8 +220,8 @@ class FlarePredictor(nnUNetPredictor):
             if self.verbose:
                 print(f'preallocating results arrays on device {results_device}')
             predicted_logits = torch.zeros((self.label_manager.num_segmentation_heads, *data.shape[1:]),
-                                        dtype=torch.half,
-                                        device=results_device)
+                                           dtype=torch.half,
+                                           device=results_device)
             n_predictions = torch.zeros(data.shape[1:], dtype=torch.half, device=results_device)
 
             if self.use_gaussian:
@@ -249,14 +248,14 @@ class FlarePredictor(nnUNetPredictor):
             # check for infs
             if torch.any(torch.isinf(predicted_logits)):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
-                                'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
-                                'predicted_logits to fp32')
+                                   'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
+                                   'predicted_logits to fp32')
+            return predicted_logits
         except Exception as e:
             del predicted_logits, n_predictions, prediction, gaussian, workon
             empty_cache(self.device)
             empty_cache(results_device)
             raise e
-        return predicted_logits
 
     def predict_logits_from_preprocessed_data(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -294,7 +293,8 @@ class FlarePredictor(nnUNetPredictor):
             else:
                 prediction += self.predict_sliding_window_return_logits(data)
 
-        if self.verbose: print('Prediction done')
+        if self.verbose:
+            print('Prediction done')
         return prediction
 
     @torch.inference_mode()
@@ -316,7 +316,7 @@ class FlarePredictor(nnUNetPredictor):
         with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
-            if self.verbose: 
+            if self.verbose:
                 print(f'Input shape: {input_image.shape}')
                 print("step_size:", self.tile_step_size)
                 print("mirror_axes:", self.allowed_mirroring_axes if self.use_mirroring else None)
