@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import torch
 from torch import nn, autocast
-from dynamic_network_architectures.architectures.primus import Primus
+from dynamic_network_architectures.architectures.primus import Primus, PrimusV3S, PrimusV3B, PrimusV3M, PrimusV3L
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.training.nnUNetTrainer.variants.lr_schedule.nnUNetTrainer_warmup import nnUNetTrainer_warmup
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
@@ -14,6 +14,7 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 # Wald*, T., Roy*, S., Isensee*, F., Ulrich, C., Ziegler, S., Trofimova, D., ... & Maier-Hein, K. (2025). Primus: Enforcing attention usage for 3d medical image segmentation. arXiv preprint arXiv:2503.01835.
 # * equal contribution
 ######################################################
+
 
 class AbstractPrimus(nnUNetTrainer_warmup):
     def __init__(
@@ -257,6 +258,98 @@ class nnUNet_Primus_L_Trainer(AbstractPrimus):
             24,
             16,
             configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV3S_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV3S(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV3B_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV3B(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV3M_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV3M(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV3L_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV3L(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
             drop_path_rate=0.2,
             scale_attn_inner=True,
             init_values=0.1,
