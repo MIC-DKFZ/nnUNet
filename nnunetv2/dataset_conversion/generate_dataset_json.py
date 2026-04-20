@@ -63,8 +63,8 @@ def generate_dataset_json(output_folder: str,
     """
     has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in labels.values()])
     if has_regions:
-        assert regions_class_order is not None, f"You have defined regions but regions_class_order is not set. " \
-                                                f"You need that."
+        assert regions_class_order is not None, ("You have defined regions but regions_class_order is not set. "
+                                                 "You need that.")
     # channel names need strings as keys
     keys = list(channel_names.keys())
     for k in keys:

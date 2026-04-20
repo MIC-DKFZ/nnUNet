@@ -50,4 +50,3 @@ bsub -R "select[hname!='e230-dgx2-2']" -R "select[hname!='e230-dgx2-1']"  -q gpu
 bsub -R "select[hname!='e230-dgx2-2']" -R "select[hname!='e230-dgx2-1']"  -q gpu -gpu num=1:j_exclusive=yes:gmem=1G ". ~/load_env_torch224_balintsfix.sh && nnUNetv2_train 55 3d_fullres 0 -tr nnUNetTrainer -p nnUNetResEncUNetMPlans --disable_checkpointing"
 bsub -R "select[hname!='e230-dgx2-2']" -R "select[hname!='e230-dgx2-1']"  -q gpu -gpu num=1:j_exclusive=yes:gmem=1G ". ~/load_env_torch224_balintsfix.sh && nnUNetv2_train 220 3d_fullres 0 -tr nnUNetTrainer -p nnUNetResEncUNetMPlans --disable_checkpointing"
 bsub -R "select[hname!='e230-dgx2-2']" -R "select[hname!='e230-dgx2-1']"  -q gpu -gpu num=1:j_exclusive=yes:gmem=1G ". ~/load_env_torch224_balintsfix.sh && nnUNetv2_train 223 3d_fullres 0 -tr nnUNetTrainer -p nnUNetResEncUNetMPlans --disable_checkpointing"
-

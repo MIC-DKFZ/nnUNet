@@ -1,6 +1,6 @@
 if __name__ == '__main__':
     """
-    This code probably only works within the DKFZ infrastructure (using LSF). You will need to adapt it to your scheduler! 
+    This code probably only works within the DKFZ infrastructure (using LSF). You will need to adapt it to your scheduler!
     """
     gpu_models = [#'NVIDIAA100_PCIE_40GB', 'NVIDIAGeForceRTX2080Ti', 'NVIDIATITANRTX', 'TeslaV100_SXM2_32GB',
                   'NVIDIAA100_SXM4_40GB']#, 'TeslaV100_PCIE_32GB']

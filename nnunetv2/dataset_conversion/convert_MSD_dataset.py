@@ -45,11 +45,11 @@ def convert_msd_dataset(source_folder: str, overwrite_target_id: Optional[int] =
     labelsTr = join(source_folder, 'labelsTr')
     imagesTs = join(source_folder, 'imagesTs')
     imagesTr = join(source_folder, 'imagesTr')
-    assert isdir(labelsTr), f"labelsTr subfolder missing in source folder"
-    assert isdir(imagesTs), f"imagesTs subfolder missing in source folder"
-    assert isdir(imagesTr), f"imagesTr subfolder missing in source folder"
+    assert isdir(labelsTr), "labelsTr subfolder missing in source folder"
+    assert isdir(imagesTs), "imagesTs subfolder missing in source folder"
+    assert isdir(imagesTr), "imagesTr subfolder missing in source folder"
     dataset_json = join(source_folder, 'dataset.json')
-    assert isfile(dataset_json), f"dataset.json missing in source_folder"
+    assert isfile(dataset_json), "dataset.json missing in source_folder"
 
     # infer source dataset id and name
     task, dataset_name = os.path.basename(source_folder).split('_')

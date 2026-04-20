@@ -71,7 +71,7 @@ class MetaLogger(object):
         else:
             for logger in self.loggers:
                 logger.log(key, value, step)
-        
+
         # handle the ema_fg_dice special case! It is automatically logged when we add a new mean_fg_dice
         if key == 'mean_fg_dice':
             new_ema_pseudo_dice = self.get_value('ema_fg_dice', step=step-1) * 0.9 + 0.1 * value \
@@ -79,7 +79,7 @@ class MetaLogger(object):
             self.log('ema_fg_dice', new_ema_pseudo_dice, step)
 
     def log_summary(self, key: str, value: Any):
-        """Log a summary value. These are usually values that are not logged every step but only once. 
+        """Log a summary value. These are usually values that are not logged every step but only once.
         This can be for example the final validation Dice.
 
         Args:
@@ -132,7 +132,7 @@ class MetaLogger(object):
         elif env_var_result in ("1", "True", "true"):
             return True
         else:
-            raise RuntimeError("nnU-Net logger environement variable has the wrong value. Must be '0' (disabled) or '1'(enabled).")
+            raise RuntimeError("nnU-Net logger environment variable has the wrong value. Must be '0' (disabled) or '1'(enabled).")
 
 
 class LocalLogger:
@@ -164,7 +164,8 @@ class LocalLogger:
         assert key in self.my_fantastic_logging.keys() and isinstance(self.my_fantastic_logging[key], list), \
             'This function is only intended to log stuff to lists and to have one entry per epoch'
 
-        if self.verbose: print(f'logging {key}: {value} for epoch {epoch}')
+        if self.verbose:
+            print(f'logging {key}: {value} for epoch {epoch}')
 
         if len(self.my_fantastic_logging[key]) < (epoch + 1):
             self.my_fantastic_logging[key].append(value)
@@ -270,7 +271,7 @@ class WandbLogger:
         self.run = wandb.init(project=self.project, dir=str(self.output_folder), id=wandb_id, mode=self.mode, resume=_resume)
         self.run.config.update({"JobID": get_cluster_job_id()})
         self.wandb_init_step = self.run.step
-    
+
     def update_config(self, config: dict):
         """Update W&B config with training metadata.
 

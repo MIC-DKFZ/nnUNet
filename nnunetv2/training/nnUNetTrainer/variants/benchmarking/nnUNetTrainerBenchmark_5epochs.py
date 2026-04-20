@@ -8,7 +8,7 @@ from torch import distributed as dist
 
 
 class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
-    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict, 
+    def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         super().__init__(plans, configuration, fold, dataset_json, device)
         assert self.fold == 0, "It makes absolutely no sense to specify a certain fold. Stick with 0 so that we can parse the results."
@@ -27,9 +27,12 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
     def run_training(self):
         try:
             super().run_training()
-        except RuntimeError:
+        except KeyboardInterrupt as ki:
+            raise ki
+        except RuntimeError as e:
             self.crashed_with_runtime_error = True
             self.on_train_end()
+            self.print_to_log_file(f"An Exception occurred: {e}")
 
     def on_train_end(self):
         super().on_train_end()
@@ -39,7 +42,7 @@ class nnUNetTrainerBenchmark_5epochs(nnUNetTrainer):
             cudnn_version = torch.backends.cudnn.version()
             gpu_name = torch.cuda.get_device_name()
             if self.crashed_with_runtime_error:
-                fastest_epoch = 'Not enough VRAM!'
+                fastest_epoch = 'Training has ended due to an error. Check your logs for more information.'
             else:
                 epoch_times = [i - j for i, j in zip(self.logger.get_value('epoch_end_timestamps', step=None),
                                                      self.logger.get_value('epoch_start_timestamps', step=None))]

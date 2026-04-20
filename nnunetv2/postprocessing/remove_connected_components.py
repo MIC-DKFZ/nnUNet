@@ -96,8 +96,8 @@ def determine_postprocessing(folder_predictions: str,
     ref_files = subfiles(folder_ref, suffix=dataset_json['file_ending'], join=False)
     # we should print a warning if not all files from folder_ref are present in folder_predictions
     if not all([i in predicted_files for i in ref_files]):
-        print(f'WARNING: Not all files in folder_ref were found in folder_predictions. Determining postprocessing '
-              f'should always be done on the entire dataset!')
+        print('WARNING: Not all files in folder_ref were found in folder_predictions. Determining postprocessing '
+              'should always be done on the entire dataset!')
 
     # before we start we should evaluate the imaegs in the source folder
     if not isfile(join(folder_predictions, 'summary.json')):
@@ -161,7 +161,7 @@ def determine_postprocessing(folder_predictions: str,
             pp_fns.append(pp_fn)
             pp_fn_kwargs.append(kwargs)
         else:
-            print(f'Removing all but the largest foreground region did not improve results!')
+            print('Removing all but the largest foreground region did not improve results!')
             source = folder_predictions
 
         # in the old nnU-Net we could just apply all-but-largest component removal to all classes at the same time and

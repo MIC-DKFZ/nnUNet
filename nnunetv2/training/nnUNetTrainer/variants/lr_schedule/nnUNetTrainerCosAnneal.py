@@ -10,4 +10,3 @@ class nnUNetTrainerCosAnneal(nnUNetTrainer):
                                     momentum=0.99, nesterov=True)
         lr_scheduler = CosineAnnealingLR(optimizer, T_max=self.num_epochs)
         return optimizer, lr_scheduler
-

@@ -1,9 +1,7 @@
 from multiprocessing import Pool
 from typing import Union, Tuple
-import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 
-from nnunetv2.configuration import default_num_processes
 from nnunetv2.paths import nnUNet_results
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 

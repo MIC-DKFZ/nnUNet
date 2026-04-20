@@ -9,14 +9,8 @@ from tqdm import tqdm
 
 
 def download_and_install_from_url(url):
-    assert nnUNet_results is not None, "Cannot install model because network_training_output_dir is not " \
-                                                    "set (RESULTS_FOLDER missing as environment variable, see " \
-                                                    "Installation instructions)"
+    nnUNet_results.require()
     print('Downloading pretrained model from url:', url)
-    import http.client
-    http.client.HTTPConnection._http_vsn = 10
-    http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
-
     import os
     home = os.path.expanduser('~')
     random_number = int(time() * 1e7)
@@ -43,5 +37,3 @@ def download_file(url: str, local_filename: str, chunk_size: Optional[int] = 819
             for chunk in r.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
     return local_filename
-
-

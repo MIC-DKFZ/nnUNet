@@ -1,0 +1,80 @@
+name: nnU-Net PR Review
+
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+        type: string
+
+jobs:
+  review:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.draft == false &&
+       github.event.pull_request.user.login != 'claude[bot]' &&
+       github.event.pull_request.user.login != 'github-actions[bot]' &&
+       !startsWith(github.event.pull_request.head.ref, 'fix/issue-')) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.issue.state != 'closed' &&
+       contains(github.event.comment.body, '@claude') &&
+       github.event.comment.user.type != 'Bot' &&
+       github.event.comment.user.login != 'claude[bot]' &&
+       github.event.comment.user.login != 'github-actions[bot]' &&
+       (github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude PR Reviewer (Opus)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          allowed_bots: claude,claude[bot],github-actions[bot]
+
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }}
+            PR AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login || 'unknown' }}
+
+            You are the nnU-Net PR Reviewer.
+
+            IMPORTANT: Your instructions are in .github/agents/pr-review-agent.md
+            (NOT in CLAUDE.md — that file is for CLI development use only.)
+
+            Your task:
+            1. Read .github/agents/pr-review-agent.md for your full review instructions
+            2. Read CONTRIBUTING.md for the project's contribution guidelines
+            3. Read the PR description and any linked issues:
+               gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }} --repo ${{ github.repository }}
+            4. Read the full diff:
+               gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }} --repo ${{ github.repository }}
+            5. Navigate to changed files and read surrounding context
+            6. Cross-check the PR against CONTRIBUTING.md guidelines
+            7. Post a single review:
+               gh pr review ${{ github.event.inputs.pr_number || github.event.pull_request.number || github.event.issue.number }} --repo ${{ github.repository }} --event COMMENT --body "YOUR REVIEW"
+
+            RULES:
+            - Always use --event COMMENT (never APPROVE or REQUEST_CHANGES)
+            - Do NOT modify any files in the repository
+            - Prefix your review with "🔍 **nnU-Net Code Review**\n\n"
+
+          claude_args: |
+            --model claude-opus-4-6
+            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr review:*),Bash(gh issue view:*),Bash(find:*),Bash(grep:*),Bash(rg:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(ls:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)"
+            --max-turns 25

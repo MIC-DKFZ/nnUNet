@@ -67,4 +67,3 @@ if __name__ == '__main__':
                             f.write(f",{g}")
                         f.write("\n")
             f.write("\n")
-

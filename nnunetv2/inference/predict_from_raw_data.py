@@ -1,5 +1,6 @@
 import inspect
 import itertools
+import warnings
 import multiprocessing
 import os
 from copy import deepcopy
@@ -31,7 +32,8 @@ from nnunetv2.utilities.file_path_utilities import get_output_folder, check_work
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
-from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, \
+    convert_labelmap_to_one_hot
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
@@ -59,7 +61,7 @@ class nnUNetPredictor(object):
         if device.type == 'cuda':
             torch.backends.cudnn.benchmark = True
         else:
-            print(f'perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
+            print('perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_device = False
         self.device = device
         self.perform_everything_on_device = perform_everything_on_device
@@ -101,14 +103,30 @@ class nnUNetPredictor(object):
         if trainer_class is None:
             raise RuntimeError(f'Unable to locate trainer class {trainer_name} in nnunetv2.training.nnUNetTrainer. '
                                f'Please place it there (in any .py file)!')
-        network = trainer_class.build_network_architecture(
-            configuration_manager.network_arch_class_name,
-            configuration_manager.network_arch_init_kwargs,
-            configuration_manager.network_arch_init_kwargs_req_import,
-            num_input_channels,
-            plans_manager.get_label_manager(dataset_json).num_segmentation_heads,
-            enable_deep_supervision=False
-        )
+        num_output_channels = plans_manager.get_label_manager(dataset_json).num_segmentation_heads
+        sig = inspect.signature(trainer_class.build_network_architecture)
+        if 'plans_manager' in sig.parameters:
+            network = trainer_class.build_network_architecture(
+                plans_manager, configuration_manager,
+                num_input_channels, num_output_channels,
+                enable_deep_supervision=False,
+            )
+        else:
+            warnings.warn(
+                f"Trainer {trainer_name} uses the old build_network_architecture signature. "
+                "Please update to the new signature: "
+                "build_network_architecture(plans_manager, configuration_manager, "
+                "num_input_channels, num_output_channels, enable_deep_supervision). "
+                "The old signature will be removed in a future version.",
+                DeprecationWarning, stacklevel=2,
+            )
+            network = trainer_class.build_network_architecture(
+                configuration_manager.network_arch_class_name,
+                configuration_manager.network_arch_init_kwargs,
+                configuration_manager.network_arch_init_kwargs_req_import,
+                num_input_channels, num_output_channels,
+                enable_deep_supervision=False,
+            )
 
         self.plans_manager = plans_manager
         self.configuration_manager = configuration_manager
@@ -178,7 +196,7 @@ class nnUNetPredictor(object):
         caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']) + 5)] for i in
                    list_of_lists_or_source_folder]
         print(
-            f'I am processing {part_id} out of {num_parts} (max process ID is {num_parts - 1}, we start counting with 0!)')
+            f'I am process {part_id} out of {num_parts} (max process ID is {num_parts - 1}, we start counting with 0!)')
         print(f'There are {len(caseids)} cases that I would like to predict')
 
         if isinstance(output_folder_or_list_of_truncated_output_files, str):
@@ -388,28 +406,45 @@ class nnUNetPredictor(object):
                 if ofile is not None:
                     print('sending off prediction to background worker for resampling and export')
                     r.append(
-                        export_pool.starmap_async(
+                        export_pool.apply_async(
                             export_prediction_from_logits,
-                            ((prediction, properties, self.configuration_manager, self.plans_manager,
-                              self.dataset_json, ofile, save_probabilities),)
+                            (prediction, properties, self.configuration_manager, self.plans_manager,
+                             self.dataset_json, ofile, save_probabilities)
                         )
                     )
                 else:
                     print('sending off prediction to background worker for resampling')
                     r.append(
-                        export_pool.starmap_async(
-                            convert_predicted_logits_to_segmentation_with_correct_shape, (
-                                (prediction, self.plans_manager,
-                                 self.configuration_manager, self.label_manager,
-                                 properties,
-                                 save_probabilities),)
+                        export_pool.apply_async(
+                            convert_predicted_logits_to_segmentation_with_correct_shape,
+                            (prediction, self.plans_manager,
+                             self.configuration_manager, self.label_manager,
+                             properties,
+                             save_probabilities)
                         )
                     )
                 if ofile is not None:
                     print(f'done with {os.path.basename(ofile)}')
                 else:
                     print(f'\nDone with image of shape {data.shape}:')
-            ret = [i.get()[0] for i in r]
+
+            print("GPU prediction completed. Waiting for remaining segmentation exports to finish...")
+            ret = [None] * len(r)
+            with tqdm(desc="Collecting results", total=len(r),
+                      disable=not self.allow_tqdm) as pbar:
+                for i, result in enumerate(r):
+                    while True:
+                        all_alive = all([j.is_alive() for j in worker_list])
+                        if not all_alive:
+                            raise RuntimeError('Segmentation export worker died. It was likely killed by '
+                                               'your OS because of insufficient available CPU RAM.')
+                        try:
+                            ret[i] = result.get(timeout=0.1)
+                            break
+                        except multiprocessing.TimeoutError:
+                            pass
+                    pbar.update()
+            print("Segmentation export complete.")
 
         if isinstance(data_iterator, MultiThreadedAugmenter):
             data_iterator._finish()
@@ -499,7 +534,8 @@ class nnUNetPredictor(object):
         if len(self.list_of_parameters) > 1:
             prediction /= len(self.list_of_parameters)
 
-        if self.verbose: print('Prediction done')
+        if self.verbose:
+            print('Prediction done')
         torch.set_num_threads(n_threads)
         return prediction
 
@@ -514,7 +550,8 @@ class nnUNetPredictor(object):
                                  'discrepancy of 1 allowed).'
             steps = compute_steps_for_sliding_window(image_size[1:], self.configuration_manager.patch_size,
                                                      self.tile_step_size)
-            if self.verbose: print(f'n_steps {image_size[0] * len(steps[0]) * len(steps[1])}, image size is'
+            if self.verbose:
+                print(f'n_steps {image_size[0] * len(steps[0]) * len(steps[1])}, image size is'
                                    f' {image_size}, tile_size {self.configuration_manager.patch_size}, '
                                    f'tile_step_size {self.tile_step_size}\nsteps:\n{steps}')
             for d in range(image_size[0]):
@@ -526,7 +563,8 @@ class nnUNetPredictor(object):
         else:
             steps = compute_steps_for_sliding_window(image_size, self.configuration_manager.patch_size,
                                                      self.tile_step_size)
-            if self.verbose: print(
+            if self.verbose:
+                print(
                 f'n_steps {np.prod([len(i) for i in steps])}, image size is {image_size}, tile_size {self.configuration_manager.patch_size}, '
                 f'tile_step_size {self.tile_step_size}\nsteps:\n{steps}')
             for sx in steps[0]:
@@ -623,12 +661,12 @@ class nnUNetPredictor(object):
                 raise RuntimeError('Encountered inf in predicted array. Aborting... If this problem persists, '
                                    'reduce value_scaling_factor in compute_gaussian or increase the dtype of '
                                    'predicted_logits to fp32')
+            return predicted_logits
         except Exception as e:
             del predicted_logits, n_predictions, prediction, gaussian, workon
             empty_cache(self.device)
             empty_cache(results_device)
             raise e
-        return predicted_logits
 
     @torch.inference_mode()
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) \
@@ -746,6 +784,9 @@ class nnUNetPredictor(object):
                 self.configuration_manager,
                 self.dataset_json
             )
+            if folder_with_segs_from_prev_stage is not None:
+                seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
+                data = np.vstack((data, seg_onehot))
 
             print(f'perform_everything_on_device: {self.perform_everything_on_device}')
 
@@ -983,18 +1024,18 @@ def predict_entry_point():
         args.f,
         checkpoint_name=args.chk
     )
-    
+
     run_sequential = args.nps == 0 and args.npp == 0
-    
+
     if run_sequential:
-        
+
         print("Running in non-multiprocessing mode")
         predictor.predict_from_files_sequential(args.i, args.o, save_probabilities=args.save_probabilities,
                                                 overwrite=not args.continue_prediction,
                                                 folder_with_segs_from_prev_stage=args.prev_stage_predictions)
-    
+
     else:
-        
+
         predictor.predict_from_files(args.i, args.o, save_probabilities=args.save_probabilities,
                                     overwrite=not args.continue_prediction,
                                     num_processes_preprocessing=args.npp,
@@ -1002,7 +1043,7 @@ def predict_entry_point():
                                     folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                                     num_parts=args.num_parts,
                                     part_id=args.part_id)
-    
+
     # r = predict_from_raw_data(args.i,
     #                           args.o,
     #                           model_folder,
@@ -1025,7 +1066,7 @@ def predict_entry_point():
 
 if __name__ == '__main__':
     ########################## predict a bunch of files
-    from nnunetv2.paths import nnUNet_results, nnUNet_raw
+    from nnunetv2.paths import nnUNet_results
 
     predictor = nnUNetPredictor(
         tile_step_size=0.5,
@@ -1061,5 +1102,3 @@ if __name__ == '__main__':
         [['/media/isensee/raw_data/nnUNet_raw/Dataset004_Hippocampus/imagesTs/hippocampus_002_0000.nii.gz'], ['/media/isensee/raw_data/nnUNet_raw/Dataset004_Hippocampus/imagesTs/hippocampus_005_0000.nii.gz']],
         '/home/isensee/temp/tmp', False, True, None
     )
-
-

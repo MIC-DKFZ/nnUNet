@@ -1,12 +1,14 @@
 import argparse
 import multiprocessing
+import os
 import shutil
 from copy import deepcopy
 from typing import List, Union, Tuple
 
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, subfiles, \
-    maybe_mkdir_p, isdir, save_pickle, load_pickle, isfile
+    maybe_mkdir_p, isdir, save_pickle, load_pickle, isfile, save_json
+
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
@@ -38,7 +40,7 @@ def merge_files(list_of_files,
     properties = load_pickle(list_of_files[0][:-4] + '.pkl')
     # load and average predictions
     probabilities = average_probabilities(list_of_files)
-    segmentation = label_manager.convert_logits_to_segmentation(probabilities)
+    segmentation = label_manager.convert_probabilities_to_segmentation(probabilities)
     image_reader_writer.write_seg(segmentation, output_filename_truncated + output_file_ending, properties)
     if save_probabilities:
         np.savez_compressed(output_filename_truncated + '.npz', probabilities=probabilities)
@@ -93,7 +95,7 @@ def ensemble_folders(list_of_input_folders: List[str],
     label_manager = plans_manager.get_label_manager(dataset_json)
 
     maybe_mkdir_p(output_folder)
-    shutil.copy(join(list_of_input_folders[0], 'dataset.json'), output_folder)
+    save_json(dataset_json, os.path.join(output_folder, 'dataset.json'), sort_keys=False)
 
     with multiprocessing.get_context("spawn").Pool(num_processes) as pool:
         num_preds = len(s)

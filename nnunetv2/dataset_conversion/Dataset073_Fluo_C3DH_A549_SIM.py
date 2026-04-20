@@ -1,6 +1,5 @@
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
-import tifffile
 from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 
@@ -8,8 +7,8 @@ import shutil
 if __name__ == '__main__':
     """
     This is going to be my test dataset for working with tif as input and output images
-    
-    All we do here is copy the files and rename them. Not file conversions take place 
+
+    All we do here is copy the files and rename them. Not file conversions take place
     """
     dataset_name = 'Dataset073_Fluo_C3DH_A549_SIM'
 

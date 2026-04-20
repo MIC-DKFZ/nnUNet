@@ -4,7 +4,7 @@ from typing import Union, List, Tuple, Type
 
 import numpy as np
 import torch
-from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice, insert_crop_into_image
+from acvl_utils.cropping_and_padding.bounding_boxes import insert_crop_into_image
 from batchgenerators.utilities.file_and_folder_operations import join
 
 import nnunetv2
@@ -49,7 +49,7 @@ class LabelManager(object):
             self.inference_nonlin = inference_nonlin
 
     def _sanity_check(self, label_dict: dict):
-        if not 'background' in label_dict.keys():
+        if 'background' not in label_dict.keys():
             raise RuntimeError('Background label not declared (remember that this should be label 0!)')
         bg_label = label_dict['background']
         if isinstance(bg_label, (tuple, list)):
@@ -284,8 +284,8 @@ def convert_labelmap_to_one_hot(segmentation: Union[np.ndarray, torch.Tensor],
         result = np.zeros((len(all_labels), *segmentation.shape),
                           dtype=output_dtype if output_dtype is not None else (np.uint8 if max(all_labels) < 255 else np.uint16))
         # variant 1, fastest in my testing
-        for i, l in enumerate(all_labels):
-            result[i] = segmentation == l
+        for i, lb in enumerate(all_labels):
+            result[i] = segmentation == lb
         # variant 2. Takes about twice as long so nah
         # result = np.eye(len(all_labels))[segmentation].transpose((3, 0, 1, 2))
     return result
