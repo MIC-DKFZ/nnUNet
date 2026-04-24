@@ -31,7 +31,12 @@ def recursive_find_trainer_class_by_name(trainer_name: str):
                 if path.strip() and os.path.exists(path):
                     print(f"Searching in: {path}")
                     nnunet_trainer = recursive_find_python_class(
-                        path, trainer_name, None, base_folder=path, verbose=True
+                        path,
+                        trainer_name,
+                        None,
+                        base_folder=path,
+                        verbose=True,
+                        cleanup_imports_from_base_folder=True,
                     )
                     if nnunet_trainer is not None:
                         print(f"Using trainer '{trainer_name}' from: {path}")

@@ -105,4 +105,4 @@ ignore = ["F403", "F405", "E501", "E741", "E722"]
 
 [tool.codespell]
 skip = '.git,*.pdf,*.svg'
-ignore-words-list = 'LiTS'
+ignore-words-list = 'LiTS,assertIn'
