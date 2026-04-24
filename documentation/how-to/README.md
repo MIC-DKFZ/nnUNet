@@ -35,3 +35,4 @@ This section groups the existing documentation by task.
 
 - [Modify nnU-Net configurations](../explanation_plans_files.md)
 - [Extend nnU-Net](../extending_nnunet.md)
+- [Share models trained with a custom trainer](share-models-with-custom-trainers.md)

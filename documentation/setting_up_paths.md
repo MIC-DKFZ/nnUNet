@@ -38,6 +38,16 @@ throughput (such as a nvme SSD (PCIe gen 3 is sufficient)).
 3) `nnUNet_results`: This specifies where nnU-Net will save the model weights. If pretrained models are downloaded, this
 is where it will save them.
 
+### Optional: `nnUNet_extTrainer`
+
+If you need to load a custom `nnUNetTrainer` subclass from outside the `nnunetv2` package
+(for example to run inference with a checkpoint someone else trained), set
+`nnUNet_extTrainer` to one or more directories that contain the trainer code, separated
+by the OS path separator (`:` on Linux/macOS, `;` on Windows).
+
+See [Share models trained with a custom trainer](how-to/share-models-with-custom-trainers.md)
+for the full guide.
+
 ### How to set environment variables
 
 See [here](set_environment_variables.md).

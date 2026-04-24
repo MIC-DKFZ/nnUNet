@@ -33,5 +33,10 @@ are structured similarly to PyTorch lightning trainers, this should also make th
 - Remember that multi-GPU training, region-based training, ignore label and cascaded training are now simply integrated
 into one unified nnUNetTrainer class. No separate classes needed (remember that when implementing your own trainer
 classes and ensure support for all of these features! Or raise `NotImplementedError`)
+- Once you want to share a checkpoint trained with your custom trainer (so that other
+people can run inference or continue training from it), read
+[Share models trained with a custom trainer](how-to/share-models-with-custom-trainers.md).
+It covers the four distribution options (checkpoint rename, `nnUNet_extTrainer`, editable
+install, fork) and when each one is appropriate.
 
 [//]: # (- Read about our support for [ignore label]&#40;ignore_label.md&#41; and [region-based training]&#40;region_based_training.md&#41;)

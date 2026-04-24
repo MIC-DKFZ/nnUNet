@@ -75,6 +75,11 @@ nnUNetv2_install_pretrained_model_from_zip MODEL.zip
 
 The target machine still needs a compatible nnU-Net installation and all dependencies.
 
+If the model was trained with a custom `nnUNetTrainer` subclass, the target machine also
+needs that trainer class to be importable. See:
+
+- [Share models trained with a custom trainer](share-models-with-custom-trainers.md)
+
 ## Public pretrained models
 
 The old page on pretrained-model inference remains here:
