@@ -71,3 +71,7 @@ nnUNet_results = _EnvPath(
     'nnUNet_results',
     "nnU-Net cannot be used for training or inference. If this is not intended behavior, "
 )
+nnUNet_extTrainer = _EnvPath(
+    'nnUNet_extTrainer',
+    "nnU-Net cannot locate custom trainer classes from external directories. If this is not intended, "
+)
