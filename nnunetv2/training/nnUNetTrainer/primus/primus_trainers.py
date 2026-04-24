@@ -1,7 +1,13 @@
 from abc import abstractmethod
 import torch
 from torch import nn, autocast
-from dynamic_network_architectures.architectures.primus import Primus, PrimusV3S, PrimusV3B, PrimusV3M, PrimusV3L
+from dynamic_network_architectures.architectures.primus import Primus
+
+try:
+    from dynamic_network_architectures.architectures.primus import PrimusV3S, PrimusV3B, PrimusV3M, PrimusV3L
+except ImportError:
+    PrimusV3S = PrimusV3B = PrimusV3M = PrimusV3L = None
+
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.training.nnUNetTrainer.variants.lr_schedule.nnUNetTrainer_warmup import nnUNetTrainer_warmup
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
