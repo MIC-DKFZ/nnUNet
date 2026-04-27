@@ -294,6 +294,11 @@ class nnUNet_PrimusV3S_Trainer(AbstractPrimus):
         return model
 
 
+class nnUNet_PrimusV3S_TrainerUpdated(nnUNet_PrimusV3S_Trainer):
+
+    pass
+
+
 class nnUNet_PrimusV3B_Trainer(AbstractPrimus):
 
     @staticmethod
