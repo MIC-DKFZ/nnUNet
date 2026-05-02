@@ -84,11 +84,10 @@ class FixedValTileManager:
 
         num_candidate_tiles = len(tiles)
         requested_num_tiles = int(self.num_tiles)
-        selected_num_tiles = min(requested_num_tiles, len(tiles))
 
-        if selected_num_tiles < len(tiles):
+        if requested_num_tiles < len(tiles):
             rng = np.random.default_rng(self.seed)
-            selected_indices = np.sort(rng.choice(len(tiles), size=selected_num_tiles, replace=False))
+            selected_indices = rng.choice(len(tiles), size=requested_num_tiles, replace=False)
             tiles = [tiles[i] for i in selected_indices]
 
         num_selected_tiles = len(tiles)
@@ -116,6 +115,8 @@ class FixedValTileManager:
             # tile starts, so crop a single (y, x) slice from data shaped (c, z, y, x).
             slice_idx = starts[0]
             spatial_starts = starts[1:]
+            # crop_and_pad_nd expects one [start, end] interval per spatial axis.
+            # and our target size is self.patch_size
             bbox = [[i, i + j] for i, j in zip(spatial_starts, self.patch_size)]
             data_cropped = crop_and_pad_nd(data[:, slice_idx], bbox, 0)
             seg_cropped = crop_and_pad_nd(seg[:, slice_idx], bbox, -1)
@@ -123,6 +124,8 @@ class FixedValTileManager:
                 seg_prev_cropped = crop_and_pad_nd(seg_prev[slice_idx], bbox, -1)
                 seg_cropped = np.concatenate((seg_cropped, seg_prev_cropped[None]), axis=0)
         else:
+            # crop_and_pad_nd expects one [start, end] interval per spatial axis.
+            # and our target size is self.patch_size
             bbox = [[i, i + j] for i, j in zip(starts, self.patch_size)]
             data_cropped = crop_and_pad_nd(data, bbox, 0)
             seg_cropped = crop_and_pad_nd(seg, bbox, -1)
@@ -150,6 +153,7 @@ class FixedValTileManager:
 
         data_batch = torch.stack(data_samples)
 
+        # Deep supervision transforms return one target per supervision scale.
         if isinstance(seg_samples[0], list):
             target_batch = [
                 torch.stack([sample[scale_idx] for sample in seg_samples])
