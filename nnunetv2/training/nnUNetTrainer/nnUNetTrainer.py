@@ -677,13 +677,6 @@ class nnUNetTrainer(object):
                                          folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         return dataset_tr, dataset_val
 
-    def _register_fixed_val_logger_keys(self):
-        if not self.use_fixed_val_tiles:
-            return
-        logging_dict = self.logger.local_logger.my_fantastic_logging
-        if 'fixed_val_mean_fg_dice' not in logging_dict:
-            logging_dict['fixed_val_mean_fg_dice'] = list(logging_dict.get('mean_fg_dice', []))
-
     def _build_fixed_validation_tile_manager(self) -> FixedValTileManager:
         _, val_keys = self.do_split()
         dataset_val = self.dataset_class(
@@ -1028,7 +1021,6 @@ class nnUNetTrainer(object):
             dist.barrier()
 
         if self.use_fixed_val_tiles:
-            self._register_fixed_val_logger_keys()
             self.fixed_val_manager = self._build_fixed_validation_tile_manager()
 
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
@@ -1229,8 +1221,6 @@ class nnUNetTrainer(object):
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
         self.logger.log('val_losses', loss_here, self.current_epoch)
-        if self.use_fixed_val_tiles:
-            self.logger.log('fixed_val_mean_fg_dice', mean_fg_dice, self.current_epoch)
 
     def on_epoch_start(self):
         self.logger.log('epoch_start_timestamps', time(), self.current_epoch)
@@ -1252,7 +1242,7 @@ class nnUNetTrainer(object):
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this.
         # With fixed validation tiles, raw fixed-val Dice is comparable across epochs; EMA would only add lag.
-        current_score = self.logger.get_value('fixed_val_mean_fg_dice' if self.use_fixed_val_tiles else 'ema_fg_dice',
+        current_score = self.logger.get_value('mean_fg_dice' if self.use_fixed_val_tiles else 'ema_fg_dice',
                                               step=-1)
         if self._best_ema is None or current_score > self._best_ema:
             self._best_ema = current_score
@@ -1310,7 +1300,6 @@ class nnUNetTrainer(object):
         self.my_init_kwargs = checkpoint['init_args']
         self.current_epoch = checkpoint['current_epoch']
         self.logger.load_checkpoint(checkpoint['logging'])
-        self._register_fixed_val_logger_keys()
         self._best_ema = checkpoint['_best_ema']
         self.inference_allowed_mirroring_axes = checkpoint[
             'inference_allowed_mirroring_axes'] if 'inference_allowed_mirroring_axes' in checkpoint.keys() else self.inference_allowed_mirroring_axes
