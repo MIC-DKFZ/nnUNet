@@ -115,8 +115,8 @@ class FixedValTileManager:
             # tile starts, so crop a single (y, x) slice from data shaped (c, z, y, x).
             slice_idx = starts[0]
             spatial_starts = starts[1:]
-            # crop_and_pad_nd expects one [start, end] interval per spatial axis.
-            # and our target size is self.patch_size
+            # crop_and_pad_nd expects one [start, end] interval per spatial axis
+            # and our target size is self.patch_size.
             bbox = [[i, i + j] for i, j in zip(spatial_starts, self.patch_size)]
             data_cropped = crop_and_pad_nd(data[:, slice_idx], bbox, 0)
             seg_cropped = crop_and_pad_nd(seg[:, slice_idx], bbox, -1)
@@ -124,8 +124,8 @@ class FixedValTileManager:
                 seg_prev_cropped = crop_and_pad_nd(seg_prev[slice_idx], bbox, -1)
                 seg_cropped = np.concatenate((seg_cropped, seg_prev_cropped[None]), axis=0)
         else:
-            # crop_and_pad_nd expects one [start, end] interval per spatial axis.
-            # and our target size is self.patch_size
+            # crop_and_pad_nd expects one [start, end] interval per spatial axis
+            # and our target size is self.patch_size.
             bbox = [[i, i + j] for i, j in zip(starts, self.patch_size)]
             data_cropped = crop_and_pad_nd(data, bbox, 0)
             seg_cropped = crop_and_pad_nd(seg, bbox, -1)
