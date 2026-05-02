@@ -687,7 +687,9 @@ class nnUNetTrainer(object):
 
         patch_size = tuple(int(i) for i in self.configuration_manager.patch_size)
         global_batch_size = self.configuration_manager.batch_size if self.is_ddp else self.batch_size
-        default_num_tiles = self.num_val_iterations_per_epoch * global_batch_size
+        num_tiles = self.fixed_val_num_tiles
+        if num_tiles is None:
+            num_tiles = self.num_val_iterations_per_epoch * global_batch_size
         rank = dist.get_rank() if self.is_ddp else 0
         world_size = dist.get_world_size() if self.is_ddp else 1
         transforms = self.get_validation_transforms(
@@ -705,8 +707,7 @@ class nnUNetTrainer(object):
             transforms=transforms,
             tile_step_size=self.fixed_val_tile_step_size,
             seed=self.fixed_val_tile_seed,
-            num_tiles=self.fixed_val_num_tiles,
-            default_num_tiles=default_num_tiles,
+            num_tiles=num_tiles,
             is_ddp=self.is_ddp,
             rank=rank,
             world_size=world_size,

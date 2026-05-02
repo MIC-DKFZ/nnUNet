@@ -34,7 +34,7 @@ class FixedValTileStats:
 
 class FixedValTileManager:
     def __init__(self, dataset, patch_size: Tuple[int, ...], batch_size: int, transforms,
-                 tile_step_size: float, seed: int, num_tiles: Optional[int], default_num_tiles: int,
+                 tile_step_size: float, seed: int, num_tiles: int,
                  is_ddp: bool = False, rank: int = 0, world_size: int = 1):
         self.dataset = dataset
         self.patch_size = patch_size
@@ -43,7 +43,6 @@ class FixedValTileManager:
         self.tile_step_size = tile_step_size
         self.seed = seed
         self.num_tiles = num_tiles
-        self.default_num_tiles = default_num_tiles
         self.is_ddp = is_ddp
         self.rank = rank
         self.world_size = world_size
@@ -84,7 +83,7 @@ class FixedValTileManager:
                     tiles.append(FixedValTile(key, tuple(starts)))
 
         num_candidate_tiles = len(tiles)
-        requested_num_tiles = self.default_num_tiles if self.num_tiles is None else int(self.num_tiles)
+        requested_num_tiles = int(self.num_tiles)
         selected_num_tiles = min(requested_num_tiles, len(tiles))
 
         if selected_num_tiles < len(tiles):
