@@ -86,8 +86,8 @@ dev = [
     "pre-commit"
 ]
 intel_macos = [
-    "torch<2.3; sys_platform == 'darwin' and platform_machine == 'x86_64'",
-    "numpy<2; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torch<2.3",
+    "numpy<2",
 ]
 
 [tool.setuptools.packages.find]
