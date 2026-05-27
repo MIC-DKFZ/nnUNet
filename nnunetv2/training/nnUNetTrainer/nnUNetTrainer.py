@@ -630,11 +630,17 @@ class nnUNetTrainer(object):
                 self.print_to_log_file(f"The split file contains {len(splits)} splits.")
 
             self.print_to_log_file("Desired fold for training: %d" % self.fold)
+            is_deep_ensemble_split = False
             if self.fold < len(splits):
+                is_deep_ensemble_split = bool(splits[self.fold].get("deep_ensemble", False))
                 tr_keys = splits[self.fold]['train']
                 val_keys = splits[self.fold]['val']
                 self.print_to_log_file("This split has %d training and %d validation cases."
                                        % (len(tr_keys), len(val_keys)))
+                if is_deep_ensemble_split:
+                    self.print_to_log_file("This split is marked as a deep ensemble split. It uses the full training "
+                                           "set.")
+                    self.print_to_log_file("Validation metrics for this fold are not an unbiased performance estimate.")
             else:
                 self.print_to_log_file("INFO: You requested fold %d for training but splits "
                                        "contain only %d folds. I am now creating a "
@@ -648,7 +654,7 @@ class nnUNetTrainer(object):
                 val_keys = [keys[i] for i in idx_val]
                 self.print_to_log_file("This random 80:20 split has %d training and %d validation cases."
                                        % (len(tr_keys), len(val_keys)))
-            if any([i in val_keys for i in tr_keys]):
+            if any([i in val_keys for i in tr_keys]) and not is_deep_ensemble_split:
                 self.print_to_log_file('WARNING: Some validation cases are also in the training set. Please check the '
                                        'splits.json or ignore if this is intentional.')
         return tr_keys, val_keys
