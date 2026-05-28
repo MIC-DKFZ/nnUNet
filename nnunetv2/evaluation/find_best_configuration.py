@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Union, List, Tuple
 
 from batchgenerators.utilities.file_and_folder_operations import (
-    load_json, join, isdir, listdir, save_json
+    load_json, join, isdir, isfile, listdir, save_json
 )
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.ensembling.ensemble import ensemble_crossvalidations
@@ -14,6 +14,7 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.postprocessing.remove_connected_components import determine_postprocessing
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
     convert_identifier_to_trainer_plans_config, get_ensemble_name, folds_tuple_to_string
+from nnunetv2.utilities.deep_ensemble_splits import get_deep_ensemble_fold_indices
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 default_trained_models = tuple([
@@ -22,6 +23,20 @@ default_trained_models = tuple([
     {'plans': 'nnUNetPlans', 'configuration': '3d_lowres', 'trainer': 'nnUNetTrainer'},
     {'plans': 'nnUNetPlans', 'configuration': '3d_cascade_fullres', 'trainer': 'nnUNetTrainer'},
 ])
+
+
+def maybe_warn_about_deep_ensemble_folds(dataset_name_or_id: Union[str, int], folds: Union[List[int], Tuple[int, ...]]):
+    splits_file = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id), 'splits_final.json')
+    if not isfile(splits_file):
+        return
+    splits = load_json(splits_file)
+    if not isinstance(splits, list):
+        return
+    deep_ensemble_folds = get_deep_ensemble_fold_indices(splits, folds)
+    if len(deep_ensemble_folds) > 0:
+        print(f'WARNING: Requested folds include deep ensemble folds {deep_ensemble_folds}. Their validation metrics '
+              f'are biased because they use all training cases. Do not use them for model selection or performance '
+              f'estimation.')
 
 
 def filter_available_models(model_dict: Union[List[dict], Tuple[dict, ...]], dataset_name_or_id: Union[str, int]):
@@ -88,6 +103,8 @@ def find_best_configuration(dataset_name_or_id,
                             strict: bool = False):
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     all_results = {}
+
+    maybe_warn_about_deep_ensemble_folds(dataset_name_or_id, folds)
 
     allowed_trained_models = filter_available_models(deepcopy(allowed_trained_models), dataset_name_or_id)
 

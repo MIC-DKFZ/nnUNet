@@ -1,5 +1,4 @@
 import argparse
-from typing import Union
 
 
 def _split_is_deep_ensemble(split: dict) -> bool:
@@ -8,6 +7,11 @@ def _split_is_deep_ensemble(split: dict) -> bool:
 
 def _remove_deep_ensemble_splits(splits: list[dict]) -> list[dict]:
     return [s for s in splits if not _split_is_deep_ensemble(s)]
+
+
+def get_deep_ensemble_fold_indices(splits: list[dict], folds: list[int] | tuple[int, ...] | None = None) -> list[int]:
+    selected_folds = range(len(splits)) if folds is None else folds
+    return [f for f in selected_folds if 0 <= f < len(splits) and _split_is_deep_ensemble(splits[f])]
 
 
 def append_deep_ensemble_splits(splits: list[dict], case_identifiers: list[str], num_members: int,
@@ -31,8 +35,8 @@ def append_deep_ensemble_splits(splits: list[dict], case_identifiers: list[str],
 
     for i in range(num_members):
         updated_splits.append({
-            "train": all_case_identifiers,
-            "val": all_case_identifiers,
+            "train": list(all_case_identifiers),
+            "val": list(all_case_identifiers),
             "deep_ensemble": True,
             "deep_ensemble_member": i,
         })
@@ -61,7 +65,7 @@ def create_or_update_deep_ensemble_splits(splits: list[dict] | None, case_identi
         splits, all_case_identifiers, num_members, overwrite_deep_ensemble_splits=overwrite_deep_ensemble_splits)
 
 
-def _get_preprocessed_dataset_folder(dataset_name_or_id: Union[int, str]) -> str:
+def _get_preprocessed_dataset_folder(dataset_name_or_id: int | str) -> str:
     from batchgenerators.utilities.file_and_folder_operations import isdir, join
 
     from nnunetv2.paths import nnUNet_preprocessed
@@ -75,7 +79,7 @@ def _get_preprocessed_dataset_folder(dataset_name_or_id: Union[int, str]) -> str
     return preprocessed_dataset_folder
 
 
-def _get_preprocessed_configuration_folder(dataset_name_or_id: Union[int, str], plans_identifier: str,
+def _get_preprocessed_configuration_folder(dataset_name_or_id: int | str, plans_identifier: str,
                                            configuration: str) -> tuple[str, str]:
     from batchgenerators.utilities.file_and_folder_operations import isdir, isfile, join
 
@@ -110,7 +114,7 @@ def _get_case_identifiers(preprocessed_configuration_folder: str) -> list[str]:
     return case_identifiers
 
 
-def create_deep_ensemble_splits(dataset_name_or_id: Union[int, str], configuration: str,
+def create_deep_ensemble_splits(dataset_name_or_id: int | str, configuration: str,
                                 plans_identifier: str = "nnUNetPlans", num_members: int = 5,
                                 num_cv_folds: int = 5, seed: int = 12345,
                                 overwrite_deep_ensemble_splits: bool = False) -> list[dict]:
@@ -134,18 +138,16 @@ def create_deep_ensemble_splits(dataset_name_or_id: Union[int, str], configurati
     else:
         splits = None
 
-    non_deep_ensemble_splits = _remove_deep_ensemble_splits(splits) if splits is not None else []
     updated_splits = create_or_update_deep_ensemble_splits(
         splits, case_identifiers, num_members, num_cv_folds, seed,
         overwrite_deep_ensemble_splits=overwrite_deep_ensemble_splits)
-    if splits is None:
-        non_deep_ensemble_splits = _remove_deep_ensemble_splits(updated_splits)
-    appended_fold_indices = list(range(len(non_deep_ensemble_splits), len(updated_splits)))
+    num_non_deep_ensemble_splits = len(updated_splits) - num_members
+    appended_fold_indices = list(range(num_non_deep_ensemble_splits, len(updated_splits)))
 
     save_json(updated_splits, splits_file, sort_keys=False)
 
     print(f"Dataset: {dataset_name}")
-    print(f"Existing non-deep-ensemble folds: {len(non_deep_ensemble_splits)}")
+    print(f"Existing non-deep-ensemble folds: {num_non_deep_ensemble_splits}")
     print(f"Appended deep ensemble folds: {num_members}")
     print(f"Deep ensemble fold indices: {appended_fold_indices}")
     print(f"Wrote split file: {splits_file}")
@@ -156,13 +158,19 @@ def create_deep_ensemble_splits(dataset_name_or_id: Union[int, str], configurati
 
 
 def create_deep_ensemble_splits_entry_point():
+    def positive_int(value: str) -> int:
+        int_value = int(value)
+        if int_value < 1:
+            raise argparse.ArgumentTypeError("must be >= 1")
+        return int_value
+
     parser = argparse.ArgumentParser(
         "Create or update nnU-Net splits_final.json with full-training-set deep ensemble folds.")
     parser.add_argument("dataset_name_or_id", type=str, help="Dataset name or ID.")
     parser.add_argument("configuration", type=str, help="nnU-Net configuration, for example 2d or 3d_fullres.")
     parser.add_argument("-p", "--plans_identifier", default="nnUNetPlans", required=False,
                         help="Plans identifier. Default: nnUNetPlans")
-    parser.add_argument("--num_members", type=int, default=5, required=False,
+    parser.add_argument("--num_members", type=positive_int, default=5, required=False,
                         help="Number of deep ensemble folds to append. Default: 5")
     parser.add_argument("--num_cv_folds", type=int, default=5, required=False,
                         help="Number of CV folds to create if splits_final.json does not exist. Default: 5")

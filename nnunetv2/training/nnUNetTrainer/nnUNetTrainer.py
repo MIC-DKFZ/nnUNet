@@ -638,8 +638,9 @@ class nnUNetTrainer(object):
                 self.print_to_log_file("This split has %d training and %d validation cases."
                                        % (len(tr_keys), len(val_keys)))
                 if is_deep_ensemble_split:
-                    self.print_to_log_file("This split is marked as a deep ensemble split. It uses the full training "
-                                           "set.")
+                    deep_ensemble_member = splits[self.fold].get("deep_ensemble_member", "unknown")
+                    self.print_to_log_file(f"This split is marked as deep ensemble member {deep_ensemble_member}. "
+                                           f"It uses the full training set.")
                     self.print_to_log_file("Validation metrics for this fold are not an unbiased performance estimate.")
             else:
                 self.print_to_log_file("INFO: You requested fold %d for training but splits "

@@ -2,7 +2,9 @@ import json
 import unittest
 from copy import deepcopy
 
-from nnunetv2.utilities.deep_ensemble_splits import create_or_update_deep_ensemble_splits
+from nnunetv2.utilities.deep_ensemble_splits import (
+    create_or_update_deep_ensemble_splits, get_deep_ensemble_fold_indices
+)
 
 
 class TestDeepEnsembleSplits(unittest.TestCase):
@@ -85,6 +87,29 @@ class TestDeepEnsembleSplits(unittest.TestCase):
         self.assertEqual(json.dumps(first, sort_keys=True), json.dumps(second, sort_keys=True))
         self.assertEqual(first[-1]["train"], sorted(cases))
         self.assertEqual(first[-1]["val"], sorted(cases))
+
+    def test_deep_ensemble_split_lists_are_independent(self):
+        splits = create_or_update_deep_ensemble_splits(
+            [], ["case_001", "case_000"], num_members=2)
+
+        splits[0]["train"].append("mutated")
+
+        self.assertEqual(splits[0]["val"], ["case_000", "case_001"])
+        self.assertEqual(splits[1]["train"], ["case_000", "case_001"])
+        self.assertEqual(splits[1]["val"], ["case_000", "case_001"])
+
+    def test_get_deep_ensemble_fold_indices_for_selected_folds(self):
+        splits = [
+            {"train": ["case_000"], "val": ["case_001"]},
+            {"train": ["case_000", "case_001"], "val": ["case_000", "case_001"],
+             "deep_ensemble": True, "deep_ensemble_member": 0},
+            {"train": ["case_001"], "val": ["case_000"]},
+            {"train": ["case_000", "case_001"], "val": ["case_000", "case_001"],
+             "deep_ensemble": True, "deep_ensemble_member": 1},
+        ]
+
+        self.assertEqual(get_deep_ensemble_fold_indices(splits), [1, 3])
+        self.assertEqual(get_deep_ensemble_fold_indices(splits, [0, 1, 4]), [1])
 
 
 if __name__ == "__main__":

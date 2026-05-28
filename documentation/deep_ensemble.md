@@ -50,7 +50,7 @@ Do not include DE folds in model selection, because they are trained on the full
 
 ### 5. Train the deep ensemble folds
 
-For example, if the dataset has five standard CV folds and five deep ensemble folds were appended, the deep ensemble folds will be `5 6 7 8 9`:
+For example, if the dataset has five standard CV folds and five deep ensemble folds were appended, the deep ensemble folds will be `5 6 7 8 9`. These indices depend on the number of existing non-deep-ensemble folds; see [Fold indexing](#fold-indexing) below.
 
 ```bash
 for f in 5 6 7 8 9; do
