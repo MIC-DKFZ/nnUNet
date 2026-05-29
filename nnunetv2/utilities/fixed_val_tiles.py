@@ -117,20 +117,20 @@ class FixedValTileManager:
             spatial_starts = starts[1:]
             # crop_and_pad_nd expects one [start, end] interval per spatial axis
             # and our target size is self.patch_size.
-            bbox = [[i, i + j] for i, j in zip(spatial_starts, self.patch_size)]
-            data_cropped = crop_and_pad_nd(data[:, slice_idx], bbox, 0)
-            seg_cropped = crop_and_pad_nd(seg[:, slice_idx], bbox, -1)
+            bbox = [[slice_idx, slice_idx + 1], *[[i, i + j] for i, j in zip(spatial_starts, self.patch_size)]]
+            data_cropped = crop_and_pad_nd(data, bbox, 0)[:, 0]
+            seg_cropped = crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16)[:, 0]
             if seg_prev is not None:
-                seg_prev_cropped = crop_and_pad_nd(seg_prev[slice_idx], bbox, -1)
+                seg_prev_cropped = crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16)[0]
                 seg_cropped = np.concatenate((seg_cropped, seg_prev_cropped[None]), axis=0)
         else:
             # crop_and_pad_nd expects one [start, end] interval per spatial axis
             # and our target size is self.patch_size.
             bbox = [[i, i + j] for i, j in zip(starts, self.patch_size)]
             data_cropped = crop_and_pad_nd(data, bbox, 0)
-            seg_cropped = crop_and_pad_nd(seg, bbox, -1)
+            seg_cropped = crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16)
             if seg_prev is not None:
-                seg_prev_cropped = crop_and_pad_nd(seg_prev, bbox, -1)
+                seg_prev_cropped = crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16)
                 seg_cropped = np.concatenate((seg_cropped, seg_prev_cropped[None]), axis=0)
 
         return torch.from_numpy(data_cropped).float(), torch.from_numpy(seg_cropped).to(torch.int16)
@@ -141,11 +141,6 @@ class FixedValTileManager:
 
         for tile in tiles:
             data, seg, seg_prev, _ = self.dataset.load_case(tile.key)
-            data = np.asarray(data[:])
-            seg = np.asarray(seg[:])
-            if seg_prev is not None:
-                seg_prev = np.asarray(seg_prev[:])
-
             data_cropped, seg_cropped = self._crop_tile(data, seg, seg_prev, tile.starts)
             transformed = self.transforms(image=data_cropped, segmentation=seg_cropped)
             data_samples.append(transformed['image'])
