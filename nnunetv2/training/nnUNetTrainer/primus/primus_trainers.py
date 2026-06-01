@@ -294,32 +294,7 @@ class nnUNet_PrimusV3S_Trainer(AbstractPrimus):
         return model
 
 
-class nnUNet_PrimusV3S_Trainer_noGRN(nnUNet_PrimusV3S_Trainer):
-
-    @staticmethod
-    def build_network_architecture(
-        plans_manager: PlansManager,
-        configuration_manager: ConfigurationManager,
-        num_input_channels: int,
-        num_output_channels: int,
-        enable_deep_supervision: bool = True,
-    ) -> nn.Module:
-        # this architecture will crash if the patch size is not divisible by 8!
-        model = PrimusV3S(
-            num_input_channels,
-            num_output_channels,
-            patch_embed_size=(8, 8, 8),
-            input_shape=configuration_manager.patch_size,
-            drop_path_rate=0.2,
-            scale_attn_inner=True,
-            init_values=0.1,
-            use_grn=False,
-        )
-        return model
-
-
-class nnUNet_PrimusV3S_TrainerUpdated(nnUNet_PrimusV3S_Trainer):
-
+class nnUNet_PrimusV3S_Final(nnUNet_PrimusV3S_Trainer):
     pass
 
 
