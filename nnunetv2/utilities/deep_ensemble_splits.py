@@ -1,4 +1,5 @@
 import argparse
+import os.path
 
 
 def _split_is_deep_ensemble(split: dict) -> bool:
@@ -120,14 +121,12 @@ def create_deep_ensemble_splits(dataset_name_or_id: int | str, configuration: st
                                 overwrite_deep_ensemble_splits: bool = False) -> list[dict]:
     from batchgenerators.utilities.file_and_folder_operations import isfile, join, load_json, save_json
 
-    from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-
     if num_members < 1:
         raise ValueError("num_members must be >= 1.")
 
-    dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     preprocessed_dataset_folder, preprocessed_configuration_folder = _get_preprocessed_configuration_folder(
-        dataset_name, plans_identifier, configuration)
+        dataset_name_or_id, plans_identifier, configuration)
+    dataset_name = os.path.basename(preprocessed_dataset_folder)
     case_identifiers = _get_case_identifiers(preprocessed_configuration_folder)
 
     splits_file = join(preprocessed_dataset_folder, "splits_final.json")
