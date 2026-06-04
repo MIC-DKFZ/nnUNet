@@ -1,7 +1,7 @@
 import argparse
 import os.path
 from copy import deepcopy
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Optional
 
 from batchgenerators.utilities.file_and_folder_operations import (
     load_json, join, isdir, isfile, listdir, save_json
@@ -25,7 +25,8 @@ default_trained_models = tuple([
 ])
 
 
-def maybe_warn_about_deep_ensemble_folds(dataset_name_or_id: Union[str, int], folds: Union[List[int], Tuple[int, ...]]):
+def maybe_warn_about_deep_ensemble_folds(dataset_name_or_id: Union[str, int],
+                                         folds: Optional[Union[List[int], Tuple[int, ...]]]):
     splits_file = join(nnUNet_preprocessed, maybe_convert_to_dataset_name(dataset_name_or_id), 'splits_final.json')
     if not isfile(splits_file):
         return
@@ -101,6 +102,10 @@ def find_best_configuration(dataset_name_or_id,
                             overwrite: bool = True,
                             folds: Union[List[int], Tuple[int, ...]] = (0, 1, 2, 3, 4),
                             strict: bool = False):
+    if folds is None:
+        raise ValueError("folds must be a list or tuple of fold indices. None is only supported when checking "
+                         "splits for deep ensemble folds.")
+
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     all_results = {}
 
