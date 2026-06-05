@@ -6,7 +6,7 @@ from acvl_utils.cropping_and_padding.bounding_boxes import insert_crop_into_imag
 from batchgenerators.utilities.file_and_folder_operations import load_json, save_pickle
 
 from nnunetv2.configuration import default_num_processes
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2, comp_blosc2_params
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -143,7 +143,7 @@ def resample_and_save(predicted: Union[torch.Tensor, np.ndarray], target_shape: 
         segmentation = segmentation.cpu().numpy()
 
     if dataset_class is None or dataset_class == nnUNetDatasetBlosc2:
-        block_size, chunk_size = nnUNetDatasetBlosc2.comp_blosc2_params(
+        block_size, chunk_size = comp_blosc2_params(
             (1, *segmentation.shape),
             tuple(configuration_manager.patch_size),
             bytes_per_pixel=1 if len(label_manager.foreground_labels) < 255 else 2
