@@ -1,6 +1,6 @@
 [project]
 name = "nnunetv2"
-version = "2.7.0"
+version = "2.8.0"
 requires-python = ">=3.10"
 description = "nnU-Net is a framework for out-of-the box image segmentation."
 readme = "readme.md"
@@ -32,7 +32,7 @@ keywords = [
 dependencies = [
     "torch>=2.1.2,!=2.9.*",
     "acvl-utils>=0.2.6,<0.3",  # 0.3 may bring breaking changes. Careful!
-    "dynamic-network-architectures>=0.4.1,<0.5",
+    "dynamic-network-architectures>=0.4.4,<0.5",
     "tqdm",
     "scipy",
     "batchgenerators>=0.25.1",
