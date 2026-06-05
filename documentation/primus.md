@@ -147,14 +147,29 @@ The following table summarizes the test-set Dice similarity coefficient (DSC) re
       <td>84.15</td>
       <td style="border-left: 2px solid #999;">81.43</td>
     </tr>
+    <tr>
+      <td>PrimusV3-S</td>
+      %	%	%	%	%	%	%	%	%
+      <td>70.6</td>
+      <td>92.70</td>
+      <td>89.29</td>
+      <td>88.65</td>
+      <td>81.29</td>
+      <td>89.66</td>
+      <td>80.68</td>
+      <td>63.95</td>
+      <td>64.10</td>
+      <td>84.99</td>
+      <td style="border-left: 2px solid #999;">81.70</td>
+    </tr>
   </tbody>
 </table>
 
 ## Primus trainers
-> Currently only the default Primus trainers are implemented as nnU-Net trainers.
-> PrimusV2 (and PrimusV3) trainers will be added in the near future.
 
-The following Primus trainers are available:
+The following Primus trainers are available in nnU-Net, and we currently recommend using `nnUNet_PrimusV3S_Trainer`
+
+The original Primus models with an immediate 8x8x8 tokenization are available as `nnUNet_Primus_{S,B,M,L}_Trainer`. 
 ```text
 nnUNet_Primus_S_Trainer
 nnUNet_Primus_B_Trainer
@@ -162,3 +177,81 @@ nnUNet_Primus_M_Trainer
 nnUNet_Primus_L_Trainer
 ```
 
+The PrimusV2 models with the iterative residual tokenizer are available as `nnUNet_PrimusV2_{S,B,M,L}_Trainer`, and represent the best performing models of our recent [TMLR publication](https://openreview.net/forum?id=x4vZE4PDEu).
+
+
+```text
+nnUNet_PrimusV2S_Trainer
+nnUNet_PrimusV2B_Trainer
+nnUNet_PrimusV2M_Trainer
+nnUNet_PrimusV2L_Trainer
+```
+
+Lastly, a preliminary version of PrimusV3 is added with a more convolution heavy patch embedding.
+
+```text
+nnUNet_PrimusV3S_Trainer   # (recommended)
+nnUNet_PrimusV3B_Trainer
+nnUNet_PrimusV3M_Trainer
+nnUNet_PrimusV3L_Trainer
+```
+
+
+### Primus V3
+
+After the submission of PrimusV2 to TMLR, we have continued to explore the design space of Primus, focussing on the patch embedding:
+
+
+Luc Bouteille (UK-Essen) pointed out that PrimusV2's iterative patch
+embedding creates a bottleneck before the Transformer.
+
+The issue is that PrimusV2 grows the channel dimension only modestly
+through the stem - 32 (stem) → 32 (stride 2) → 64 (stride 4) →
+128 (stride 8) - before projecting to the final embedding dimension.
+Over the same path, the spatial resolution is reduced by a factor of 8
+per axis, i.e. 1/8³ = 1/512 in volume. Because the channels grow far
+more slowly (×4: 32 → 128) than the spatial volume shrinks (×1/512),
+the representation is heavily compressed before it ever reaches the
+Transformer.
+
+PrimusV3's patch embedding is designed to counter this. It scales the
+channels much more aggressively - 32 → 64 (stride 2) → 256 (stride 4)
+→ 1024 (stride 8) - before the final projection, so the channel growth
+better offsets the spatial downsampling.
+
+Additionally, the patch-embedding now follows a direct skip connection, where each spatial resolution is projected to the final embedding dimension and added to the token sequence, allowing to create composite tokens of 8x8x8 kernel size and iterative token size (illustrated below). 
+
+The trade-off is that this concentrates a large share of parameters in
+the patch embedding (~60M) reflecting a UNet Index of ~2. Despite this high UNet Index, the convolutional stem alone is still insufficient to perform well due to the lacking global context: 
+Removing the Transformer drops performance to 84.48, versus 87.98 with it (5-fold
+average across LiTS, ACDC, KiTS, AMOS).
+
+
+
+```text
+PrimusV2-S                                    PrimusV3-S  
+
+ input 1 @ 64³                                input 1 @ 64³
+      |                                            |
+   stem (k3,s1)                                 stem (k3,s1)
+   32 @ 64³                                     32 @ 64³ ───────────────┐ skip (k8,s8)
+      |                                            |                    |
+   stage0 (s2)                                  stage0 (s2)             |
+   32 @ 32³                                     64 @ 32³ ──────────┐    | skip (k4,s4)
+      |                                            |               |    |
+   stage1 (s2)                                  stage1 (s2)        |    | skip (k2,s2)
+   64 @ 16³                                     256 @ 16³ ────┐    |    |
+      |                                            |          |    |    |
+   stage2 (s2)                                  stage2 (s2)   |    |    |
+   128 @ 8³                                     1024 @ 8³     |    |    |
+      |                                            |          |    |    |
+   final 1×1                                    final 1×1     |    |    |
+   396 @ 8³                                     396 @ 8³      |    |    |
+      |                                            |          |    |    |
+      |                                           (+) ◄───────┴────┴────┘  Σ scaleᵢ·proj_i
+      |                                            |   (learnable scales, init ≈ 1e-5)
+   tokens 396 @ 8³                              tokens 396 @ 8³
+      |                                            |
+   EVA encoder (no spatial change)              EVA encoder (no spatial change)
+   396 @ 8³                                     396 @ 8³
+```
