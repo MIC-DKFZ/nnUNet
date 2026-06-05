@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import torch
 from torch import nn, autocast
-from dynamic_network_architectures.architectures.primus import Primus
+from dynamic_network_architectures.architectures.primus import Primus, PrimusV2B, PrimusV2L, PrimusV2M, PrimusV2S
 
 try:
     from dynamic_network_architectures.architectures.primus import PrimusV3S, PrimusV3B, PrimusV3M, PrimusV3L
@@ -271,6 +271,98 @@ class nnUNet_Primus_L_Trainer(AbstractPrimus):
         return model
 
 
+class nnUNet_PrimusV2S_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV2S(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV2B_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV2B(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV2M_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV2M(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
+class nnUNet_PrimusV2L_Trainer(AbstractPrimus):
+
+    @staticmethod
+    def build_network_architecture(
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
+        num_input_channels: int,
+        num_output_channels: int,
+        enable_deep_supervision: bool = True,
+    ) -> nn.Module:
+        # this architecture will crash if the patch size is not divisible by 8!
+        model = PrimusV2L(
+            num_input_channels,
+            num_output_channels,
+            patch_embed_size=(8, 8, 8),
+            input_shape=configuration_manager.patch_size,
+            drop_path_rate=0.2,
+            scale_attn_inner=True,
+            init_values=0.1,
+        )
+        return model
+
+
 class nnUNet_PrimusV3S_Trainer(AbstractPrimus):
 
     @staticmethod
@@ -292,10 +384,6 @@ class nnUNet_PrimusV3S_Trainer(AbstractPrimus):
             init_values=0.1,
         )
         return model
-
-
-class nnUNet_PrimusV3S_Final(nnUNet_PrimusV3S_Trainer):
-    pass
 
 
 class nnUNet_PrimusV3B_Trainer(AbstractPrimus):
