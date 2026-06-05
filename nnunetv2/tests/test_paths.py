@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from nnunetv2.paths import nnUNet_raw
+from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.utilities.dataset_name_id_conversion import find_candidate_datasets
 
 
@@ -25,6 +25,20 @@ class TestPaths(unittest.TestCase):
             os.environ.pop('nnUNet_preprocessed', None)
             os.environ.pop('nnUNet_results', None)
             self.assertEqual(len(find_candidate_datasets(999)), 0)
+
+    def test_env_path_equality(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('nnUNet_raw', None)
+            os.environ.pop('nnUNet_preprocessed', None)
+            self.assertEqual(nnUNet_raw, None)
+            self.assertNotEqual(nnUNet_raw, '/some/path')
+            os.environ['nnUNet_raw'] = '/same/path'
+            self.assertEqual(nnUNet_raw, '/same/path')
+            self.assertNotEqual(nnUNet_raw, '/other/path')
+            os.environ['nnUNet_preprocessed'] = '/same/path'
+            self.assertEqual(nnUNet_raw, nnUNet_preprocessed)
+            os.environ['nnUNet_preprocessed'] = '/other/path'
+            self.assertNotEqual(nnUNet_raw, nnUNet_preprocessed)
 
 
 if __name__ == '__main__':
