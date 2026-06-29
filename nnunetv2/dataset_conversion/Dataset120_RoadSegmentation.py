@@ -1,6 +1,5 @@
 import multiprocessing
 import shutil
-from multiprocessing import Pool
 
 from batchgenerators.utilities.file_and_folder_operations import *
 

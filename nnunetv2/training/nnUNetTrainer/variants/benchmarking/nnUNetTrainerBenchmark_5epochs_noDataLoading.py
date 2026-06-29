@@ -31,7 +31,7 @@ class nnUNetTrainerBenchmark_5epochs_noDataLoading(nnUNetTrainerBenchmark_5epoch
                 for k in self._get_deep_supervision_scales()
             ]
         else:
-            raise NotImplementedError("This trainer does not support deep supervision")
+            raise NotImplementedError("This trainer only works with deep supervision")
         self.dummy_batch = {"data": dummy_data, "target": dummy_target}
 
     def get_dataloaders(self):
@@ -60,5 +60,9 @@ class nnUNetTrainerBenchmark_5epochs_noDataLoading(nnUNetTrainerBenchmark_5epoch
                 self.on_epoch_end()
 
             self.on_train_end()
-        except RuntimeError:
+        except KeyboardInterrupt as ki:
+            raise ki
+        except RuntimeError as e:
             self.crashed_with_runtime_error = True
+            self.on_train_end()
+            self.print_to_log_file(f"An Exception occurred: {e}")

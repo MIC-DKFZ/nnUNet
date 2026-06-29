@@ -26,7 +26,7 @@ import nnunetv2
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2, comp_blosc2_params
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
@@ -153,11 +153,11 @@ class DefaultPreprocessor(object):
         data = data.astype(np.float32, copy=False)
         seg = seg.astype(np.int16, copy=False)
         # print('dtypes', data.dtype, seg.dtype)
-        block_size_data, chunk_size_data = nnUNetDatasetBlosc2.comp_blosc2_params(
+        block_size_data, chunk_size_data = comp_blosc2_params(
             data.shape,
             tuple(configuration_manager.patch_size),
             data.itemsize)
-        block_size_seg, chunk_size_seg = nnUNetDatasetBlosc2.comp_blosc2_params(
+        block_size_seg, chunk_size_seg = comp_blosc2_params(
             seg.shape,
             tuple(configuration_manager.patch_size),
             seg.itemsize)

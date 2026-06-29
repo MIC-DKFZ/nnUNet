@@ -66,5 +66,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
     amos_base = args.input_folder
     convert_amos_task1(amos_base, args.d)
-
-

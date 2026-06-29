@@ -12,7 +12,6 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-import warnings
 from typing import Tuple, Union, List
 import numpy as np
 from nibabel.orientations import io_orientation, axcodes2ornt, ornt_transform
@@ -185,8 +184,8 @@ class NibabelIOWithReorient(BaseReaderWriter):
         seg_nib_reoriented = seg_nib.as_reoriented(from_canonical)
         if not np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine):
             print(f'WARNING: Restored affine does not match original affine. File: {output_fname}')
-            print(f'Original affine\n', properties['nibabel_stuff']['original_affine'])
-            print(f'Restored affine\n', seg_nib_reoriented.affine)
+            print('Original affine\n', properties['nibabel_stuff']['original_affine'])
+            print('Restored affine\n', seg_nib_reoriented.affine)
         nibabel.save(seg_nib_reoriented, output_fname)
 
 

@@ -11,7 +11,7 @@ Our model is basically is a default nnU-Net with a custom low resolution setting
 
 # Experiment Planning and Preprocessing
 
-Bring the downloaded data into the [nnU-Net format](../../../nnUNet/documentation/dataset_format.md) and add the dataset.json file as given here:
+Bring the downloaded data into the [nnU-Net format](../../../dataset_format.md) and add the dataset.json file as given here:
 
 ```json
 {

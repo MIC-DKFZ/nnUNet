@@ -7,9 +7,9 @@ if __name__ == '__main__':
     """
     Download the dataset from huggingface:
     https://huggingface.co/datasets/AbdomenAtlas/_AbdomenAtlas1.1Mini#3--download-the-dataset
-    
+
     IMPORTANT
-    cases 5196-9262 currently do not have images, just the segmentation. This seems to be a mistake 
+    cases 5196-9262 currently do not have images, just the segmentation. This seems to be a mistake
     """
     base = '/home/isensee/Downloads/AbdomenAtlas/uncompressed'
     target_dataset_id = 23

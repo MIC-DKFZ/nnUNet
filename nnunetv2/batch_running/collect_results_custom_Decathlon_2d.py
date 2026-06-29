@@ -15,4 +15,3 @@ if __name__ == '__main__':
     configs = ('2d', )
     output_file = join(nnUNet_results, 'hrnet_results_summary_fold0.csv')
     summarize(all_results_file, output_file, folds, configs, datasets, use_these_trainers)
-

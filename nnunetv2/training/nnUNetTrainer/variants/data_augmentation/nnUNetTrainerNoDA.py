@@ -32,4 +32,3 @@ class nnUNetTrainerNoDA(nnUNetTrainer):
         self.inference_allowed_mirroring_axes = None
         initial_patch_size = self.configuration_manager.patch_size
         return rotation_for_DA, do_dummy_2d_data_aug, initial_patch_size, mirror_axes
-

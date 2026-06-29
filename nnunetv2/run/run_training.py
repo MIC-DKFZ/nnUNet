@@ -3,7 +3,6 @@ import os
 import socket
 from typing import Union, Optional
 
-import nnunetv2
 import torch.cuda
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -12,7 +11,7 @@ from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
 from torch.backends import cudnn
 import torch
 
@@ -38,15 +37,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
                           continue_training: bool = False,
                           device: torch.device = torch.device('cuda')):
     # load nnunet class and do sanity checks
-    nnunet_trainer = recursive_find_python_class(join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
-                                                 trainer_name, 'nnunetv2.training.nnUNetTrainer')
-    if nnunet_trainer is None:
-        raise RuntimeError(f'Could not find requested nnunet trainer {trainer_name} in '
-                           f'nnunetv2.training.nnUNetTrainer ('
-                           f'{join(nnunetv2.__path__[0], "training", "nnUNetTrainer")}). If it is located somewhere '
-                           f'else, please move it there.')
-    assert issubclass(nnunet_trainer, nnUNetTrainer), 'The requested nnunet trainer class must inherit from ' \
-                                                      'nnUNetTrainer'
+    nnunet_trainer = recursive_find_trainer_class_by_name(trainer_name)
 
     # handle dataset input. If it's an ID we need to convert to int from string
     if dataset_name_or_id.startswith('Dataset'):
@@ -83,13 +74,13 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         if not isfile(expected_checkpoint_file):
             expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
         if not isfile(expected_checkpoint_file):
-            print(f"WARNING: Cannot continue training because there seems to be no checkpoint available to "
-                  f"continue from. Starting a new training...")
+            print("WARNING: Cannot continue training because there seems to be no checkpoint available to "
+                  "continue from. Starting a new training...")
             expected_checkpoint_file = None
     elif validation_only:
         expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
         if not isfile(expected_checkpoint_file):
-            raise RuntimeError(f"Cannot run validation because the training is not finished yet!")
+            raise RuntimeError("Cannot run validation because the training is not finished yet!")
     else:
         if pretrained_weights_file is not None:
             if not nnunet_trainer.was_initialized:

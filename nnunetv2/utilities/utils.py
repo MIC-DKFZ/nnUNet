@@ -13,15 +13,13 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import os.path
-from functools import lru_cache
-from typing import Union
-
-from batchgenerators.utilities.file_and_folder_operations import *
-import numpy as np
 import re
+from multiprocessing import Pool
+
+import numpy as np
+from batchgenerators.utilities.file_and_folder_operations import *
 
 from nnunetv2.paths import nnUNet_raw
-from multiprocessing import Pool
 
 
 def get_identifiers_from_splitted_dataset_folder(folder: str, file_ending: str):
@@ -35,7 +33,7 @@ def get_identifiers_from_splitted_dataset_folder(folder: str, file_ending: str):
 
 
 def create_paths_fn(folder, files, file_ending, f):
-    p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))            
+    p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))
     return [join(folder, i) for i in files if p.fullmatch(i)]
 
 
@@ -52,7 +50,7 @@ def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, ide
     params_list = [(folder, files, file_ending, f) for f in identifiers]
     with Pool(processes=num_processes) as pool:
         list_of_lists = pool.starmap(create_paths_fn, params_list)
-        
+
     return list_of_lists
 
 

@@ -29,11 +29,14 @@ def determine_reader_writer_from_dataset_json(dataset_json_content: dict, exampl
         # trying to find that class in the nnunetv2.imageio module
         try:
             ret = recursive_find_reader_writer_by_name(ioclass_name)
-            if verbose: print(f'Using {ret} reader/writer')
+            if verbose:
+                print(f'Using {ret} reader/writer')
             return ret
         except RuntimeError:
-            if verbose: print(f'Warning: Unable to find ioclass specified in dataset.json: {ioclass_name}')
-            if verbose: print('Trying to automatically determine desired class')
+            if verbose:
+                print(f'Warning: Unable to find ioclass specified in dataset.json: {ioclass_name}')
+            if verbose:
+                print('Trying to automatically determine desired class')
     return determine_reader_writer_from_file_ending(dataset_json_content['file_ending'], example_file,
                                                     allow_nonmatching_filename, verbose)
 
@@ -47,25 +50,31 @@ def determine_reader_writer_from_file_ending(file_ending: str, example_file: str
                 try:
                     tmp = rw()
                     _ = tmp.read_images((example_file,))
-                    if verbose: print(f'Using {rw} as reader/writer')
+                    if verbose:
+                        print(f'Using {rw} as reader/writer')
                     return rw
                 except:
-                    if verbose: print(f'Failed to open file {example_file} with reader {rw}:')
+                    if verbose:
+                        print(f'Failed to open file {example_file} with reader {rw}:')
                     traceback.print_exc()
                     pass
             else:
-                if verbose: print(f'Using {rw} as reader/writer')
+                if verbose:
+                    print(f'Using {rw} as reader/writer')
                 return rw
         else:
             if allow_nonmatching_filename and example_file is not None:
                 try:
                     tmp = rw()
                     _ = tmp.read_images((example_file,))
-                    if verbose: print(f'Using {rw} as reader/writer')
+                    if verbose:
+                        print(f'Using {rw} as reader/writer')
                     return rw
                 except:
-                    if verbose: print(f'Failed to open file {example_file} with reader {rw}:')
-                    if verbose: traceback.print_exc()
+                    if verbose:
+                        print(f'Failed to open file {example_file} with reader {rw}:')
+                    if verbose:
+                        traceback.print_exc()
                     pass
     raise RuntimeError(f"Unable to determine a reader for file ending {file_ending} and file {example_file} (file None means no file provided).")
 

@@ -64,7 +64,6 @@ class nnUNetDataLoader(DataLoader):
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
         self.transforms = transforms
-        self.data_shape, self.seg_shape = self.determine_shapes()
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
@@ -75,23 +74,6 @@ class nnUNetDataLoader(DataLoader):
     def _probabilistic_oversampling(self, sample_idx: int) -> bool:
         # print('YEAH BOIIIIII')
         return np.random.uniform() < self.oversample_foreground_percent
-
-    def determine_shapes(self):
-        # load one case
-        data, seg, seg_prev, properties = self._data.load_case(self._data.identifiers[0])
-        num_color_channels = data.shape[0]
-
-        if self.patch_size_was_2d:
-            spatial_shape = self.final_patch_size[1:] if self.transforms is not None else self.patch_size[1:]
-        else:
-            spatial_shape = self.final_patch_size if self.transforms is not None else self.patch_size
-
-        data_shape = (self.batch_size, num_color_channels, *spatial_shape)
-        channels_seg = seg.shape[0]
-        if seg_prev is not None:
-            channels_seg += 1
-        seg_shape = (self.batch_size, channels_seg, *spatial_shape)
-        return data_shape, seg_shape
 
     def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
                  overwrite_class: Union[int, Tuple[int, ...]] = None, verbose: bool = False):
@@ -172,7 +154,7 @@ class nnUNetDataLoader(DataLoader):
     def generate_train_batch(self):
         selected_keys = self.get_indices()
         # preallocate output tensors in final patch size and write transformed samples directly
-        data_all = torch.empty(self.data_shape, dtype=torch.float32)
+        data_all = None
         seg_all = None
 
         with torch.no_grad():
@@ -192,9 +174,9 @@ class nnUNetDataLoader(DataLoader):
                     bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
                     data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0)).float()
-                    seg_cropped = torch.from_numpy(crop_and_pad_nd(seg, bbox, -1)).to(torch.int16)
+                    seg_cropped = torch.from_numpy(crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16)).to(torch.int16)
                     if seg_prev is not None:
-                        seg_prev_cropped = torch.from_numpy(crop_and_pad_nd(seg_prev, bbox, -1)).to(torch.int16)
+                        seg_prev_cropped = torch.from_numpy(crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16)).to(torch.int16)
                         seg_cropped = torch.cat((seg_cropped, seg_prev_cropped[None]), dim=0)
 
                     if self.patch_size_was_2d:
@@ -209,6 +191,8 @@ class nnUNetDataLoader(DataLoader):
                         data_sample = data_cropped
                         seg_sample = seg_cropped
 
+                    if data_all is None:
+                        data_all = torch.empty((self.batch_size, *data_sample.shape), dtype=torch.float32)
                     data_all[j] = data_sample
 
                     if isinstance(seg_sample, list):
@@ -220,7 +204,6 @@ class nnUNetDataLoader(DataLoader):
                         if seg_all is None:
                             seg_all = torch.empty((self.batch_size, *seg_sample.shape), dtype=seg_sample.dtype)
                         seg_all[j] = seg_sample
-
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
 

@@ -1,5 +1,4 @@
 from batchgenerators.utilities.file_and_folder_operations import *
-import shutil
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 from nnunetv2.paths import nnUNet_raw
 import SimpleITK as sitk
@@ -7,9 +6,9 @@ import SimpleITK as sitk
 
 if __name__ == '__main__':
     """
-    
+
     """
-    # extracted traiing.zip file is here
+    # extracted training.zip file is here
     base = '/home/isensee/Downloads/'
     target_dataset_id = 21
     target_dataset_name = f'Dataset{target_dataset_id:03.0f}_CTAAorta'

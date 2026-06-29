@@ -7,7 +7,6 @@ from batchgenerators.utilities.file_and_folder_operations import isdir, join, lo
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.paths import nnUNet_raw
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
-from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
 def sparsify_segmentation(seg: np.ndarray, label_manager: LabelManager, percent_of_slices: float) -> np.ndarray:
@@ -72,4 +71,3 @@ if __name__ == '__main__':
         seg_itk_new = sitk.GetImageFromArray(seg_npy)
         seg_itk_new.CopyInformation(seg_itk)
         sitk.WriteImage(seg_itk_new, s)
-

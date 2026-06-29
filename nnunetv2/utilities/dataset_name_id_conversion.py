@@ -20,18 +20,18 @@ import numpy as np
 
 def find_candidate_datasets(dataset_id: int):
     startswith = "Dataset%03.0d" % dataset_id
-    if nnUNet_preprocessed is not None and isdir(nnUNet_preprocessed):
+    if nnUNet_preprocessed.is_set() and isdir(nnUNet_preprocessed):
         candidates_preprocessed = subdirs(nnUNet_preprocessed, prefix=startswith, join=False)
     else:
         candidates_preprocessed = []
 
-    if nnUNet_raw is not None and isdir(nnUNet_raw):
+    if nnUNet_raw.is_set() and isdir(nnUNet_raw):
         candidates_raw = subdirs(nnUNet_raw, prefix=startswith, join=False)
     else:
         candidates_raw = []
 
     candidates_trained_models = []
-    if nnUNet_results is not None and isdir(nnUNet_results):
+    if nnUNet_results.is_set() and isdir(nnUNet_results):
         candidates_trained_models += subdirs(nnUNet_results, prefix=startswith, join=False)
 
     all_candidates = candidates_preprocessed + candidates_raw + candidates_trained_models
@@ -43,7 +43,8 @@ def convert_id_to_dataset_name(dataset_id: int):
     unique_candidates = find_candidate_datasets(dataset_id)
     if len(unique_candidates) > 1:
         raise RuntimeError("More than one dataset name found for dataset id %d. Please correct that. (I looked in the "
-                           "following folders:\n%s\n%s\n%s" % (dataset_id, nnUNet_raw, nnUNet_preprocessed, nnUNet_results))
+                           "following folders:\n%s\n%s\n%s" % (dataset_id, nnUNet_raw.get(), nnUNet_preprocessed.get(),
+                                                                nnUNet_results.get()))
     if len(unique_candidates) == 0:
         raise RuntimeError(f"Could not find a dataset with the ID {dataset_id}. Make sure the requested dataset ID "
                            f"exists and that nnU-Net knows where raw and preprocessed data are located "

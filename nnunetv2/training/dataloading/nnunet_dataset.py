@@ -1,19 +1,204 @@
+import math
 import os
-import warnings
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from functools import lru_cache
-from typing import List, Union, Type, Tuple
+from typing import List, Union, Type
+from typing import Optional, Sequence, Tuple
 
-import numpy as np
 import blosc2
-import shutil
-from blosc2 import Filter, Codec
-
+import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile, write_pickle, subfiles
+
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.training.dataloading.utils import unpack_dataset
-import math
+
+
+def comp_blosc2_params(
+    image_size: Sequence[int],
+    patch_size: Sequence[int],
+    bytes_per_pixel: int = 4,
+    max_block_nbytes: int = 128 * 1024,
+    max_chunk_nbytes: int = 6 * 1024**2,
+    max_chunk_to_patch_ratio_per_axis: Optional[float] = 1.5,
+    grow_singleton_patch_axes: bool = False,
+) -> Tuple[Tuple[int, int, int, int], Tuple[int, int, int, int]]:
+    """
+    Compute Blosc2 block and chunk shapes for 4D arrays with layout:
+
+        image_size = (c, x, y, z)
+
+    patch_size is spatial only:
+
+        patch_size = (x, y, z) for 3D patches
+        patch_size = (y, z)    for 2D patches, internally promoted to (1, y, z)
+
+    The channel axis is always kept at 1 for blocks and chunks.
+
+    max_block_nbytes and max_chunk_nbytes are hard caps on the logical useful
+    payload, not on any internally padded Blosc2 extent.
+
+    Block and chunk shapes are chosen to roughly follow the image aspect ratio,
+    subject to:
+    - the patch-size-based per-axis chunk limit
+    - the block byte cap
+    - the chunk byte cap
+    """
+
+    def ceil_pow2(n: int) -> int:
+        if n <= 1:
+            return 1
+        return 1 << (n - 1).bit_length()
+
+    def prev_pow2_below(n: int) -> int:
+        if n <= 1:
+            return 1
+        return 1 << ((n - 1).bit_length() - 1)
+
+    def nbytes(shape: Sequence[int]) -> int:
+        return math.prod(int(i) for i in shape) * int(bytes_per_pixel)
+
+    if len(image_size) != 4:
+        raise ValueError(f"image_size must be 4D, i.e. (c, x, y, z). Got {image_size}.")
+
+    if len(patch_size) not in (2, 3):
+        raise ValueError(f"patch_size must be 2D or 3D spatial shape. Got {patch_size}.")
+
+    if bytes_per_pixel <= 0:
+        raise ValueError("bytes_per_pixel must be positive.")
+
+    if max_block_nbytes <= 0:
+        raise ValueError("max_block_nbytes must be positive.")
+
+    if max_chunk_nbytes <= 0:
+        raise ValueError("max_chunk_nbytes must be positive.")
+
+    if (
+        max_chunk_to_patch_ratio_per_axis is not None
+        and max_chunk_to_patch_ratio_per_axis < 1.0
+    ):
+        raise ValueError("max_chunk_to_patch_ratio_per_axis must be >= 1.0 or None.")
+
+    image_size = tuple(int(i) for i in image_size)
+
+    if any(i <= 0 for i in image_size):
+        raise ValueError(f"All image_size entries must be positive. Got {image_size}.")
+
+    is_2d_patch = len(patch_size) == 2
+
+    if is_2d_patch:
+        patch_spatial = (1, int(patch_size[0]), int(patch_size[1]))
+    else:
+        patch_spatial = tuple(int(i) for i in patch_size)
+
+    if any(i <= 0 for i in patch_spatial):
+        raise ValueError(f"All patch_size entries must be positive. Got {patch_size}.")
+
+    image_spatial = image_size[1:]
+
+    if max_chunk_to_patch_ratio_per_axis is None:
+        target_spatial = image_spatial
+    else:
+        target_spatial = tuple(
+            min(
+                image_spatial[ax],
+                int(math.floor(max_chunk_to_patch_ratio_per_axis * patch_spatial[ax])),
+            )
+            for ax in range(3)
+        )
+
+    target_spatial = tuple(max(1, int(i)) for i in target_spatial)
+
+    # --------------------
+    # Block shape
+    # --------------------
+    block = [1]
+    for p, img in zip(patch_spatial, image_spatial):
+        block.append(min(ceil_pow2(p), img))
+
+    effective_block_cap = min(max_block_nbytes, max_chunk_nbytes)
+
+    while nbytes(block) > effective_block_cap:
+        candidate_axes = [ax for ax in range(3) if block[ax + 1] > 1]
+
+        if not candidate_axes:
+            raise ValueError(
+                f"Cannot fit minimum block {tuple(block)} into "
+                f"{effective_block_cap} bytes with bytes_per_pixel={bytes_per_pixel}."
+            )
+
+        # Shrink the most over-represented axis relative to the target extent.
+        # Tie-break toward later axes to preserve the old isotropic default:
+        # (1, 64, 64, 32) for 128^3 patches with a 512 KiB block cap.
+        picked_axis = max(
+            candidate_axes,
+            key=lambda ax: (block[ax + 1] / target_spatial[ax], ax),
+        )
+
+        block[picked_axis + 1] = max(1, prev_pow2_below(block[picked_axis + 1]))
+
+    # --------------------
+    # Chunk shape
+    # --------------------
+    chunk = block.copy()
+
+    while True:
+        candidates = []
+
+        for ax in range(3):
+            if is_2d_patch and ax == 0:
+                continue
+
+            if patch_spatial[ax] == 1 and not grow_singleton_patch_axes:
+                continue
+
+            if chunk[ax + 1] >= image_spatial[ax]:
+                continue
+
+            if chunk[ax + 1] >= target_spatial[ax]:
+                continue
+
+            candidate = chunk.copy()
+
+            # Grow by one block step, but allow clamping to image boundary
+            # or to the target extent.
+            candidate[ax + 1] = min(
+                candidate[ax + 1] + block[ax + 1],
+                image_spatial[ax],
+                target_spatial[ax],
+            )
+
+            if candidate[ax + 1] == chunk[ax + 1]:
+                continue
+
+            candidate_nbytes = nbytes(candidate)
+
+            # Hard cap on logical useful chunk payload.
+            if candidate_nbytes > max_chunk_nbytes:
+                continue
+
+            # Grow the most under-covered axis relative to the target extent.
+            # Tie-break toward the larger original image axis, so for
+            # image_spatial=(123, 423, 645), z grows before y when both are tied.
+            coverage_ratio = chunk[ax + 1] / target_spatial[ax]
+
+            candidates.append(
+                (
+                    coverage_ratio,
+                    -image_spatial[ax],
+                    ax,
+                    -candidate_nbytes,
+                    candidate,
+                )
+            )
+
+        if not candidates:
+            break
+
+        _, _, _, _, chunk = min(
+            candidates,
+            key=lambda item: (item[0], item[1], item[2], item[3]),
+        )
+
+    return tuple(int(i) for i in block), tuple(int(i) for i in chunk)
 
 
 class nnUNetBaseDataset(ABC):
@@ -124,6 +309,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
                  folder_with_segs_from_previous_stage: str = None):
         super().__init__(folder, identifiers, folder_with_segs_from_previous_stage)
         blosc2.set_nthreads(1)
+        # mmap does not work with Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
+        self.mmap_kwargs = {} if os.name == "nt" else {'mmap_mode': 'r'}
 
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -134,21 +321,52 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         }
         data_b2nd_file = join(self.source_folder, identifier + '.b2nd')
 
-        # mmap does not work with Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
-        mmap_kwargs = {} if os.name == "nt" else {'mmap_mode': 'r'}
-        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
+        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams, **self.mmap_kwargs)
 
         seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
-        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
+        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, **self.mmap_kwargs)
 
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_b2nd_file = join(self.folder_with_segs_from_previous_stage, identifier + '.b2nd')
-            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
+            seg_prev = blosc2.open(urlpath=prev_seg_b2nd_file, mode='r', dparams=dparams, **self.mmap_kwargs)
         else:
             seg_prev = None
 
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
         return data, seg, seg_prev, properties
+
+    @staticmethod
+    def _select_filter(arr: np.ndarray, blocks, chunks, codec, clevel) -> "blosc2.Filter":
+        """
+        Pick the better blosc2 filter (NOFILTER vs SHUFFLE) for ``arr`` by trial-compressing
+        a representative, centered slab (at most one chunk) both ways and keeping the smaller.
+
+        The best filter depends on whether the data was resampled: continuous/interpolated
+        intensities favor SHUFFLE, while quantized (non-resampled) intensities favor NOFILTER.
+        This is a per-image property with no robust cheap proxy (the unique-value fraction is
+        confounded by image size), so we measure the real objective directly. Ties go to
+        NOFILTER; any failure falls back to NOFILTER.
+        """
+        try:
+            shape = tuple(int(s) for s in arr.shape)
+            # centered slab of at most one chunk -> cheap, representative (lands on foreground)
+            slab_shape = [min(int(c), s) for c, s in zip(chunks, shape)]
+            slices = tuple(slice((s - ss) // 2, (s - ss) // 2 + ss) for s, ss in zip(shape, slab_shape))
+            slab = np.ascontiguousarray(arr[slices])
+            trial_blocks = tuple(max(1, min(int(b), ss)) for b, ss in zip(blocks, slab_shape))
+
+            best_filter, best_bytes = blosc2.Filter.NOFILTER, None
+            for f in (blosc2.Filter.NOFILTER, blosc2.Filter.SHUFFLE):
+                cparams = {'codec': codec, 'clevel': clevel, 'nthreads': 4, 'filters': [f]}
+                comp = blosc2.asarray(slab, chunks=tuple(slab_shape), blocks=trial_blocks, cparams=cparams)
+                cb = comp.schunk.cbytes
+                if best_bytes is None or cb < best_bytes:
+                    best_bytes, best_filter = cb, f
+            return best_filter
+        except Exception as e:
+            from warnings import warn
+            warn(f'_select_filter failed ({e!r}); falling back to NOFILTER.')
+            return blosc2.Filter.NOFILTER
 
     @staticmethod
     def save_case(
@@ -160,26 +378,72 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             blocks=None,
             chunks_seg=None,
             blocks_seg=None,
-            clevel: int = 8,
-            codec=blosc2.Codec.ZSTD
+            clevel: int = 5,
+            codec=blosc2.Codec.LZ4HC,
+            filters=None,
+            filters_seg=None,
     ):
+        if chunks is None or blocks is None:
+            from warnings import warn
+            blocks, chunks = comp_blosc2_params(data.shape, (128, 128, 128))
+            warn(f'Warning: Received empty chunks or blocks. Computed with comp_blosc2_params. This is bad because we '
+                 f'do not know the access pattern here (patch size). This should be fixed and not ignored. '
+                 f'Raise an issue at github.com/MIC-DKFZ/nnUNet\n'
+                 f'data shape: {data.shape}\n'
+                 f'chunks {chunks}\n'
+                 f'blocks {blocks}\n')
+
         blosc2.set_nthreads(1)
+
         if chunks_seg is None:
             chunks_seg = chunks
         if blocks_seg is None:
             blocks_seg = blocks
 
+        # Auto-select the filter for data and seg independently (try both, keep the winner)
+        # unless a filter pipeline was passed explicitly, in which case all provided filters
+        # are applied. Each is selected against its own blocks/chunks.
+        if filters is None:
+            data_filters = [nnUNetDatasetBlosc2._select_filter(data, blocks, chunks, codec, clevel)]
+        else:
+            data_filters = list(filters)
+
+        if filters_seg is None:
+            seg_filters = [nnUNetDatasetBlosc2._select_filter(seg, blocks_seg, chunks_seg, codec, clevel)]
+        else:
+            seg_filters = list(filters_seg)
+
         cparams = {
             'codec': codec,
-            # 'filters': [blosc2.Filter.SHUFFLE],
-            # 'splitmode': blosc2.SplitMode.ALWAYS_SPLIT,
+            'filters': data_filters,
+            'nthreads': 4,
             'clevel': clevel,
         }
+        cparams_seg = {
+            'codec': codec,
+            'filters': seg_filters,
+            'nthreads': 4,
+            'clevel': clevel,
+        }
+
         # print(output_filename_truncated, data.shape, seg.shape, blocks, chunks, blocks_seg, chunks_seg, data.dtype, seg.dtype)
-        blosc2.asarray(np.ascontiguousarray(data), urlpath=output_filename_truncated + '.b2nd', chunks=chunks,
-                       blocks=blocks, cparams=cparams)
-        blosc2.asarray(np.ascontiguousarray(seg), urlpath=output_filename_truncated + '_seg.b2nd', chunks=chunks_seg,
-                       blocks=blocks_seg, cparams=cparams)
+
+        blosc2.asarray(
+            np.ascontiguousarray(data),
+            urlpath=output_filename_truncated + '.b2nd',
+            chunks=chunks,
+            blocks=blocks,
+            cparams=cparams,
+        )
+
+        blosc2.asarray(
+            np.ascontiguousarray(seg),
+            urlpath=output_filename_truncated + '_seg.b2nd',
+            chunks=chunks_seg,
+            blocks=blocks_seg,
+            cparams=cparams_seg,
+        )
+
         write_pickle(properties, output_filename_truncated + '.pkl')
 
     @staticmethod
@@ -189,6 +453,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             chunks_seg=None,
             blocks_seg=None
     ):
+        if isfile(output_filename_truncated + '.b2nd'):
+            os.remove(output_filename_truncated + '.b2nd')
         blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg)
 
     @staticmethod
@@ -204,98 +470,6 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
                        num_processes: int = default_num_processes,
                        verify: bool = True):
         pass
-
-    @staticmethod
-    def comp_blosc2_params(
-            image_size: Tuple[int, int, int, int],
-            patch_size: Union[Tuple[int, int], Tuple[int, int, int]],
-            bytes_per_pixel: int = 4,  # 4 byte are float32
-            l1_cache_size_per_core_in_bytes=32768,  # 1 Kibibyte (KiB) = 2^10 Byte;  32 KiB = 32768 Byte
-            l3_cache_size_per_core_in_bytes=1441792,
-            # 1 Mibibyte (MiB) = 2^20 Byte = 1.048.576 Byte; 1.375MiB = 1441792 Byte
-            safety_factor: float = 0.8  # we dont will the caches to the brim. 0.8 means we target 80% of the caches
-    ):
-        """
-        Computes a recommended block and chunk size for saving arrays with blosc v2.
-
-        Bloscv2 NDIM doku: "Remember that having a second partition means that we have better flexibility to fit the
-        different partitions at the different CPU cache levels; typically the first partition (aka chunks) should
-        be made to fit in L3 cache, whereas the second partition (aka blocks) should rather fit in L2/L1 caches
-        (depending on whether compression ratio or speed is desired)."
-        (https://www.blosc.org/posts/blosc2-ndim-intro/)
-        -> We are not 100% sure how to optimize for that. For now we try to fit the uncompressed block in L1. This
-        might spill over into L2, which is fine in our books.
-
-        Note: this is optimized for nnU-Net dataloading where each read operation is done by one core. We cannot use threading
-
-        Cache default values computed based on old Intel 4110 CPU with 32K L1, 128K L2 and 1408K L3 cache per core.
-        We cannot optimize further for more modern CPUs with more cache as the data will need be be read by the
-        old ones as well.
-
-        Args:
-            patch_size: Image size, must be 4D (c, x, y, z). For 2D images, make x=1
-            patch_size: Patch size, spatial dimensions only. So (x, y) or (x, y, z)
-            bytes_per_pixel: Number of bytes per element. Example: float32 -> 4 bytes
-            l1_cache_size_per_core_in_bytes: The size of the L1 cache per core in Bytes.
-            l3_cache_size_per_core_in_bytes: The size of the L3 cache exclusively accessible by each core. Usually the global size of the L3 cache divided by the number of cores.
-
-        Returns:
-            The recommended block and the chunk size.
-        """
-        # Fabians code is ugly, but eh
-
-        num_channels = image_size[0]
-        if len(patch_size) == 2:
-            patch_size = [1, *patch_size]
-        patch_size = np.array(patch_size)
-        block_size = np.array((num_channels, *[2 ** (max(0, math.ceil(math.log2(i)))) for i in patch_size]))
-
-        # shrink the block size until it fits in L1
-        estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
-        while estimated_nbytes_block > (l1_cache_size_per_core_in_bytes * safety_factor):
-            # pick largest deviation from patch_size that is not 1
-            axis_order = np.argsort(block_size[1:] / patch_size)[::-1]
-            idx = 0
-            picked_axis = axis_order[idx]
-            while block_size[picked_axis + 1] == 1 or block_size[picked_axis + 1] == 1:
-                idx += 1
-                picked_axis = axis_order[idx]
-            # now reduce that axis to the next lowest power of 2
-            block_size[picked_axis + 1] = 2 ** (max(0, math.floor(math.log2(block_size[picked_axis + 1] - 1))))
-            block_size[picked_axis + 1] = min(block_size[picked_axis + 1], image_size[picked_axis + 1])
-            estimated_nbytes_block = np.prod(block_size) * bytes_per_pixel
-
-        block_size = np.array([min(i, j) for i, j in zip(image_size, block_size)])
-
-        # note: there is no use extending the chunk size to 3d when we have a 2d patch size! This would unnecessarily
-        # load data into L3
-        # now tile the blocks into chunks until we hit image_size or the l3 cache per core limit
-        chunk_size = deepcopy(block_size)
-        estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
-        while estimated_nbytes_chunk < (l3_cache_size_per_core_in_bytes * safety_factor):
-            if patch_size[0] == 1 and all([i == j for i, j in zip(chunk_size[2:], image_size[2:])]):
-                break
-            if all([i == j for i, j in zip(chunk_size, image_size)]):
-                break
-            # find axis that deviates from block_size the most
-            axis_order = np.argsort(chunk_size[1:] / block_size[1:])
-            idx = 0
-            picked_axis = axis_order[idx]
-            while chunk_size[picked_axis + 1] == image_size[picked_axis + 1] or patch_size[picked_axis] == 1:
-                idx += 1
-                picked_axis = axis_order[idx]
-            chunk_size[picked_axis + 1] += block_size[picked_axis + 1]
-            chunk_size[picked_axis + 1] = min(chunk_size[picked_axis + 1], image_size[picked_axis + 1])
-            estimated_nbytes_chunk = np.prod(chunk_size) * bytes_per_pixel
-            if np.mean([i / j for i, j in zip(chunk_size[1:], patch_size)]) > 1.5:
-                # chunk size should not exceed patch size * 1.5 on average
-                chunk_size[picked_axis + 1] -= block_size[picked_axis + 1]
-                break
-        # better safe than sorry
-        chunk_size = [min(i, j) for i, j in zip(image_size, chunk_size)]
-
-        # print(image_size, chunk_size, block_size)
-        return tuple(block_size), tuple(chunk_size)
 
 
 file_ending_dataset_mapping = {

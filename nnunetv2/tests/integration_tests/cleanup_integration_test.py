@@ -16,4 +16,3 @@ if __name__ == '__main__':
         for d in dataset_names:
             if isdir(join(fld, d)):
                 shutil.rmtree(join(fld, d))
-

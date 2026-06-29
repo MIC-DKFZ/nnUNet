@@ -29,4 +29,3 @@ class ConvertSegmentationToRegionsTransform(AbstractTransform):
                 region_output[:, region_id] |= np.isin(seg[:, self.seg_channel], region_labels)
             data_dict[self.output_key] = region_output.astype(np.uint8, copy=False)
         return data_dict
-

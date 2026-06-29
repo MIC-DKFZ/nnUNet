@@ -1,19 +1,19 @@
 # How to generate custom splits in nnU-Net
 
-Sometimes, the default 5-fold cross-validation split by nnU-Net does not fit a project. Maybe you want to run 3-fold 
-cross-validation instead? Or maybe your training cases cannot be split randomly and require careful stratification. 
+Sometimes, the default 5-fold cross-validation split by nnU-Net does not fit a project. Maybe you want to run 3-fold
+cross-validation instead? Or maybe your training cases cannot be split randomly and require careful stratification.
 Fear not, for nnU-Net has got you covered (it really can do anything <3).
 
-The splits nnU-Net uses are generated in the `do_split` function of nnUNetTrainer. This function will first look for 
-existing splits, stored as a file, and if no split exists it will create one. So if you wish to influence the split, 
+The splits nnU-Net uses are generated in the `do_split` function of nnUNetTrainer. This function will first look for
+existing splits, stored as a file, and if no split exists it will create one. So if you wish to influence the split,
 manually creating a split file that will then be recognized and used is the way to go!
 
-The split file is located in the `nnUNet_preprocessed/DATASETXXX_NAME` folder. So it is best practice to first 
+The split file is located in the `nnUNet_preprocessed/DATASETXXX_NAME` folder. So it is best practice to first
 populate this folder by running `nnUNetv2_plan_and_preproccess`.
 
-Splits are stored as a .json file. They are a simple python list. The length of that list is the number of splits it 
-contains (so it's 5 in the default nnU-Net). Each list entry is a dictionary with keys 'train' and 'val'. Values are 
-again simply lists with the train identifiers in each set. To illustrate this, I am just messing with the Dataset002 
+Splits are stored as a .json file. They are a simple python list. The length of that list is the number of splits it
+contains (so it's 5 in the default nnU-Net). Each list entry is a dictionary with keys 'train' and 'val'. Values are
+again simply lists with the train identifiers in each set. To illustrate this, I am just messing with the Dataset002
 file as an example:
 
 ```commandline
@@ -39,8 +39,8 @@ In [7]: print(splits[0])
 ```
 
 If you are still not sure what splits are supposed to look like, simply download some reference dataset from the
-[Medical Decathlon](http://medicaldecathlon.com/), start some training (to generate the splits) and manually inspect 
+[Medical Decathlon](http://medicaldecathlon.com/), start some training (to generate the splits) and manually inspect
 the .json file with your text editor of choice!
 
-In order to generate your custom splits, all you need to do is reproduce the data structure explained above and save it as 
+In order to generate your custom splits, all you need to do is reproduce the data structure explained above and save it as
 `splits_final.json` in the `nnUNet_preprocessed/DATASETXXX_NAME` folder. Then use `nnUNetv2_train` etc. as usual.

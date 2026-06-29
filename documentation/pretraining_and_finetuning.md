@@ -2,14 +2,14 @@
 
 ## Intro
 
-So far nnU-Net only supports supervised pre-training, meaning that you train a regular nnU-Net on some pretraining dataset 
-and then use the final network weights as initialization for your target dataset. 
+So far nnU-Net only supports supervised pre-training, meaning that you train a regular nnU-Net on some pretraining dataset
+and then use the final network weights as initialization for your target dataset.
 
-As a reminder, many training hyperparameters such as patch size and network topology differ between datasets as a 
-result of the automated dataset analysis and experiment planning nnU-Net is known for. So, out of the box, it is not 
+As a reminder, many training hyperparameters such as patch size and network topology differ between datasets as a
+result of the automated dataset analysis and experiment planning nnU-Net is known for. So, out of the box, it is not
 possible to simply take the network weights from some dataset and then reuse them for another.
 
-Consequently, the plans need to be aligned between the two tasks. In this README we show how this can be achieved and 
+Consequently, the plans need to be aligned between the two tasks. In this README we show how this can be achieved and
 how the resulting weights can then be used for initialization.
 
 ### Terminology
@@ -22,7 +22,7 @@ Throughout this README we use the following terminology:
 
 ## Training on the pretraining dataset
 
-In order to obtain matching network topologies we need to transfer the plans from one dataset to another. Since we are 
+In order to obtain matching network topologies we need to transfer the plans from one dataset to another. Since we are
 only interested in the finetuning dataset, we first need to run experiment planning (and preprocessing) for it:
 
 ```bash
@@ -41,12 +41,12 @@ Now we can take the plans from the finetuning dataset and transfer it to the pre
 nnUNetv2_move_plans_between_datasets -s FINETUNING_DATASET -t PRETRAINING_DATASET -sp FINETUNING_PLANS_IDENTIFIER -tp PRETRAINING_PLANS_IDENTIFIER
 ```
 
-`FINETUNING_PLANS_IDENTIFIER` is hereby probably nnUNetPlans unless you changed the experiment planner in 
-nnUNetv2_plan_and_preprocess. For `PRETRAINING_PLANS_IDENTIFIER` we recommend you set something custom in order to not 
+`FINETUNING_PLANS_IDENTIFIER` is hereby probably nnUNetPlans unless you changed the experiment planner in
+nnUNetv2_plan_and_preprocess. For `PRETRAINING_PLANS_IDENTIFIER` we recommend you set something custom in order to not
 overwrite default plans.
 
-Note that EVERYTHING is transferred between the datasets. Not just the network topology, batch size and patch size but 
-also the normalization scheme! Therefore, a transfer between datasets that use different normalization schemes may not 
+Note that EVERYTHING is transferred between the datasets. Not just the network topology, batch size and patch size but
+also the normalization scheme! Therefore, a transfer between datasets that use different normalization schemes may not
 work well (but it could, depending on the schemes!).
 
 Note on CT normalization: Yes, also the clip values, mean and std are transferred!
@@ -75,8 +75,8 @@ nnUNetv2_train FINETUNING_DATASET CONFIG FOLD -pretrained_weights PATH_TO_CHECKP
 
 Specify the checkpoint in PATH_TO_CHECKPOINT.
 
-When loading pretrained weights, all layers except the segmentation layers will be used! 
+When loading pretrained weights, all layers except the segmentation layers will be used!
 
-So far there are no specific nnUNet trainers for fine tuning, so the current recommendation is to just use 
-nnUNetTrainer. You can however easily write your own trainers with learning rate ramp up, fine-tuning of segmentation 
+So far there are no specific nnUNet trainers for fine tuning, so the current recommendation is to just use
+nnUNetTrainer. You can however easily write your own trainers with learning rate ramp up, fine-tuning of segmentation
 heads or shorter training time.

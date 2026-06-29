@@ -1,4 +1,3 @@
-from copy import deepcopy
 import numpy as np
 
 
@@ -90,4 +89,3 @@ if __name__ == "__main__":
                             if additional_arguments is not None and len(additional_arguments) > 0:
                                 command += f' {additional_arguments}'
                             f.write(f'{command}\"\n')
-

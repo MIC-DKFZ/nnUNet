@@ -10,7 +10,7 @@ COMING SOON
 
 See the [Challenge Website](https://autopet-ii.grand-challenge.org/) for details on the challenge.
 
-Our solution to this challenge rewuires no code changes at all. All we do is optimize nnU-Net's hyperparameters 
+Our solution to this challenge rewuires no code changes at all. All we do is optimize nnU-Net's hyperparameters
 (architecture, batch size, patch size) through modifying the nnUNetplans.json file.
 
 ## Prerequisites
@@ -29,7 +29,7 @@ We recommend you use the latest nnU-Net version as well! We ran our trainings wi
 We deviate a little from the standard nnU-Net procedure because all our experiments are based on just the 3d_fullres configuration
 
 Run the following commands:
-   - `nnUNetv2_extract_fingerprint -d 221` extracts the dataset fingerprint 
+   - `nnUNetv2_extract_fingerprint -d 221` extracts the dataset fingerprint
    - `nnUNetv2_plan_experiment -d 221` does the planning for the plain unet
    - `nnUNetv2_plan_experiment -d 221 -pl ResEncUNetPlanner` does the planning for the residual encoder unet
    - `nnUNetv2_preprocess -d 221 -c 3d_fullres` runs all the preprocessing we need
@@ -38,8 +38,8 @@ Run the following commands:
 Please read the [information on how to modify plans files](../explanation_plans_files.md) first!!!
 
 
-It is easier to have everything in one plans file, so the first thing we do is transfer the ResEnc UNet to the 
-default plans file. We use the configuration inheritance feature of nnU-Net to make it use the same data as the 
+It is easier to have everything in one plans file, so the first thing we do is transfer the ResEnc UNet to the
+default plans file. We use the configuration inheritance feature of nnU-Net to make it use the same data as the
 3d_fullres configuration.
 Add the following to the 'configurations' dict in 'nnUNetPlans.json':
 
@@ -87,7 +87,7 @@ Now we crank up the patch and batch sizes. Add the following configurations:
 Save the file (and check for potential Syntax Errors!)
 
 ### Run trainings
-Training each model requires 8 Nvidia A100 40GB GPUs. Expect training to run for 5-7 days. You'll need a really good 
+Training each model requires 8 Nvidia A100 40GB GPUs. Expect training to run for 5-7 days. You'll need a really good
 CPU to handle the data augmentation! 128C/256T are a must! If you have less threads available, scale down nnUNet_n_proc_DA accordingly.
 
 ```bash
@@ -117,13 +117,13 @@ To run inference with these models, do the following:
 
 1. Download the pretrained model weights from [Zenodo](https://zenodo.org/record/8362371)
 2. Install both .zip files using `nnUNetv2_install_pretrained_model_from_zip`
-3. Make sure 
+3. Make sure
 4. Now you can run inference on new cases with `nnUNetv2_predict`:
-   - `nnUNetv2_predict -i INPUT -o OUTPUT1 -d 221 -c 3d_fullres_resenc_bs80 -f 0 1 2 3 4 -step_size 0.6 --save_probabilities`   
+   - `nnUNetv2_predict -i INPUT -o OUTPUT1 -d 221 -c 3d_fullres_resenc_bs80 -f 0 1 2 3 4 -step_size 0.6 --save_probabilities`
    - `nnUNetv2_predict -i INPUT -o OUTPUT2 -d 221 -c 3d_fullres_resenc_192x192x192_b24 -f 0 1 2 3 4 --save_probabilities`
    - `nnUNetv2_ensemble -i OUTPUT1 OUTPUT2 -o OUTPUT_ENSEMBLE`
 
-Note that our inference Docker omitted TTA via mirroring along the axial direction during prediction (only sagittal + 
+Note that our inference Docker omitted TTA via mirroring along the axial direction during prediction (only sagittal +
 coronal mirroring). This was
-done to keep the inference time below 10 minutes per image on a T4 GPU (we actually never tested whether we could 
+done to keep the inference time below 10 minutes per image on a T4 GPU (we actually never tested whether we could
 have left this enabled). Just leave it on! You can also leave the step_size at default for the 3d_fullres_resenc_bs80.

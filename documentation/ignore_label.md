@@ -1,22 +1,22 @@
 # Ignore Label
 
-The _ignore label_ can be used to mark regions that should be ignored by nnU-Net. This can be used to 
-learn from images where only sparse annotations are available, for example in the form of scribbles or a limited 
-amount of annotated slices. Internally, this is accomplished by using partial losses, i.e. losses that are only 
-computed on annotated pixels while ignoring the rest. Take a look at our 
+The _ignore label_ can be used to mark regions that should be ignored by nnU-Net. This can be used to
+learn from images where only sparse annotations are available, for example in the form of scribbles or a limited
+amount of annotated slices. Internally, this is accomplished by using partial losses, i.e. losses that are only
+computed on annotated pixels while ignoring the rest. Take a look at our
 [`DC_and_BCE_loss` loss](../nnunetv2/training/loss/compound_losses.py) to see how this is done.
-During inference (validation and prediction), nnU-Net will always predict dense segmentations. Metric computation in 
+During inference (validation and prediction), nnU-Net will always predict dense segmentations. Metric computation in
 validation is of course only done on annotated pixels.
 
-Using sparse annotations can be used to train a model for application to new, unseen images or to autocomplete the 
-provided training cases given the sparse labels. 
+Using sparse annotations can be used to train a model for application to new, unseen images or to autocomplete the
+provided training cases given the sparse labels.
 
 (See our [paper](https://arxiv.org/abs/2403.12834) for more information)
 
 Typical use-cases for the ignore label are:
 - Save annotation time through sparse annotation schemes
   - Annotation of all or a subset of slices with scribbles (Scribble Supervision)
-  - Dense annotation of a subset of slices 
+  - Dense annotation of a subset of slices
   - Dense annotation of chosen patches/cubes within an image
 - Coarsly masking out faulty segmentations in the reference segmentations
 - Masking areas for other reasons
@@ -24,7 +24,7 @@ Typical use-cases for the ignore label are:
 If you are using nnU-Net's ignore label, please cite the following paper in addition to the original nnU-net paper:
 
 ```
-Gotkowski, K., Lüth, C., Jäger, P. F., Ziegler, S., Krämer, L., Denner, S., Xiao, S., Disch, N., H., K., & Isensee, F. 
+Gotkowski, K., Lüth, C., Jäger, P. F., Ziegler, S., Krämer, L., Denner, S., Xiao, S., Disch, N., H., K., & Isensee, F.
 (2024). Embarrassingly Simple Scribble Supervision for 3D Medical Segmentation. ArXiv. /abs/2403.12834
 ```
 
@@ -98,7 +98,7 @@ Of course, the ignore label is compatible with [region-based training](region_ba
 
 Then use the dataset as you would any other.
 
-Remember that nnU-Net runs a cross-validation. Thus, it will also evaluate on your partially annotated data. This 
+Remember that nnU-Net runs a cross-validation. Thus, it will also evaluate on your partially annotated data. This
 will of course work! If you wish to compare different sparse annotation strategies (through simulations for example),
-we recommend evaluating on densely annotated images by running inference and then using `nnUNetv2_evaluate_folder` or 
+we recommend evaluating on densely annotated images by running inference and then using `nnUNetv2_evaluate_folder` or
 `nnUNetv2_evaluate_simple`.

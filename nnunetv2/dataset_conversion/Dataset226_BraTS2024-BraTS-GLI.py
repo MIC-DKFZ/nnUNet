@@ -1,10 +1,10 @@
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
-from batchgenerators.utilities.file_and_folder_operations import join, subdirs, subfiles, maybe_mkdir_p
+from batchgenerators.utilities.file_and_folder_operations import join, subdirs, maybe_mkdir_p
 from nnunetv2.paths import nnUNet_raw
 
 if __name__ == '__main__':
     """
-    this dataset does not copy the data into nnunet format and just links to existing data. The dataset can only be 
+    this dataset does not copy the data into nnunet format and just links to existing data. The dataset can only be
     used from one machine because the paths in the dataset.json are hard coded
     """
     extracted_BraTS2024_GLI_dir = '/home/isensee/BraTS2024_traindata/training_data1'
