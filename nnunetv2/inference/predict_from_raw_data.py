@@ -611,7 +611,7 @@ class nnUNetPredictor(object):
                 print(f'move image to device {results_device}')
             data = data.to(results_device)
             queue = Queue(maxsize=2)
-            t = Thread(target=producer, args=(data, slicers, queue))
+            t = Thread(target=producer, args=(data, slicers, queue), daemon=True)
             t.start()
 
             # preallocate arrays
