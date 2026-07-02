@@ -83,7 +83,7 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
             self.initialize()
 
         if isinstance(checkpoint, str):
-            checkpoint = torch.load(checkpoint, map_location=self.device)
+            checkpoint = torch.load(checkpoint, map_location=self.device, weights_only=False)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
