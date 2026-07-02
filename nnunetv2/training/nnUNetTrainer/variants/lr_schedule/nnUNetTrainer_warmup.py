@@ -74,7 +74,7 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
 
         super().on_train_epoch_start()
 
-    def load_checkpoint(self, filename_or_checkpoint: Union[dict, str]) -> None:
+    def load_checkpoint(self, checkpoint: Union[dict, str]) -> None:
         """
         We need to overwrite that entire function because we need to fiddle the correct optimizer in between
         loading the checkpoint and applying the optimizer states. Yuck.
@@ -82,8 +82,8 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
         if not self.was_initialized:
             self.initialize()
 
-        if isinstance(filename_or_checkpoint, str):
-            checkpoint = torch.load(filename_or_checkpoint, map_location=self.device)
+        if isinstance(checkpoint, str):
+            checkpoint = torch.load(checkpoint, map_location=self.device)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
