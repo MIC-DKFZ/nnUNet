@@ -80,6 +80,42 @@ class TestFindObjects(unittest.TestCase):
 
             self.assertIn("definitely_missing_dependency", str(exc.exception))
 
+    def test_external_trainer_lookup_after_builtin_phantom_module_error(self):
+        with TemporaryDirectory() as trainer_dir:
+            _write_file(
+                os.path.join(trainer_dir, "ext_trainer.py"),
+                """
+                from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+
+
+                class ExternalTrainer(nnUNetTrainer):
+                    pass
+                """,
+            )
+
+            original_lookup = recursive_find_python_class
+
+            def _fake_lookup(folder, class_name, current_module, *args, **kwargs):
+                if current_module == "nnunetv2.training.nnUNetTrainer":
+                    raise ModuleNotFoundError(
+                        "No module named 'nnunetv2.training.nnUNetTrainer.phantom_module'",
+                        name="nnunetv2.training.nnUNetTrainer.phantom_module",
+                    )
+                return original_lookup(folder, class_name, current_module, *args, **kwargs)
+
+            with patch.dict(
+                os.environ,
+                {"nnUNet_extTrainer": trainer_dir},
+                clear=False,
+            ):
+                with patch(
+                    "nnunetv2.utilities.find_objects.recursive_find_python_class",
+                    side_effect=_fake_lookup,
+                ):
+                    trainer_class = recursive_find_trainer_class_by_name("ExternalTrainer")
+
+            self.assertEqual(trainer_class.__name__, "ExternalTrainer")
+
 
 class TestRecursiveFindPythonClass(unittest.TestCase):
     def test_skips_phantom_modules_reported_by_iter_modules(self):
