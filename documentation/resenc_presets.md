@@ -70,7 +70,7 @@ results! So don't be afraid to give it a go!
 ## Scaling ResEnc nnU-Net beyond the Presets
 The presets differ from `ResEncUNetPlanner` in two ways:
 - They set new default values for `gpu_memory_target_in_gb` to target the respective VRAM consumptions
-- They remove the batch size cap of 0.05 (= previously one batch could not cover mode pixels than 5% of the entire dataset, not it can be arbitrarily large)
+- They remove the batch size cap of 0.05 (previously one batch could not cover more pixels than 5% of the entire dataset; now it can be arbitrarily large)
 
 The presets are merely there to make life easier, and to provide standardized configurations people can benchmark with.
 You can easily adapt the GPU memory target to match your GPU, and to scale beyond 40GB of GPU memory.
