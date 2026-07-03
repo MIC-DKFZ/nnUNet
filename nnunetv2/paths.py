@@ -55,6 +55,8 @@ class _EnvPath(os.PathLike):
     def __eq__(self, other) -> bool:
         if other is None:
             return self.get() is None
+        if isinstance(other, _EnvPath):
+            return self.get() == other.get()
         return self.get() == other
 
 
