@@ -43,6 +43,7 @@ This page groups the main nnU-Net v2 command-line entry points by workflow stage
 
 - `nnUNetv2_move_plans_between_datasets`: reuse plans across datasets
 - `nnUNetv2_plot_overlay_pngs`: create overlay PNGs for visualization
+- `nnUNetv2_create_deep_ensemble_splits`: append full-training-set folds for [deep ensemble training](../deep_ensemble.md)
 
 ## Help and discovery
 
