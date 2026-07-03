@@ -13,20 +13,12 @@ def recursive_find_trainer_class_by_name(trainer_name: str):
     from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 
     # load nnunet class and do sanity checks
-    nnunet_trainer = None
-    try:
-        nnunet_trainer = recursive_find_python_class(
-            join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
-            trainer_name,
-            "nnunetv2.training.nnUNetTrainer",
-            nnunetv2.__path__[0],
-        )
-    except ModuleNotFoundError as e:
-        # Under some Python 3.12+ environments, pkgutil can report a trainer
-        # module that importlib cannot resolve. If this happens while probing
-        # built-in trainers, continue to external trainer paths when configured.
-        if e.name is None or not e.name.startswith("nnunetv2.training.nnUNetTrainer"):
-            raise
+    nnunet_trainer = recursive_find_python_class(
+        join(nnunetv2.__path__[0], "training", "nnUNetTrainer"),
+        trainer_name,
+        "nnunetv2.training.nnUNetTrainer",
+        nnunetv2.__path__[0],
+    )
 
     if nnunet_trainer is None:
         if nnUNet_extTrainer.is_set():
