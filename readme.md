@@ -37,6 +37,7 @@ Useful entry points:
 - Training workflow: [Train models](documentation/how-to/train-models.md)
 - Inference workflow: [Run inference](documentation/how-to/run-inference.md)
 - Recommended residual encoder presets: [Residual Encoder Presets in nnU-Net](documentation/resenc_presets.md)
+- Finetuning from nnssl self-supervised checkpoints: [Finetune from nnssl checkpoints](documentation/finetuning_from_nnssl_checkpoints.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Scope

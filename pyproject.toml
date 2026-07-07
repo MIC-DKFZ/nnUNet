@@ -51,7 +51,8 @@ dependencies = [
     "yacs",
     "batchgeneratorsv2>=0.3.2",
     "einops",
-    "blosc2>=3.3.2"
+    "blosc2>=3.3.2",
+    "timm>=1.0"  # required by nnssl finetuning (Primus); dynamic-network-architectures declares timm unpinned, which can resolve to a version predating timm.layers
 ]
 
 [project.urls]
@@ -80,6 +81,9 @@ nnUNetv2_move_plans_between_datasets = "nnunetv2.experiment_planning.plans_for_p
 nnUNetv2_evaluate_folder = "nnunetv2.evaluation.evaluate_predictions:evaluate_folder_entry_point"
 nnUNetv2_evaluate_simple = "nnunetv2.evaluation.evaluate_predictions:evaluate_simple_entry_point"
 nnUNetv2_convert_MSD_dataset = "nnunetv2.dataset_conversion.convert_MSD_dataset:entry_point"
+nnUNetv2_preprocess_like_nnssl = "nnunetv2.experiment_planning.like_nnssl:preprocess_like_nnssl_entrypoint"
+nnUNetv2_plan_like_dynamic = "nnunetv2.experiment_planning.like_nnssl:plan_like_dynamic_entrypoint"
+nnUNetv2_train_pretrained = "nnunetv2.run.run_training_from_pretrained:train_pretrained_entrypoint"
 
 [project.optional-dependencies]
 dev = [
