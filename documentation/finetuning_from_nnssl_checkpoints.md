@@ -39,6 +39,10 @@ The workflow has two steps:
 - A pre-trained nnssl checkpoint. This can be either a local `.pth` file, or a Hugging Face
   URL (e.g. `https://huggingface.co/AnonRes/ResEncL-OpenMind-MAE`), which is downloaded
   automatically.
+- When passing a Hugging Face URL to `-pc`, set the `nnssl_pretrained_models` environment
+  variable to the directory where downloaded checkpoints should be stored, e.g.
+  `export nnssl_pretrained_models=/path/to/nnssl_pretrained_models`. This is not needed when
+  `-pc` points to a local `.pth` file.
 
 ## Choosing a strategy
 
@@ -90,15 +94,21 @@ nnUNetv2_train_pretrained <DATASET_ID> 3d_fullres <FOLD> \
 
 ## Workflow B: adapt architecture to the checkpoint 
 
-The downstream network is built to match the checkpoint's architecture and the data is
-preprocessed to match the pre-training. This route is **self-contained**: you do **not**
-need to run planning first; the command below does fingerprint extraction and experiment
-planning for you before adapting.
+The downstream network is built to match the checkpoint's architecture, and the data is
+preprocessed to match the pre-training. `nnUNetv2_preprocess_like_nnssl` derives the
+downstream configuration from an **existing base plan**, so a standard plan must already
+exist. It looks for `nnUNetPlans.json` or any ResEnc preset
+(`nnUNetResEncUNet{,M,L,XL}Plans.json`), so run standard planning once first.
 
 ```bash
-# 1) Create the plan and preprocess the dataset to match the pre-training.
-#    No prior planning step is needed: this runs fingerprint extraction and
-#    experiment planning internally, then adapts everything to the checkpoint.
+# 1) Standard planning to create a base plan (nnUNetPlans.json).
+#    Lightweight (plan only, no default preprocessing):
+nnUNetv2_extract_fingerprint -d <DATASET_ID>
+nnUNetv2_plan_experiment -d <DATASET_ID>
+#    (nnUNetv2_plan_and_preprocess -d <DATASET_ID> also works but additionally
+#     preprocesses the default plan, which is not needed here.)
+
+# 2) Create the pretraining plan and preprocess the dataset to match the pre-training.
 nnUNetv2_preprocess_like_nnssl \
     -d <DATASET_ID> \
     -n <UniquePretrainingName> \
@@ -109,13 +119,13 @@ nnUNetv2_preprocess_like_nnssl \
 # It contains everything needed (weights path, key mappings, architecture),
 # so you no longer need to pass the checkpoint at training time.
 
-# 2) Finetune. Note: dataset / configuration / fold are POSITIONAL arguments.
+# 3) Finetune. Note: dataset / configuration / fold are POSITIONAL arguments.
 nnUNetv2_train_pretrained <DATASET_ID> 3d_fullres <FOLD> \
     -p ptPlans__<UniquePretrainingName>... \
     -tr PretrainedTrainer
 ```
 
-For a Primus (transformer) checkpoint, use `-tr PretrainedTrainer_Primusx` in step 2.
+For a Primus (transformer) checkpoint, use `-tr PretrainedTrainer_Primusx` in step 3.
 
 ### Adaptation modes (`-am`)
 

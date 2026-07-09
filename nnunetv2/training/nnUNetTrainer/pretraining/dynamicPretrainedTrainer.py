@@ -38,10 +38,9 @@ class DynamicPretrainedTrainer(PretrainedTrainer):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
 
     def initialize(self):
         if not self.was_initialized:
@@ -385,10 +384,9 @@ class DynamicPretrainedTrainer_adam_150ep(DynamicPretrainedTrainer):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 1e-4
         if not self.use_pretrained_weights:
             self.initial_lr = 3e-4

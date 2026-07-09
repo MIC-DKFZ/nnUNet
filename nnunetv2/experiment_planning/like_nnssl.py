@@ -60,6 +60,12 @@ def new_spacing_from_mode(
     elif adaptation_mode == "no_resample":
         return [None, None, None]
     elif adaptation_mode == "like_pretrained":
+        if pretrain_spacing is None:
+            print(
+                "[like_nnssl] The pre-training used no fixed target spacing (spacing=None). "
+                "Falling back to 'default_nnunet' behaviour (using the dataset's default nnU-Net spacing)."
+            )
+            return original_spacing
         return pretrain_spacing
     else:
         raise ValueError(
@@ -85,6 +91,7 @@ def preprocess_like_nnssl(
     override_spacing: list[float] | None,
     num_processes: int,
     verbose: bool,
+    overwrite_pp: bool = False,
 ):
     """
     Preprocess a dataset relative to pre-training from nnssl.
@@ -108,7 +115,7 @@ def preprocess_like_nnssl(
     downstream_config: ConfigurationManager = downstream_plans_manager.get_configuration("3d_fullres")
     fullres_spacing = downstream_config.spacing
 
-    loaded_pretrain_ckpt = torch.load(pt_ckpt, weights_only=True)
+    loaded_pretrain_ckpt = torch.load(pt_ckpt, weights_only=True, map_location="cpu")
     adaptation_plan = loaded_pretrain_ckpt["nnssl_adaptation_plan"]
     citations = loaded_pretrain_ckpt["citations"] if "citations" in loaded_pretrain_ckpt else []
     pretrain_config = list(adaptation_plan["pretrain_plan"]["configurations"].values())[0]
@@ -168,10 +175,16 @@ def preprocess_like_nnssl(
     adapted_plans.plans["plans_name"] = plans_name
     save_json(adapted_plans.plans, join(nnUNet_preprocessed, dataset_name, plans_name + ".json"))
 
-    preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
     # We never overwrite existing currently, as multiple preprocessors can share the same data files.
-    #     Otherwise stuff might break.
-    preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes, overwrite_existing=False)
+    #     Otherwise stuff might break. Skip preprocessing if the target folder already exists.
+    preprocessed_folder = join(nnUNet_preprocessed, dataset_name, data_identifier)
+    if os.path.isdir(preprocessed_folder) and not overwrite_pp:
+        print(f"Preprocessed data already exists at {preprocessed_folder}")
+        print("Skipping preprocessing. Pass --overwrite_pp (or delete the folder) to re-preprocess.")
+    else:
+        print("Running preprocessing...")
+        preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
+        preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
     # longer there (useful for compute cluster where only the preprocessed data is available)
     from distutils.file_util import copy_file
@@ -294,6 +307,12 @@ def preprocess_like_nnssl_entrypoint():
         help="Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! "
         "Recommended for cluster environments",
     )
+    parser.add_argument(
+        "--overwrite_pp",
+        required=False,
+        action="store_true",
+        help="[OPTIONAL] Force (re)running preprocessing even if the target preprocessed folder already exists.",
+    )
     args = parser.parse_args()
 
     dataset_ids: int = args.d
@@ -303,6 +322,7 @@ def preprocess_like_nnssl_entrypoint():
     override_spacing: tuple[float, float, float] | None = args.override_spacing
     num_processes: int = args.np
     verbose: bool = args.verbose
+    overwrite_pp: bool = args.overwrite_pp
 
     pretrained_checkpoint_path: str = maybe_download_pretrained_weights(pretrained_checkpoint_path)
 
@@ -314,6 +334,7 @@ def preprocess_like_nnssl_entrypoint():
         override_spacing=override_spacing,
         num_processes=num_processes,
         verbose=verbose,
+        overwrite_pp=overwrite_pp,
     )
 
 
@@ -324,6 +345,7 @@ def plan_like_dynamic(
     plans_identifier: str = "nnUNetPlans",
     num_processes: int = 4,
     verbose: bool = False,
+    overwrite_pp: bool = False,
 ):
     """
     Create a plan that keeps the original nnUNet dynamic architecture intact,
@@ -354,7 +376,7 @@ def plan_like_dynamic(
     downstream_config: ConfigurationManager = downstream_plans_manager.get_configuration("3d_fullres")
 
     # Load pretrained checkpoint to extract necessary metadata
-    loaded_pretrain_ckpt = torch.load(pt_ckpt, weights_only=True)
+    loaded_pretrain_ckpt = torch.load(pt_ckpt, weights_only=True, map_location="cpu")
     adaptation_plan = loaded_pretrain_ckpt["nnssl_adaptation_plan"]
     citations = loaded_pretrain_ckpt.get("citations", [])
 
@@ -397,13 +419,13 @@ def plan_like_dynamic(
     data_identifier = adapted_config.data_identifier
     preprocessed_folder = join(nnUNet_preprocessed, dataset_name, data_identifier)
 
-    if os.path.isdir(preprocessed_folder):
+    if os.path.isdir(preprocessed_folder) and not overwrite_pp:
         print(f"Preprocessed data already exists at {preprocessed_folder}")
-        print("Skipping preprocessing. If you want to re-preprocess, delete the folder first.")
+        print("Skipping preprocessing. Pass --overwrite_pp (or delete the folder) to re-preprocess.")
     else:
         print(f"Running preprocessing...")
         preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
-        preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes, overwrite_existing=False)
+        preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
 
     # Copy ground truth segmentations
     from distutils.file_util import copy_file
@@ -468,6 +490,12 @@ def plan_like_dynamic_entrypoint():
         action="store_true",
         help="Set this to print verbose output during preprocessing.",
     )
+    parser.add_argument(
+        "--overwrite_pp",
+        required=False,
+        action="store_true",
+        help="[OPTIONAL] Force (re)running preprocessing even if the target preprocessed folder already exists.",
+    )
     args = parser.parse_args()
 
     pretrained_checkpoint_path = maybe_download_pretrained_weights(args.pretrained_checkpoint)
@@ -479,6 +507,7 @@ def plan_like_dynamic_entrypoint():
         plans_identifier=args.plans_identifier,
         num_processes=args.np,
         verbose=args.verbose,
+        overwrite_pp=args.overwrite_pp,
     )
 
 

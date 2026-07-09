@@ -27,7 +27,6 @@ class PretrainedTrainer(nnUNetTrainer):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
         plans["configurations"][configuration]["batch_size"] = 2
@@ -36,28 +35,41 @@ class PretrainedTrainer(nnUNetTrainer):
         self.initial_lr = 1e-3
         self.enable_deep_supervision = False
         self.warmup_duration_whole_net = 50  # lin increase whole network
-        self.use_pretrained_weights = use_pretrained_weights
+        self.adaptation_info = self.plans_manager.plans["pretrain_info"]
+        # Whether to load the pre-trained weights. Derived from the plan: when the checkpoint
+        # path was cleared (e.g. --from_scratch) we train from scratch. Can also be overridden
+        # as an attribute after construction (see run_training_from_pretrained.py).
+        self.use_pretrained_weights = self.adaptation_info.get("checkpoint_path") is not None
         if not self.use_pretrained_weights:
             self.initial_lr = 1e-2
-        self.adaptation_info = self.plans_manager.plans["pretrain_info"]
         self.training_stage = None
         self.pt_weight_in_ch_mismatch = False
 
     def print_citations(self):
-        cits = self.adaptation_info.get("citations", [])
-        if len(cits) > 0:
-            all_strings = []
-            all_strings.append(
-                "\n#######################################################################\nPlease cite the associated papers when using pre-trained weights:\n"
+        # Printing citations must never block training, and different checkpoints store the
+        # actual references under different keys (e.g. 'apa_citations' or 'bibtex_citations').
+        try:
+            cits = self.adaptation_info.get("citations", [])
+            if len(cits) > 0:
+                all_strings = []
+                all_strings.append(
+                    "\n#######################################################################\nPlease cite the associated papers when using pre-trained weights:\n"
+                )
+                for cit in sorted(cits, key=lambda x: x.get("type", "")):
+                    all_strings.append(f"{cit.get('type', '?')} used '{cit.get('name', '?')}'. Associated paper(s):")
+                    papers = cit.get("apa_citations") or cit.get("bibtex_citations") or []
+                    for c in papers:
+                        all_strings.append(c)
+                    all_strings[-1] += "\n"
+                all_strings.append("#######################################################################\n")
+                final_string = "\n".join(all_strings)
+                self.print_to_log_file(final_string, add_timestamp=False)
+        except Exception as e:
+            self.print_to_log_file(
+                f"[like_nnssl] Could not print checkpoint citations ({e}). "
+                "Please still cite the papers associated with the pre-trained checkpoint.",
+                add_timestamp=False,
             )
-            for cit in sorted(cits, key=lambda x: x["type"]):
-                all_strings.append(f"{cit['type']} used '{cit['name']}'. Associated paper(s):")
-                for c in cit["apa_citations"]:
-                    all_strings.append(c)
-                all_strings[-1] += "\n"
-            all_strings.append("#######################################################################\n")
-            final_string = "\n".join(all_strings)
-            self.print_to_log_file(final_string, add_timestamp=False)
         return
 
     def initialize(self):
@@ -519,16 +531,14 @@ class PretrainedTrainer_Primus(PretrainedTrainer):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.initial_lr = 1e-4
         self.weight_decay = 5e-2
         self.enable_deep_supervision = False
         self.warmup_duration_whole_net = 50  # lin increase whole network
-        self.use_pretrained_weights = use_pretrained_weights
         if not self.use_pretrained_weights:
             self.initial_lr = 3e-4
         self.adaptation_info = self.plans_manager.plans["pretrain_info"]
@@ -622,10 +632,9 @@ class PretrainedTrainer_150ep(PretrainedTrainer):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 15  # lin increase whole network
         self.num_epochs = 150
@@ -638,15 +647,13 @@ class PretrainedTrainer_smallerlr(PretrainedTrainer):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 3e-5
         self.weight_decay = 5e-2
         self.enable_deep_supervision = False
         self.warmup_duration_whole_net = 50  # lin increase whole network
-        self.use_pretrained_weights = use_pretrained_weights
         if not self.use_pretrained_weights:
             self.initial_lr = 1e-4
         self.adaptation_info = self.plans_manager.plans["pretrain_info"]
@@ -661,10 +668,9 @@ class PretrainedTrainer_300ep(PretrainedTrainer_150ep):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.num_epochs = 300
 
 
@@ -676,10 +682,9 @@ class PretrainedTrainer_Primus_150ep(PretrainedTrainer_Primus):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights,device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 15  # lin increase whole network
         self.num_epochs = 150  # lin increase whole network
@@ -693,10 +698,9 @@ class PretrainedTrainer_150ep_nomirroring(PretrainedTrainer):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 15  # lin increase whole network
         self.num_epochs = 150
@@ -739,10 +743,9 @@ class PretrainedTrainer_adam_150ep(PretrainedTrainer_Primus):
         configuration: str,
         fold: int,
         dataset_json: dict,
-        use_pretrained_weights: bool = True,
         device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 15  # lin increase whole network
         self.num_epochs = 150  # lin increase whole network

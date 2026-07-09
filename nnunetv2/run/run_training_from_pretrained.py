@@ -27,7 +27,8 @@ def get_trainer_from_args(
         plans_identifier: str = "nnUNetPlans",
         device: torch.device = torch.device("cuda"),
         pretrained_from_scratch: bool = False,
-        overwrite_ckpt_path: str = None
+        overwrite_ckpt_path: str = None,
+        continue_training: bool = False,
 ):
     # load nnunet class and do sanity checks
     nnunet_trainer = recursive_find_python_class(
@@ -67,9 +68,14 @@ def get_trainer_from_args(
         plans["pretrain_info"]["checkpoint_path"] = None
     if overwrite_ckpt_path is not None:
         plans["pretrain_info"]["checkpoint_path"] = overwrite_ckpt_path
+    # The base nnUNetTrainer.__init__ pops "continue_training" from the plans dict, so it must be present.
+    plans["continue_training"] = continue_training
     nnunet_trainer = nnunet_trainer(
-        plans=plans, configuration=configuration, fold=fold, dataset_json=dataset_json, use_pretrained_weights=not pretrained_from_scratch, device=device
+        plans=plans, configuration=configuration, fold=fold, dataset_json=dataset_json, device=device
     )
+    # use_pretrained_weights is derived inside the trainer from the plan's pretrain_info
+    # (checkpoint_path is None => from scratch). It can still be overridden as an attribute below.
+    nnunet_trainer.use_pretrained_weights = not pretrained_from_scratch
     return nnunet_trainer
 
 def train_pretrained(
@@ -143,7 +149,8 @@ def train_pretrained(
             plans_identifier,
             device=device,
             pretrained_from_scratch=from_scratch,  # <-- Creates new plan name if true. Allows easy comparison Pretrained vs Non-Pretrained
-            overwrite_ckpt_path=overwrite_ckpt_path)
+            overwrite_ckpt_path=overwrite_ckpt_path,
+            continue_training=continue_training)
 
         nnunet_trainer.use_pretrained_weights = False if (continue_training or from_scratch) else True
 
@@ -196,7 +203,7 @@ def run_ddp(
     torch.cuda.set_device(torch.device("cuda", dist.get_rank()))
 
     nnunet_trainer = get_trainer_from_args(
-        dataset_name_or_id, configuration, fold, tr, p, pretrained_from_scratch=pretrained_from_scratch, overwrite_ckpt_path=overwrite_ckpt_path
+        dataset_name_or_id, configuration, fold, tr, p, pretrained_from_scratch=pretrained_from_scratch, overwrite_ckpt_path=overwrite_ckpt_path, continue_training=c
     )
 
     # Prepare the auto-exiting in case wall-time is exceeded.

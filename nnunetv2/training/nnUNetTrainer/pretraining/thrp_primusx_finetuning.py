@@ -29,16 +29,14 @@ class PretrainedTrainer_Primusx(PretrainedTrainer_Primus):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.initial_lr = 1e-4
         self.weight_decay = 5e-2
         self.enable_deep_supervision = False
         self.warmup_duration_whole_net = 50  # lin increase whole network
-        self.use_pretrained_weights = use_pretrained_weights
         if not self.use_pretrained_weights:
             self.initial_lr = 3e-4
         self.adaptation_info = self.plans_manager.plans["pretrain_info"]
@@ -153,10 +151,9 @@ class PretrainedTrainer_Primusx_150ep(PretrainedTrainer_Primusx):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 15  # lin increase whole network
         self.num_epochs = 150 # lin increase whole network
@@ -169,10 +166,9 @@ class PretrainedTrainer_Primusx_30ep(PretrainedTrainer_Primusx):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 3  # lin increase whole network
         self.num_epochs = 30 # lin increase whole network
@@ -185,15 +181,13 @@ class PretrainedTrainer_Primusx_smallerlr(PretrainedTrainer_Primusx):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.initial_lr = 3e-5
         self.weight_decay = 5e-2
         self.enable_deep_supervision = False
         self.warmup_duration_whole_net = 50  # lin increase whole network
-        self.use_pretrained_weights = use_pretrained_weights
         if not self.use_pretrained_weights:
             self.initial_lr = 1e-4
         self.adaptation_info = self.plans_manager.plans["pretrain_info"]
@@ -206,10 +200,9 @@ class PretrainedTrainer_Primusx_300ep(PretrainedTrainer_Primusx_150ep):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         self.num_epochs = 300
 
 class PretrainedTrainer_Primusx_150ep_lr3e4(PretrainedTrainer_Primusx):
@@ -220,10 +213,9 @@ class PretrainedTrainer_Primusx_150ep_lr3e4(PretrainedTrainer_Primusx):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 50  # lin increase whole network
         self.num_epochs = 150 # lin increase whole network
@@ -237,12 +229,11 @@ class PretrainedTrainer_Primusx_150ep_small_debug(PretrainedTrainer_Primusx):
             configuration: str,
             fold: int,
             dataset_json: dict,
-            use_pretrained_weights: bool = True,
             device: torch.device = torch.device("cuda"),
     ):
         plans["configurations"][configuration]["patch_size"] = (48, 48, 48)
         plans["configurations"][configuration]["batch_size"] = 2
-        super().__init__(plans, configuration, fold, dataset_json, use_pretrained_weights, device)
+        super().__init__(plans, configuration, fold, dataset_json, device)
         # Can be overriden to train same architecture from scratch.
         self.warmup_duration_whole_net = 15  # lin increase whole network
         self.num_epochs = 150 # lin increase whole network
