@@ -5,6 +5,11 @@
 So far nnU-Net only supports supervised pre-training, meaning that you train a regular nnU-Net on some pretraining dataset
 and then use the final network weights as initialization for your target dataset.
 
+> Looking for **self-supervised** pre-training? To finetune an nnU-Net from a checkpoint that was
+> self-supervised pre-trained with [nnssl](https://github.com/MIC-DKFZ/nnssl) (e.g. the OpenMind
+> models), see [Finetuning from nnssl checkpoints](finetuning_from_nnssl_checkpoints.md) instead.
+> This document covers only supervised transfer of plans/weights between datasets.
+
 As a reminder, many training hyperparameters such as patch size and network topology differ between datasets as a
 result of the automated dataset analysis and experiment planning nnU-Net is known for. So, out of the box, it is not
 possible to simply take the network weights from some dataset and then reuse them for another.

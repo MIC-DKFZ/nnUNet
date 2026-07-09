@@ -23,7 +23,8 @@ This section groups the existing documentation by task.
 
 - [Use residual encoder presets](../resenc_presets.md)
 - [Run benchmarks](run-benchmarks.md)
-- [Pretraining and finetuning](../pretraining_and_finetuning.md)
+- [Pretraining and finetuning (supervised transfer between datasets)](../pretraining_and_finetuning.md)
+- [Finetuning from nnssl self-supervised checkpoints](../finetuning_from_nnssl_checkpoints.md)
 
 ## Specialized workflows
 

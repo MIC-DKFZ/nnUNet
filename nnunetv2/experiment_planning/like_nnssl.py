@@ -439,7 +439,7 @@ def plan_like_dynamic(
                   update=True)
 
     print(f"\nTo train with dynamic adaptation, use:")
-    print(f"  nnUNetv2_train {dataset_id} 3d_fullres FOLD -p {plans_name} -tr DynamicPretrainedTrainer")
+    print(f"  nnUNetv2_train_pretrained {dataset_id} 3d_fullres FOLD -p {plans_name} -tr DynamicPretrainedTrainer")
 
 
 def plan_like_dynamic_entrypoint():

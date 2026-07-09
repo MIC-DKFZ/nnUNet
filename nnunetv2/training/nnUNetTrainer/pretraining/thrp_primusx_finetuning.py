@@ -17,7 +17,22 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from nnunetv2.training.nnUNetTrainer.pretraining.pretrainedTrainer import PretrainedTrainer_Primus
-from dynamic_network_architectures.architectures.primus import Primus
+import warnings
+
+# Ugly import guard (mirrors nnunetv2/utilities/get_network_via_name.py): a wrong/old
+# dynamic-network-architectures version must not break importing this module. This module is
+# imported eagerly by recursive_find_python_class when it traverses training/nnUNetTrainer to
+# locate *any* (including standard) trainer, so an unguarded top-level import here would poison
+# trainer discovery for unrelated trainings. Primus is only needed when actually building a
+# PrimusX network below, where we assert on it.
+try:
+    from dynamic_network_architectures.architectures.primus import Primus
+except ImportError:
+    warnings.warn(
+        "Unable to import the Primus architecture. Make sure you have a recent "
+        "dynamic_network_architectures installed if you intend to finetune Primus checkpoints."
+    )
+    Primus = None
 
 warmup_stages = Literal["warmup_all", "warmup_decoder", "train_all", "train_decoder"]
 
@@ -136,6 +151,10 @@ class PretrainedTrainer_Primusx(PretrainedTrainer_Primus):
                 allow_init=True,
                 deep_supervision=False,
             )
+        assert Primus is not None, (
+            "The Primus architecture could not be imported from dynamic_network_architectures. "
+            "Please install a recent dynamic_network_architectures to finetune Primus checkpoints."
+        )
         if 'init_values' in arch_init_kwargs:
             if isinstance(arch_init_kwargs['init_values'], list):
                 arch_init_kwargs['init_values'] = arch_init_kwargs['init_values'][0]
