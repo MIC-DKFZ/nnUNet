@@ -124,6 +124,18 @@ class PretrainedTrainer_Primusx(PretrainedTrainer_Primus):
         input_patch_size: tuple[int, int, int] = None,
         ) -> nn.Module:
         # this architecture will crash if the patch size is not divisible by 8!
+        # Named architectures (e.g. PrimusM/S/L/B, ResEncL) come with arch_init_kwargs == None in the plan;
+        # their configuration lives inside get_network_from_name. Only the explicit-kwargs "PrimusX" flavour
+        # carries an arch_init_kwargs dict we can build a Primus from directly.
+        if not arch_init_kwargs:
+            return get_network_from_name(
+                architecture_class_name,
+                input_channels=num_input_channels,
+                output_channels=num_output_channels,
+                input_patchsize=input_patch_size,
+                allow_init=True,
+                deep_supervision=False,
+            )
         if 'init_values' in arch_init_kwargs:
             if isinstance(arch_init_kwargs['init_values'], list):
                 arch_init_kwargs['init_values'] = arch_init_kwargs['init_values'][0]
