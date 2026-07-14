@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Tuple, List, Union
 
 import numpy as np
+from scipy.ndimage import distance_transform_edt, binary_erosion, generate_binary_structure
 from batchgenerators.utilities.file_and_folder_operations import subfiles, join, save_json, load_json, \
     isfile
 from nnunetv2.configuration import default_num_processes
@@ -85,12 +86,58 @@ def compute_tp_fp_fn_tn(mask_ref: np.ndarray, mask_pred: np.ndarray, ignore_mask
     return tp, fp, fn, tn
 
 
+def _normalize_spacing(spacing, ndim: int) -> Tuple[float, ...]:
+    if spacing is None:
+        return tuple([1.0] * ndim)
+    spacing = tuple(spacing)
+    if len(spacing) == ndim:
+        return spacing
+    if len(spacing) > ndim:
+        return spacing[-ndim:]
+    return tuple([1.0] * (ndim - len(spacing)) + list(spacing))
+
+
+def _get_surface(mask: np.ndarray) -> np.ndarray:
+    if mask.ndim > 3:
+        mask = np.squeeze(mask)
+    structure = generate_binary_structure(mask.ndim, 1)
+    eroded = binary_erosion(mask, structure=structure, border_value=0)
+    return mask & (~eroded)
+
+
+def _compute_assd_hd95(mask_ref: np.ndarray, mask_pred: np.ndarray, spacing) -> Tuple[float, float]:
+    if mask_ref.sum() == 0 or mask_pred.sum() == 0:
+        return np.nan, np.nan
+    if mask_ref.ndim > 3:
+        mask_ref = np.squeeze(mask_ref)
+    if mask_pred.ndim > 3:
+        mask_pred = np.squeeze(mask_pred)
+
+    spacing = _normalize_spacing(spacing, mask_ref.ndim)
+    surface_ref = _get_surface(mask_ref)
+    surface_pred = _get_surface(mask_pred)
+
+    dt_ref = distance_transform_edt(~surface_ref, sampling=spacing)
+    dt_pred = distance_transform_edt(~surface_pred, sampling=spacing)
+
+    distances_ref_to_pred = dt_pred[surface_ref]
+    distances_pred_to_ref = dt_ref[surface_pred]
+    if distances_ref_to_pred.size == 0 or distances_pred_to_ref.size == 0:
+        return np.nan, np.nan
+
+    all_distances = np.concatenate([distances_ref_to_pred, distances_pred_to_ref])
+    assd = np.mean(all_distances)
+    hd95 = np.percentile(all_distances, 95)
+    return assd, hd95
+
+
 def compute_metrics(reference_file: str, prediction_file: str, image_reader_writer: BaseReaderWriter,
                     labels_or_regions: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                     ignore_label: int = None) -> dict:
     # load images
     seg_ref, seg_ref_dict = image_reader_writer.read_seg(reference_file)
     seg_pred, seg_pred_dict = image_reader_writer.read_seg(prediction_file)
+    spacing = seg_ref_dict.get('spacing', None)
 
     ignore_mask = seg_ref == ignore_label if ignore_label is not None else None
 
@@ -102,13 +149,28 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
         results['metrics'][r] = {}
         mask_ref = region_or_label_to_mask(seg_ref, r)
         mask_pred = region_or_label_to_mask(seg_pred, r)
+        if ignore_mask is not None:
+            mask_ref = mask_ref & (~ignore_mask)
+            mask_pred = mask_pred & (~ignore_mask)
         tp, fp, fn, tn = compute_tp_fp_fn_tn(mask_ref, mask_pred, ignore_mask)
         if tp + fp + fn == 0:
             results['metrics'][r]['Dice'] = np.nan
             results['metrics'][r]['IoU'] = np.nan
+            results['metrics'][r]['ASSD'] = np.nan
+            results['metrics'][r]['HD95'] = np.nan
+            results['metrics'][r]['RVE'] = np.nan
         else:
             results['metrics'][r]['Dice'] = 2 * tp / (2 * tp + fp + fn)
             results['metrics'][r]['IoU'] = tp / (tp + fp + fn)
+            assd, hd95 = _compute_assd_hd95(mask_ref, mask_pred, spacing)
+            results['metrics'][r]['ASSD'] = assd
+            results['metrics'][r]['HD95'] = hd95
+            vol_pred = float(np.sum(mask_pred))
+            vol_ref = float(np.sum(mask_ref))
+            if vol_ref == 0.0:
+                results['metrics'][r]['RVE'] = 0.0 if vol_pred == 0.0 else np.inf
+            else:
+                results['metrics'][r]['RVE'] = ((vol_pred - vol_ref) / vol_ref) * 100.0
         results['metrics'][r]['FP'] = fp
         results['metrics'][r]['TP'] = tp
         results['metrics'][r]['FN'] = fn
