@@ -59,7 +59,15 @@ class NaturalImage2DIO(BaseReaderWriter):
         return np.vstack(images, dtype=np.float32, casting='unsafe'), {'spacing': (999, 1, 1)}
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
-        return self.read_images((seg_fname, ))
+        seg, props = self.read_images((seg_fname, ))
+        if seg.shape[0] != 1:
+            raise RuntimeError(
+                f"Segmentation file {seg_fname} has {seg.shape[0]} channels. nnU-Net expects "
+                f"segmentation files to be single-channel integer label maps. Please re-save your "
+                f"label files as grayscale (single-channel) images with integer class indices "
+                f"(0, 1, 2, ...)."
+            )
+        return seg, props
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
         io.imsave(output_fname, seg[0].astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False), check_contrast=False)
