@@ -57,6 +57,7 @@ from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_patch_size
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
+from nnunetv2.utilities.fixed_val_tiles import FixedValTileManager
 from nnunetv2.training.logging.nnunet_logger import MetaLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
@@ -159,6 +160,13 @@ class nnUNetTrainer(object):
         self.num_epochs = 1000
         self.current_epoch = 0
         self.enable_deep_supervision = True
+        self.use_fixed_val_tiles = True
+        self.fixed_val_tile_step_size = 0.5
+        # TODO: Fixing the seed is a design decision. Fabian Isensee for example likes nnU-Net's non-determinism
+        # (https://github.com/MIC-DKFZ/nnUNet/pull/2871#issuecomment-4243606104)
+        self.fixed_val_tile_seed = 42
+        self.fixed_val_num_tiles = None
+        self.fixed_val_manager: FixedValTileManager = None
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -270,6 +278,10 @@ class nnUNetTrainer(object):
                 "num_val_iterations_per_epoch": self.num_val_iterations_per_epoch,
                 "num_epochs": self.num_epochs,
                 "enable_deep_supervision": self.enable_deep_supervision,
+                "use_fixed_val_tiles": self.use_fixed_val_tiles,
+                "fixed_val_tile_step_size": self.fixed_val_tile_step_size,
+                "fixed_val_tile_seed": self.fixed_val_tile_seed,
+                "fixed_val_num_tiles": self.fixed_val_num_tiles,
                 "batch_size": self.configuration_manager.batch_size
                 }
             self.logger.update_config({"hparas": logger_config_hparas})
@@ -665,6 +677,49 @@ class nnUNetTrainer(object):
                                          folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
         return dataset_tr, dataset_val
 
+    def _build_fixed_validation_tile_manager(self) -> FixedValTileManager:
+        _, val_keys = self.do_split()
+        dataset_val = self.dataset_class(
+            self.preprocessed_dataset_folder,
+            val_keys,
+            folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage,
+        )
+
+        patch_size = tuple(int(i) for i in self.configuration_manager.patch_size)
+        global_batch_size = self.configuration_manager.batch_size if self.is_ddp else self.batch_size
+        num_tiles = self.fixed_val_num_tiles
+        if num_tiles is None:
+            num_tiles = self.num_val_iterations_per_epoch * global_batch_size
+        rank = dist.get_rank() if self.is_ddp else 0
+        world_size = dist.get_world_size() if self.is_ddp else 1
+        transforms = self.get_validation_transforms(
+            self._get_deep_supervision_scales(),
+            is_cascaded=self.is_cascaded,
+            foreground_labels=self.label_manager.foreground_labels,
+            regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
+            ignore_label=self.label_manager.ignore_label,
+        )
+
+        manager = FixedValTileManager(
+            dataset=dataset_val,
+            patch_size=patch_size,
+            batch_size=self.batch_size,
+            transforms=transforms,
+            tile_step_size=self.fixed_val_tile_step_size,
+            seed=self.fixed_val_tile_seed,
+            num_tiles=num_tiles,
+            is_ddp=self.is_ddp,
+            rank=rank,
+            world_size=world_size,
+        )
+        stats = manager.stats
+        self.print_to_log_file(
+            f"Fixed validation tile pool: {stats.num_cases} cases, {stats.num_candidate_tiles} candidate tiles, "
+            f"{stats.num_requested_tiles} requested tiles, {stats.num_selected_tiles} selected tiles, "
+            f"{stats.num_tiles_on_rank} tiles on rank {self.local_rank}",
+        )
+        return manager
+
     def get_dataloaders(self):
         if self.dataset_class is None:
             self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
@@ -964,6 +1019,9 @@ class nnUNetTrainer(object):
         if self.is_ddp:
             dist.barrier()
 
+        if self.use_fixed_val_tiles:
+            self.fixed_val_manager = self._build_fixed_validation_tile_manager()
+
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'), sort_keys=False)
         save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'), sort_keys=False)
@@ -1181,10 +1239,16 @@ class nnUNetTrainer(object):
         if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
 
-        # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
-        if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
-            self._best_ema = self.logger.get_value('ema_fg_dice', step=-1)
-            self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
+        # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this.
+        # With fixed validation tiles, raw fixed-val Dice is comparable across epochs; EMA would only add lag.
+        current_score = self.logger.get_value('mean_fg_dice' if self.use_fixed_val_tiles else 'ema_fg_dice',
+                                              step=-1)
+        if self._best_ema is None or current_score > self._best_ema:
+            self._best_ema = current_score
+            if self.use_fixed_val_tiles:
+                self.print_to_log_file(f"New best pseudo Dice: {float(self._best_ema):.4f}")
+            else:
+                self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
 
         if self.local_rank == 0:
@@ -1429,8 +1493,12 @@ class nnUNetTrainer(object):
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
-                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                if self.use_fixed_val_tiles:
+                    for batch in self.fixed_val_manager.iter_batches():
+                        val_outputs.append(self.validation_step(batch))
+                else:
+                    for batch_id in range(self.num_val_iterations_per_epoch):
+                        val_outputs.append(self.validation_step(next(self.dataloader_val)))
                 self.on_validation_epoch_end(val_outputs)
 
             self.on_epoch_end()
