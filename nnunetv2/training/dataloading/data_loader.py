@@ -142,7 +142,7 @@ class nnUNetDataLoader(DataLoader):
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
                 # Make sure it is within the bounds of lb and ub
                 # i + 1 because we have first dimension 0!
-                bbox_lbs = [max(lbs[i], selected_voxel[i + 1] - self.patch_size[i] // 2) for i in range(dim)]
+                bbox_lbs = [max(lbs[i], min(ubs[i], selected_voxel[i + 1] - self.patch_size[i] // 2)) for i in range(dim)]
             else:
                 # If the image does not contain any foreground classes, we fall back to random cropping
                 bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]
