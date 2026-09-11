@@ -9,6 +9,8 @@ import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import join, load_pickle, isfile, write_pickle, subfiles
 
 from nnunetv2.configuration import default_num_processes
+from nnunetv2.training.dataloading.foreground_locations import (
+    FG_SAMPLING_PREFIX, ForegroundLocationsBase, get_foreground_locations)
 from nnunetv2.training.dataloading.utils import unpack_dataset
 
 
@@ -216,12 +218,39 @@ class nnUNetBaseDataset(ABC):
         self.source_folder = folder
         self.folder_with_segs_from_previous_stage = folder_with_segs_from_previous_stage
         self.identifiers = identifiers
+        # opened on first use: datasets that are only used for validation never need it, and this way the
+        # "no store found" message is only printed for datasets that actually sample foreground
+        self._foreground_locations = None
+
+    @property
+    def foreground_locations(self) -> ForegroundLocationsBase:
+        """
+        Access to the foreground sampling locations of this dataset. Backed by the compressed store if one is
+        present, otherwise by the legacy class_locations entries in the per-case pkl files.
+        """
+        if self._foreground_locations is None:
+            self._foreground_locations = get_foreground_locations(self.source_folder)
+        return self._foreground_locations
 
     def __getitem__(self, identifier):
         return self.load_case(identifier)
 
     @abstractmethod
     def load_case(self, identifier):
+        """
+        Returns (data, seg, seg_prev). Deliberately does NOT return the case properties: the training
+        dataloader does not need them, and reading them for every patch used to be the single most expensive
+        part of dataloading. Use get_properties() if you need them.
+        """
+        pass
+
+    def get_properties(self, identifier) -> dict:
+        """Case properties (spacing, cropping bbox, shapes, ...). Needed for validation/export, not for training."""
+        return load_pickle(join(self.source_folder, identifier + '.pkl'))
+
+    @abstractmethod
+    def get_shape(self, identifier) -> Tuple[int, ...]:
+        """Spatial shape of a case (no channel axis), read from the array header without loading any voxels."""
         pass
 
     @staticmethod
@@ -269,8 +298,13 @@ class nnUNetDatasetNumpy(nnUNetBaseDataset):
         else:
             seg_prev = None
 
-        properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
-        return data, seg, seg_prev, properties
+        return data, seg, seg_prev
+
+    def get_shape(self, identifier) -> Tuple[int, ...]:
+        data_npy_file = join(self.source_folder, identifier + '.npy')
+        if isfile(data_npy_file):
+            return tuple(np.load(data_npy_file, mmap_mode='r').shape[1:])
+        return tuple(np.load(join(self.source_folder, identifier + '.npz'))['data'].shape[1:])
 
     @staticmethod
     def save_case(
@@ -294,7 +328,8 @@ class nnUNetDatasetNumpy(nnUNetBaseDataset):
         """
         returns all identifiers in the preprocessed data folder
         """
-        case_identifiers = [i[:-4] for i in os.listdir(folder) if i.endswith("npz")]
+        case_identifiers = [i[:-4] for i in os.listdir(folder)
+                            if i.endswith("npz") and not i.startswith(FG_SAMPLING_PREFIX)]
         return case_identifiers
 
     @staticmethod
@@ -332,8 +367,12 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         else:
             seg_prev = None
 
-        properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
-        return data, seg, seg_prev, properties
+        return data, seg, seg_prev
+
+    def get_shape(self, identifier) -> Tuple[int, ...]:
+        # blosc2.open only reads the frame header, no voxels are decompressed
+        return tuple(blosc2.open(urlpath=join(self.source_folder, identifier + '.b2nd'), mode='r',
+                                 **self.mmap_kwargs).shape[1:])
 
     @staticmethod
     def _select_filter(arr: np.ndarray, blocks, chunks, codec, clevel) -> "blosc2.Filter":
@@ -462,7 +501,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         """
         returns all identifiers in the preprocessed data folder
         """
-        case_identifiers = [i[:-5] for i in os.listdir(folder) if i.endswith(".b2nd") and not i.endswith("_seg.b2nd")]
+        case_identifiers = [i[:-5] for i in os.listdir(folder) if i.endswith(".b2nd")
+                            and not i.endswith("_seg.b2nd") and not i.startswith(FG_SAMPLING_PREFIX)]
         return case_identifiers
 
     @staticmethod
@@ -479,7 +519,9 @@ file_ending_dataset_mapping = {
 
 
 def infer_dataset_class(folder: str) -> Union[Type[nnUNetDatasetBlosc2], Type[nnUNetDatasetNumpy]]:
-    file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)])
+    # the foreground sampling location store lives in the same folder but is not case data
+    file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)
+                        if not os.path.basename(i).startswith(FG_SAMPLING_PREFIX)])
     if 'pkl' in file_endings:
         file_endings.remove('pkl')
     if 'npy' in file_endings:

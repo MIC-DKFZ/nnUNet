@@ -13,6 +13,7 @@ This page groups the main nnU-Net v2 command-line entry points by workflow stage
 - `nnUNetv2_extract_fingerprint`: fingerprint only
 - `nnUNetv2_plan_experiment`: planning only
 - `nnUNetv2_preprocess`: preprocessing only
+- `nnUNetv2_extract_sampling_locations`: (re)build the foreground sampling location store for already preprocessed datasets. Run automatically by the commands above; useful to migrate datasets preprocessed by an older nnU-Net. See [preprocessed data format](preprocessed-data-format.md)
 
 ## Training
 

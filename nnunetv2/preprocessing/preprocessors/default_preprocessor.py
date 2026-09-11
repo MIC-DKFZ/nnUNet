@@ -19,6 +19,7 @@ from typing import Union
 
 import SimpleITK
 import numpy as np
+import pandas as pd
 from batchgenerators.utilities.file_and_folder_operations import *
 from tqdm import tqdm
 
@@ -91,24 +92,19 @@ class DefaultPreprocessor(object):
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
 
-        # if we have a segmentation, sample foreground locations for oversampling and add those to properties
+        # if we have a segmentation, record which labels this case contains. We have the segmentation in memory
+        # here anyway, so this is essentially free, and it saves nnUNetv2_extract_sampling_locations from having to
+        # rediscover the labels when it builds the foreground sampling location store later.
+        # np.sort(pd.unique(x.ravel())) is deliberate: it is measurably faster than np.unique (~17 vs ~26 ms on a
+        # 10 M voxel TotalSegmentator segmentation).
         if has_seg:
-            # reinstantiating LabelManager for each case is not ideal. We could replace the dataset_json argument
-            # with a LabelManager Instance in this function because that's all its used for. Dunno what's better.
-            # LabelManager is pretty light computation-wise.
-            label_manager = plans_manager.get_label_manager(dataset_json)
-            collect_for_this = label_manager.foreground_regions if label_manager.has_regions \
-                else label_manager.foreground_labels
+            properties['present_labels'] = [int(i) for i in np.sort(pd.unique(seg.ravel()))]  # np.unique(seg)
 
-            # when using the ignore label we want to sample only from annotated regions. Therefore we also need to
-            # collect samples uniformly from all classes (incl background)
-            if label_manager.has_ignore_label:
-                collect_for_this.append([-1] + label_manager.all_labels)
-
-            # no need to filter background in regions because it is already filtered in handle_labels
-            # print(all_labels, regions)
-            properties['class_locations'] = self._sample_foreground_locations(seg, collect_for_this,
-                                                                                   verbose=self.verbose)
+            # NOTE: foreground sampling locations (formerly properties['class_locations']) are no longer stored
+            # here. They live in a compressed, partially readable store per configuration folder that is built by
+            # nnUNetv2_extract_sampling_locations (plan_and_preprocess runs it for you). Keeping them in the pkl
+            # made those files enormous (18 GB on TotalSegmentator v2) even though the dataloader only ever needs
+            # a single coordinate per patch. See nnunetv2/training/dataloading/foreground_locations.py.
             seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
         if np.max(seg) > 127:
             seg = seg.astype(np.int16)
@@ -173,8 +169,14 @@ class DefaultPreprocessor(object):
             seed: int = 1234,
             verbose: bool = False,
             min_num_samples=10000,
-            min_percent_coverage = 0.01
+            min_percent_coverage = 0.01,
+            present_labels: Union[List[int], None] = None
     ):
+        """
+        present_labels: the labels this segmentation is known to contain (as recorded by preprocessing in
+        properties['present_labels']). Purely an optimization - labels that are not in the segmentation cannot
+        contribute anything, so pruning them here shrinks the np.isin below. Results are identical either way.
+        """
 
         rndst = np.random.RandomState(seed)
 
@@ -192,6 +194,9 @@ class DefaultPreprocessor(object):
                 lab = int(c)
                 normalized.append(lab)
                 requested_labels.add(lab)
+
+        if present_labels is not None:
+            requested_labels &= set(int(i) for i in present_labels)
 
         # Create mask for all requested labels (this includes 0 if requested)
         requested_labels_arr = np.fromiter(requested_labels, dtype=np.int32)

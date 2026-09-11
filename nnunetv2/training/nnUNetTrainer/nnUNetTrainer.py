@@ -1310,7 +1310,8 @@ class nnUNetTrainer(object):
                                                                allowed_num_queued=2)
 
                 self.print_to_log_file(f"predicting {k}")
-                data, _, seg_prev, properties = dataset_val.load_case(k)
+                data, _, seg_prev = dataset_val.load_case(k)
+                properties = dataset_val.get_properties(k)
 
                 # we do [:] to convert blosc2 to numpy
                 data = data[:]
@@ -1355,16 +1356,16 @@ class nnUNetTrainer(object):
                         dataset_class = infer_dataset_class(expected_preprocessed_folder)
 
                         try:
-                            # we do this so that we can use load_case and do not have to hard code how loading training cases is implemented
+                            # we do this so that we can use the dataset class and do not have to hard code how
+                            # preprocessed training cases are stored. get_shape only reads the array header.
                             tmp = dataset_class(expected_preprocessed_folder, [k])
-                            d, _, _, _ = tmp.load_case(k)
+                            target_shape = tmp.get_shape(k)
                         except FileNotFoundError:
                             self.print_to_log_file(
                                 f"Predicting next stage {n} failed for case {k} because the preprocessed file is missing! "
                                 f"Run the preprocessing for this configuration first!")
                             continue
 
-                        target_shape = d.shape[1:]
                         output_folder = join(self.output_folder_base, 'predicted_next_stage', n)
                         output_file_truncated = join(output_folder, k)
 

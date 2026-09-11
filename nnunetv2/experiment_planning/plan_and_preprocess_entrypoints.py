@@ -1,5 +1,7 @@
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.experiment_planning.plan_and_preprocess_api import extract_fingerprints, plan_experiments, preprocess
+from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import (
+    extract_sampling_locations_dataset)
 
 
 def _add_logging_args(parser):
@@ -106,6 +108,35 @@ def preprocess_entry():
         np = args.np
     preprocess(args.d, args.plans_name, configurations=args.c, num_processes=np, verbose=args.verbose,
                show_progress_bar=not args.no_pbar)
+
+
+def extract_sampling_locations_entry():
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Builds the foreground sampling location store for already preprocessed datasets. '
+                    'nnUNetv2_preprocess runs this for you, so you only need it to migrate datasets that were '
+                    'preprocessed with an older nnU-Net, or to rebuild the store after changing the sampling '
+                    'logic. It only reads the preprocessed segmentations, so it is much cheaper than '
+                    'preprocessing and never touches the image data.')
+    parser.add_argument('-d', nargs='+', type=int,
+                        help="[REQUIRED] List of dataset IDs. Example: 2 4 5. Can of course also be just one dataset")
+    parser.add_argument('-plans_name', default='nnUNetPlans', required=False,
+                        help='[OPTIONAL] You can use this to specify a custom plans file that you may have generated')
+    parser.add_argument('-c', required=False, default=['2d', '3d_fullres', '3d_lowres'], nargs='+',
+                        help='[OPTIONAL] Configurations for which the sampling locations should be extracted. '
+                             'Default: 2d 3d_fullres 3d_lowres. Configurations that do not exist or have not been '
+                             'preprocessed will be skipped.')
+    parser.add_argument('-np', type=int, default=default_num_processes, required=False,
+                        help=f'[OPTIONAL] Number of processes used. Default: {default_num_processes}')
+    parser.add_argument('--keep_existing', required=False, default=False, action='store_true',
+                        help='[OPTIONAL] Set this to skip configurations that already have a sampling location '
+                             'store instead of rebuilding it.')
+    _add_logging_args(parser)
+    args, unrecognized_args = parser.parse_known_args()
+    for d in args.d:
+        extract_sampling_locations_dataset(d, args.plans_name, configurations=args.c, num_processes=args.np,
+                                           overwrite=not args.keep_existing, verbose=args.verbose,
+                                           show_progress_bar=not args.no_pbar)
 
 
 def plan_and_preprocess_entry():

@@ -152,7 +152,7 @@ def plot_overlay(image_file: str, segmentation_file: str, image_reader_writer: B
 
 def plot_overlay_preprocessed(dataset: nnUNetBaseDataset, k: str, output_folder: str, overlay_intensity: float = 0.6, channel_idx=0):
     import matplotlib.pyplot as plt
-    data, seg, _, properties = dataset.load_case(k)
+    data, seg, _ = dataset.load_case(k)
 
     assert channel_idx < (data.shape[0]), 'This dataset only supports channel index up to %d' % (data.shape[0] - 1)
 
