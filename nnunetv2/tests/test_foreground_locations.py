@@ -1,6 +1,10 @@
+import io
+import multiprocessing
 import os
 import pickle
 import unittest
+import unittest.mock
+from contextlib import redirect_stdout
 from tempfile import TemporaryDirectory
 
 import numpy as np
@@ -10,7 +14,7 @@ from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import
     present_labels_from_class_locations)
 from nnunetv2.training.dataloading.foreground_locations import (
     FG_SAMPLING_DIRNAME, ForegroundLocations, ForegroundLocationsWriter, LegacyForegroundLocations,
-    get_foreground_locations, has_foreground_locations, ravel_coords)
+    announce_missing_store, get_foreground_locations, has_foreground_locations, ravel_coords)
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 
@@ -26,6 +30,12 @@ def _random_runs(rng, shape, class_keys, absent_probability=0.3, max_n=5000):
         lin[k] = v
         coords[k] = np.stack(np.unravel_index(v.astype(np.int64), shape), axis=1)
     return lin, coords
+
+
+def _announce_in_child(folder):
+    """Module level so that it survives pickling to a 'spawn' worker."""
+    from nnunetv2.training.dataloading.foreground_locations import announce_missing_store
+    return announce_missing_store(folder)
 
 
 class TestForegroundLocationsStore(unittest.TestCase):
@@ -136,10 +146,10 @@ class TestForegroundLocationsStore(unittest.TestCase):
     def test_factory_falls_back_to_legacy(self):
         with TemporaryDirectory() as d:
             self.assertFalse(has_foreground_locations(d))
-            self.assertIsInstance(get_foreground_locations(d, verbose=False), LegacyForegroundLocations)
+            self.assertIsInstance(get_foreground_locations(d), LegacyForegroundLocations)
             self._build(d, n_cases=3)
             self.assertTrue(has_foreground_locations(d))
-            self.assertIsInstance(get_foreground_locations(d, verbose=False), ForegroundLocations)
+            self.assertIsInstance(get_foreground_locations(d), ForegroundLocations)
 
     def test_store_is_confined_to_its_own_subfolder(self):
         # the rest of nnU-Net identifies cases by scanning the configuration folder, so the store must not
@@ -322,6 +332,73 @@ class TestDatasetIntegration(unittest.TestCase):
             ds = nnUNetDatasetBlosc2(d)
             self.assertIsInstance(ds.foreground_locations, ForegroundLocations)
             self.assertEqual(ds.foreground_locations.eligible_classes('case_a'), [1])
+
+
+class TestMissingStoreIsAnnouncedExactlyOnce(unittest.TestCase):
+    """
+    The notice must appear once per training run, not once per dataloader worker. Workers inherit a
+    copy of this module's globals, so a module-level "already warned" set is not enough on its own.
+    """
+
+    def setUp(self):
+        from nnunetv2.training.dataloading import foreground_locations as fl
+        fl._ANNOUNCED_FOLDERS.clear()
+
+    def test_announced_once_per_folder(self):
+        with TemporaryDirectory() as d:
+            self.assertTrue(announce_missing_store(d))      # first time: printed
+            self.assertFalse(announce_missing_store(d))     # same folder again: quiet
+            self.assertFalse(announce_missing_store(d))
+
+    def test_silent_when_a_store_exists(self):
+        with TemporaryDirectory() as d:
+            w = ForegroundLocationsWriter(d, [1])
+            w.add('c', (4, 4, 4), {1: np.array([0], dtype=np.uint64)})
+            w.finalize()
+            self.assertFalse(announce_missing_store(d))
+
+    def test_silent_in_worker_processes(self):
+        # the actual regression: every dataloader worker used to print the notice again
+        for method in ('fork', 'spawn'):
+            if method not in multiprocessing.get_all_start_methods():
+                continue
+            with self.subTest(start_method=method), TemporaryDirectory() as d:
+                ctx = multiprocessing.get_context(method)
+                with ctx.Pool(2) as p:
+                    printed = p.map(_announce_in_child, [d, d, d, d])
+                self.assertEqual(printed, [False] * 4,
+                                 f'a {method} worker announced the missing store')
+            # and the main process still announces it for that folder
+            with TemporaryDirectory() as d2:
+                self.assertTrue(announce_missing_store(d2))
+
+    def test_silent_on_secondary_ddp_ranks(self):
+        with TemporaryDirectory() as d:
+            with unittest.mock.patch.dict(os.environ, {'LOCAL_RANK': '1'}):
+                self.assertFalse(announce_missing_store(d))
+            self.assertTrue(announce_missing_store(d))      # rank 0 still announces
+
+    def test_dataset_announces_at_construction_not_on_first_use(self):
+        from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
+        with TemporaryDirectory() as d:
+            rng = np.random.default_rng(0)
+            nnUNetDatasetBlosc2.save_case(rng.random((1, 4, 4, 4)).astype(np.float32),
+                                          rng.integers(0, 2, (1, 4, 4, 4)).astype(np.int8),
+                                          {'spacing': [1.0, 1.0, 1.0]}, os.path.join(d, 'c'),
+                                          chunks=(1, 2, 2, 2), blocks=(1, 2, 2, 2),
+                                          chunks_seg=(1, 2, 2, 2), blocks_seg=(1, 2, 2, 2))
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                ds = nnUNetDatasetBlosc2(d)
+            self.assertIn('no foreground sampling location store', buf.getvalue())
+            # constructing more datasets on the same folder (the validation loop does this per case)
+            # and touching the property must stay quiet
+            buf2 = io.StringIO()
+            with redirect_stdout(buf2):
+                _ = ds.foreground_locations
+                for _ in range(3):
+                    _ = nnUNetDatasetBlosc2(d).foreground_locations
+            self.assertEqual(buf2.getvalue(), '')
 
 
 if __name__ == '__main__':

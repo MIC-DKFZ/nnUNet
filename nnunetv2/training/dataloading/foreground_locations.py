@@ -33,6 +33,7 @@ unsorted, by far the biggest lever), and reads go through ``schunk[i:i + 1]`` ra
 ``ndarray[i]`` (4-5x faster because it skips the NDArray slicing machinery; equivalent only
 because the array is 1D).
 """
+import multiprocessing
 import os
 import shutil
 from typing import Dict, List, Optional, Sequence, Tuple, Union
@@ -344,27 +345,52 @@ class LegacyForegroundLocations(ForegroundLocationsBase):
         return np.asarray(cl[class_key], dtype=np.int64)[:, 1:]
 
 
-_WARNED_FOLDERS = set()
-
-
-def get_foreground_locations(folder: str, verbose: bool = True) -> ForegroundLocationsBase:
+def get_foreground_locations(folder: str) -> ForegroundLocationsBase:
     """
     Open the foreground sampling location store for a preprocessed configuration folder, falling
     back to the legacy per-case pkl files when no store is present.
+
+    Silent by design: this is resolved lazily, which means it first runs inside the dataloader
+    worker processes. Announcing a missing store from here would print once per worker. See
+    announce_missing_store(), which the dataset calls from the process that constructs it.
     """
     if has_foreground_locations(folder):
         return ForegroundLocations(folder)
-    if verbose and folder not in _WARNED_FOLDERS:
-        _WARNED_FOLDERS.add(folder)
-        print(
-            f'\n#######################################################################\n'
-            f'INFO: {folder} has no foreground sampling location store, falling back to reading the legacy\n'
-            f'class_locations entries from the per-case pkl files. Training works, but dataloading is slower and\n'
-            f'these files take up a lot of disk space (they can be tens of GB on datasets with many classes).\n'
-            f'You can migrate this dataset in place, without re-running preprocessing, with:\n'
-            f'    nnUNetv2_extract_sampling_locations -d DATASET_ID\n'
-            f'#######################################################################\n')
     return LegacyForegroundLocations(folder)
+
+
+_ANNOUNCED_FOLDERS = set()
+
+
+def announce_missing_store(folder: str) -> bool:
+    """
+    Tell the user once that `folder` has no sampling location store and how to migrate it.
+    Returns whether anything was printed (that is what the tests assert on).
+
+    Call this from the process that *constructs* the dataset. Dataloader workers inherit a copy of
+    this module's globals, so a module-level set alone does not make the message unique -- every
+    worker would print it again. We therefore stay quiet in child processes and in non-zero DDP
+    ranks, and rely on the main process having announced it.
+    """
+    if multiprocessing.parent_process() is not None:      # a dataloader/export worker
+        return False
+    if os.environ.get('LOCAL_RANK', '0') != '0':          # a secondary DDP rank
+        return False
+    if folder in _ANNOUNCED_FOLDERS:
+        return False
+    # mark before the isfile check so repeated constructions of the same folder cost nothing
+    _ANNOUNCED_FOLDERS.add(folder)
+    if has_foreground_locations(folder):
+        return False
+    print(
+        f'\n#######################################################################\n'
+        f'INFO: {folder} has no foreground sampling location store, falling back to reading the legacy\n'
+        f'class_locations entries from the per-case pkl files. Training works, but dataloading is slower and\n'
+        f'these files take up a lot of disk space (they can be tens of GB on datasets with many classes).\n'
+        f'You can migrate this dataset in place, without re-running preprocessing, with:\n'
+        f'    nnUNetv2_extract_sampling_locations -d DATASET_ID\n'
+        f'#######################################################################\n')
+    return True
 
 
 class ForegroundLocationsWriter:

@@ -10,7 +10,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, load_pick
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.training.dataloading.foreground_locations import (
-    MMAP_KWARGS, ForegroundLocationsBase, get_foreground_locations)
+    MMAP_KWARGS, ForegroundLocationsBase, announce_missing_store, get_foreground_locations)
 from nnunetv2.training.dataloading.utils import unpack_dataset
 
 
@@ -218,9 +218,11 @@ class nnUNetBaseDataset(ABC):
         self.source_folder = folder
         self.folder_with_segs_from_previous_stage = folder_with_segs_from_previous_stage
         self.identifiers = identifiers
-        # opened on first use: datasets that are only used for validation never need it, and this way the
-        # "no store found" message is only printed for datasets that actually sample foreground
+        # resolved on first use: datasets that are only used for validation never touch it. That first use
+        # happens inside the dataloader workers though, so the "no store found" notice has to be emitted
+        # here instead - this runs in the process that builds the dataset, exactly once.
         self._foreground_locations = None
+        announce_missing_store(folder)
 
     @property
     def foreground_locations(self) -> ForegroundLocationsBase:
