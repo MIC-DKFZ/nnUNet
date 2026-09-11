@@ -121,10 +121,9 @@ and cannot use the fast single-element read path.
 | `SHUFFLE` | 1.26 | 3.01 |
 | `SHUFFLE` + `BYTEDELTA` | **0.72** | 3.05 |
 
-**Chunks and blocks.** In blosc2 the compression ratio is governed by the *block* size, while the
-chunk size only matters through the number of blocks per chunk. The store uses
-`chunks=(8192,)`, `blocks=(512,)`: essentially the cold-read minimum, within a few percent of the
-best achievable size, and cheap to write.
+**Blocks.** In blosc2 the compression ratio is governed by the *block* size, while the chunk size
+only matters through the number of blocks per chunk. `blocks=(512,)` sits at the cold-read minimum
+and within a few percent of the best achievable size (measured on local NVMe):
 
 | block (chunk 8192) | bytes/coord | warm read | cold read |
 | --- | --- | --- | --- |
@@ -132,6 +131,21 @@ best achievable size, and cheap to write.
 | **512** | **1.82** | **4.9 µs** | **50.8 µs** |
 | 2048 | 1.67 | 9.3 µs | 52.0 µs |
 | 8192 | 1.63 | 25.0 µs | 71.7 µs |
+
+**Chunks.** `chunks=(32768,)`, i.e. 64 blocks per chunk. This is set by the *parallel filesystem*,
+not by local behaviour. blosc2 pays a large fixed cost per chunk when writing to GPFS (~16 ms,
+against ~0.09 ms locally), so chunk count dominates write time there; and a cold random read costs
+fewer metadata round-trips when there are fewer, larger chunks. Measured on GPFS:
+
+| chunk | blocks/chunk | write (7.8 MB) | warm read | cold read |
+| --- | --- | --- | --- | --- |
+| 8192 | 16 | 14.7 s | 7.9 µs | 131.0 µs |
+| **32768** | **64** | **4.0 s** | **8.3 µs** | **71.6 µs** |
+| 131072 | 256 | 1.5 s | 14.7 µs | 88.3 µs |
+| 524288 | 1024 | 1.0 s | 37.6 µs | 119.7 µs |
+
+32768 is 3.7x faster to write and 1.8x faster to read cold, for 5% on warm reads. Beyond it the
+read cost climbs steeply as blocks-per-chunk grows.
 
 **Reads** go through `schunk[i:i + 1]` rather than `NDArray[i]`, which is 4-5x faster because it
 skips the NDArray slicing machinery. This is only equivalent to indexing the array because the
@@ -141,9 +155,17 @@ array is 1D — another reason for the linear encoding.
 short slices; storing them with blosc2 costs a block decompression on each and measured **130 µs
 versus 4.5 µs**, to save 28 MB out of a multi-GB store.
 
-**Everything is memory mapped**, so dataloader workers share physical pages instead of each
-holding a copy, and blosc2's chunk offset table is paged in lazily rather than read on open
+**Everything is memory mapped** for reading, so dataloader workers share physical pages instead of
+each holding a copy, and blosc2's chunk offset table is paged in lazily rather than read on open
 (mmap is disabled on Windows, see issue #2723).
+
+**The store is built in RAM and written once.** Growing a urlpath-backed blosc2 array incrementally
+is free locally but pathological on a parallel filesystem, because every appended chunk rewrites
+the frame's offset trailer. On GPFS, writing 7.8 MB took 14.8 s that way versus 1.1 s when the
+array is built in memory and serialised with a single `to_cframe()` + `write()` — 13x, growing with
+dataset size. Preallocating the array, memory-mapped writing and larger flushes were all measured
+and none of them helped; only removing the per-chunk filesystem traffic did. Stores too large to
+hold in RAM (`max_in_memory_bytes`, 2 GiB compressed by default) fall back to the incremental path.
 
 ## Measured effect
 

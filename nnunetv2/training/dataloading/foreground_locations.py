@@ -57,8 +57,11 @@ META_FILE = 'meta.json'
 STORE_VERSION = 1
 
 # see the module docstring for where these come from
-DEFAULT_CHUNK_SIZE = 8192
+DEFAULT_CHUNK_SIZE = 32768
 DEFAULT_BLOCK_SIZE = 512
+# Above this compressed size the store is no longer built in RAM (see ForegroundLocationsWriter).
+# to_cframe() transiently doubles the memory, so the peak is about twice this.
+DEFAULT_MAX_IN_MEMORY_BYTES = 2 * 1024 ** 3
 DEFAULT_CLEVEL = 9
 # writing is a single-process funnel at the end of a multiprocessed extraction pass, so unlike the
 # read path it should use several threads (measured 3.6 -> 16.6 Mcoord/s going from 1 to 8, with
@@ -402,12 +405,25 @@ class ForegroundLocationsWriter:
     only the runs within one case need to stay contiguous. Coordinates are buffered and flushed in
     whole multiples of the chunk size; flushing unaligned would force blosc2 to rewrite the partial
     tail chunk on every call (measured 1.4x slower over a full dataset for no benefit).
+
+    The array is built **in memory** and serialised to disk once, in finalize(). Writing it
+    incrementally to a urlpath-backed array is fine locally but pathological on a parallel
+    filesystem: blosc2 pays a fixed per-chunk cost there (~16 ms/chunk measured on GPFS, against
+    ~0.09 ms locally) because appending a chunk rewrites the frame's offset trailer. On GPFS,
+    writing 7.8 MB took 14.8 s incrementally versus 1.1 s built in RAM and written with a single
+    to_cframe() + write() - 13x, and the gap grows with dataset size. Neither preallocating the
+    array nor memory-mapped writing nor larger flushes fixed it; only removing the per-chunk
+    filesystem traffic did.
+
+    Datasets whose store would not fit in RAM spill to the incremental on-disk path
+    (max_in_memory_bytes). That is slow on a parallel filesystem, but it is bounded memory.
     """
 
     def __init__(self, folder: str, class_keys: Sequence[ClassKey],
                  chunk_size: int = DEFAULT_CHUNK_SIZE, block_size: int = DEFAULT_BLOCK_SIZE,
                  clevel: int = DEFAULT_CLEVEL, sampling_parameters: Optional[dict] = None,
-                 flush_every_n_chunks: int = 32, nthreads: int = DEFAULT_WRITE_NTHREADS):
+                 flush_every_n_chunks: int = 32, nthreads: int = DEFAULT_WRITE_NTHREADS,
+                 max_in_memory_bytes: int = DEFAULT_MAX_IN_MEMORY_BYTES):
         self.folder = store_folder(folder)
         self.class_keys = [normalize_class_key(k) for k in class_keys]
         self._key_to_id = {k: i for i, k in enumerate(self.class_keys)}
@@ -424,9 +440,16 @@ class ForegroundLocationsWriter:
             shutil.rmtree(self.folder)
         maybe_mkdir_p(self.folder)
 
+        self._clevel = clevel
+        self._nthreads = nthreads
+        self._max_in_memory_bytes = max_in_memory_bytes
+        self._locations_path = join(self.folder, LOCATIONS_FILE)
+        self._on_disk = False
+
         blosc2.set_nthreads(nthreads)
+        # no urlpath: this lives in RAM until finalize(). See the class docstring.
         self._array = blosc2.zeros(shape=(0,), dtype=np.uint64, chunks=(chunk_size,), blocks=(block_size,),
-                                   urlpath=join(self.folder, LOCATIONS_FILE), cparams=_cparams(clevel, nthreads))
+                                   cparams=_cparams(clevel, nthreads))
         self._written = 0          # coordinates committed to the blosc2 array
         self._total = 0            # coordinates accepted (committed + buffered)
         self._buffer: List[np.ndarray] = []
@@ -466,6 +489,28 @@ class ForegroundLocationsWriter:
         if self._total - self._written >= self._flush_threshold:
             self._flush(aligned_only=True)
 
+    def _spill_to_disk(self):
+        """
+        The store got too big to hold in RAM. Move what we have to a urlpath-backed array and keep
+        going there. Slow on a parallel filesystem, but memory stays bounded.
+        """
+        if self._on_disk:
+            return
+        print(f'INFO: the foreground sampling location store exceeded {self._max_in_memory_bytes / 1024 ** 3:.1f} '
+              f'GiB compressed and is being written incrementally from here on. This is a lot slower on '
+              f'network filesystems.')
+        blosc2.set_nthreads(self._nthreads)
+        disk = blosc2.zeros(shape=(self._written,), dtype=np.uint64, chunks=(self.chunk_size,),
+                            blocks=(self.block_size,), urlpath=self._locations_path,
+                            cparams=_cparams(self._clevel, self._nthreads))
+        step = self.chunk_size * 32
+        for start in range(0, self._written, step):
+            stop = min(start + step, self._written)
+            disk[start:stop] = self._array[start:stop]
+        del self._array
+        self._array = disk
+        self._on_disk = True
+
     def _flush(self, aligned_only: bool):
         if self._total == self._written:
             return
@@ -479,12 +524,21 @@ class ForegroundLocationsWriter:
         self._written += n
         rest = data[n:]
         self._buffer = [rest] if len(rest) else []
+        if not self._on_disk and self._array.schunk.cbytes > self._max_in_memory_bytes:
+            self._spill_to_disk()
 
     def finalize(self):
         if self._finalized:
             return
         self._flush(aligned_only=False)
         assert self._written == self._total, (self._written, self._total)
+
+        if not self._on_disk:
+            # one sequential write instead of per-chunk filesystem traffic
+            with open(self._locations_path, 'wb') as f:
+                f.write(self._array.to_cframe())
+                f.flush()
+                os.fsync(f.fileno())
 
         n_cases = len(self._identifiers)
         indptr = np.zeros(n_cases + 1, dtype=np.int64)

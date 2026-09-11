@@ -14,7 +14,8 @@ from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import
     present_labels_from_class_locations)
 from nnunetv2.training.dataloading.foreground_locations import (
     FG_SAMPLING_DIRNAME, ForegroundLocations, ForegroundLocationsWriter, LegacyForegroundLocations,
-    announce_missing_store, get_foreground_locations, has_foreground_locations, ravel_coords)
+    ForegroundLocationsWriter, announce_missing_store, get_foreground_locations,
+    has_foreground_locations, ravel_coords)
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 
@@ -332,6 +333,55 @@ class TestDatasetIntegration(unittest.TestCase):
             ds = nnUNetDatasetBlosc2(d)
             self.assertIsInstance(ds.foreground_locations, ForegroundLocations)
             self.assertEqual(ds.foreground_locations.eligible_classes('case_a'), [1])
+
+
+class TestInMemoryAndSpilledStoresAgree(unittest.TestCase):
+    """
+    The writer builds the array in RAM and serialises it once; oversized stores spill to the
+    incremental on-disk path. Both must produce exactly the same store.
+    """
+
+    def _build(self, folder, max_in_memory_bytes):
+        rng = np.random.default_rng(7)
+        class_keys = [1, 2, (1, 2)]
+        shape = (40, 41, 42)
+        w = ForegroundLocationsWriter(folder, class_keys, max_in_memory_bytes=max_in_memory_bytes)
+        truth = {}
+        for i in range(25):
+            cid = f'c{i}'
+            lin, coords = _random_runs(rng, shape, class_keys, absent_probability=0.2, max_n=4000)
+            truth[cid] = coords
+            w.add(cid, shape, lin)
+        w.finalize()
+        return truth, w._on_disk
+
+    def test_spilled_store_matches_in_memory_store(self):
+        with TemporaryDirectory() as d1, TemporaryDirectory() as d2:
+            truth_mem, spilled_mem = self._build(d1, max_in_memory_bytes=10 ** 12)   # never spills
+            truth_disk, spilled_disk = self._build(d2, max_in_memory_bytes=1)        # spills immediately
+            self.assertFalse(spilled_mem)
+            self.assertTrue(spilled_disk, 'the spill path was never taken, so it is untested')
+
+            a, b = ForegroundLocations(d1), ForegroundLocations(d2)
+            self.assertEqual(a.identifiers, b.identifiers)
+            self.assertEqual(a.class_keys, b.class_keys)
+            for cid in a.identifiers:
+                self.assertEqual(a.eligible_classes(cid), b.eligible_classes(cid))
+                for k in a.class_keys:
+                    np.testing.assert_array_equal(a.all_locations(cid, k), b.all_locations(cid, k))
+                    np.testing.assert_array_equal(a.all_locations(cid, k),
+                                                  truth_mem[cid].get(k, np.zeros((0, 3), np.int64)))
+
+    def test_in_memory_store_is_a_valid_blosc2_frame(self):
+        # finalize() writes the frame with to_cframe() rather than through blosc2's own file
+        # handling, so check it reopens and that the fast read path works on it
+        with TemporaryDirectory() as d:
+            self._build(d, max_in_memory_bytes=10 ** 12)
+            store = ForegroundLocations(d)
+            cid = store.identifiers[0]
+            k = store.eligible_classes(cid)[0]
+            self.assertEqual(store.sample(cid, k).shape, (3,))
+            self.assertGreater(store.count(cid, k), 0)
 
 
 class TestMissingStoreIsAnnouncedExactlyOnce(unittest.TestCase):
