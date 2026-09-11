@@ -21,7 +21,8 @@ from batchgenerators.utilities.file_and_folder_operations import isfile, join, l
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.training.dataloading.foreground_locations import (
-    ForegroundLocationsWriter, has_foreground_locations, normalize_class_key, ravel_coords)
+    MMAP_KWARGS, ForegroundLocationsWriter, has_foreground_locations, normalize_class_key,
+    ravel_coords)
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.utilities.pool_utils import imap_unordered_with_progress
@@ -70,7 +71,7 @@ def extract_case(seg_file: str, pkl_file: Optional[str], classes_or_regions: Seq
     from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 
     blosc2.set_nthreads(1)
-    seg = blosc2.open(urlpath=seg_file, mode='r', dparams={'nthreads': 1})[:]
+    seg = blosc2.open(urlpath=seg_file, mode='r', dparams={'nthreads': 1}, **MMAP_KWARGS)[:]
     spatial_shape = tuple(int(i) for i in seg.shape[1:])
 
     # Labels that are not in this segmentation cannot contribute anything, so telling the sampler about

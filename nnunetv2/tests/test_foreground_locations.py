@@ -384,6 +384,72 @@ class TestInMemoryAndSpilledStoresAgree(unittest.TestCase):
             self.assertGreater(store.count(cid, k), 0)
 
 
+class TestAllBlosc2ReadsAreMemoryMapped(unittest.TestCase):
+    """
+    Reads must be memory mapped so that dataloader workers share physical pages instead of each
+    holding a copy, and so blosc2's chunk offset table is paged in lazily. This is easy to drop by
+    accident when adding a new read, hence the source level check.
+    """
+
+    MODULES = ['nnunetv2/training/dataloading/foreground_locations.py',
+               'nnunetv2/training/dataloading/nnunet_dataset.py',
+               'nnunetv2/preprocessing/sampling_locations/extract_sampling_locations.py']
+
+    @staticmethod
+    def _call_texts(src, needle='blosc2.open('):
+        """Yield the full text of each blosc2.open(...) call, following it across line breaks."""
+        out, i = [], src.find(needle)
+        while i != -1:
+            j, depth = i + len(needle) - 1, 0
+            while j < len(src):
+                if src[j] == '(':
+                    depth += 1
+                elif src[j] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            out.append(src[i:j + 1])
+            i = src.find(needle, j)
+        return out
+
+    def test_every_blosc2_open_passes_mmap_kwargs(self):
+        import nnunetv2
+        root = os.path.dirname(os.path.dirname(os.path.abspath(nnunetv2.__file__)))
+        checked = 0
+        for rel in self.MODULES:
+            path = os.path.join(root, rel)
+            if not os.path.isfile(path):
+                continue
+            with open(path) as f:
+                src = f.read()
+            for call in self._call_texts(src):
+                checked += 1
+                self.assertTrue('MMAP_KWARGS' in call or 'mmap_kwargs' in call,
+                                f'blosc2.open without mmap kwargs in {rel}:\n{call}')
+        self.assertGreater(checked, 0, 'found no blosc2.open calls to check - did the modules move?')
+
+    def test_mmap_kwargs_is_enabled_off_windows(self):
+        from nnunetv2.training.dataloading.foreground_locations import MMAP_KWARGS
+        if os.name == 'nt':
+            self.assertEqual(MMAP_KWARGS, {})
+        else:
+            self.assertEqual(MMAP_KWARGS, {'mmap_mode': 'r'})
+
+    def test_store_and_index_open_without_error_and_read_back(self):
+        # the functional counterpart: whatever the kwargs are, reads must still work
+        with TemporaryDirectory() as d:
+            rng = np.random.default_rng(0)
+            w = ForegroundLocationsWriter(d, [1, 2])
+            lin = np.sort(rng.choice(9999, 500, replace=False)).astype(np.uint64)
+            w.add('c', (20, 20, 25), {1: lin})
+            w.finalize()
+            store = ForegroundLocations(d)
+            np.testing.assert_array_equal(
+                store.all_locations('c', 1),
+                np.stack(np.unravel_index(lin.astype(np.int64), (20, 20, 25)), axis=1))
+
+
 class TestMissingStoreIsAnnouncedExactlyOnce(unittest.TestCase):
     """
     The notice must appear once per training run, not once per dataloader worker. Workers inherit a

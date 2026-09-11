@@ -165,7 +165,15 @@ the frame's offset trailer. On NFS, writing 7.8 MB took 14.8 s that way versus 1
 array is built in memory and serialised with a single `to_cframe()` + `write()` — 13x, growing with
 dataset size. Preallocating the array, memory-mapped writing and larger flushes were all measured
 and none of them helped; only removing the per-chunk filesystem traffic did. Stores too large to
-hold in RAM (`max_in_memory_bytes`, 2 GiB compressed by default) fall back to the incremental path.
+hold in RAM (`max_in_memory_bytes`, 32 GiB compressed by default, so a ~64 GiB peak because
+`to_cframe()` transiently holds a second copy) fall back to the incremental path. A 32 GiB store is
+roughly 40 billion coordinates, so in practice that fallback is unreachable.
+
+**Every blosc2 read is memory mapped** — the coordinate store, the preprocessed images and
+segmentations in `load_case`, `get_shape`, and the segmentation reads in the extraction pass
+(except on Windows, see issue #2723). Writing is the exception: the spill-to-disk fallback writes
+without mmap, because a shared writable mapping over NFS has no reliable write-back ordering and
+blosc2 needs the final file size up front, which is unknown while cases are still arriving.
 
 ## Measured effect
 

@@ -60,8 +60,10 @@ STORE_VERSION = 1
 DEFAULT_CHUNK_SIZE = 32768
 DEFAULT_BLOCK_SIZE = 512
 # Above this compressed size the store is no longer built in RAM (see ForegroundLocationsWriter).
-# to_cframe() transiently doubles the memory, so the peak is about twice this.
-DEFAULT_MAX_IN_MEMORY_BYTES = 2 * 1024 ** 3
+# NOTE: to_cframe() transiently holds a second copy, so the peak is about twice this. 32 GiB is
+# therefore a ~64 GiB peak, chosen so that the slow on-disk fallback is effectively unreachable -
+# a 32 GiB store is ~40 billion coordinates, roughly 70x TotalSegmentator v2.
+DEFAULT_MAX_IN_MEMORY_BYTES = 32 * 1024 ** 3
 DEFAULT_CLEVEL = 9
 # writing is a single-process funnel at the end of a multiprocessed extraction pass, so unlike the
 # read path it should use several threads (measured 3.6 -> 16.6 Mcoord/s going from 1 to 8, with
