@@ -139,7 +139,14 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
         dtype_out = data.dtype
     reshaped_final = np.zeros((data.shape[0], *new_shape), dtype=dtype_out)
     if np.any(shape != new_shape):
-        data = data.astype(float, copy=False)
+        # float32, not float64. scipy.ndimage accumulates in double internally no matter what dtype the
+        # array has, and for order > 1 it forces a float64 spline prefilter on top of that, so upcasting
+        # the float32 nnU-Net feeds in here buys exactly no accuracy while doubling the memory this
+        # function touches (verified bit-identical, see nnunetv2/tests/test_resampling.py). Anything that
+        # is not already floating point still has to be converted; float64 input is left alone rather
+        # than silently losing precision.
+        if not np.issubdtype(data.dtype, np.floating):
+            data = data.astype(np.float32, copy=False)
         if do_separate_z:
             assert axis is not None, 'If do_separate_z, we need to know what axis is anisotropic'
             if axis == 0:
@@ -152,7 +159,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
             for c in range(data.shape[0]):
                 tmp = deepcopy(new_shape)
                 tmp[axis] = shape[axis]
-                reshaped_here = np.zeros(tmp)
+                reshaped_here = np.zeros(tmp, dtype=data.dtype)
                 for slice_id in range(shape[axis]):
                     if axis == 0:
                         reshaped_here[slice_id] = resize_fn(data[c, slice_id], new_shape_2d, order, **kwargs)
@@ -161,30 +168,47 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                     else:
                         reshaped_here[:, :, slice_id] = resize_fn(data[c, :, :, slice_id], new_shape_2d, order, **kwargs)
                 if shape[axis] != new_shape[axis]:
-
-                    # The following few lines are blatantly copied and modified from sklearn's resize()
-                    rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
-                    orig_rows, orig_cols, orig_dim = reshaped_here.shape
-
-                    # align_corners=False
-                    row_scale = float(orig_rows) / rows
-                    col_scale = float(orig_cols) / cols
-                    dim_scale = float(orig_dim) / dim
-
-                    map_rows, map_cols, map_dims = np.mgrid[:rows, :cols, :dim]
-                    map_rows = row_scale * (map_rows + 0.5) - 0.5
-                    map_cols = col_scale * (map_cols + 0.5) - 0.5
-                    map_dims = dim_scale * (map_dims + 0.5) - 0.5
-
-                    coord_map = np.array([map_rows, map_cols, map_dims])
-                    if not is_seg or order_z == 0:
-                        reshaped_final[c] = map_coordinates(reshaped_here, coord_map, order=order_z, mode='nearest')[None]
+                    if order_z == 0:
+                        # Only `axis` still differs in length: the loop above already brought the two
+                        # in-plane axes to their target size. Their coordinate maps in the general
+                        # map_coordinates call below would therefore be exact identities (row_scale and
+                        # col_scale are exactly 1.0), so a 1d nearest neighbor gather along `axis` gives
+                        # bit-identical results. It also avoids materializing three output-sized float64
+                        # coordinate arrays plus the np.array() copy of them, which move roughly 9x the
+                        # output volume through RAM. That block is memory bandwidth bound rather than
+                        # compute bound, so it dominates this function on large volumes and collapses
+                        # throughput once several preprocessing workers run at once.
+                        scale = float(reshaped_here.shape[axis]) / new_shape[axis]
+                        coords = scale * (np.arange(new_shape[axis]) + 0.5) - 0.5
+                        # np.floor(x + 0.5) rather than np.round: this must match how map_coordinates
+                        # rounds at order 0, which is not numpy's round-half-to-even.
+                        indices = np.clip(np.floor(coords + 0.5).astype(np.intp),
+                                          0, reshaped_here.shape[axis] - 1)
+                        reshaped_final[c] = reshaped_here.take(indices, axis=axis)
                     else:
-                        unique_labels = np.sort(pd.unique(reshaped_here.ravel()))  # np.unique(reshaped_data)
-                        for i, cl in enumerate(unique_labels):
-                            reshaped_final[c][np.round(
-                                map_coordinates((reshaped_here == cl).astype(float), coord_map, order=order_z,
-                                                mode='nearest')) > 0.5] = cl
+                        # The following few lines are blatantly copied and modified from sklearn's resize()
+                        rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
+                        orig_rows, orig_cols, orig_dim = reshaped_here.shape
+
+                        # align_corners=False
+                        row_scale = float(orig_rows) / rows
+                        col_scale = float(orig_cols) / cols
+                        dim_scale = float(orig_dim) / dim
+
+                        map_rows, map_cols, map_dims = np.mgrid[:rows, :cols, :dim]
+                        map_rows = row_scale * (map_rows + 0.5) - 0.5
+                        map_cols = col_scale * (map_cols + 0.5) - 0.5
+                        map_dims = dim_scale * (map_dims + 0.5) - 0.5
+
+                        coord_map = np.array([map_rows, map_cols, map_dims])
+                        if not is_seg:
+                            reshaped_final[c] = map_coordinates(reshaped_here, coord_map, order=order_z, mode='nearest')[None]
+                        else:
+                            unique_labels = np.sort(pd.unique(reshaped_here.ravel()))  # np.unique(reshaped_data)
+                            for i, cl in enumerate(unique_labels):
+                                reshaped_final[c][np.round(
+                                    map_coordinates((reshaped_here == cl).astype(float), coord_map, order=order_z,
+                                                    mode='nearest')) > 0.5] = cl
                 else:
                     reshaped_final[c] = reshaped_here
         else:
