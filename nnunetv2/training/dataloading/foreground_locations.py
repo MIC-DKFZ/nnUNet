@@ -407,16 +407,16 @@ class ForegroundLocationsWriter:
     tail chunk on every call (measured 1.4x slower over a full dataset for no benefit).
 
     The array is built **in memory** and serialised to disk once, in finalize(). Writing it
-    incrementally to a urlpath-backed array is fine locally but pathological on a parallel
-    filesystem: blosc2 pays a fixed per-chunk cost there (~16 ms/chunk measured on GPFS, against
-    ~0.09 ms locally) because appending a chunk rewrites the frame's offset trailer. On GPFS,
+    incrementally to a urlpath-backed array is fine locally but pathological on a network
+    filesystem: blosc2 pays a fixed per-chunk cost there (~16 ms/chunk measured on NFS, against
+    ~0.09 ms locally) because appending a chunk rewrites the frame's offset trailer. On NFS,
     writing 7.8 MB took 14.8 s incrementally versus 1.1 s built in RAM and written with a single
     to_cframe() + write() - 13x, and the gap grows with dataset size. Neither preallocating the
     array nor memory-mapped writing nor larger flushes fixed it; only removing the per-chunk
     filesystem traffic did.
 
     Datasets whose store would not fit in RAM spill to the incremental on-disk path
-    (max_in_memory_bytes). That is slow on a parallel filesystem, but it is bounded memory.
+    (max_in_memory_bytes). That is slow on a network filesystem, but it is bounded memory.
     """
 
     def __init__(self, folder: str, class_keys: Sequence[ClassKey],
@@ -492,7 +492,13 @@ class ForegroundLocationsWriter:
     def _spill_to_disk(self):
         """
         The store got too big to hold in RAM. Move what we have to a urlpath-backed array and keep
-        going there. Slow on a parallel filesystem, but memory stays bounded.
+        going there, which bounds memory at the cost of speed.
+
+        Deliberately NOT memory mapped. Memory-mapped writing measured ~2x faster than this on an
+        NFS-mounted cluster filesystem, but a shared writable mapping over NFS has no reliable
+        write-back ordering guarantees, and blosc2 needs an initial_mapping_size >= the final file
+        size, which we do not know while still adding cases. Correctness beats 2x on a path that
+        only datasets roughly five times the size of TotalSegmentator ever reach.
         """
         if self._on_disk:
             return

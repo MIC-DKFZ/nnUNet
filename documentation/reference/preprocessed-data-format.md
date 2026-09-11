@@ -132,10 +132,10 @@ and within a few percent of the best achievable size (measured on local NVMe):
 | 2048 | 1.67 | 9.3 µs | 52.0 µs |
 | 8192 | 1.63 | 25.0 µs | 71.7 µs |
 
-**Chunks.** `chunks=(32768,)`, i.e. 64 blocks per chunk. This is set by the *parallel filesystem*,
-not by local behaviour. blosc2 pays a large fixed cost per chunk when writing to GPFS (~16 ms,
+**Chunks.** `chunks=(32768,)`, i.e. 64 blocks per chunk. This is set by the *network filesystem*,
+not by local behaviour. blosc2 pays a large fixed cost per chunk when writing to NFS (~16 ms,
 against ~0.09 ms locally), so chunk count dominates write time there; and a cold random read costs
-fewer metadata round-trips when there are fewer, larger chunks. Measured on GPFS:
+fewer metadata round-trips when there are fewer, larger chunks. Measured on an NFS-mounted cluster filesystem:
 
 | chunk | blocks/chunk | write (7.8 MB) | warm read | cold read |
 | --- | --- | --- | --- | --- |
@@ -160,8 +160,8 @@ each holding a copy, and blosc2's chunk offset table is paged in lazily rather t
 (mmap is disabled on Windows, see issue #2723).
 
 **The store is built in RAM and written once.** Growing a urlpath-backed blosc2 array incrementally
-is free locally but pathological on a parallel filesystem, because every appended chunk rewrites
-the frame's offset trailer. On GPFS, writing 7.8 MB took 14.8 s that way versus 1.1 s when the
+is free locally but pathological on a network filesystem, because every appended chunk rewrites
+the frame's offset trailer. On NFS, writing 7.8 MB took 14.8 s that way versus 1.1 s when the
 array is built in memory and serialised with a single `to_cframe()` + `write()` — 13x, growing with
 dataset size. Preallocating the array, memory-mapped writing and larger flushes were all measured
 and none of them helped; only removing the per-chunk filesystem traffic did. Stores too large to
