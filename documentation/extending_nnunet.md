@@ -10,6 +10,9 @@ Here are some things you might want to read before you start:
 preprocessing, resampling, network topology etc. Read [this](explanation_plans_files.md)!
 - [Image normalization](explanation_normalization.md) and [i/o formats](dataset_format.md#supported-file-formats) are easy to extend!
 - Manual data splits can be defined as described [here](manual_data_splits.md)
+- If you write a custom preprocessor, or want to understand how foreground oversampling picks its patch centers,
+read the [preprocessed data format reference](reference/preprocessed-data-format.md). Note in particular that
+sampling locations are extracted from the *stored* segmentation, i.e. after `modify_seg_fn` has run.
 - You can chain arbitrary configurations together into cascades, see [this again](explanation_plans_files.md)
 - Read about our support for [region-based training](region_based_training.md)
 - If you intend to modify the training procedure (loss, sampling, data augmentation, lr scheduler, etc) then you need
