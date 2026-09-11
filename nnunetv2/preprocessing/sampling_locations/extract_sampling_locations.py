@@ -11,44 +11,51 @@ This is deliberately separate from preprocessing:
 The sampling itself is unchanged: it calls ``DefaultPreprocessor._sample_foreground_locations``
 with the same parameters preprocessing used to use.
 """
-import multiprocessing
 import os
-from time import sleep
 from typing import List, Optional, Sequence, Tuple, Union
 
 import blosc2
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import isfile, join, load_json, load_pickle
-from tqdm import tqdm
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.training.dataloading.foreground_locations import (
-    ForegroundLocationsWriter, has_foreground_locations, ravel_coords)
+    ForegroundLocationsWriter, has_foreground_locations, normalize_class_key, ravel_coords)
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from nnunetv2.utilities.pool_utils import imap_unordered_with_progress
 
 DEFAULT_SEED = 1234
 DEFAULT_MIN_NUM_SAMPLES = 10000
 DEFAULT_MIN_PERCENT_COVERAGE = 0.01
 
 
-def get_classes_or_regions_to_collect(label_manager) -> List[Union[int, List[int]]]:
-    """
-    Which classes/regions get sampling locations. Mirrors what DefaultPreprocessor.run_case_npy
-    used to do, but without mutating the list owned by the LabelManager.
-    """
-    collect_for_this = list(label_manager.foreground_regions if label_manager.has_regions
-                            else label_manager.foreground_labels)
-    if label_manager.has_ignore_label:
-        # with an ignore label we also want to be able to sample uniformly from all *annotated*
-        # voxels (background included), so that patches without foreground are still annotated
-        collect_for_this.append([-1] + label_manager.all_labels)
-    return collect_for_this
+def _requested_labels(classes_or_regions: Sequence) -> set:
+    labels = set()
+    for c in classes_or_regions:
+        if isinstance(c, (tuple, list)):
+            labels.update(int(i) for i in c)
+        else:
+            labels.add(int(c))
+    return labels
 
 
-def _normalize_key(k):
-    return tuple(int(i) for i in k) if isinstance(k, (tuple, list)) else int(k)
+def present_labels_from_class_locations(class_locations: dict, classes_or_regions: Sequence) -> List[int]:
+    """
+    Which labels may occur in the segmentation, read off a legacy ``class_locations`` dict.
+
+    _sample_foreground_locations leaves an entry empty exactly when none of that class's/region's labels
+    are present (a present label always yields at least one sampled coordinate), so a label can be ruled
+    out only if it appears in an empty entry and in no non-empty one. Labels the legacy dict says nothing
+    about - because dataset.json changed since it was written - are kept: the hint may overstate what is
+    present, but it must never miss a label that is.
+    """
+    in_empty, in_nonempty = set(), set()
+    for key, v in class_locations.items():
+        labels = key if isinstance(key, (tuple, list)) else (key,)
+        (in_nonempty if len(v) > 0 else in_empty).update(int(i) for i in labels)
+    return sorted(_requested_labels(classes_or_regions) - (in_empty - in_nonempty))
 
 
 def extract_case(seg_file: str, pkl_file: Optional[str], classes_or_regions: Sequence,
@@ -66,10 +73,17 @@ def extract_case(seg_file: str, pkl_file: Optional[str], classes_or_regions: Seq
     seg = blosc2.open(urlpath=seg_file, mode='r', dparams={'nthreads': 1})[:]
     spatial_shape = tuple(int(i) for i in seg.shape[1:])
 
-    # preprocessing records which labels a case contains, so we do not have to rediscover them
+    # Labels that are not in this segmentation cannot contribute anything, so telling the sampler about
+    # them lets it shrink its np.isin. Both sources of that hint are already on disk - preprocessing
+    # recorded it, and on a legacy dataset the old sampling result implies it - so there is no reason to
+    # scan the segmentation for it here.
     present_labels = None
     if pkl_file is not None and isfile(pkl_file):
-        present_labels = load_pickle(pkl_file).get('present_labels', None)
+        properties = load_pickle(pkl_file)
+        if 'present_labels' in properties:
+            present_labels = properties['present_labels']
+        elif 'class_locations' in properties:
+            present_labels = present_labels_from_class_locations(properties['class_locations'], classes_or_regions)
 
     class_locations = DefaultPreprocessor._sample_foreground_locations(
         seg, classes_or_regions, seed=seed, verbose=verbose,
@@ -80,7 +94,7 @@ def extract_case(seg_file: str, pkl_file: Optional[str], classes_or_regions: Seq
     for k, v in class_locations.items():
         if len(v) == 0:
             continue
-        out[_normalize_key(k)] = ravel_coords(np.asarray(v), spatial_shape)
+        out[normalize_class_key(k)] = ravel_coords(np.asarray(v), spatial_shape)
     return spatial_shape, out
 
 
@@ -106,40 +120,17 @@ def extract_sampling_locations_for_folder(folder: str, classes_or_regions: Seque
     if len(identifiers) == 0:
         raise RuntimeError(f'No preprocessed cases found in {folder}')
 
-    class_keys = [_normalize_key(k) for k in classes_or_regions]
+    class_keys = [normalize_class_key(k) for k in classes_or_regions]
     sampling_parameters = {'seed': seed, 'min_num_samples': min_num_samples,
                            'min_percent_coverage': min_percent_coverage}
 
     writer = ForegroundLocationsWriter(folder, class_keys, sampling_parameters=sampling_parameters)
-
-    with multiprocessing.get_context('spawn').Pool(num_processes) as p:
-        workers = [j for j in p._pool]
-        r = []
-        for identifier in identifiers:
-            r.append(p.starmap_async(extract_case, ((join(folder, identifier + '_seg.b2nd'),
-                                                     join(folder, identifier + '.pkl'),
-                                                     class_keys, seed, min_num_samples,
-                                                     min_percent_coverage, verbose),)))
-        remaining = list(range(len(identifiers)))
-        with tqdm(desc='Extracting foreground sampling locations', total=len(identifiers),
-                  disable=not show_progress_bar) as pbar:
-            while len(remaining) > 0:
-                if not all([j.is_alive() for j in workers]):
-                    raise RuntimeError('Some background worker is 6 feet under. Yuck. \n'
-                                       'One of your background processes is missing. This could be because of '
-                                       'an error (look for an error message) or because it was killed '
-                                       'by your OS due to running out of RAM. If you don\'t see '
-                                       'an error message, out of RAM is likely the problem. In that case '
-                                       'reducing the number of workers might help')
-                done = [i for i in remaining if r[i].ready()]
-                for i in done:
-                    shape, locations = r[i].get()[0]
-                    writer.add(identifiers[i], shape, locations)
-                    r[i] = None  # free the result as soon as it is on disk
-                    pbar.update()
-                remaining = [i for i in remaining if i not in done]
-                if len(done) == 0:
-                    sleep(0.1)
+    args = [(join(folder, i + '_seg.b2nd'), join(folder, i + '.pkl'), class_keys, seed, min_num_samples,
+             min_percent_coverage, verbose) for i in identifiers]
+    for i, (shape, locations) in imap_unordered_with_progress(
+            extract_case, args, num_processes, desc='Extracting foreground sampling locations',
+            show_progress_bar=show_progress_bar):
+        writer.add(identifiers[i], shape, locations)
     writer.finalize()
 
 
@@ -158,7 +149,6 @@ def extract_sampling_locations_dataset(dataset_id_or_name: Union[int, str],
     plans_manager = PlansManager(plans_file)
     dataset_json = load_json(join(nnUNet_preprocessed, dataset_name, 'dataset.json'))
     label_manager = plans_manager.get_label_manager(dataset_json)
-    classes_or_regions = get_classes_or_regions_to_collect(label_manager)
 
     for c in configurations:
         if c not in plans_manager.available_configurations:
@@ -176,5 +166,5 @@ def extract_sampling_locations_dataset(dataset_id_or_name: Union[int, str],
             continue
         print(f'Configuration: {c}...')
         extract_sampling_locations_for_folder(
-            folder, classes_or_regions, num_processes=num_processes, verbose=verbose,
-            show_progress_bar=show_progress_bar)
+            folder, label_manager.classes_or_regions_for_sampling, num_processes=num_processes,
+            verbose=verbose, show_progress_bar=show_progress_bar)

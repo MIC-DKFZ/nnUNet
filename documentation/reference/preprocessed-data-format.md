@@ -11,15 +11,17 @@ and in particular how foreground sampling locations are stored.
 | `<case>.b2nd` | Preprocessed image data, `(c, x, y, z)` float32, blosc2 |
 | `<case>_seg.b2nd` | Preprocessed segmentation, `(1, x, y, z)`, blosc2 |
 | `<case>.pkl` | Case properties: `spacing`, `shape_before_cropping`, `bbox_used_for_cropping`, `shape_after_cropping_and_before_resampling`, reader metadata, and `present_labels` |
-| `fg_sampling_*` | The foreground sampling location store, shared by all cases (see below) |
+| `fg_sampling/` | The foreground sampling location store, shared by all cases (see below) |
 
-`present_labels` is the sorted list of label values that occur in the preprocessed segmentation.
-It is recorded during preprocessing (where the segmentation is in memory anyway) so that the
-sampling location extraction does not have to rediscover it.
+`present_labels` is the sorted list of label values that occur in the stored segmentation. It is
+recorded during preprocessing, after `modify_seg_fn` and while the segmentation is still in memory,
+so that building the sampling location store never has to scan the segmentations to find out which
+labels a case contains. Migrating a dataset that predates this field costs nothing either: the
+legacy `class_locations` entry already implies the same information (a class is empty there exactly
+when none of its labels are present), and the migration pass reads it from the pkl it is replacing.
 
-Everything belonging to the sampling location store carries the reserved prefix `fg_sampling_`.
-Code that scans a preprocessed folder for cases skips that prefix, so never name a case
-`fg_sampling_something`.
+The store lives in its own subdirectory. Nothing that scans a configuration folder for cases sees
+it, so case names are unconstrained.
 
 ## Foreground sampling locations
 
@@ -38,13 +40,13 @@ They now live in one compressed, partially readable store per configuration fold
 
 | File | Contents |
 | --- | --- |
-| `fg_sampling_locations.b2nd` | 1D `uint64` blosc2 array of flat (linear) voxel indices, sorted ascending within each (case, class) run |
-| `fg_sampling_indptr.npy` | `int64`, length `n_cases + 1`. CSR row pointer |
-| `fg_sampling_class_id.npy` | `uint16` (or `uint32`), length `nnz`. Index into the class key table |
-| `fg_sampling_count.npy` | `uint32`, length `nnz`. Number of coordinates in that run |
-| `fg_sampling_base.npy` | `int64`, length `n_cases`. Where each case's block starts |
-| `fg_sampling_shape.npy` | `int64`, `(n_cases, 3)`. Spatial shape, used to unravel the linear indices |
-| `fg_sampling_meta.json` | Store version, case order, class key table, sampling parameters |
+| `fg_sampling/locations.b2nd` | 1D `uint64` blosc2 array of flat (linear) voxel indices, sorted ascending within each (case, class) run |
+| `fg_sampling/indptr.npy` | `int64`, length `n_cases + 1`. CSR row pointer |
+| `fg_sampling/class_id.npy` | `uint16` (or `uint32`), length `nnz`. Index into the class key table |
+| `fg_sampling/count.npy` | `uint32`, length `nnz`. Number of coordinates in that run |
+| `fg_sampling/base.npy` | `int64`, length `n_cases`. Where each case's block starts |
+| `fg_sampling/shape.npy` | `int64`, `(n_cases, 3)`. Spatial shape, used to unravel the linear indices |
+| `fg_sampling/meta.json` | Store version, case order, class key table, sampling parameters |
 
 Only non-empty (case, class) runs are stored, so the index is a genuine sparse (CSR) structure:
 it grows with the number of classes *present per case*, not with the number of classes in the
@@ -82,8 +84,9 @@ fg.all_locations('case_042', 1)               # all of them as (N, 3) — for in
 header.
 
 Class keys are `int` for plain labels and `tuple` for regions, including the
-`(-1, *all_labels)` key used when an ignore label is present. They round-trip through
-`fg_sampling_meta.json` as tuples.
+`(-1, *all_labels)` key used when an ignore label is present (`LabelManager.annotated_classes_key`,
+which both the extraction pass and the dataloader read it from). They round-trip through
+`fg_sampling/meta.json` as tuples.
 
 ## Building and rebuilding the store
 

@@ -92,20 +92,20 @@ class DefaultPreprocessor(object):
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
 
-        # if we have a segmentation, record which labels this case contains. We have the segmentation in memory
-        # here anyway, so this is essentially free, and it saves nnUNetv2_extract_sampling_locations from having to
-        # rediscover the labels when it builds the foreground sampling location store later.
-        # np.sort(pd.unique(x.ravel())) is deliberate: it is measurably faster than np.unique (~17 vs ~26 ms on a
-        # 10 M voxel TotalSegmentator segmentation).
+        # NOTE: foreground sampling locations (formerly properties['class_locations']) are no longer stored
+        # here. They live in a compressed, partially readable store per configuration folder that is built by
+        # nnUNetv2_extract_sampling_locations (plan_and_preprocess runs it for you). Keeping them in the pkl
+        # made those files enormous (18 GB on TotalSegmentator v2) even though the dataloader only ever needs
+        # a single coordinate per patch. See nnunetv2/training/dataloading/foreground_locations.py.
         if has_seg:
-            properties['present_labels'] = [int(i) for i in np.sort(pd.unique(seg.ravel()))]  # np.unique(seg)
-
-            # NOTE: foreground sampling locations (formerly properties['class_locations']) are no longer stored
-            # here. They live in a compressed, partially readable store per configuration folder that is built by
-            # nnUNetv2_extract_sampling_locations (plan_and_preprocess runs it for you). Keeping them in the pkl
-            # made those files enormous (18 GB on TotalSegmentator v2) even though the dataloader only ever needs
-            # a single coordinate per patch. See nnunetv2/training/dataloading/foreground_locations.py.
             seg = self.modify_seg_fn(seg, plans_manager, dataset_json, configuration_manager)
+            # Record which labels this case contains. This happens *after* modify_seg_fn because the sampling
+            # locations are extracted from the stored segmentation, so that is the array these must describe.
+            # The segmentation is in memory here anyway, which makes this the one place where it is nearly free
+            # - nnUNetv2_extract_sampling_locations must not have to scan the segmentation again to get it.
+            # np.sort(pd.unique(x.ravel())) is deliberate: measurably faster than np.unique (~17 vs ~26 ms on a
+            # 10 M voxel TotalSegmentator segmentation).
+            properties['present_labels'] = [int(i) for i in np.sort(pd.unique(seg.ravel()))]
         if np.max(seg) > 127:
             seg = seg.astype(np.int16)
         else:
@@ -173,9 +173,11 @@ class DefaultPreprocessor(object):
             present_labels: Union[List[int], None] = None
     ):
         """
-        present_labels: the labels this segmentation is known to contain (as recorded by preprocessing in
-        properties['present_labels']). Purely an optimization - labels that are not in the segmentation cannot
-        contribute anything, so pruning them here shrinks the np.isin below. Results are identical either way.
+        present_labels: the labels this segmentation is known to contain (properties['present_labels'] for a
+        freshly preprocessed case, or derived from a legacy class_locations dict). Purely an optimization -
+        labels that are not in the segmentation cannot contribute anything, so pruning them here shrinks the
+        np.isin below. Results are identical either way, but it must never be missing a label that IS present:
+        those voxels would be dropped from valid_mask and that class would come out empty.
         """
 
         rndst = np.random.RandomState(seed)

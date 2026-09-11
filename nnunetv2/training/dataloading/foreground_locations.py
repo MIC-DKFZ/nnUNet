@@ -9,52 +9,49 @@ with many classes this dominates both disk usage and dataloading IO (on TotalSeg
 pkl files took 18.26 GB -- 76x more than every segmentation combined -- and a single batch item
 cost 6.73 ms to read cold).
 
-This module replaces that with one compressed, partially readable store per configuration folder:
+This module replaces that with one compressed, partially readable store per configuration folder.
+It lives in its own subdirectory so that nothing scanning that folder for cases has to know about
+it (directories are invisible both to ``subfiles`` and to the ``os.listdir`` + suffix scans in
+nnunet_dataset.py):
 
-    fg_sampling_locations.b2nd   1D uint64 blosc2 array. Flat (linear) voxel indices, sorted
+    fg_sampling/locations.b2nd   1D uint64 blosc2 array. Flat (linear) voxel indices, sorted
                                  ascending within each (case, class) run.
-    fg_sampling_indptr.npy       int64,  len n_cases + 1. CSR row pointer.
-    fg_sampling_class_id.npy     uint16/uint32, len nnz. Index into the class key table.
-    fg_sampling_count.npy        uint32, len nnz. Number of coordinates in that run.
-    fg_sampling_base.npy         int64,  len n_cases. Where each case's block starts.
-    fg_sampling_shape.npy        int64,  (n_cases, 3). Spatial shape, to unravel linear indices.
-    fg_sampling_meta.json        Version, case order, class key table, sampling parameters.
+    fg_sampling/indptr.npy       int64,  len n_cases + 1. CSR row pointer.
+    fg_sampling/class_id.npy     uint16/uint32, len nnz. Index into the class key table.
+    fg_sampling/count.npy        uint32, len nnz. Number of coordinates in that run.
+    fg_sampling/base.npy         int64,  len n_cases. Where each case's block starts.
+    fg_sampling/shape.npy        int64,  (n_cases, 3). Spatial shape, to unravel linear indices.
+    fg_sampling/meta.json        Version, case order, class key table, sampling parameters.
 
 Only non-empty (case, class) runs are stored, so the index is genuinely sparse (CSR): it scales
 with the number of classes *present per case*, not with the number of classes in the dataset.
 
-Why these parameters (all measured on real TotalSegmentator v2 coordinates):
-  * flat linear uint64 -- compresses to exactly the same size as uint32 after the filter pipeline,
-    so there is no reason to accept a voxel-count ceiling. A ``(N, 3)`` uint16 layout is 2.8x
-    worse and would lose the fast read path below.
-  * sorted within each run -- 4x smaller than unsorted. The single biggest lever.
-  * ``[SHUFFLE, BYTEDELTA]`` + ZSTD-9 -- 0.72 B/coord, vs 1.26 for SHUFFLE alone and 1.69 for no
-    filter.
-  * chunks of 8192, blocks of 512 -- the compression ratio is driven by the *block* size, while
-    the chunk size only matters through the number of blocks per chunk. This pair sits at the
-    cold-read minimum while staying within a few percent of the best achievable size.
-  * reads go through ``schunk[i:i + 1]`` rather than ``ndarray[i]`` -- 4-5x faster, because it
-    skips the NDArray slicing machinery. Note this is only equivalent to indexing the array
-    because the array is 1D.
+The blosc2 parameters below were tuned on real TotalSegmentator v2 coordinates;
+documentation/reference/preprocessed-data-format.md carries the measurements. The two decisions
+that are not visible in the constants: coordinates are sorted within each run (4x smaller than
+unsorted, by far the biggest lever), and reads go through ``schunk[i:i + 1]`` rather than
+``ndarray[i]`` (4-5x faster because it skips the NDArray slicing machinery; equivalent only
+because the array is 1D).
 """
 import os
+import shutil
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import blosc2
 import numpy as np
-from batchgenerators.utilities.file_and_folder_operations import isfile, join, load_json, load_pickle, save_json
+from batchgenerators.utilities.file_and_folder_operations import isdir, isfile, join, load_json, load_pickle, \
+    maybe_mkdir_p, save_json
 
-# every file belonging to the store carries this prefix so that the rest of nnU-Net can recognise
-# and skip it when scanning a preprocessed folder for cases
-FG_SAMPLING_PREFIX = 'fg_sampling_'
+# the store lives in this subdirectory of the preprocessed configuration folder
+FG_SAMPLING_DIRNAME = 'fg_sampling'
 
-LOCATIONS_FILE = FG_SAMPLING_PREFIX + 'locations.b2nd'
-INDPTR_FILE = FG_SAMPLING_PREFIX + 'indptr.npy'
-CLASS_ID_FILE = FG_SAMPLING_PREFIX + 'class_id.npy'
-COUNT_FILE = FG_SAMPLING_PREFIX + 'count.npy'
-BASE_FILE = FG_SAMPLING_PREFIX + 'base.npy'
-SHAPE_FILE = FG_SAMPLING_PREFIX + 'shape.npy'
-META_FILE = FG_SAMPLING_PREFIX + 'meta.json'
+LOCATIONS_FILE = 'locations.b2nd'
+INDPTR_FILE = 'indptr.npy'
+CLASS_ID_FILE = 'class_id.npy'
+COUNT_FILE = 'count.npy'
+BASE_FILE = 'base.npy'
+SHAPE_FILE = 'shape.npy'
+META_FILE = 'meta.json'
 
 STORE_VERSION = 1
 
@@ -62,35 +59,54 @@ STORE_VERSION = 1
 DEFAULT_CHUNK_SIZE = 8192
 DEFAULT_BLOCK_SIZE = 512
 DEFAULT_CLEVEL = 9
+# writing is a single-process funnel at the end of a multiprocessed extraction pass, so unlike the
+# read path it should use several threads (measured 3.6 -> 16.6 Mcoord/s going from 1 to 8, with
+# byte-identical output)
+DEFAULT_WRITE_NTHREADS = min(os.cpu_count() or 1, 8)
+
+# mmap does not work on Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
+MMAP_KWARGS = {} if os.name == 'nt' else {'mmap_mode': 'r'}
 
 ClassKey = Union[int, Tuple[int, ...]]
 
 
-def _cparams(clevel: int = DEFAULT_CLEVEL) -> dict:
+def store_folder(configuration_folder: str) -> str:
+    """Where the store of a preprocessed configuration folder lives."""
+    return join(configuration_folder, FG_SAMPLING_DIRNAME)
+
+
+def _cparams(clevel: int = DEFAULT_CLEVEL, nthreads: int = 1) -> dict:
     return {
         'codec': blosc2.Codec.ZSTD,
         'clevel': clevel,
         'filters': [blosc2.Filter.SHUFFLE, blosc2.Filter.BYTEDELTA],
-        'nthreads': 1,
+        'nthreads': nthreads,
     }
-
-
-def _mmap_kwargs() -> dict:
-    # mmap does not work on Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
-    return {} if os.name == 'nt' else {'mmap_mode': 'r'}
 
 
 def _key_to_json(key: ClassKey):
     return list(key) if isinstance(key, (tuple, list)) else int(key)
 
 
-def _key_from_json(key) -> ClassKey:
-    return tuple(int(i) for i in key) if isinstance(key, (list, tuple)) else int(key)
+def normalize_class_key(key) -> ClassKey:
+    """
+    Canonical, hashable form of a class/region key: a plain int, or a tuple of plain ints. Regions
+    arrive as lists from dataset.json and as numpy scalars from the LabelManager; the store keys
+    everything by this form so that producer and consumer cannot disagree.
+    """
+    return tuple(int(i) for i in key) if isinstance(key, (tuple, list)) else int(key)
+
+
+def _draw_index(rng, n: int) -> int:
+    """One index in [0, n). Accepts np.random / RandomState (randint) as well as Generator (integers)."""
+    if rng is None:
+        rng = np.random
+    return int(rng.randint(n) if hasattr(rng, 'randint') else rng.integers(n))
 
 
 def has_foreground_locations(folder: str) -> bool:
     """The meta file is written last, so its presence means the store is complete."""
-    return isfile(join(folder, META_FILE))
+    return isfile(join(store_folder(folder), META_FILE))
 
 
 def ravel_coords(coords: np.ndarray, shape: Sequence[int]) -> np.ndarray:
@@ -111,8 +127,9 @@ def ravel_coords(coords: np.ndarray, shape: Sequence[int]) -> np.ndarray:
     return lin.astype(np.uint64, copy=False)
 
 
-def _unravel(lin: int, shape: Sequence[int]) -> np.ndarray:
-    # hot path, so this is done by hand rather than through np.unravel_index
+def _unravel(lin: int, shape: Tuple[int, int, int]) -> np.ndarray:
+    # hot path, so this is done by hand rather than through np.unravel_index (measured 0.55 vs
+    # 1.40 us against a plain int tuple; `shape` is cached as one to keep it that way)
     z = lin % shape[2]
     rest = lin // shape[2]
     y = rest % shape[1]
@@ -131,10 +148,6 @@ class ForegroundLocationsBase:
         """Classes/regions that actually have sampling locations in this case."""
         raise NotImplementedError
 
-    def all_class_keys(self, identifier: str) -> List[ClassKey]:
-        """Every class/region key that is valid for this case, whether or not it has locations."""
-        raise NotImplementedError
-
     def count(self, identifier: str, class_key: ClassKey) -> int:
         raise NotImplementedError
 
@@ -151,16 +164,17 @@ class ForegroundLocations(ForegroundLocationsBase):
     """
 
     def __init__(self, folder: str):
-        self.folder = folder
-        meta = load_json(join(folder, META_FILE))
+        self.configuration_folder = folder
+        self.folder = store_folder(folder)
+        meta = load_json(join(self.folder, META_FILE))
         if meta['version'] > STORE_VERSION:
             raise RuntimeError(
-                f'The foreground sampling location store in {folder} was written by a newer version of nnU-Net '
+                f'The foreground sampling location store in {self.folder} was written by a newer version of nnU-Net '
                 f'(store version {meta["version"]}, this nnU-Net supports up to {STORE_VERSION}). Please update '
                 f'nnU-Net or re-run nnUNetv2_extract_sampling_locations.')
         self.version = meta['version']
         self.identifiers: List[str] = list(meta['identifiers'])
-        self.class_keys: List[ClassKey] = [_key_from_json(k) for k in meta['class_keys']]
+        self.class_keys: List[ClassKey] = [normalize_class_key(k) for k in meta['class_keys']]
         self.sampling_parameters: dict = meta.get('sampling_parameters', {})
         self._key_to_id = {k: i for i, k in enumerate(self.class_keys)}
         self._case_to_idx = {c: i for i, c in enumerate(self.identifiers)}
@@ -173,15 +187,26 @@ class ForegroundLocations(ForegroundLocationsBase):
             return
         blosc2.set_nthreads(1)
         arr = blosc2.open(urlpath=join(self.folder, LOCATIONS_FILE), mode='r',
-                          dparams={'nthreads': 1}, **_mmap_kwargs())
+                          dparams={'nthreads': 1}, **MMAP_KWARGS)
+        # the index arrays are small (< 1 MB even for TotalSegmentator v2) and every lookup touches
+        # them, so they are read into RAM rather than memory mapped: page faults on the hot path
+        # cost more than the memory they would save
+        count = np.load(join(self.folder, COUNT_FILE))
+        # run offsets are not stored. Recovering them by summing the counts that precede a run is
+        # O(classes present in the case) per lookup, so the prefix sum is built once here instead
+        # (measured 2.26 -> 0.11 us per lookup on a 100+ class dataset).
+        cumulative_count = np.zeros(len(count) + 1, dtype=np.int64)
+        cumulative_count[1:] = np.cumsum(count, dtype=np.int64)
         self._handles = {
             'schunk': arr.schunk,
             'array': arr,  # keep a reference alive; the schunk does not own the file
-            'indptr': np.load(join(self.folder, INDPTR_FILE), mmap_mode='r'),
-            'class_id': np.load(join(self.folder, CLASS_ID_FILE), mmap_mode='r'),
-            'count': np.load(join(self.folder, COUNT_FILE), mmap_mode='r'),
-            'base': np.load(join(self.folder, BASE_FILE), mmap_mode='r'),
-            'shape': np.load(join(self.folder, SHAPE_FILE), mmap_mode='r'),
+            'indptr': np.load(join(self.folder, INDPTR_FILE)),
+            'class_id': np.load(join(self.folder, CLASS_ID_FILE)),
+            'count': count,
+            'cumulative_count': cumulative_count,
+            'base': np.load(join(self.folder, BASE_FILE)),
+            # plain int tuples; see _unravel
+            'shapes': [tuple(int(i) for i in s) for s in np.load(join(self.folder, SHAPE_FILE))],
         }
 
     def __getstate__(self):
@@ -206,51 +231,43 @@ class ForegroundLocations(ForegroundLocationsBase):
         h = self._handles
         return c, int(h['indptr'][c]), int(h['indptr'][c + 1])
 
-    def case_shape(self, identifier: str) -> np.ndarray:
+    def case_shape(self, identifier: str) -> Tuple[int, int, int]:
         c, _, _ = self._row(identifier)
-        return np.asarray(self._handles['shape'][c])
+        return self._handles['shapes'][c]
 
     def eligible_classes(self, identifier: str) -> List[ClassKey]:
         _, s, e = self._row(identifier)
-        return [self.class_keys[i] for i in self._handles['class_id'][s:e]]
+        # .tolist() converts the row in one C-level pass; iterating the array instead boxes one
+        # numpy scalar per class (measured 10.9 -> 1.3 us at 104 classes)
+        return [self.class_keys[i] for i in self._handles['class_id'][s:e].tolist()]
 
-    def all_class_keys(self, identifier: str) -> List[ClassKey]:
-        return list(self.class_keys)
-
-    def _locate(self, identifier: str, class_key: ClassKey) -> Optional[Tuple[int, int]]:
-        """-> (offset into the coordinate array, number of coordinates), or None if absent."""
+    def _locate(self, identifier: str, class_key: ClassKey) -> Optional[Tuple[int, int, int]]:
+        """-> (case index, offset into the coordinate array, number of coordinates), or None if absent."""
         cid = self._key_to_id.get(class_key)
         if cid is None:
-            # callers may hand us keys built from numpy scalars (LabelManager does). Those usually hash like
-            # plain ints, but normalise explicitly rather than relying on that.
-            cid = self._key_to_id.get(_key_from_json(class_key)) if isinstance(class_key, (tuple, list, np.integer)) \
-                else None
-            if cid is None:
-                return None
+            return None
         c, s, e = self._row(identifier)
         h = self._handles
         row = h['class_id'][s:e]
         j = int(np.searchsorted(row, cid))
         if j >= len(row) or int(row[j]) != cid:
             return None
-        # offsets are not stored; they are recovered by summing the counts that precede this run
-        # inside the case. That is a handful of additions and saves 8 bytes per stored run.
-        offset = int(h['base'][c]) + int(h['count'][s:s + j].sum())
-        return offset, int(h['count'][s + j])
+        cumulative_count = h['cumulative_count']
+        offset = int(h['base'][c]) + int(cumulative_count[s + j] - cumulative_count[s])
+        return c, offset, int(h['count'][s + j])
 
     def count(self, identifier: str, class_key: ClassKey) -> int:
         loc = self._locate(identifier, class_key)
-        return 0 if loc is None else loc[1]
+        return 0 if loc is None else loc[2]
 
     def sample(self, identifier: str, class_key: ClassKey, rng=None) -> np.ndarray:
         loc = self._locate(identifier, class_key)
         if loc is None:
             raise KeyError(f'Case {identifier} has no sampling locations for class {class_key}')
-        offset, n = loc
-        rng = np.random if rng is None else rng
-        i = offset + int(rng.randint(n) if hasattr(rng, 'randint') else rng.integers(n))
+        c, offset, n = loc
+        i = offset + _draw_index(rng, n)
         lin = int(np.frombuffer(self._handles['schunk'][i:i + 1], dtype=np.uint64)[0])
-        return _unravel(lin, self._handles['shape'][self._case_to_idx[identifier]])
+        return _unravel(lin, self._handles['shapes'][c])
 
     def all_locations(self, identifier: str, class_key: ClassKey) -> np.ndarray:
         """
@@ -260,10 +277,9 @@ class ForegroundLocations(ForegroundLocationsBase):
         loc = self._locate(identifier, class_key)
         if loc is None:
             return np.zeros((0, 3), dtype=np.int64)
-        offset, n = loc
+        c, offset, n = loc
         lin = np.frombuffer(self._handles['schunk'][offset:offset + n], dtype=np.uint64).astype(np.int64)
-        shape = self._handles['shape'][self._case_to_idx[identifier]]
-        return np.stack(np.unravel_index(lin, tuple(int(i) for i in shape)), axis=1)
+        return np.stack(np.unravel_index(lin, self._handles['shapes'][c]), axis=1)
 
 
 class LegacyForegroundLocations(ForegroundLocationsBase):
@@ -272,7 +288,9 @@ class LegacyForegroundLocations(ForegroundLocationsBase):
     ``properties['class_locations']`` out of the per-case pkl, exactly as nnU-Net used to.
 
     A single-entry cache keeps the cost at one pkl read per case per batch item (which is what the
-    old dataloader paid), rather than one per interface call.
+    old dataloader paid), rather than one per interface call. Note that this means one case's
+    coordinates stay resident per dataloader worker; on legacy datasets with many classes that is
+    tens of MB per worker, which is one more reason to migrate.
     """
 
     def __init__(self, folder: str):
@@ -310,20 +328,14 @@ class LegacyForegroundLocations(ForegroundLocationsBase):
         cl = self._get(identifier)
         return [k for k in cl.keys() if len(cl[k]) > 0]
 
-    def all_class_keys(self, identifier: str) -> List[ClassKey]:
-        return list(self._get(identifier).keys())
-
     def count(self, identifier: str, class_key: ClassKey) -> int:
         cl = self._get(identifier)
         return len(cl[class_key]) if class_key in cl else 0
 
     def sample(self, identifier: str, class_key: ClassKey, rng=None) -> np.ndarray:
-        cl = self._get(identifier)
-        voxels = cl[class_key]
-        rng = np.random if rng is None else rng
-        i = int(rng.randint(len(voxels)) if hasattr(rng, 'randint') else rng.integers(len(voxels)))
+        voxels = self._get(identifier)[class_key]
         # legacy coordinates carry a leading channel axis
-        return np.asarray(voxels[i][1:], dtype=np.int64)
+        return np.asarray(voxels[_draw_index(rng, len(voxels))][1:], dtype=np.int64)
 
     def all_locations(self, identifier: str, class_key: ClassKey) -> np.ndarray:
         cl = self._get(identifier)
@@ -360,18 +372,18 @@ class ForegroundLocationsWriter:
     Builds the store incrementally so that a multiprocessed extraction pass can stream results to
     disk as they arrive instead of holding everything in RAM.
 
-    Cases may be added in any order -- the index records an explicit offset per (case, class), so
-    only the runs themselves need to stay contiguous. Coordinates are buffered and flushed in whole
-    multiples of the chunk size; flushing unaligned would force blosc2 to rewrite the partial tail
-    chunk on every call (measured 1.4x slower over a full dataset for no benefit).
+    Cases may be added in any order; the CSR index records each case's block offset explicitly, so
+    only the runs within one case need to stay contiguous. Coordinates are buffered and flushed in
+    whole multiples of the chunk size; flushing unaligned would force blosc2 to rewrite the partial
+    tail chunk on every call (measured 1.4x slower over a full dataset for no benefit).
     """
 
     def __init__(self, folder: str, class_keys: Sequence[ClassKey],
                  chunk_size: int = DEFAULT_CHUNK_SIZE, block_size: int = DEFAULT_BLOCK_SIZE,
                  clevel: int = DEFAULT_CLEVEL, sampling_parameters: Optional[dict] = None,
-                 flush_every_n_chunks: int = 32):
-        self.folder = folder
-        self.class_keys = [_key_from_json(_key_to_json(k)) for k in class_keys]
+                 flush_every_n_chunks: int = 32, nthreads: int = DEFAULT_WRITE_NTHREADS):
+        self.folder = store_folder(folder)
+        self.class_keys = [normalize_class_key(k) for k in class_keys]
         self._key_to_id = {k: i for i, k in enumerate(self.class_keys)}
         self.chunk_size = chunk_size
         self.block_size = block_size
@@ -380,18 +392,18 @@ class ForegroundLocationsWriter:
 
         self._class_id_dtype = np.uint16 if len(self.class_keys) <= np.iinfo(np.uint16).max else np.uint32
 
-        for f in (LOCATIONS_FILE, INDPTR_FILE, CLASS_ID_FILE, COUNT_FILE, BASE_FILE, SHAPE_FILE, META_FILE):
-            p = join(folder, f)
-            if isfile(p):
-                os.remove(p)
+        # start from an empty directory. This also clears leftovers of a store written by a
+        # different version, whose file names we may not know
+        if isdir(self.folder):
+            shutil.rmtree(self.folder)
+        maybe_mkdir_p(self.folder)
 
-        blosc2.set_nthreads(1)
+        blosc2.set_nthreads(nthreads)
         self._array = blosc2.zeros(shape=(0,), dtype=np.uint64, chunks=(chunk_size,), blocks=(block_size,),
-                                   urlpath=join(folder, LOCATIONS_FILE), cparams=_cparams(clevel))
+                                   urlpath=join(self.folder, LOCATIONS_FILE), cparams=_cparams(clevel, nthreads))
         self._written = 0          # coordinates committed to the blosc2 array
         self._total = 0            # coordinates accepted (committed + buffered)
         self._buffer: List[np.ndarray] = []
-        self._buffered = 0
 
         self._identifiers: List[str] = []
         self._shapes: List[Tuple[int, int, int]] = []
@@ -421,16 +433,15 @@ class ForegroundLocationsWriter:
             class_ids.append(self._key_to_id[key])
             counts.append(len(v))
             self._buffer.append(v)
-            self._buffered += len(v)
             self._total += len(v)
         self._row_class_ids.append(class_ids)
         self._row_counts.append(counts)
 
-        if self._buffered >= self._flush_threshold:
+        if self._total - self._written >= self._flush_threshold:
             self._flush(aligned_only=True)
 
     def _flush(self, aligned_only: bool):
-        if self._buffered == 0:
+        if self._total == self._written:
             return
         data = np.concatenate(self._buffer) if len(self._buffer) > 1 else self._buffer[0]
         n = (len(data) // self.chunk_size) * self.chunk_size if aligned_only else len(data)
@@ -442,7 +453,6 @@ class ForegroundLocationsWriter:
         self._written += n
         rest = data[n:]
         self._buffer = [rest] if len(rest) else []
-        self._buffered = len(rest)
 
     def finalize(self):
         if self._finalized:

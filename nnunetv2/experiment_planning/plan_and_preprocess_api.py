@@ -9,7 +9,7 @@ from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner
 from nnunetv2.experiment_planning.verify_dataset_integrity import verify_dataset_integrity
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import (
-    extract_sampling_locations_dataset)
+    extract_sampling_locations_for_folder)
 from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
@@ -123,6 +123,8 @@ def preprocess_dataset(dataset_id: int,
     print(f'Preprocessing dataset {dataset_name}')
     plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
     plans_manager = PlansManager(plans_file)
+    label_manager = plans_manager.get_label_manager(load_json(join(nnUNet_preprocessed, dataset_name,
+                                                                  'dataset.json')))
     for n, c in zip(num_processes, configurations):
         print(f'Configuration: {c}...')
         if c not in plans_manager.available_configurations:
@@ -140,8 +142,12 @@ def preprocess_dataset(dataset_id: int,
         # Foreground sampling locations are not part of the per-case pkl any more; they live in a compressed
         # store per configuration folder. Building it only reads the segmentations, so it is cheap, and it can
         # be re-run at any time with nnUNetv2_extract_sampling_locations (no need to preprocess again).
-        extract_sampling_locations_dataset(dataset_id, plans_identifier, configurations=(c,), num_processes=n,
-                                           verbose=verbose, show_progress_bar=show_progress_bar)
+        # num_processes is deliberately not `n`: that budget is tuned for RAM-hungry image preprocessing, while
+        # this pass only ever touches segmentations.
+        extract_sampling_locations_for_folder(
+            join(nnUNet_preprocessed, dataset_name, configuration_manager.data_identifier),
+            label_manager.classes_or_regions_for_sampling, num_processes=default_num_processes,
+            verbose=verbose, show_progress_bar=show_progress_bar)
 
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
     # longer there (useful for compute cluster where only the preprocessed data is available)

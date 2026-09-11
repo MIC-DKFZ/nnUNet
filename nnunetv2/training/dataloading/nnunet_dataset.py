@@ -10,7 +10,7 @@ from batchgenerators.utilities.file_and_folder_operations import join, load_pick
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.training.dataloading.foreground_locations import (
-    FG_SAMPLING_PREFIX, ForegroundLocationsBase, get_foreground_locations)
+    MMAP_KWARGS, ForegroundLocationsBase, get_foreground_locations)
 from nnunetv2.training.dataloading.utils import unpack_dataset
 
 
@@ -248,10 +248,12 @@ class nnUNetBaseDataset(ABC):
         """Case properties (spacing, cropping bbox, shapes, ...). Needed for validation/export, not for training."""
         return load_pickle(join(self.source_folder, identifier + '.pkl'))
 
-    @abstractmethod
     def get_shape(self, identifier) -> Tuple[int, ...]:
-        """Spatial shape of a case (no channel axis), read from the array header without loading any voxels."""
-        pass
+        """
+        Spatial shape of a case (no channel axis). The implementations below read it from the array header
+        without touching any voxels; this fallback exists so that subclasses do not have to implement it.
+        """
+        return tuple(self.load_case(identifier)[0].shape[1:])
 
     @staticmethod
     @abstractmethod
@@ -328,8 +330,7 @@ class nnUNetDatasetNumpy(nnUNetBaseDataset):
         """
         returns all identifiers in the preprocessed data folder
         """
-        case_identifiers = [i[:-4] for i in os.listdir(folder)
-                            if i.endswith("npz") and not i.startswith(FG_SAMPLING_PREFIX)]
+        case_identifiers = [i[:-4] for i in os.listdir(folder) if i.endswith("npz")]
         return case_identifiers
 
     @staticmethod
@@ -344,8 +345,7 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
                  folder_with_segs_from_previous_stage: str = None):
         super().__init__(folder, identifiers, folder_with_segs_from_previous_stage)
         blosc2.set_nthreads(1)
-        # mmap does not work with Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
-        self.mmap_kwargs = {} if os.name == "nt" else {'mmap_mode': 'r'}
+        self.mmap_kwargs = MMAP_KWARGS
 
     def __getitem__(self, identifier):
         return self.load_case(identifier)
@@ -501,8 +501,7 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
         """
         returns all identifiers in the preprocessed data folder
         """
-        case_identifiers = [i[:-5] for i in os.listdir(folder) if i.endswith(".b2nd")
-                            and not i.endswith("_seg.b2nd") and not i.startswith(FG_SAMPLING_PREFIX)]
+        case_identifiers = [i[:-5] for i in os.listdir(folder) if i.endswith(".b2nd") and not i.endswith("_seg.b2nd")]
         return case_identifiers
 
     @staticmethod
@@ -519,9 +518,7 @@ file_ending_dataset_mapping = {
 
 
 def infer_dataset_class(folder: str) -> Union[Type[nnUNetDatasetBlosc2], Type[nnUNetDatasetNumpy]]:
-    # the foreground sampling location store lives in the same folder but is not case data
-    file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)
-                        if not os.path.basename(i).startswith(FG_SAMPLING_PREFIX)])
+    file_endings = set([os.path.basename(i).split('.')[-1] for i in subfiles(folder, join=False)])
     if 'pkl' in file_endings:
         file_endings.remove('pkl')
     if 'npy' in file_endings:

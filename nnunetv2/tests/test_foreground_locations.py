@@ -7,9 +7,9 @@ import numpy as np
 
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import (
-    get_classes_or_regions_to_collect)
+    present_labels_from_class_locations)
 from nnunetv2.training.dataloading.foreground_locations import (
-    FG_SAMPLING_PREFIX, ForegroundLocations, ForegroundLocationsWriter, LegacyForegroundLocations,
+    FG_SAMPLING_DIRNAME, ForegroundLocations, ForegroundLocationsWriter, LegacyForegroundLocations,
     get_foreground_locations, has_foreground_locations, ravel_coords)
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
@@ -141,12 +141,22 @@ class TestForegroundLocationsStore(unittest.TestCase):
             self.assertTrue(has_foreground_locations(d))
             self.assertIsInstance(get_foreground_locations(d, verbose=False), ForegroundLocations)
 
-    def test_all_store_files_carry_the_reserved_prefix(self):
-        # the rest of nnU-Net identifies cases by scanning this folder, so nothing may look like a case
+    def test_store_is_confined_to_its_own_subfolder(self):
+        # the rest of nnU-Net identifies cases by scanning the configuration folder, so the store must not
+        # drop any file into it
         with TemporaryDirectory() as d:
             self._build(d, n_cases=3)
-            for f in os.listdir(d):
-                self.assertTrue(f.startswith(FG_SAMPLING_PREFIX), f)
+            self.assertEqual(os.listdir(d), [FG_SAMPLING_DIRNAME])
+            self.assertTrue(os.path.isdir(os.path.join(d, FG_SAMPLING_DIRNAME)))
+
+    def test_rebuilding_clears_the_previous_store(self):
+        with TemporaryDirectory() as d:
+            self._build(d, n_cases=3)
+            stale = os.path.join(d, FG_SAMPLING_DIRNAME, 'stale_from_an_older_version.npy')
+            np.save(stale, np.zeros(3))
+            self._build(d, n_cases=2)
+            self.assertFalse(os.path.isfile(stale))
+            self.assertEqual(len(ForegroundLocations(d).identifiers), 2)
 
 
 class TestLegacyAndStoreAgree(unittest.TestCase):
@@ -195,6 +205,39 @@ class TestSamplingLocationExtraction(unittest.TestCase):
         for k in a:
             np.testing.assert_array_equal(np.asarray(a[k]), np.asarray(b[k]))
 
+    def test_present_labels_from_legacy_class_locations(self):
+        # an entry is empty exactly when none of its labels are present, so only labels that appear in an
+        # empty entry and in no non-empty one may be ruled out
+        nonempty = np.zeros((3, 4), dtype=np.int64)
+        cl = {1: nonempty, 2: [], 3: nonempty}
+        self.assertEqual(present_labels_from_class_locations(cl, [1, 2, 3]), [1, 3])
+
+        # a label shared between an empty and a non-empty region must survive
+        cl = {(1, 2): [], (2, 3): nonempty}
+        self.assertEqual(present_labels_from_class_locations(cl, [(1, 2), (2, 3)]), [2, 3])
+
+        # a requested label the legacy dict says nothing about (dataset.json changed) is kept
+        cl = {1: []}
+        self.assertEqual(present_labels_from_class_locations(cl, [1, 7]), [7])
+
+        # the ignore-label pseudo class carries -1, which is harmless and must not break anything
+        cl = {(-1, 0, 1): nonempty, 2: []}
+        self.assertEqual(present_labels_from_class_locations(cl, [(-1, 0, 1), 2]), [-1, 0, 1])
+
+    def test_legacy_hint_does_not_change_the_sampling_result(self):
+        # migrating a legacy dataset must produce exactly what a hint-free run produces
+        rng = np.random.default_rng(7)
+        seg = rng.integers(0, 4, (1, 18, 19, 20)).astype(np.int16)
+        seg[seg == 3] = 0                                   # label 3 absent, 5 never existed
+        classes = [1, 2, 3, 5]
+        legacy = DefaultPreprocessor._sample_foreground_locations(seg, classes)
+        hint = present_labels_from_class_locations(legacy, classes)
+        self.assertEqual(hint, [1, 2])                      # 3 and 5 ruled out from the legacy result alone
+        with_hint = DefaultPreprocessor._sample_foreground_locations(seg, classes, present_labels=hint)
+        self.assertEqual(set(map(str, legacy.keys())), set(map(str, with_hint.keys())))
+        for k in legacy:
+            np.testing.assert_array_equal(np.asarray(legacy[k]), np.asarray(with_hint[k]))
+
     def test_ravel_coords_drops_the_channel_axis_and_sorts(self):
         shape = (5, 6, 7)
         coords = np.array([[0, 4, 5, 6], [0, 0, 0, 0], [0, 2, 3, 4]])
@@ -208,11 +251,11 @@ class TestSamplingLocationExtraction(unittest.TestCase):
     def test_collect_list_covers_regions_and_ignore_label(self):
         # plain labels
         lm = LabelManager({'background': 0, 'a': 1, 'b': 2}, None)
-        self.assertEqual(get_classes_or_regions_to_collect(lm), [1, 2])
+        self.assertEqual(lm.classes_or_regions_for_sampling, [1, 2])
 
         # region based
         lm = LabelManager({'background': 0, 'a': 1, 'ab': (1, 2)}, regions_class_order=(1, 2))
-        collected = get_classes_or_regions_to_collect(lm)
+        collected = lm.classes_or_regions_for_sampling
         self.assertTrue(lm.has_regions)
         self.assertEqual(collected, list(lm.foreground_regions))
 
@@ -220,12 +263,17 @@ class TestSamplingLocationExtraction(unittest.TestCase):
         lm = LabelManager({'background': 0, 'a': 1, 'b': 2, 'ignore': 3}, None)
         def norm(lst):
             return [tuple(int(x) for x in i) if isinstance(i, (tuple, list)) else int(i) for i in lst]
-        collected = get_classes_or_regions_to_collect(lm)
-        annotated_key = tuple([-1] + [int(i) for i in lm.all_labels])
-        self.assertIn(annotated_key, norm(collected))
+        collected = lm.classes_or_regions_for_sampling
+        self.assertIn(lm.annotated_classes_key, norm(collected))
         # ... without mutating the list the LabelManager owns, so calling it twice is stable
-        self.assertEqual(norm(get_classes_or_regions_to_collect(lm)), norm(collected))
-        self.assertNotIn(annotated_key, norm(lm.foreground_labels))
+        self.assertEqual(norm(lm.classes_or_regions_for_sampling), norm(collected))
+        self.assertNotIn(lm.annotated_classes_key, norm(lm.foreground_labels))
+
+    def test_dataloader_and_extraction_agree_on_the_annotated_classes_key(self):
+        # the producer writes this key into the store, the dataloader looks it up by value
+        lm = LabelManager({'background': 0, 'a': 1, 'b': 2, 'ignore': 3}, None)
+        self.assertEqual(lm.classes_or_regions_for_sampling[-1], lm.annotated_classes_key)
+        self.assertEqual(lm.annotated_classes_key, tuple([-1] + [int(i) for i in lm.all_labels]))
 
 
 class TestDatasetIntegration(unittest.TestCase):
@@ -262,7 +310,7 @@ class TestDatasetIntegration(unittest.TestCase):
             self.assertEqual(sorted(nnUNetDatasetBlosc2.get_identifiers(d)), ['case_a', 'case_b'])
             self.assertIs(infer_dataset_class(d), nnUNetDatasetBlosc2)
 
-            # now add the store, which contributes .b2nd, .npy and .json files to the same folder
+            # now add the store, which contributes .b2nd, .npy and .json files of its own
             w = ForegroundLocationsWriter(d, [1, 2])
             w.add('case_a', (8, 9, 10), {1: np.array([3, 17], dtype=np.uint64)})
             w.add('case_b', (8, 9, 10), {2: np.array([5], dtype=np.uint64)})

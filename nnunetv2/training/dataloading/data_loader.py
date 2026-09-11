@@ -59,7 +59,7 @@ class nnUNetDataLoader(DataLoader):
         self.num_channels = None
         self.pad_sides = pad_sides
         self.sampling_probabilities = sampling_probabilities
-        self.annotated_classes_key = tuple([-1] + label_manager.all_labels)
+        self.annotated_classes_key = label_manager.annotated_classes_key
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
@@ -111,7 +111,9 @@ class nnUNetDataLoader(DataLoader):
                 # class keys can also be tuple
                 eligible_classes_or_regions = fg_locations.eligible_classes(identifier)
                 if overwrite_class is not None:
-                    assert overwrite_class in fg_locations.all_class_keys(identifier), \
+                    # class_keys is the full key table; eligible_classes_or_regions above already populated
+                    # it on the legacy backend, which only knows the keys of the case it last read
+                    assert overwrite_class in fg_locations.class_keys, \
                         'desired class ("overwrite_class") does not have sampling locations (missing key)'
 
                 # if we have annotated_classes_key locations and other classes are present, remove the annotated_classes_key from the list
