@@ -50,7 +50,7 @@ nnUNetv2_train DATASET_NAME_OR_ID CONFIGURATION FOLD --val --npz
 
 ## Device selection
 
-Use `-device` to choose `cpu`, `cuda`, or `mps`.
+Use `-device` to choose `cpu`, `cuda`, `mps`, `xpu`, or `auto` (cuda, then xpu, then mps, then cpu). The default is `cuda`.
 
 For multi-GPU systems, select the GPU with `CUDA_VISIBLE_DEVICES`:
 

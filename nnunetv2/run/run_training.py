@@ -238,23 +238,33 @@ def run_training_entry():
                         help='[OPTIONAL] Set this flag to disable checkpointing. Ideal for testing things out and '
                              'you dont want to flood your hard drive with checkpoints.')
     parser.add_argument('-device', type=str, default='cuda', required=False,
-                    help="Use this to set the device the training should run with. Available options are 'cuda' "
-                         "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                    help="Use this to set the device the training should run with. Available options are 'auto' "
+                         "(picks cuda, then xpu/Intel GPU, then mps, then cpu), 'cuda' (GPU), "
+                         "'xpu' (Intel GPU), 'cpu' and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
                          "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...] instead!")
     args = parser.parse_args()
 
-    assert args.device in ['cpu', 'cuda', 'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
-    if args.device == 'cpu':
+    assert args.device in ['cpu', 'cuda', 'mps', 'xpu',
+                           'auto'], f'-device must be either cpu, mps, cuda, xpu or auto. Got: {args.device}.'
+    if args.device == 'auto':
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+            device = torch.device('xpu')
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            device = torch.device('mps')
+        else:
+            device = torch.device('cpu')
+    else:
+        device = torch.device(args.device)
+
+    if device.type == 'cpu':
         # let's allow torch to use hella threads
         torch.set_num_threads(multiprocessing.cpu_count())
-        device = torch.device('cpu')
-    elif args.device == 'cuda':
+    else:
         # multithreading in torch doesn't help nnU-Net if run on GPU
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
-        device = torch.device('cuda')
-    else:
-        device = torch.device('mps')
 
     run_training(args.dataset_name_or_id, args.configuration, args.fold, args.tr, args.p, args.pretrained_weights,
                  args.num_gpus, args.npz, args.c, args.val, args.disable_checkpointing, args.val_best,

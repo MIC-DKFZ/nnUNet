@@ -97,7 +97,8 @@ If you ran initially without the `--npz` flag but now require the softmax predic
 nnUNetv2_train DATASET_NAME_OR_ID UNET_CONFIGURATION FOLD --val --npz
 ```
 
-You can specify the device nnU-net should use by using `-device DEVICE`. DEVICE can only be cpu, cuda or mps. If
+You can specify the device nnU-net should use by using `-device DEVICE`. DEVICE can be cpu, cuda, mps, xpu, or auto
+(cuda, then xpu, then mps, then cpu). The default is cuda. If
 you have multiple GPUs, please select the gpu id using `CUDA_VISIBLE_DEVICES=X nnUNetv2_train [...]` (requires device to be cuda).
 
 See `nnUNetv2_train -h` for additional options.

@@ -59,8 +59,9 @@ class nnUNetPredictor(object):
         self.use_mirroring = use_mirroring
         if device.type == 'cuda':
             torch.backends.cudnn.benchmark = True
-        else:
-            print('perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
+        elif device.type != 'xpu':
+            print('perform_everything_on_device=True is only supported for cuda and xpu devices! '
+                  'Setting this to False')
             perform_everything_on_device = False
         self.device = device
         self.perform_everything_on_device = perform_everything_on_device
@@ -677,8 +678,8 @@ class nnUNetPredictor(object):
         # and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False
         # is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
-        with torch.autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+        # So autocast will only be active if we have a cuda or xpu (Intel GPU) device.
+        with torch.autocast(self.device.type, enabled=True) if self.device.type in ('cuda', 'xpu') else dummy_context():
             assert input_image.ndim == 4, 'input_image must be a 4D np.ndarray or torch.Tensor (c, x, y, z)'
 
             if self.verbose:
@@ -809,6 +810,18 @@ def _getDefaultValue(env: str, dtype: type, default: any,) -> any:
         val = default
     return val
 
+
+def _get_device(device_name: str) -> torch.device:
+    if device_name == 'auto':
+        if torch.cuda.is_available():
+            return torch.device('cuda')
+        if hasattr(torch, 'xpu') and torch.xpu.is_available():
+            return torch.device('xpu')
+        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            return torch.device('mps')
+        return torch.device('cpu')
+    return torch.device(device_name)
+
 def predict_entry_point_modelfolder():
     import argparse
     parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
@@ -852,7 +865,8 @@ def predict_entry_point_modelfolder():
                         help='Folder containing the predictions of the previous stage. Required for cascaded models.')
     parser.add_argument('-device', type=str, default='cuda', required=False,
                         help="Use this to set the device the inference should run with. Available options are 'cuda' "
-                             "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                             "(GPU), 'xpu' (Intel GPU), 'cpu' (CPU), 'mps' (Apple M1/M2) and 'auto' "
+                             "(picks cuda, then xpu/Intel GPU, then mps, then cpu). Do NOT use this to set which GPU ID! "
                              "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     parser.add_argument('--disable_progress_bar', action='store_true', required=False, default=False,
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
@@ -874,20 +888,17 @@ def predict_entry_point_modelfolder():
     if not isdir(args.o):
         maybe_mkdir_p(args.o)
 
-    assert args.device in ['cpu', 'cuda',
-                           'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
-    if args.device == 'cpu':
+    assert args.device in ['cpu', 'cuda', 'mps', 'xpu',
+                           'auto'], f'-device must be either cpu, mps, cuda, xpu or auto. Got: {args.device}.'
+    device = _get_device(args.device)
+    if device.type == 'cpu':
         # let's allow torch to use hella threads
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
-        device = torch.device('cpu')
-    elif args.device == 'cuda':
+    else:
         # multithreading in torch doesn't help nnU-Net if run on GPU
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
-        device = torch.device('cuda')
-    else:
-        device = torch.device('mps')
 
     predictor = nnUNetPredictor(tile_step_size=args.step_size,
                                 use_gaussian=True,
@@ -964,7 +975,8 @@ def predict_entry_point():
                              'to make these run on separate GPUs! Use CUDA_VISIBLE_DEVICES (google, yo!)')
     parser.add_argument('-device', type=str, default='cuda', required=False,
                         help="Use this to set the device the inference should run with. Available options are 'cuda' "
-                             "(GPU), 'cpu' (CPU) and 'mps' (Apple M1/M2). Do NOT use this to set which GPU ID! "
+                             "(GPU), 'xpu' (Intel GPU), 'cpu' (CPU), 'mps' (Apple M1/M2) and 'auto' "
+                             "(picks cuda, then xpu/Intel GPU, then mps, then cpu). Do NOT use this to set which GPU ID! "
                              "Use CUDA_VISIBLE_DEVICES=X nnUNetv2_predict [...] instead!")
     parser.add_argument('--disable_progress_bar', action='store_true', required=False, default=False,
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
@@ -991,20 +1003,17 @@ def predict_entry_point():
     # slightly passive aggressive haha
     assert args.part_id < args.num_parts, 'Do you even read the documentation? See nnUNetv2_predict -h.'
 
-    assert args.device in ['cpu', 'cuda',
-                           'mps'], f'-device must be either cpu, mps or cuda. Other devices are not tested/supported. Got: {args.device}.'
-    if args.device == 'cpu':
+    assert args.device in ['cpu', 'cuda', 'mps', 'xpu',
+                           'auto'], f'-device must be either cpu, mps, cuda, xpu or auto. Got: {args.device}.'
+    device = _get_device(args.device)
+    if device.type == 'cpu':
         # let's allow torch to use hella threads
         import multiprocessing
         torch.set_num_threads(multiprocessing.cpu_count())
-        device = torch.device('cpu')
-    elif args.device == 'cuda':
+    else:
         # multithreading in torch doesn't help nnU-Net if run on GPU
         torch.set_num_threads(1)
         torch.set_num_interop_threads(1)
-        device = torch.device('cuda')
-    else:
-        device = torch.device('mps')
 
     predictor = nnUNetPredictor(tile_step_size=args.step_size,
                                 use_gaussian=True,

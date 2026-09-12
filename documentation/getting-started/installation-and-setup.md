@@ -8,6 +8,7 @@ This guide consolidates the setup steps needed for a first nnU-Net v2 run.
 - Linux is the primary target, but Windows and macOS are also supported.
 - GPU is strongly recommended for training.
 - Apple `mps` can be used, but 3D convolutions may still require CPU fallback.
+- Intel GPUs can be used with `-device xpu` after installing a PyTorch XPU build.
 
 ## 2. Install PyTorch first
 
@@ -18,6 +19,7 @@ Install PyTorch for your hardware before installing `nnunetv2`:
 Choose the build that matches your environment:
 
 - `cuda` for NVIDIA GPUs
+- `xpu` for Intel GPUs
 - `mps` for Apple Silicon
 - `cpu` if no accelerator is available
 
