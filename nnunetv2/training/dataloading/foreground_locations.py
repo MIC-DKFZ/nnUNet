@@ -1,6 +1,11 @@
 """
 Storage and retrieval of foreground sampling locations.
 
+Report: /home/isensee/git_repos/random_projects/projects/2026-09_preprocessing_io_speedups/REPORT.md
+Covers this store and the resampling fix on the same branch. Records why preallocating and
+memory-mapped writing made the store *slower* on NFS, what the parity runs still have to show
+(the store is distributionally but not bit-identical), and the archive location.
+
 Historically nnU-Net stored the coordinates used for foreground oversampling inside the per-case
 ``.pkl`` file as ``properties['class_locations']``: a dict mapping each class (or region) to an
 ``(N, 4)`` int64 array of voxel coordinates. The dataloader needs *at most one* of those
