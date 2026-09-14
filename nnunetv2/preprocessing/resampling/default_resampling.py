@@ -110,6 +110,10 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     return data_reshaped
 
 
+# Report: /home/isensee/git_repos/random_projects/projects/2026-09_preprocessing_io_speedups/REPORT.md
+# The order_z == 0 gather and the float32 working precision below are bit-identical to the old
+# coordinate-map implementation (nnunetv2/tests/test_resampling.py). The report has the diagnosis of
+# the Dataset003 "hang" they fixed, and the THP/compaction mechanism that was never ruled out.
 def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], List[float], np.ndarray],
                          is_seg: bool = False, axis: Union[None, int] = None, order: int = 3,
                          do_separate_z: bool = False, order_z: int = 0, dtype_out = None):
