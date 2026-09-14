@@ -1,3 +1,4 @@
+import atexit
 import matplotlib
 from batchgenerators.utilities.file_and_folder_operations import join
 
@@ -13,6 +14,11 @@ try:
     import wandb
 except ImportError:
     wandb = None
+
+try:
+    import mlflow
+except ImportError:
+    mlflow = None
 
 
 def get_cluster_job_id():
@@ -45,6 +51,8 @@ class MetaLogger(object):
         self.local_logger = LocalLogger(verbose)
         if self._is_logger_enabled("nnUNet_wandb_enabled"):
             self.loggers.append(WandbLogger(output_folder, resume))
+        if self._is_logger_enabled("nnUNet_mlflow_enabled"):
+            self.loggers.append(MlflowLogger(output_folder, resume))
 
     def update_config(self, config: dict):
         """Add a new or update an existing experiment configuration to the logger.
@@ -301,3 +309,120 @@ class WandbLogger:
             value: Summary value to store.
         """
         self.run.summary[key] = value
+
+
+class MlflowLogger:
+    """MLflow logger for nnU-Net training runs.
+
+    Environment Variables:
+        nnUNet_mlflow_enabled:        Whether MLflow logger is enabled (default: 0 -> Disabled).
+        nnUNet_mlflow_experiment:     MLflow experiment name (default: "nnunet").
+        nnUNet_mlflow_tracking_uri:   MLflow tracking server URI (default: "mlruns").
+        nnUNet_mlflow_system_metrics: Whether to log CPU/GPU/memory system metrics (default: 0 -> Disabled).
+    """
+
+    def __init__(self, output_folder, resume):
+        """Initialize an MLflow run and handle resume behavior.
+
+        Args:
+            output_folder: Directory where MLflow run ID is persisted.
+            resume: Whether to resume a previous MLflow run if present.
+        """
+        if mlflow is None:
+            print('WARNING: nnU-Net MLflow logging is enabled (nnUNet_mlflow_enabled=1) but mlflow is not '
+                  'installed. Continuing without MLflow logging. Install with: pip install mlflow')
+            self._disabled = True
+            return
+
+        self._disabled = False
+        self.output_folder = Path(output_folder)
+        self.resume = resume
+        self.experiment = os.getenv('nnUNet_mlflow_experiment', 'nnunet')
+        self.tracking_uri = os.getenv('nnUNet_mlflow_tracking_uri', 'mlruns')
+
+        if str(os.getenv('nnUNet_mlflow_system_metrics', '0')) in ('1', 'True', 'true'):
+            mlflow.enable_system_metrics_logging()
+
+        mlflow.set_tracking_uri(self.tracking_uri)
+        mlflow.set_experiment(self.experiment)
+
+        # derive a stable run name and searchable tags from the output folder structure:
+        # .../DatasetXXX_Name/Trainer__Plans__Config/fold_X
+        parts = self.output_folder.parts
+        dataset = parts[-3] if len(parts) >= 3 else 'unknown'
+        trainer_plans_config = parts[-2] if len(parts) >= 2 else 'unknown'
+        fold = parts[-1] if len(parts) >= 1 else 'unknown'
+        config_segments = trainer_plans_config.split('__')
+        trainer = config_segments[0]
+        configuration = config_segments[-1] if len(config_segments) >= 2 else trainer_plans_config
+        run_name = f'{dataset}__{configuration}__{fold}'
+
+        run_id = None
+        mlflow_dir = self.output_folder / 'mlflow'
+        run_id_file = mlflow_dir / 'run_id.txt'
+
+        if mlflow_dir.is_dir():
+            if self.resume:
+                run_id = run_id_file.read_text().strip()
+            else:
+                shutil.rmtree(str(mlflow_dir))
+
+        # run_name is ignored by MLflow when resuming an existing run_id
+        self.run = mlflow.start_run(run_id=run_id, run_name=run_name)
+        mlflow.log_param('JobID', get_cluster_job_id())
+        mlflow.set_tags({
+            'dataset': dataset,
+            'configuration': configuration,
+            'fold': fold,
+            'trainer': trainer,
+        })
+
+        mlflow_dir.mkdir(parents=True, exist_ok=True)
+        run_id_file.write_text(self.run.info.run_id)
+
+        self._last_logged_step = -1
+        atexit.register(self._end_run)
+
+    def _end_run(self):
+        if not self._disabled and mlflow.active_run() is not None:
+            mlflow.end_run()
+
+    def update_config(self, config: dict):
+        """Update MLflow run parameters with training metadata.
+
+        Args:
+            config: Configuration values to log as MLflow params.
+        """
+        if self._disabled:
+            return
+        try:
+            mlflow.log_params(config)
+        except mlflow.exceptions.MlflowException:
+            # on resume, params already exist; log as tags instead to avoid crash
+            mlflow.set_tags({f'config/{k}': v for k, v in config.items()})
+
+    def log(self, key, value, step: int):
+        """Log a scalar metric to MLflow.
+
+        Args:
+            key: Metric or field name.
+            value: Value to log.
+            step: Step index (typically epoch).
+        """
+        if self._disabled:
+            return
+        if step != self._last_logged_step:
+            self.log_summary('current_epoch', step)
+            self._last_logged_step = step
+        mlflow.log_metric(key, value, step=step)
+
+    def log_summary(self, key, value):
+        """Write a summary value to MLflow as a tag.
+
+        Args:
+            key: Metric or field name.
+            value: Summary value to store.
+        """
+        if self._disabled:
+            return
+        mlflow.set_tag(key, value)
