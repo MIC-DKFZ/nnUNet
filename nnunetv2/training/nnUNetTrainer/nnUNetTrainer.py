@@ -36,16 +36,10 @@ from batchgeneratorsv2.transforms.utils.pseudo2d import Convert3DTo2DTransform, 
 from batchgeneratorsv2.transforms.utils.random import RandomTransform
 from batchgeneratorsv2.transforms.utils.remove_label import RemoveLabelTansform
 from batchgeneratorsv2.transforms.utils.seg_to_regions import ConvertSegmentationToRegionsTransform
-from torch import autocast, nn
+from torch import nn
 from torch import distributed as dist
 from torch._dynamo import OptimizedModule
 from torch.cuda import device_count
-try:
-   from torch import GradScaler           # torch >= 2.3
-   TORCH_HAS_OLD_GRADSCALER = False
-except ImportError:
-   from torch.cuda.amp import GradScaler  # torch < 2.3
-   TORCH_HAS_OLD_GRADSCALER = True
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
@@ -67,7 +61,7 @@ from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-from nnunetv2.utilities.helpers import empty_cache, dummy_context
+from nnunetv2.utilities.helpers import autocast_if_available, empty_cache, make_grad_scaler
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -107,6 +101,8 @@ class nnUNetTrainer(object):
             if self.device.type == 'cuda':
                 # we might want to let the user pick this but for now please pick the correct GPU with CUDA_VISIBLE_DEVICES=X
                 self.device = torch.device(type='cuda', index=0)
+            elif self.device.type == 'xpu':
+                self.device = torch.device(type='xpu', index=0)
             print(f"Using device: {self.device}")
 
         # loading and saving this class for continuing from checkpoint should not happen based on pickling. This
@@ -168,7 +164,7 @@ class nnUNetTrainer(object):
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self.build_network_architecture()
         self.optimizer = self.lr_scheduler = None  # -> self.initialize
-        self.grad_scaler = (GradScaler("cuda") if not TORCH_HAS_OLD_GRADSCALER else GradScaler()) if self.device.type == 'cuda' else None
+        self.grad_scaler = make_grad_scaler(self.device)
         self.loss = None  # -> self.initialize
 
         ### Simple logging. Don't take that away from me!
@@ -339,6 +335,9 @@ class nnUNetTrainer(object):
                 gpu_name = torch.cuda.get_device_name()
                 dct['gpu_name'] = gpu_name
                 cudnn_version = torch.backends.cudnn.version()
+            elif self.device.type == 'xpu':
+                dct['gpu_name'] = torch.xpu.get_device_name(0)
+                cudnn_version = 'None'
             else:
                 cudnn_version = 'None'
             dct['device'] = str(self.device)
@@ -1027,11 +1026,8 @@ class nnUNetTrainer(object):
             target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad(set_to_none=True)
-        # Autocast can be annoying
-        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
-        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
-        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+        # Autocast is enabled for cuda and xpu. CPU is slow with it; mps errors even when disabled.
+        with autocast_if_available(self.device):
             output = self.network(data)
             # del data
             l = self.loss(output, target)
@@ -1073,11 +1069,8 @@ class nnUNetTrainer(object):
         else:
             target = target.to(self.device, non_blocking=True)
 
-        # Autocast can be annoying
-        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
-        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
-        with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
+        # Autocast is enabled for cuda and xpu. CPU is slow with it; mps errors even when disabled.
+        with autocast_if_available(self.device):
             output = self.network(data)
             del data
             l = self.loss(output, target)

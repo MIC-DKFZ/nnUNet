@@ -1,6 +1,6 @@
 from abc import abstractmethod
 import torch
-from torch import nn, autocast
+from torch import nn
 from dynamic_network_architectures.architectures.primus import Primus, PrimusV2B, PrimusV2L, PrimusV2M, PrimusV2S
 
 try:
@@ -13,7 +13,7 @@ from nnunetv2.training.nnUNetTrainer.variants.lr_schedule.nnUNetTrainer_warmup i
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.training.lr_scheduler.warmup import Lin_incr_LRScheduler, PolyLRScheduler_offset
-from nnunetv2.utilities.helpers import empty_cache, dummy_context
+from nnunetv2.utilities.helpers import autocast_if_available, empty_cache
 
 ######################################################
 # See this paper for information on Primus!
@@ -99,11 +99,8 @@ class AbstractPrimus(nnUNetTrainer_warmup):
             target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad(set_to_none=True)
-        # Autocast can be annoying
-        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
-        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
-        with autocast(self.device.type, enabled=True) if self.device.type == "cuda" else dummy_context():
+        # Autocast is enabled for cuda and xpu. CPU is slow with it; mps errors even when disabled.
+        with autocast_if_available(self.device):
             output = self.network(data)
             # del data
             l = self.loss(output, target)

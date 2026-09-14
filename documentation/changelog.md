@@ -4,8 +4,8 @@
 'edema', 'necrosis' and 'enhancing tumor' labels you can directly train it on the target areas 'whole tumor',
 'tumor core' and 'enhancing tumor'. See [here](region_based_training.md) for a detailed description + also have a look at the
 [BraTS 2021 conversion script](../nnunetv2/dataset_conversion/Dataset137_BraTS21.py).
-- Cross-platform support. Cuda, mps (Apple M1/M2) and of course CPU support! Simply select the device with
-`-device` in `nnUNetv2_train` and `nnUNetv2_predict`.
+- Cross-platform support. Cuda, mps (Apple M1/M2), xpu (Intel GPU), and CPU. Simply select the device with
+`-device` in `nnUNetv2_train` and `nnUNetv2_predict` (`auto` picks cuda, then xpu, then mps, then cpu).
 - Unified trainer class: nnUNetTrainer. No messing around with cascaded trainer, DDP trainer, region-based trainer,
 ignore trainer etc. All default functionality is in there!
 - Supports more input/output data formats through ImageIO classes.

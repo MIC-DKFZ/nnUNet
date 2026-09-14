@@ -8,12 +8,12 @@ from torch._dynamo import OptimizedModule
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn
 from nnunetv2.training.lr_scheduler.warmup import Lin_incr_LRScheduler, PolyLRScheduler_offset
 from nnunetv2.utilities.get_network_via_name import get_network_from_name
-from torch import nn, autocast
+from torch import nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.helpers import empty_cache, dummy_context
+from nnunetv2.utilities.helpers import autocast_if_available, empty_cache
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from nnunetv2.utilities.load_weights_utils import *
@@ -595,11 +595,8 @@ class PretrainedTrainer_Primus(PretrainedTrainer):
             target = target.to(self.device, non_blocking=True)
 
         self.optimizer.zero_grad(set_to_none=True)
-        # Autocast can be annoying
-        # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
-        # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
-        # So autocast will only be active if we have a cuda device.
-        with autocast(self.device.type, enabled=True) if self.device.type == "cuda" else dummy_context():
+        # Autocast is enabled for cuda and xpu. CPU is slow with it; mps errors even when disabled.
+        with autocast_if_available(self.device):
             output = self.network(data)
             # del data
             l = self.loss(output, target)
