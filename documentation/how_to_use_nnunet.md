@@ -54,6 +54,11 @@ about all the options available to you please run `nnUNetv2_plan_and_preprocess 
 nnUNetv2_plan_and_preprocess will create a new subfolder in your nnUNet_preprocessed folder named after the dataset.
 Once the command is completed there will be a dataset_fingerprint.json file as well as a nnUNetPlans.json file for you to look at
 (in case you are interested!). There will also be subfolders containing the preprocessed data for your UNet configurations.
+Each of those subfolders holds the preprocessed images and segmentations, one small `.pkl` of case properties per case,
+and a shared foreground sampling location store (the `fg_sampling/` folder). See the
+[preprocessed data format reference](reference/preprocessed-data-format.md) for what those are and how to rebuild them
+with `nnUNetv2_extract_sampling_locations` - in particular if you have datasets that were preprocessed with an older
+version of nnU-Net.
 
 [Optional]
 If you prefer to keep things separate, you can also use `nnUNetv2_extract_fingerprint`, `nnUNetv2_plan_experiment`

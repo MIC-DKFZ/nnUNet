@@ -5,6 +5,7 @@ This section collects factual documentation: formats, paths, and configuration d
 ## Data and paths
 
 - [Dataset and input format reference](dataset-format.md)
+- [Preprocessed data format](preprocessed-data-format.md)
 - [Installation and setup](../getting-started/installation-and-setup.md)
 - [Setting up paths](../setting_up_paths.md)
 - [How to set environment variables](../set_environment_variables.md)

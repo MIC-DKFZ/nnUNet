@@ -238,6 +238,24 @@ class LabelManager(object):
         return self.filter_background(self.all_labels)
 
     @property
+    def annotated_classes_key(self) -> Tuple[int, ...]:
+        """
+        Pseudo-class covering every *annotated* voxel, background included. Only meaningful when there is an
+        ignore label: patches without foreground still have to be drawn from annotated regions. The producer
+        of the foreground sampling locations and the dataloader that reads them must agree on this key, so it
+        is defined here rather than in either of them.
+        """
+        return tuple([-1] + self.all_labels)
+
+    @property
+    def classes_or_regions_for_sampling(self) -> List[Union[int, Tuple[int, ...]]]:
+        """Classes/regions that foreground sampling locations are collected for."""
+        collect_for_this = list(self.foreground_regions if self.has_regions else self.foreground_labels)
+        if self.has_ignore_label:
+            collect_for_this.append(self.annotated_classes_key)
+        return collect_for_this
+
+    @property
     def num_segmentation_heads(self):
         if self.has_regions:
             return len(self.foreground_regions)

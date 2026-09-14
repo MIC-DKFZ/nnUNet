@@ -59,7 +59,7 @@ class nnUNetDataLoader(DataLoader):
         self.num_channels = None
         self.pad_sides = pad_sides
         self.sampling_probabilities = sampling_probabilities
-        self.annotated_classes_key = tuple([-1] + label_manager.all_labels)
+        self.annotated_classes_key = label_manager.annotated_classes_key
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
@@ -75,10 +75,10 @@ class nnUNetDataLoader(DataLoader):
         # print('YEAH BOIIIIII')
         return np.random.uniform() < self.oversample_foreground_percent
 
-    def get_bbox(self, data_shape: np.ndarray, force_fg: bool, class_locations: Union[dict, None],
+    def get_bbox(self, identifier: str, data_shape: np.ndarray, force_fg: bool,
                  overwrite_class: Union[int, Tuple[int, ...]] = None, verbose: bool = False):
-        # in dataloader 2d we need to select the slice prior to this and also modify the class_locations to only have
-        # locations for the given slice
+        # foreground sampling locations are looked up lazily through self._data.foreground_locations: we need at
+        # most a single coordinate here, so there is no point in materializing all of them
         need_to_pad = self.need_to_pad.copy()
         dim = len(data_shape)
 
@@ -99,20 +99,22 @@ class nnUNetDataLoader(DataLoader):
             bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]
             # print('I want a random location')
         else:
+            fg_locations = self._data.foreground_locations
             if not force_fg and self.has_ignore:
                 selected_class = self.annotated_classes_key
-                if len(class_locations[selected_class]) == 0:
+                if fg_locations.count(identifier, selected_class) == 0:
                     # no annotated pixels in this case. Not good. But we can hardly skip it here
                     warnings.warn('Warning! No annotated pixels in image!')
                     selected_class = None
             elif force_fg:
-                assert class_locations is not None, 'if force_fg is set class_locations cannot be None'
-                if overwrite_class is not None:
-                    assert overwrite_class in class_locations.keys(), 'desired class ("overwrite_class") does not ' \
-                                                                      'have class_locations (missing key)'
                 # this saves us a np.unique. Preprocessing already did that for all cases. Neat.
-                # class_locations keys can also be tuple
-                eligible_classes_or_regions = [i for i in class_locations.keys() if len(class_locations[i]) > 0]
+                # class keys can also be tuple
+                eligible_classes_or_regions = fg_locations.eligible_classes(identifier)
+                if overwrite_class is not None:
+                    # class_keys is the full key table; eligible_classes_or_regions above already populated
+                    # it on the legacy backend, which only knows the keys of the case it last read
+                    assert overwrite_class in fg_locations.class_keys, \
+                        'desired class ("overwrite_class") does not have sampling locations (missing key)'
 
                 # if we have annotated_classes_key locations and other classes are present, remove the annotated_classes_key from the list
                 # strange formulation needed to circumvent
@@ -137,12 +139,10 @@ class nnUNetDataLoader(DataLoader):
                 raise RuntimeError('lol what!?')
 
             if selected_class is not None:
-                voxels_of_that_class = class_locations[selected_class]
-                selected_voxel = voxels_of_that_class[np.random.choice(len(voxels_of_that_class))]
+                selected_voxel = fg_locations.sample(identifier, selected_class)
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
                 # Make sure it is within the bounds of lb and ub
-                # i + 1 because we have first dimension 0!
-                bbox_lbs = [max(lbs[i], selected_voxel[i + 1] - self.patch_size[i] // 2) for i in range(dim)]
+                bbox_lbs = [max(lbs[i], selected_voxel[i] - self.patch_size[i] // 2) for i in range(dim)]
             else:
                 # If the image does not contain any foreground classes, we fall back to random cropping
                 bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]
@@ -164,13 +164,13 @@ class nnUNetDataLoader(DataLoader):
                     # (Lung for example)
                     force_fg = self.get_do_oversample(j)
 
-                    data, seg, seg_prev, properties = self._data.load_case(i)
+                    data, seg, seg_prev = self._data.load_case(i)
 
                     # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
                     # self._data.load_case(i) (see nnUNetDataset.load_case)
                     shape = data.shape[1:]
 
-                    bbox_lbs, bbox_ubs = self.get_bbox(shape, force_fg, properties['class_locations'])
+                    bbox_lbs, bbox_ubs = self.get_bbox(i, shape, force_fg)
                     bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
                     data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0)).float()
@@ -209,7 +209,7 @@ class nnUNetDataLoader(DataLoader):
 
 if __name__ == '__main__':
     folder = join(nnUNet_preprocessed, 'Dataset002_Heart', 'nnUNetPlans_3d_fullres')
-    ds = nnUNetDatasetBlosc2(folder)  # this should not load the properties!
+    ds = nnUNetDatasetBlosc2(folder)  # this does not load the properties (load_case never touches the pkl)
     pm = PlansManager(join(folder, os.pardir, 'nnUNetPlans.json'))
     lm = pm.get_label_manager(load_json(join(folder, os.pardir, 'dataset.json')))
     dl = nnUNetDataLoader(ds, 5, (16, 16, 16), (16, 16, 16), lm,

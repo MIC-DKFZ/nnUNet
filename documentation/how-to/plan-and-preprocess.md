@@ -47,6 +47,12 @@ After preprocessing, the dataset folder in `nnUNet_preprocessed` contains:
 - `nnUNetPlans.json`
 - preprocessed data folders for the created configurations
 
+Each configuration folder holds the preprocessed images and segmentations, one small `.pkl` of
+case properties per case, and a shared foreground sampling location store (`fg_sampling/`). See
+the [preprocessed data format reference](../reference/preprocessed-data-format.md) for details,
+including how to rebuild the store with `nnUNetv2_extract_sampling_locations` and what happens
+with datasets preprocessed by an older nnU-Net.
+
 ## Next step
 
 Continue to [Train models](train-models.md).
