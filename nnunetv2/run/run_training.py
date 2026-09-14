@@ -61,7 +61,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
 
 
 def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
-                          pretrained_weights_file: str = None):
+                          pretrained_weights_file: str = None, validation_with_best: bool = False):
     if continue_training and pretrained_weights_file is not None:
         raise RuntimeError('Cannot both continue a training AND load pretrained weights. Pretrained weights can only '
                            'be used at the beginning of the training.')
@@ -77,9 +77,14 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
                                "continue from. Starting a new training...")
             expected_checkpoint_file = None
     elif validation_only:
-        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
-        if not isfile(expected_checkpoint_file):
-            raise RuntimeError("Cannot run validation because the training is not finished yet!")
+        if validation_with_best:
+            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
+            if not isfile(expected_checkpoint_file):
+                raise RuntimeError("Cannot run validation because checkpoint_best.pth is missing!")
+        else:
+            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
+            if not isfile(expected_checkpoint_file):
+                raise RuntimeError("Cannot run validation because the training is not finished yet!")
     else:
         if pretrained_weights_file is not None:
             if not nnunet_trainer.was_initialized:
@@ -112,7 +117,7 @@ def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkp
 
     assert not (c and val), 'Cannot set --c and --val flag at the same time. Dummy.'
 
-    maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights)
+    maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights, val_with_best)
 
     if torch.cuda.is_available():
         cudnn.deterministic = False
@@ -121,7 +126,7 @@ def run_ddp(rank, dataset_name_or_id, configuration, fold, tr, p, disable_checkp
     if not val:
         nnunet_trainer.run_training()
 
-    if val_with_best:
+    if val_with_best and not val:
         nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
     nnunet_trainer.perform_actual_validation(npz)
     cleanup_ddp()
@@ -190,7 +195,7 @@ def run_training(dataset_name_or_id: Union[str, int],
 
         assert not (continue_training and only_run_validation), 'Cannot set --c and --val flag at the same time. Dummy.'
 
-        maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, pretrained_weights)
+        maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, pretrained_weights, val_with_best)
 
         if torch.cuda.is_available():
             cudnn.deterministic = False
@@ -199,7 +204,7 @@ def run_training(dataset_name_or_id: Union[str, int],
         if not only_run_validation:
             nnunet_trainer.run_training()
 
-        if val_with_best:
+        if val_with_best and not only_run_validation:
             nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
         nnunet_trainer.perform_actual_validation(export_validation_probabilities)
 
