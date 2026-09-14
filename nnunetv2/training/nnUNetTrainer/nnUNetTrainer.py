@@ -8,6 +8,7 @@ from copy import deepcopy
 from datetime import datetime
 from time import time, sleep
 from typing import Tuple, Union, List
+from uuid import uuid4
 
 import numpy as np
 import torch
@@ -622,7 +623,10 @@ class nnUNetTrainer(object):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
                 all_keys_sorted = list(np.sort(list(dataset.identifiers)))
                 splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
-                save_json(splits, splits_file)
+                # Publish by (atomic) rename to avoid race / partial writes
+                tmp_file = f"{splits_file}.tmp.{uuid4().hex}"
+                save_json(splits, tmp_file)
+                os.replace(tmp_file, splits_file)
 
             else:
                 self.print_to_log_file("Using splits from existing split file:", splits_file)
