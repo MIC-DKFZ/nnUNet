@@ -1,3 +1,28 @@
+# Changes that affect custom trainers
+
+## Multi-node DDP: `local_rank` is no longer the rank you want for file writes
+
+nnU-Net now supports DDP across several nodes (see [Multi-GPU training](multi_gpu_training.md)). To make that work,
+`nnUNetTrainer` distinguishes three quantities where it previously only had `self.local_rank`:
+
+| attribute | meaning |
+| --- | --- |
+| `self.local_rank` | index of this process **within its node**. This is the CUDA device index. |
+| `self.global_rank` | index of this process **within the whole job**. Exactly one process in the job has 0. |
+| `self.world_size` | number of processes in the job |
+| `self.local_world_size` | number of processes on this node |
+
+On a single node `local_rank == global_rank`, so nothing changes. Across nodes they differ, and **every check that
+decides who writes to `nnUNet_results` must use `global_rank`** — there is one `local_rank == 0` per node, and on a
+shared filesystem they would all write the same log file, checkpoints and progress plot. All in-tree trainers were
+converted. If you maintain a custom trainer, replace `if self.local_rank == 0:` with `if self.global_rank == 0:`
+wherever it guards output, and keep `local_rank` only where you mean the GPU.
+
+`AllGatherGrad` (`nnunetv2.utilities.ddp_allgather`) is deprecated and will be removed in a future release.
+nnU-Net's losses now use `AllReduceGrad` (`nnunetv2.utilities.ddp`), which computes the same forward and
+backward while moving `world_size` times less data: `AllGatherGrad.apply(x).sum(0)` is exactly
+`AllReduceGrad.apply(x)`. Importing `AllGatherGrad` still works but raises a `DeprecationWarning`.
+
 # What is different in v2?
 
 - We now support **hierarchical labels** (named regions in nnU-Net). For example, instead of training BraTS with the

@@ -11,18 +11,19 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import warnings
 from typing import Any, Optional, Tuple
 
 import torch
-from torch import distributed
-
-
-def print_if_rank0(*args):
-    if distributed.get_rank() == 0:
-        print(*args)
 
 
 class AllGatherGrad(torch.autograd.Function):
+    """
+    DEPRECATED. nnU-Net now uses AllReduceGrad (nnunetv2.utilities.ddp), which computes the same thing (forward
+    and backward) while moving world_size times less data: AllGatherGrad.apply(x).sum(0) is AllReduceGrad.apply(x).
+    Kept because custom trainers and losses outside this repository import it. It will be removed in a future
+    release.
+    """
     # stolen from pytorch lightning
     @staticmethod
     def forward(
@@ -30,6 +31,10 @@ class AllGatherGrad(torch.autograd.Function):
         tensor: torch.Tensor,
         group: Optional["torch.distributed.ProcessGroup"] = None,
     ) -> torch.Tensor:
+        warnings.warn('AllGatherGrad is deprecated and will be removed in a future version of nnU-Net. If you '
+                      'only sum over the gathered dimension, as nnU-Net\'s losses do, replace '
+                      'AllGatherGrad.apply(x).sum(0) with nnunetv2.utilities.ddp.AllReduceGrad.apply(x).',
+                      DeprecationWarning, stacklevel=2)
         ctx.group = group
 
         gathered_tensor = [torch.zeros_like(tensor) for _ in range(torch.distributed.get_world_size())]

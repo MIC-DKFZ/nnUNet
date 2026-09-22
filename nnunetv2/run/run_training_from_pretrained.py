@@ -1,23 +1,16 @@
 import argparse
-import signal
+from functools import partial
 from typing import Union
-import torch
-import os
-import multiprocessing as mp
+
 import nnunetv2
-import torch.cuda
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
+import torch
+from batchgenerators.utilities.file_and_folder_operations import join, load_json
 from nnunetv2.paths import nnUNet_preprocessed
+from nnunetv2.run.run_training import TrainingRunOptions, launch_training
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.pretraining.pretrainedTrainer import PretrainedTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
-from nnunetv2.run.run_training import find_free_network_port, maybe_load_checkpoint, run_ddp, setup_ddp, cleanup_ddp
-from torch.backends import cudnn
-from batchgenerators.utilities.file_and_folder_operations import join
-
-from nnunetv2.training.nnUNetTrainer.pretraining.pretrainedTrainer import PretrainedTrainer
 
 def get_trainer_from_args(
         dataset_name_or_id: Union[int, str],
@@ -78,6 +71,27 @@ def get_trainer_from_args(
     nnunet_trainer.use_pretrained_weights = not pretrained_from_scratch
     return nnunet_trainer
 
+def pretrained_trainer_from_args(dataset_name_or_id, configuration, fold, trainer_class_name, plans_identifier,
+                                 from_scratch, continue_training, overwrite_ckpt_path,
+                                 device: torch.device) -> PretrainedTrainer:
+    """get_trainer_from_args with device last, so that functools.partial can bind the rest."""
+    nnunet_trainer: PretrainedTrainer = get_trainer_from_args(
+        dataset_name_or_id,
+        configuration,
+        fold,
+        trainer_class_name,
+        plans_identifier,
+        device=device,
+        # from_scratch creates a new plan name, which allows easy comparison pretrained vs non-pretrained
+        pretrained_from_scratch=from_scratch,
+        overwrite_ckpt_path=overwrite_ckpt_path,
+        continue_training=continue_training,
+    )
+    # do not re-apply the pretrained weights when resuming: the checkpoint we are about to load already has them
+    nnunet_trainer.use_pretrained_weights = not (continue_training or from_scratch)
+    return nnunet_trainer
+
+
 def train_pretrained(
     dataset_name_or_id: Union[str, int],
     configuration: str,
@@ -92,7 +106,7 @@ def train_pretrained(
     disable_checkpointing: bool = False,
     val_with_best: bool = False,
     device: torch.device = torch.device("cuda"),
-    overwrite_ckpt_path: str =None
+    overwrite_ckpt_path: str = None,
 ):
     if isinstance(fold, str):
         if fold != "all":
@@ -104,132 +118,19 @@ def train_pretrained(
                 )
                 raise e
 
-    if val_with_best:
-        assert not disable_checkpointing, "--val_best is not compatible with --disable_checkpointing"
+    trainer_factory = partial(pretrained_trainer_from_args, dataset_name_or_id, configuration, fold,
+                              trainer_class_name, plans_identifier, from_scratch, continue_training,
+                              overwrite_ckpt_path)
+    # pretrained_weights is nnUNetv2_train's -pretrained_weights, which this entry point does not expose: the
+    # weights come from the plan's pretrain_info instead.
+    options = TrainingRunOptions(pretrained_weights=None,
+                                 export_validation_probabilities=export_validation_probabilities,
+                                 continue_training=continue_training,
+                                 only_run_validation=only_run_validation,
+                                 disable_checkpointing=disable_checkpointing,
+                                 val_with_best=val_with_best)
+    launch_training(trainer_factory, device, num_gpus, options)
 
-    if num_gpus > 1:
-        assert (
-            device.type == "cuda"
-        ), f"DDP training (triggered by num_gpus > 1) is only implemented for cuda devices. Your device: {device}"
-
-        os.environ["MASTER_ADDR"] = "localhost"
-        if "MASTER_PORT" not in os.environ.keys():
-            port = str(find_free_network_port())
-            print(f"using port {port}")
-            os.environ["MASTER_PORT"] = port  # str(port)
-
-        mp.spawn(
-            run_ddp,
-            args=(
-                dataset_name_or_id,
-                configuration,
-                fold,
-                trainer_class_name,
-                plans_identifier,
-                disable_checkpointing,
-                continue_training,
-                only_run_validation,
-                None,
-                export_validation_probabilities,
-                val_with_best,
-                num_gpus,
-                from_scratch,
-                overwrite_ckpt_path,
-            ),
-            nprocs=num_gpus,
-            join=True,
-        )
-    else:
-        # ToDo
-        nnunet_trainer: PretrainedTrainer = get_trainer_from_args(
-            dataset_name_or_id,
-            configuration,
-            fold,
-            trainer_class_name,
-            plans_identifier,
-            device=device,
-            pretrained_from_scratch=from_scratch,  # <-- Creates new plan name if true. Allows easy comparison Pretrained vs Non-Pretrained
-            overwrite_ckpt_path=overwrite_ckpt_path,
-            continue_training=continue_training)
-
-        nnunet_trainer.use_pretrained_weights = False if (continue_training or from_scratch) else True
-
-        # Prepare the auto-exiting in case wall-time is exceeded.
-        #  This sets a internal flag, letting the trainer know it's 10 minutes till wall-clock time is up.
-        #  Only wired up if the trainer implements exit_training (not present in the standard nnU-Net base trainer).
-        if hasattr(nnunet_trainer, "exit_training"):
-            signal.signal(signal.SIGUSR1, nnunet_trainer.exit_training)
-
-        if disable_checkpointing:
-            nnunet_trainer.disable_checkpointing = disable_checkpointing
-
-        assert not (
-            continue_training and only_run_validation
-        ), f"Cannot set --c and --val flag at the same time. Dummy."
-
-        # Still needed to allow continuation of incomplete (i.e. interrupted) trainings.
-        # ToDo: Find a way to not pre-load the same checkpoints that get overriden by the --continue flag.
-        maybe_load_checkpoint(nnunet_trainer, continue_training, only_run_validation, None)
-
-        if torch.cuda.is_available():
-            cudnn.deterministic = False
-            cudnn.benchmark = True
-
-        if not only_run_validation:
-            nnunet_trainer.run_training()
-
-        if val_with_best:
-            nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, "checkpoint_best.pth"))
-        nnunet_trainer.perform_actual_validation(export_validation_probabilities)
-
-def run_ddp(
-        rank,
-        dataset_name_or_id,
-        configuration,
-        fold,
-        tr,
-        p,
-        disable_checkpointing,
-        c,
-        val,
-        pretrained_weights,
-        npz,
-        val_with_best,
-        world_size,
-        pretrained_from_scratch=False,
-        overwrite_ckpt_path=None,
-):
-    setup_ddp(rank, world_size)
-    torch.cuda.set_device(torch.device("cuda", dist.get_rank()))
-
-    nnunet_trainer = get_trainer_from_args(
-        dataset_name_or_id, configuration, fold, tr, p, pretrained_from_scratch=pretrained_from_scratch, overwrite_ckpt_path=overwrite_ckpt_path, continue_training=c
-    )
-
-    # Prepare the auto-exiting in case wall-time is exceeded.
-    #  This sets a internal flag, letting the trainer know it's 10 minutes till wall-clock time is up.
-    #  Only wired up if the trainer implements exit_training (not present in the standard nnU-Net base trainer).
-    if hasattr(nnunet_trainer, "exit_training"):
-        signal.signal(signal.SIGUSR1, nnunet_trainer.exit_training)
-
-    if disable_checkpointing:
-        nnunet_trainer.disable_checkpointing = disable_checkpointing
-
-    assert not (c and val), f"Cannot set --c and --val flag at the same time. Dummy."
-
-    maybe_load_checkpoint(nnunet_trainer, c, val, pretrained_weights)
-
-    if torch.cuda.is_available():
-        cudnn.deterministic = False
-        cudnn.benchmark = True
-
-    if not val:
-        nnunet_trainer.run_training()
-
-    if val_with_best:
-        nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, "checkpoint_best.pth"))
-    nnunet_trainer.perform_actual_validation(npz)
-    cleanup_ddp()
 
 def train_pretrained_entrypoint():
     parser = argparse.ArgumentParser()

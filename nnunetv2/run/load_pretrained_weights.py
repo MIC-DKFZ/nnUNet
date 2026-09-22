@@ -3,6 +3,8 @@ from torch._dynamo import OptimizedModule
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
+from nnunetv2.utilities.ddp import get_ddp_topology
+
 
 def load_pretrained_weights(network, fname, verbose=False):
     """
@@ -17,7 +19,10 @@ def load_pretrained_weights(network, fname, verbose=False):
 
     """
     if dist.is_initialized():
-        saved_model = torch.load(fname, map_location=torch.device('cuda', dist.get_rank()), weights_only=False)
+        # the CUDA device index is the LOCAL rank. Using the global rank works on a single node by coincidence and
+        # asks for cuda:5 on a four GPU node as soon as there is a second one.
+        saved_model = torch.load(fname, map_location=torch.device('cuda', get_ddp_topology().local_rank),
+                                 weights_only=False)
     else:
         saved_model = torch.load(fname, weights_only=False)
     pretrained_dict = saved_model['network_weights']

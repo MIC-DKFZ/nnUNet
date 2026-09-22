@@ -45,6 +45,13 @@ To keep the framework maintainable and the workload manageable on our end, we de
 - large refactorings without prior discussion
 - small PRs fixing minor typos or formatting issues
 
+## Cleanups we cannot do yet
+
+Sometimes the right simplification would break custom trainers or existing results files, and has to wait for a
+major version. Those are collected in [DEFERRED_CLEANUPS.md](DEFERRED_CLEANUPS.md) rather than left in commit
+messages. If your change creates that kind of debt, add an entry in the same PR saying what to do, why it is
+deferred and what it breaks.
+
 ## Final note
 
 We appreciate the effort people invest in improving nnU-Net!
