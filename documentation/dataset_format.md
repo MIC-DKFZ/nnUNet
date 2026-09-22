@@ -64,7 +64,7 @@ of what the raw data was provided in! This is for performance reasons.
 
 By default, the following file formats are supported:
 
-- NaturalImage2DIO: .png, .bmp, .tif
+- NaturalImage2DIO: .png, .bmp, .tif, .tiff
 - NibabelIO: .nii.gz, .nrrd, .mha
 - NibabelIOWithReorient: .nii.gz, .nrrd, .mha. This reader will reorient images to RAS!
 - SimpleITKIO: .nii.gz, .nrrd, .mha

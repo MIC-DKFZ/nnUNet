@@ -78,7 +78,7 @@ Notes:
 nnU-Net v2 supports multiple input file formats. Common built-in options include:
 
 - `.nii.gz`, `.nrrd`, `.mha`
-- `.png`, `.bmp`, `.tif`
+- `.png`, `.bmp`, `.tif`, `.tiff`
 - 3D TIFF with sidecar spacing JSON
 
 Images and labels must use the same dataset-level format, and lossy formats such as `.jpg` are not suitable.
