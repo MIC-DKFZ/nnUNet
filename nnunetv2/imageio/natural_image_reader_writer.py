@@ -67,7 +67,7 @@ class NaturalImage2DIO(BaseReaderWriter):
         # PackBits is lossless and shrinks sparse 2D label maps. PNG/BMP stay on skimage.
         # 3D TIFFs keep zlib in Tiff3DIO.
         seg = seg[0].astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False)
-        if output_fname.lower().endswith(('.tif', '.tiff')):
+        if str(output_fname).lower().endswith(('.tif', '.tiff')):
             tifffile.imwrite(output_fname, seg, compression='packbits')
         else:
             io.imsave(output_fname, seg, check_contrast=False)

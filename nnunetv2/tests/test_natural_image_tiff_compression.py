@@ -1,5 +1,6 @@
 import os
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import numpy as np
@@ -7,6 +8,8 @@ import tifffile
 from skimage import io
 
 from nnunetv2.imageio.natural_image_reader_writer import NaturalImage2DIO
+from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_file_ending
+from nnunetv2.imageio.tif_reader_writer import Tiff3DIO
 
 
 class TestNaturalImage2DIOTiffCompression(unittest.TestCase):
@@ -61,8 +64,22 @@ class TestNaturalImage2DIOTiffCompression(unittest.TestCase):
             out = os.path.join(tmp, 'wide.tif')
             rw.write_seg(seg, out, {})
             written = tifffile.imread(out)
+            expected = seg[0].astype(np.uint16)
             self.assertEqual(written.dtype, np.uint16)
-            np.testing.assert_array_equal(written, seg[0].astype(np.uint16))
+            np.testing.assert_array_equal(written, expected)
+            read_back, _ = rw.read_seg(out)
+            np.testing.assert_array_equal(read_back[0, 0], expected)
+
+    def test_pathlib_path_uses_packbits(self):
+        rw = NaturalImage2DIO()
+        seg = _sparse_label_map(shape=(1, 64, 64), seed=2)
+
+        with TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'pred.tif'
+            rw.write_seg(seg, out, {})
+            with tifffile.TiffFile(out) as tif:
+                self.assertEqual(tif.pages[0].compression, tifffile.COMPRESSION.PACKBITS)
+            np.testing.assert_array_equal(tifffile.imread(out), seg[0])
 
     def test_png_write_is_unchanged(self):
         rw = NaturalImage2DIO()
@@ -75,6 +92,46 @@ class TestNaturalImage2DIOTiffCompression(unittest.TestCase):
             np.testing.assert_array_equal(io.imread(out), seg[0])
             with open(out, 'rb') as f:
                 self.assertEqual(f.read(8), b'\x89PNG\r\n\x1a\n')
+
+    def test_bmp_write_is_unchanged(self):
+        rw = NaturalImage2DIO()
+        seg = np.zeros((1, 16, 16), dtype=np.uint8)
+        seg[0, 2:6, 3:8] = 4
+
+        with TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, 'pred.bmp')
+            rw.write_seg(seg, out, {})
+            np.testing.assert_array_equal(io.imread(out), seg[0])
+            with open(out, 'rb') as f:
+                self.assertEqual(f.read(2), b'BM')
+
+    def test_contiguous_blobs_are_much_smaller_than_uncompressed(self):
+        rw = NaturalImage2DIO()
+        seg = np.zeros((1, 512, 512), dtype=np.uint8)
+        seg[0, 40:90, 30:220] = 1
+        seg[0, 180:250, 200:360] = 2
+        seg[0, 300:340, 10:480] = 3
+
+        with TemporaryDirectory() as tmp:
+            compressed = os.path.join(tmp, 'blobs.tif')
+            uncompressed = os.path.join(tmp, 'uncompressed.tif')
+            rw.write_seg(seg, compressed, {})
+            tifffile.imwrite(uncompressed, seg[0])
+            np.testing.assert_array_equal(tifffile.imread(compressed), seg[0])
+            self.assertLess(os.path.getsize(compressed) * 10, os.path.getsize(uncompressed))
+
+    def test_tiff_example_file_selects_2d_or_3d_reader(self):
+        # Last-axis length 3 or 4 is treated as RGB by NaturalImage2DIO; that ambiguity already exists for .tif.
+        with TemporaryDirectory() as tmp:
+            image_2d = os.path.join(tmp, 'slice.tiff')
+            volume_3d = os.path.join(tmp, 'volume.tiff')
+            tifffile.imwrite(image_2d, np.zeros((32, 32), dtype=np.uint8))
+            tifffile.imwrite(volume_3d, np.zeros((8, 32, 32), dtype=np.uint8))
+
+            reader_2d = determine_reader_writer_from_file_ending('.tiff', image_2d, verbose=False)
+            reader_3d = determine_reader_writer_from_file_ending('.tiff', volume_3d, verbose=False)
+            self.assertIs(reader_2d, NaturalImage2DIO)
+            self.assertIs(reader_3d, Tiff3DIO)
 
 
 def _sparse_label_map(shape, seed):
