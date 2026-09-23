@@ -64,8 +64,8 @@ class NaturalImage2DIO(BaseReaderWriter):
         return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
-        # PackBits is lossless and shrinks sparse 2D label maps. PNG/BMP stay on skimage.
-        # 3D TIFFs keep zlib in Tiff3DIO.
+        # PackBits (RLE) is lossless and fits sparse row-major 2D label maps better than
+        # Deflate; it is also faster. PNG/BMP stay on skimage. 3D TIFFs keep zlib in Tiff3DIO.
         seg = seg[0].astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False)
         if str(output_fname).lower().endswith(('.tif', '.tiff')):
             tifffile.imwrite(output_fname, seg, compression='packbits')

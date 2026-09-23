@@ -1,5 +1,11 @@
 # Changes that affect custom trainers
 
+## 2D TIFF predictions use PackBits; `.tiff` may select NaturalImage2DIO
+
+`NaturalImage2DIO.write_seg` now writes `.tif` / `.tiff` predictions with PackBits via `tifffile` instead of uncompressed `skimage.io.imsave`. Pixel values and dtypes are unchanged (still lossless). PNG/BMP writes and `Tiff3DIO` (zlib) are unchanged. Downstream tools that digest the raw TIFF byte stream (not just the label map) will see a different container.
+
+`NaturalImage2DIO` also claims `.tiff` and is listed before `Tiff3DIO`. With an example file, registry selection still falls through to `Tiff3DIO` for non-RGB 3D volumes. Calling `determine_reader_writer_from_file_ending('.tiff', None)` (no example file) now returns `NaturalImage2DIO` instead of `Tiff3DIO`; pass an example file when you need 3D disambiguation.
+
 ## Multi-node DDP: `local_rank` is no longer the rank you want for file writes
 
 nnU-Net now supports DDP across several nodes (see [Multi-GPU training](multi_gpu_training.md)). To make that work,

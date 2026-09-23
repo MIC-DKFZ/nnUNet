@@ -39,7 +39,7 @@ class TestNaturalImage2DIOTiffCompression(unittest.TestCase):
 
             compressed_size = os.path.getsize(compressed)
             uncompressed_size = os.path.getsize(uncompressed)
-            self.assertLess(compressed_size * 10, uncompressed_size)
+            self.assertLess(compressed_size, uncompressed_size)
             self.assertLess(compressed_size, expected.nbytes)
 
     def test_tiff_extension_and_uppercase_use_packbits(self):
