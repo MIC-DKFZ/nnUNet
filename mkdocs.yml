@@ -1,0 +1,36 @@
+site_name: nnU-Net Documentation
+site_dir: site
+docs_dir: documentation
+theme: readthedocs
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation_instructions.md
+    - Setting up Paths: setting_up_paths.md
+    - How to Use nnU-Net: how_to_use_nnunet.md
+  - Data Preparation:
+    - Dataset Format: dataset_format.md
+    - Dataset Format Inference: dataset_format_inference.md
+    - Converting MSD Dataset: convert_msd_dataset.md
+  - Inference:
+    - Running Inference with Pretrained Models: run_inference_with_pretrained_models.md
+  - Advanced Topics:
+    - Pretraining and Finetuning: pretraining_and_finetuning.md
+    - Extending nnU-Net: extending_nnunet.md
+    - Explanation of Plans Files: explanation_plans_files.md
+    - Explanation of Normalization: explanation_normalization.md
+    - Region-based Training: region_based_training.md
+    - ResEnc Presets: resenc_presets.md
+    - Ignore Label: ignore_label.md
+    - Manual Data Splits: manual_data_splits.md
+  - Benchmarking: benchmarking.md
+  - Changelog: changelog.md
+  - Migration from V1: tldr_migration_guide_from_v1.md
+  - Competitions:
+    - AortaSeg24: competitions/AortaSeg24.md
+    - AutoPETII: competitions/AutoPETII.md
+    - FLARE24:
+      - Task 1: competitions/FLARE24/Task_1/
+      - Task 2: competitions/FLARE24/Task_2/
+    - Toothfairy2: competitions/Toothfairy2/
