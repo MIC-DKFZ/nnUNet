@@ -113,7 +113,7 @@ jobs:
               that file is created by the workflow after PR creation succeeds.
 
           claude_args: |
-            --model claude-opus-4-7
+            --model claude-opus-5-5
             --allowedTools "Read,Write,Edit,MultiEdit,Glob,Grep,Bash(gh issue view:*),Bash(grep:*),Bash(ls:*)"
             --max-turns 25
 
