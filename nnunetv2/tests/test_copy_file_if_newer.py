@@ -32,6 +32,14 @@ class TestCopyFileIfNewer(unittest.TestCase):
             copy_file_if_newer(source, destination)
             self.assertEqual(self._read(destination), 'existing')
 
+    def test_skips_when_destination_is_newer(self):
+        with TemporaryDirectory() as tmp:
+            source, destination = os.path.join(tmp, 'source'), os.path.join(tmp, 'destination')
+            self._write(source, 'old', 1_000_000)
+            self._write(destination, 'newer', 2_000_000)
+            copy_file_if_newer(source, destination)
+            self.assertEqual(self._read(destination), 'newer')
+
     def test_copies_when_source_is_newer(self):
         with TemporaryDirectory() as tmp:
             source, destination = os.path.join(tmp, 'source'), os.path.join(tmp, 'destination')

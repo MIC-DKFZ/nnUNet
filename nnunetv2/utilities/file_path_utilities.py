@@ -107,6 +107,16 @@ def check_workers_alive_and_busy(export_pool: Pool, worker_list: List, results_l
     return False
 
 
+def copy_file_if_newer(source: str, destination: str) -> None:
+    """
+    Copies source to destination (preserving timestamps) unless destination already exists and is at least as
+    new as source. Replacement for distutils.file_util.copy_file(..., update=True); distutils was removed from the
+    standard library in Python 3.12.
+    """
+    if not isfile(destination) or os.path.getmtime(source) > os.path.getmtime(destination):
+        shutil.copy2(source, destination)
+
+
 if __name__ == '__main__':
     ### well at this point I could just write tests...
     path = '/home/fabian/results/nnUNet_remake/Dataset002_Heart/nnUNetModule__nnUNetPlans__3d_fullres'
@@ -120,13 +130,3 @@ if __name__ == '__main__':
         print(parse_dataset_trainer_plans_configuration_from_path(path))
     except AssertionError:
         print('yayy, assertion works')
-
-
-def copy_file_if_newer(source: str, destination: str) -> None:
-    """
-    Copies source to destination (preserving timestamps) unless destination already exists and is at least as
-    new as source. Replacement for distutils.file_util.copy_file(..., update=True); distutils was removed from the
-    standard library in Python 3.12.
-    """
-    if not isfile(destination) or os.path.getmtime(source) > os.path.getmtime(destination):
-        shutil.copy2(source, destination)
