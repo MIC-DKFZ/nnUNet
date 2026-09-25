@@ -971,10 +971,6 @@ class nnUNetTrainer(object):
         if not self.was_initialized:
             self.initialize()
 
-        # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
-        # which may not be present  when doing inference
-        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
-
         maybe_mkdir_p(self.output_folder)
 
         # make sure deep supervision is on in the network
@@ -990,6 +986,10 @@ class nnUNetTrainer(object):
                 overwrite_existing=False,
                 num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
                 verify=True)
+
+        # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
+        # which may not be present  when doing inference
+        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
 
         if self.is_ddp:
             dist.barrier()
