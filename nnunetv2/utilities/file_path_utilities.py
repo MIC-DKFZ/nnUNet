@@ -1,3 +1,4 @@
+import shutil
 from multiprocessing import Pool
 from typing import Union, Tuple
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -104,6 +105,16 @@ def check_workers_alive_and_busy(export_pool: Pool, worker_list: List, results_l
     if sum(not_ready) >= (len(export_pool._pool) + allowed_num_queued):
         return True
     return False
+
+
+def copy_file_if_newer(source: str, destination: str) -> None:
+    """
+    Copies source to destination (preserving timestamps) unless destination already exists and is at least as
+    new as source. Replacement for distutils.file_util.copy_file(..., update=True); distutils was removed from the
+    standard library in Python 3.12.
+    """
+    if not isfile(destination) or os.path.getmtime(source) > os.path.getmtime(destination):
+        shutil.copy2(source, destination)
 
 
 if __name__ == '__main__':

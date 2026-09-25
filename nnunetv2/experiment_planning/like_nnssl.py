@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
+from nnunetv2.utilities.file_path_utilities import copy_file_if_newer
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 ADAPTATION_MODES = Literal["fixed", "default_nnunet", "no_resample", "like_pretrained"]
@@ -187,15 +188,13 @@ def preprocess_like_nnssl(
         preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
     # longer there (useful for compute cluster where only the preprocessed data is available)
-    from distutils.file_util import copy_file
     maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
     dataset_json = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
     dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
     # only copy files that are newer than the ones already present
     for k in dataset:
-        copy_file(dataset[k]['label'],
-                  join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']),
-                  update=True)
+        copy_file_if_newer(dataset[k]['label'],
+                           join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']))
 
 def maybe_download_pretrained_weights(pretrained_checkpoint_path: str):
     """
@@ -428,15 +427,13 @@ def plan_like_dynamic(
         preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
 
     # Copy ground truth segmentations
-    from distutils.file_util import copy_file
     maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
     dataset_json = load_json(join(nnUNet_raw, dataset_name, 'dataset.json'))
     dataset = get_filenames_of_train_images_and_targets(join(nnUNet_raw, dataset_name), dataset_json)
     # only copy files that are newer than the ones already present
     for k in dataset:
-        copy_file(dataset[k]['label'],
-                  join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']),
-                  update=True)
+        copy_file_if_newer(dataset[k]['label'],
+                           join(nnUNet_preprocessed, dataset_name, 'gt_segmentations', k + dataset_json['file_ending']))
 
     print(f"\nTo train with dynamic adaptation, use:")
     print(f"  nnUNetv2_train_pretrained {dataset_id} 3d_fullres FOLD -p {plans_name} -tr DynamicPretrainedTrainer")
