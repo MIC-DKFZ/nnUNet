@@ -85,6 +85,93 @@ def compute_tp_fp_fn_tn(mask_ref: np.ndarray, mask_pred: np.ndarray, ignore_mask
     return tp, fp, fn, tn
 
 
+def _labels_to_bin_indices(segmentation_chunk: np.ndarray, lut: np.ndarray, lut_offset: int) -> np.ndarray:
+    """
+    Maps the values of segmentation_chunk to confusion matrix bins through lut. lut covers the value range
+    [lut_offset + 1, lut_offset + len(lut) - 2], its first and last entries catch everything below and above.
+    """
+    chunk_int = segmentation_chunk.astype(np.intp)
+    if not np.issubdtype(segmentation_chunk.dtype, np.integer) and not np.array_equal(chunk_int, segmentation_chunk):
+        # float to int casting would silently merge e.g. 1.5 into label 1
+        raise ValueError('Segmentations must only contain integer values')
+    if lut_offset != 0:
+        chunk_int -= lut_offset
+    np.clip(chunk_int, 0, len(lut) - 1, out=chunk_int)
+    return lut[chunk_int]
+
+
+def compute_confusion_matrix(seg_ref: np.ndarray, seg_pred: np.ndarray, labels: Union[List[int], Tuple[int, ...]],
+                             ignore_label: int = None, chunk_size: int = 2 ** 22) -> np.ndarray:
+    """
+    Returns the confusion matrix of seg_ref (rows) and seg_pred (columns), shape (len(labels) + 1, len(labels) + 1).
+    Index i < len(labels) stands for labels[i], the last index collects all values that are not in labels. Voxels
+    where seg_ref == ignore_label are not counted at all.
+
+    labels must be unique. The volume is processed in chunks of chunk_size voxels so that the temporary integer
+    arrays stay small, no matter how large the images are.
+    """
+    if seg_ref.shape != seg_pred.shape:
+        raise ValueError(f'Shape mismatch between reference {seg_ref.shape} and prediction {seg_pred.shape}')
+    labels = [int(i) for i in labels]
+    assert len(set(labels)) == len(labels), f'labels must be unique, got {labels}'
+    num_labels = len(labels)
+    other_bin = num_labels
+    ignored_bin = num_labels + 1
+    num_bins = num_labels + 2
+
+    # lut entry i corresponds to value i + lut_offset. We only need to cover the values we care about, everything
+    # else is clipped onto the first or last entry, which both point to other_bin
+    special_values = labels + ([ignore_label] if ignore_label is not None else [])
+    if len(special_values) == 0:
+        # nothing to distinguish, everything goes into other_bin
+        special_values = [0]
+    lut_offset = min(special_values) - 1
+    lut_len = max(special_values) - lut_offset + 2
+    lut_pred = np.full(lut_len, other_bin, dtype=np.intp)
+    lut_pred[np.array(labels, dtype=np.intp) - lut_offset] = np.arange(num_labels)
+    # the ignore label takes precedence in the reference, even if it is also in labels. Predictions of the ignore
+    # label are not special, they are treated like any other value
+    lut_ref = lut_pred.copy()
+    if ignore_label is not None:
+        lut_ref[ignore_label - lut_offset] = ignored_bin
+
+    ref_flat = seg_ref.ravel()
+    pred_flat = seg_pred.ravel()
+    confusion_matrix = np.zeros(num_bins * num_bins, dtype=np.int64)
+    for start in range(0, ref_flat.size, chunk_size):
+        bin_idx = _labels_to_bin_indices(ref_flat[start:start + chunk_size], lut_ref, lut_offset)
+        bin_idx *= num_bins
+        bin_idx += _labels_to_bin_indices(pred_flat[start:start + chunk_size], lut_pred, lut_offset)
+        confusion_matrix += np.bincount(bin_idx, minlength=num_bins * num_bins)
+    # predictions never land in ignored_bin, so dropping its row removes the ignored voxels entirely
+    return confusion_matrix.reshape(num_bins, num_bins)[:ignored_bin, :ignored_bin]
+
+
+def compute_tp_fp_fn_tn_for_labels_or_regions(seg_ref: np.ndarray, seg_pred: np.ndarray,
+                                              labels_or_regions: Union[List[int], List[Union[int, Tuple[int, ...]]]],
+                                              ignore_label: int = None) -> dict:
+    """
+    Same result as running region_or_label_to_mask + compute_tp_fp_fn_tn for each label or region, but derived
+    from a single confusion matrix. That makes the cost almost independent of the number of labels/regions.
+    Returns {label_or_region: (tp, fp, fn, tn)}
+    """
+    members = {r: (r,) if np.isscalar(r) else tuple(r) for r in labels_or_regions}
+    labels = sorted({int(l) for m in members.values() for l in m})
+    label_to_bin = {l: i for i, l in enumerate(labels)}
+    confusion_matrix = compute_confusion_matrix(seg_ref, seg_pred, labels, ignore_label)
+    num_voxels = confusion_matrix.sum()
+
+    counts = {}
+    for r, m in members.items():
+        # set: a region listing a label twice must not count its voxels twice
+        bins = sorted({label_to_bin[int(l)] for l in m})
+        tp = confusion_matrix[np.ix_(bins, bins)].sum()
+        n_ref = confusion_matrix[bins, :].sum()
+        n_pred = confusion_matrix[:, bins].sum()
+        counts[r] = (tp, n_pred - tp, n_ref - tp, num_voxels - n_ref - n_pred + tp)
+    return counts
+
+
 def compute_metrics(reference_file: str, prediction_file: str, image_reader_writer: BaseReaderWriter,
                     labels_or_regions: Union[List[int], List[Union[int, Tuple[int, ...]]]],
                     ignore_label: int = None) -> dict:
@@ -92,7 +179,7 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     seg_ref, seg_ref_dict = image_reader_writer.read_seg(reference_file)
     seg_pred, seg_pred_dict = image_reader_writer.read_seg(prediction_file)
 
-    ignore_mask = seg_ref == ignore_label if ignore_label is not None else None
+    counts = compute_tp_fp_fn_tn_for_labels_or_regions(seg_ref, seg_pred, labels_or_regions, ignore_label)
 
     results = {}
     results['reference_file'] = reference_file
@@ -100,9 +187,7 @@ def compute_metrics(reference_file: str, prediction_file: str, image_reader_writ
     results['metrics'] = {}
     for r in labels_or_regions:
         results['metrics'][r] = {}
-        mask_ref = region_or_label_to_mask(seg_ref, r)
-        mask_pred = region_or_label_to_mask(seg_pred, r)
-        tp, fp, fn, tn = compute_tp_fp_fn_tn(mask_ref, mask_pred, ignore_mask)
+        tp, fp, fn, tn = counts[r]
         if tp + fp + fn == 0:
             results['metrics'][r]['Dice'] = np.nan
             results['metrics'][r]['IoU'] = np.nan
