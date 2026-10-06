@@ -69,7 +69,7 @@ from nnunetv2.utilities.ddp import get_ddp_topology
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-from nnunetv2.utilities.helpers import empty_cache, dummy_context
+from nnunetv2.utilities.helpers import empty_cache, dummy_context, set_default_inductor_cache_dir
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -269,6 +269,7 @@ class nnUNetTrainer(object):
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
+                set_default_inductor_cache_dir()
                 self.network = torch.compile(self.network)
 
             # if ddp, wrap in DDP wrapper
@@ -474,6 +475,7 @@ class nnUNetTrainer(object):
                                   ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
 
         if self._do_i_compile():
+            set_default_inductor_cache_dir()
             loss.dc = torch.compile(loss.dc)
 
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases

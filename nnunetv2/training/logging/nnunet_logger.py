@@ -1,9 +1,4 @@
-import matplotlib
 from batchgenerators.utilities.file_and_folder_operations import join
-
-matplotlib.use('agg')
-import seaborn as sns
-import matplotlib.pyplot as plt
 from typing import Any
 from pathlib import Path
 import shutil
@@ -184,6 +179,12 @@ class LocalLogger:
     def plot_progress_png(self, output_folder):
         # we infer the epoch form our internal logging
         epoch = min([len(i) for i in self.my_fantastic_logging.values()]) - 1  # lists of epoch 0 have len 1
+        # plotting imports live here: seaborn + pyplot cost ~0.6 s per process, and every inference process imports
+        # this module through nnUNetTrainer without ever plotting
+        import matplotlib
+        matplotlib.use('agg')
+        import seaborn as sns
+        import matplotlib.pyplot as plt
         sns.set(font_scale=2.5)
         fig, ax_all = plt.subplots(3, 1, figsize=(30, 54))
         # regular progress.png as we are used to from previous nnU-Net versions

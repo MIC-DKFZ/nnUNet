@@ -16,7 +16,6 @@ from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAu
 from batchgenerators.utilities.file_and_folder_operations import load_json, join, isfile, maybe_mkdir_p, isdir, subdirs, \
     save_json
 from torch import nn
-from torch._dynamo import OptimizedModule
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
 
@@ -29,7 +28,8 @@ from nnunetv2.inference.sliding_window_prediction import compute_gaussian, \
     compute_steps_for_sliding_window
 from nnunetv2.utilities.file_path_utilities import get_output_folder, check_workers_alive_and_busy
 from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
-from nnunetv2.utilities.helpers import empty_cache, dummy_context
+from nnunetv2.utilities.helpers import empty_cache, dummy_context, is_optimized_module, \
+    set_default_inductor_cache_dir
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels, \
     convert_labelmap_to_one_hot
@@ -137,8 +137,9 @@ class nnUNetPredictor(object):
         self.allowed_mirroring_axes = inference_allowed_mirroring_axes
         self.label_manager = plans_manager.get_label_manager(dataset_json)
         if ('nnUNet_compile' in os.environ.keys()) and (os.environ['nnUNet_compile'].lower() in ('true', '1', 't')) \
-                and not isinstance(self.network, OptimizedModule):
+                and not is_optimized_module(self.network):
             print('Using torch.compile')
+            set_default_inductor_cache_dir()
             self.network = torch.compile(self.network)
 
     def manual_initialization(self, network: nn.Module, plans_manager: PlansManager,
@@ -159,11 +160,12 @@ class nnUNetPredictor(object):
         allow_compile = True
         allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (
                     os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
-        allow_compile = allow_compile and not isinstance(self.network, OptimizedModule)
+        allow_compile = allow_compile and not is_optimized_module(self.network)
         if isinstance(self.network, DistributedDataParallel):
-            allow_compile = allow_compile and isinstance(self.network.module, OptimizedModule)
+            allow_compile = allow_compile and is_optimized_module(self.network.module)
         if allow_compile:
             print('Using torch.compile')
+            set_default_inductor_cache_dir()
             self.network = torch.compile(self.network)
 
     @staticmethod
@@ -513,7 +515,7 @@ class nnUNetPredictor(object):
         for params in self.list_of_parameters:
 
             # messing with state dict names...
-            if not isinstance(self.network, OptimizedModule):
+            if not is_optimized_module(self.network):
                 self.network.load_state_dict(params)
             else:
                 self.network._orig_mod.load_state_dict(params)
