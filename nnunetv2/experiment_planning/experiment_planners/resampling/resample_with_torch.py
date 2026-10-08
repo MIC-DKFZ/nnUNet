@@ -36,13 +36,13 @@ class nnUNetPlannerResEncL_torchres(nnUNetPlannerResEncL):
         resampling_data_kwargs = {
             "is_seg": False,
             'force_separate_z': False,
-            'memefficient_seg_resampling': False
+            'memefficient_seg_resampling': True
         }
         resampling_seg = resample_torch_fornnunet
         resampling_seg_kwargs = {
             "is_seg": True,
             'force_separate_z': False,
-            'memefficient_seg_resampling': False
+            'memefficient_seg_resampling': True
         }
         return resampling_data, resampling_data_kwargs, resampling_seg, resampling_seg_kwargs
 
@@ -59,7 +59,7 @@ class nnUNetPlannerResEncL_torchres(nnUNetPlannerResEncL):
         resampling_fn_kwargs = {
             "is_seg": False,
             'force_separate_z': False,
-            'memefficient_seg_resampling': False
+            'memefficient_seg_resampling': True
         }
         return resampling_fn, resampling_fn_kwargs
 
@@ -93,14 +93,14 @@ class nnUNetPlannerResEncL_torchres_sepz(nnUNetPlannerResEncL):
         resampling_data_kwargs = {
             "is_seg": False,
             'force_separate_z': None,
-            'memefficient_seg_resampling': False,
+            'memefficient_seg_resampling': True,
             'separate_z_anisotropy_threshold': ANISO_THRESHOLD
         }
         resampling_seg = resample_torch_fornnunet
         resampling_seg_kwargs = {
             "is_seg": True,
             'force_separate_z': None,
-            'memefficient_seg_resampling': False,
+            'memefficient_seg_resampling': True,
             'separate_z_anisotropy_threshold': ANISO_THRESHOLD
         }
         return resampling_data, resampling_data_kwargs, resampling_seg, resampling_seg_kwargs
@@ -118,7 +118,7 @@ class nnUNetPlannerResEncL_torchres_sepz(nnUNetPlannerResEncL):
         resampling_fn_kwargs = {
             "is_seg": False,
             'force_separate_z': None,
-            'memefficient_seg_resampling': False,
+            'memefficient_seg_resampling': True,
             'separate_z_anisotropy_threshold': ANISO_THRESHOLD
         }
         return resampling_fn, resampling_fn_kwargs
@@ -153,13 +153,13 @@ class nnUNetPlanner_torchres(ExperimentPlanner):
         resampling_data_kwargs = {
             "is_seg": False,
             'force_separate_z': False,
-            'memefficient_seg_resampling': False
+            'memefficient_seg_resampling': True
         }
         resampling_seg = resample_torch_fornnunet
         resampling_seg_kwargs = {
             "is_seg": True,
             'force_separate_z': False,
-            'memefficient_seg_resampling': False
+            'memefficient_seg_resampling': True
         }
         return resampling_data, resampling_data_kwargs, resampling_seg, resampling_seg_kwargs
 
@@ -176,6 +176,6 @@ class nnUNetPlanner_torchres(ExperimentPlanner):
         resampling_fn_kwargs = {
             "is_seg": False,
             'force_separate_z': False,
-            'memefficient_seg_resampling': False
+            'memefficient_seg_resampling': True
         }
         return resampling_fn, resampling_fn_kwargs

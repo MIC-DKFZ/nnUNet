@@ -35,7 +35,7 @@ dependencies = [
     "dynamic-network-architectures>=0.4.4,<0.5",
     "tqdm",
     "scipy",
-    "batchgenerators>=0.25.1",
+    "batchgenerators>=0.25.4",
     "numpy>=1.24",
     "scikit-learn",
     "scikit-image>=0.19.3",
@@ -49,7 +49,7 @@ dependencies = [
     "seaborn",
     "imagecodecs",
     "yacs",
-    "batchgeneratorsv2>=0.3.2",
+    "batchgeneratorsv2>=0.3.6",
     "einops",
     "blosc2>=3.3.2",
     "timm>=1.0"  # required by nnssl finetuning (Primus); dynamic-network-architectures declares timm unpinned, which can resolve to a version predating timm.layers

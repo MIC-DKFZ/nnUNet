@@ -3,9 +3,8 @@ from copy import deepcopy
 from typing import Union, Tuple, List
 
 import numpy as np
-import pandas as pd
 import torch
-from batchgenerators.augmentations.utils import resize_segmentation
+from batchgenerators.augmentations.utils import resize_segmentation, SEG_TIEBREAKS
 from scipy.ndimage import map_coordinates
 from skimage.transform import resize
 from nnunetv2.configuration import ANISO_THRESHOLD
@@ -72,7 +71,8 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
                                     is_seg: bool = False,
                                     order: int = 3, order_z: int = 0,
                                     force_separate_z: Union[bool, None] = False,
-                                    separate_z_anisotropy_threshold: float = ANISO_THRESHOLD):
+                                    separate_z_anisotropy_threshold: float = ANISO_THRESHOLD,
+                                    *, seg_tiebreak: str = 'nearest'):
     do_separate_z, axis = determine_do_sep_z_and_axis(force_separate_z, current_spacing, new_spacing,
                                                       separate_z_anisotropy_threshold)
 
@@ -82,7 +82,8 @@ def resample_data_or_seg_to_spacing(data: np.ndarray,
     shape = np.array(data.shape)
     new_shape = compute_new_shape(shape[1:], current_spacing, new_spacing)
 
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
+    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z,
+                                         seg_tiebreak=seg_tiebreak)
     return data_reshaped
 
 
@@ -93,7 +94,8 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
                                   is_seg: bool = False,
                                   order: int = 3, order_z: int = 0,
                                   force_separate_z: Union[bool, None] = False,
-                                  separate_z_anisotropy_threshold: float = ANISO_THRESHOLD):
+                                  separate_z_anisotropy_threshold: float = ANISO_THRESHOLD,
+                                  *, seg_tiebreak: str = 'nearest'):
     """
     needed for segmentation export. Stupid, I know
     """
@@ -106,7 +108,8 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
     if data is not None:
         assert data.ndim == 4, "data must be c x y z"
 
-    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z)
+    data_reshaped = resample_data_or_seg(data, new_shape, is_seg, axis, order, do_separate_z, order_z=order_z,
+                                         seg_tiebreak=seg_tiebreak)
     return data_reshaped
 
 
@@ -116,7 +119,8 @@ def resample_data_or_seg_to_shape(data: Union[torch.Tensor, np.ndarray],
 # the Dataset003 "hang" they fixed, and the THP/compaction mechanism that was never ruled out.
 def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], List[float], np.ndarray],
                          is_seg: bool = False, axis: Union[None, int] = None, order: int = 3,
-                         do_separate_z: bool = False, order_z: int = 0, dtype_out = None):
+                         do_separate_z: bool = False, order_z: int = 0, dtype_out = None,
+                         *, seg_tiebreak: str = 'nearest'):
     """
     separate_z=True will resample with order 0 along z
     :param data:
@@ -126,14 +130,22 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
     :param order:
     :param do_separate_z:
     :param order_z: only applies if do_separate_z is True
+    :param seg_tiebreak: only applies if is_seg. How to settle voxels where two labels share the top
+    interpolated indicator, which an even integer resize factor produces at every boundary voxel.
+    'nearest' takes the nearest neighbour label, which is the only choice that is a function of the
+    geometry rather than of the label values; 'lowest' and 'highest' keep the smallest or largest label.
+    See batchgenerators.augmentations.utils.resize_segmentation.
     :return:
     """
     assert data.ndim == 4, "data must be (c, x, y, z)"
     assert len(new_shape) == data.ndim - 1
+    if is_seg and seg_tiebreak not in SEG_TIEBREAKS:
+        # checked here because resize_segmentation only looks at it where it needs it, which is not at order 0
+        raise ValueError(f'unknown seg_tiebreak: {seg_tiebreak}. Must be one of {SEG_TIEBREAKS}')
 
     if is_seg:
         resize_fn = resize_segmentation
-        kwargs = OrderedDict()
+        kwargs = {'seg_tiebreak': seg_tiebreak}
     else:
         resize_fn = resize
         kwargs = {'mode': 'edge', 'anti_aliasing': False}
@@ -189,6 +201,13 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                         indices = np.clip(np.floor(coords + 0.5).astype(np.intp),
                                           0, reshaped_here.shape[axis] - 1)
                         reshaped_final[c] = reshaped_here.take(indices, axis=axis)
+                    elif is_seg:
+                        # The in-plane axes are at their target size already, so this resamples `axis`
+                        # alone (the others map onto themselves) - with the same argmax and seg_tiebreak as
+                        # the in-plane pass. The coordinate-map code below used to do segmentations too,
+                        # with a `> 0.5` threshold per label into a zero-initialized array: that left voxels
+                        # unclaimed where three labels meet along `axis`, and gave ties to the last label.
+                        reshaped_final[c] = resize_fn(reshaped_here, new_shape, order_z, **kwargs)
                     else:
                         # The following few lines are blatantly copied and modified from sklearn's resize()
                         rows, cols, dim = new_shape[0], new_shape[1], new_shape[2]
@@ -205,14 +224,7 @@ def resample_data_or_seg(data: np.ndarray, new_shape: Union[Tuple[float, ...], L
                         map_dims = dim_scale * (map_dims + 0.5) - 0.5
 
                         coord_map = np.array([map_rows, map_cols, map_dims])
-                        if not is_seg:
-                            reshaped_final[c] = map_coordinates(reshaped_here, coord_map, order=order_z, mode='nearest')[None]
-                        else:
-                            unique_labels = np.sort(pd.unique(reshaped_here.ravel()))  # np.unique(reshaped_data)
-                            for i, cl in enumerate(unique_labels):
-                                reshaped_final[c][np.round(
-                                    map_coordinates((reshaped_here == cl).astype(float), coord_map, order=order_z,
-                                                    mode='nearest')) > 0.5] = cl
+                        reshaped_final[c] = map_coordinates(reshaped_here, coord_map, order=order_z, mode='nearest')[None]
                 else:
                     reshaped_final[c] = reshaped_here
         else:
