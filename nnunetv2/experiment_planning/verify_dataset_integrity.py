@@ -58,6 +58,13 @@ def check_cases(image_files: List[str], label_file: str, expected_num_channels: 
         print(f'Segmentation contains NaN pixel values. You need to fix that.\nSegmentation:\n{label_file}')
         ret = False
 
+    # check segmentation is single-channel
+    if segmentation.shape[0] != 1:
+        print('Error: Segmentation must be a single-channel integer label map but has %d channels. '
+              'Please re-save your label file as a single-channel image with integer class indices '
+              '(0, 1, 2, ...). \nSeg file: %s\n' % (segmentation.shape[0], label_file))
+        ret = False
+
     # check shapes
     shape_image = images.shape[1:]
     shape_seg = segmentation.shape[1:]
