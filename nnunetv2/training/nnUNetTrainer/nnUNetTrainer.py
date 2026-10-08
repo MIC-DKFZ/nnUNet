@@ -635,6 +635,8 @@ class nnUNetTrainer(object):
         it. You can create as many splits in this file as you want. Note that if you define only 4 splits (fold 0-3)
         and then set fold=4 when training (that would be the fifth split), nnU-Net will print a warning and proceed to
         use a random 80:20 data split.
+        In DDP, only global rank 0 reads or creates splits_final.json and sends the splits to the other ranks, so
+        this function must be called by all ranks.
         :return:
         """
         if self.dataset_class is None:
@@ -650,20 +652,34 @@ class nnUNetTrainer(object):
             dataset = self.dataset_class(self.preprocessed_dataset_folder,
                                          identifiers=None,
                                          folder_with_segs_from_previous_stage=self.folder_with_segs_from_previous_stage)
-            # if the split file does not exist we need to create it
-            if not isfile(splits_file):
-                self.print_to_log_file("Creating new 5-fold cross-validation split...")
-                all_keys_sorted = list(np.sort(list(dataset.identifiers)))
-                splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
-                # Publish by (atomic) rename to avoid race / partial writes
-                tmp_file = f"{splits_file}.tmp.{uuid4().hex}"
-                save_json(splits, tmp_file)
-                os.replace(tmp_file, splits_file)
-
-            else:
-                self.print_to_log_file("Using splits from existing split file:", splits_file)
-                splits = load_json(splits_file)
-                self.print_to_log_file(f"The split file contains {len(splits)} splits.")
+            # In DDP only global rank 0 touches the split file, the other ranks receive the splits from it. They
+            # would otherwise race rank 0 for creating the file, and on a shared filesystem a file that was just
+            # created on one node is not necessarily visible on the others yet.
+            splits = None
+            if self.global_rank == 0:
+                # if the split file does not exist we need to create it
+                if not isfile(splits_file):
+                    self.print_to_log_file("Creating new 5-fold cross-validation split...")
+                    all_keys_sorted = list(np.sort(list(dataset.identifiers)))
+                    splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
+                    # Independent trainings (e.g. all folds launched at once) can still race each other for this
+                    # file. Publish by atomic rename so that nobody ever reads a partially written file. The split
+                    # is seeded, so it does not matter whose file wins.
+                    tmp_file = f"{splits_file}.tmp.{uuid4().hex}"
+                    try:
+                        save_json(splits, tmp_file)
+                        os.replace(tmp_file, splits_file)
+                    finally:
+                        if isfile(tmp_file):
+                            os.remove(tmp_file)
+                else:
+                    self.print_to_log_file("Using splits from existing split file:", splits_file)
+                    splits = load_json(splits_file)
+                    self.print_to_log_file(f"The split file contains {len(splits)} splits.")
+            if self.is_ddp:
+                splits_container = [splits]
+                dist.broadcast_object_list(splits_container, src=0)
+                splits = splits_container[0]
 
             self.print_to_log_file("Desired fold for training: %d" % self.fold)
             if self.fold < len(splits):

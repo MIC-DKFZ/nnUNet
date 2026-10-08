@@ -1,5 +1,13 @@
 # Changes that affect custom trainers
 
+## DDP: `do_split` must be called by all ranks
+
+In DDP, `nnUNetTrainer.do_split` now lets only global rank 0 read or create `splits_final.json` and broadcasts the
+splits to the other ranks (`dist.broadcast_object_list`). Previously every rank could create the file at the same
+time, and a rank could read a file that another rank was still writing. Because of the broadcast, `do_split` is now a
+collective: if a custom trainer calls it on some ranks only (for example inside `if self.global_rank == 0:`), the job
+hangs. Call it on all ranks. Trainers that override `do_split` entirely are not affected.
+
 ## 2D TIFF predictions use PackBits; `.tiff` may select NaturalImage2DIO
 
 `NaturalImage2DIO.write_seg` now writes `.tif` / `.tiff` predictions with PackBits via `tifffile` instead of uncompressed `skimage.io.imsave`. Pixel values and dtypes are unchanged (still lossless). PNG/BMP writes and `Tiff3DIO` (zlib) are unchanged. Downstream tools that digest the raw TIFF byte stream (not just the label map) will see a different container.
