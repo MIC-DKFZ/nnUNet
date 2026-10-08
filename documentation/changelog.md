@@ -11,9 +11,9 @@ much as out of plane. On the torch path those ties used to be resolved by `argma
 the first maximum and therefore always picked the **smallest** label, i.e. background for a normal
 segmentation. That eroded foreground systematically and annihilated structures one voxel thick.
 
-nnU-Net now requires **batchgenerators >= 0.25.4**, which is where `resize_segmentation` gained
-`seg_tiebreak`, and **batchgeneratorsv2 >= 0.3.6**, whose `SpatialTransform` changes the augmented
-segmentations every training sees in two ways:
+nnU-Net now requires **batchgenerators >= 0.25.5** (`resize_segmentation` gained `seg_tiebreak` in 0.25.4,
+and 0.25.5 makes it handle an empty segmentation again), and **batchgeneratorsv2 >= 0.3.6**, whose
+`SpatialTransform` changes the augmented segmentations every training sees in two ways:
 
 - **The same tie-break**, `seg_tiebreak='nearest'`. nnU-Net passes `bg_style_seg_sampling=False`, whose ties
   used to go to the smallest label. Exact ties are rarer here than in preprocessing (about one voxel in a
