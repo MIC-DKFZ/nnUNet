@@ -141,8 +141,8 @@ def write_dataset_json(out_dir: str, labels: dict, num_cases: int):
         'converted_by': ['Fabian Isensee'],
         'release': '1.1.1 (Zenodo, 2025-08-02)',
         'note': "Reconverted on 2026-10-08 from Zenodo v1.1.1 (QUADRA_HC.zip, md5 5b37cd936988a023c67fe8f85d634d41) with "
-                "nnU-Net master nnunetv2/dataset_conversion/Dataset239_QUADRA_HC.py. The earlier conversion (Moritz "
-                "Langenberg) renumbered the label values per case, so labels from 83 on (and in a few cases from 9 or from "
+                "nnU-Net master nnunetv2/dataset_conversion/Dataset239_QUADRA_HC.py. The earlier conversion renumbered "
+                "the label values per case, so labels from 83 on (and in a few cases from 9 or from "
                 "the 12th ribs on) meant different structures in different cases, and it named the two kidneys the wrong way "
                 "round. Mapping of the MOOSE files to label IDs: Digestive 1-4 -> 1-4, Organs 1-19 -> 5-23, Muscles 1-10 -> "
                 "24-33, Ribs left 1-12 / right 1-12 / sternum -> 34-45 / 46-57 / 58 (the MOOSE 13th-rib classes are never "
