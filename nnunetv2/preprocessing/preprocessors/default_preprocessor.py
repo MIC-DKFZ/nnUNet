@@ -75,6 +75,7 @@ class DefaultPreprocessor(object):
             # target spacing for 2d has 2 entries but the data and original_spacing have three because everything is 3d
             # in 2d configuration we do not change the spacing between slices
             target_spacing = [original_spacing[0]] + target_spacing
+        target_spacing = [o if t is None else t for t, o in zip(target_spacing, original_spacing)]
         new_shape = compute_new_shape(data.shape[1:], original_spacing, target_spacing)
 
         # normalize
