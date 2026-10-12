@@ -93,7 +93,9 @@ because in this mode the launcher (not nnU-Net) decides how many processes there
 
 nnU-Net installs a `SIGUSR1` handler. The signal does not interrupt the running epoch: it sets a flag, and at the
 next epoch boundary nnU-Net writes `checkpoint_latest.safetensors` and exits with status 0. Resubmit with `--c` to continue
-exactly where it stopped. (No handler is installed on Windows, which has no `SIGUSR1`.)
+exactly where it stopped. (No handler is installed on Windows, which has no `SIGUSR1`.) A signal that arrives during
+the first epoch can be lost: when `torch.compile` builds its kernels, Triton's LLVM replaces the handler with one
+that swallows the signal. nnU-Net installs its handler again at the start of every epoch.
 
 Under DDP it is enough for **one** rank to receive the signal. The flag is reduced across the job at every epoch
 boundary, so all ranks stop together. Without that, a single signalled rank would exit on its own and leave the

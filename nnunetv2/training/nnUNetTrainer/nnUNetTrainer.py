@@ -228,8 +228,7 @@ class nnUNetTrainer(object):
         # used to detect if we have received a termination signal because the cluster job is running into timeout ->
         # triggers a graceful exit at the next epoch boundary. SIGUSR1 does not exist on Windows.
         self.exit_training_flag = False
-        if hasattr(signal, 'SIGUSR1'):
-            signal.signal(signal.SIGUSR1, self.exit_training)
+        self._install_exit_signal_handler()
 
     def initialize(self):
         if not self.was_initialized:
@@ -1216,6 +1215,7 @@ class nnUNetTrainer(object):
         self.logger.log('val_losses', loss_here, self.current_epoch)
 
     def on_epoch_start(self):
+        self._install_exit_signal_handler()
         self.logger.log('epoch_start_timestamps', time(), self.current_epoch)
 
     def on_epoch_end(self):
@@ -1527,6 +1527,17 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()
+
+    def _install_exit_signal_handler(self):
+        """
+        Installs exit_training as the SIGUSR1 handler. on_epoch_start installs it again every epoch because
+        torch.compile can take it away: when Triton compiles kernels in this process, its LLVM installs native handlers
+        for SIGUSR1 (and SIGTERM, SIGUSR2, ...) that swallow the signal. signal.getsignal() keeps returning our handler
+        when that happens, so there is nothing to check, we just set it again. A signal that arrives while kernels
+        are being compiled (in practice: during the first epoch) is still lost. SIGUSR1 does not exist on Windows.
+        """
+        if hasattr(signal, 'SIGUSR1'):
+            signal.signal(signal.SIGUSR1, self.exit_training)
 
     def exit_training(self, *args, **kwargs):
         """
