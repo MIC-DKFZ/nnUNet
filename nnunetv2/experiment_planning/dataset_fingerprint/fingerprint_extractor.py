@@ -12,6 +12,7 @@ from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from
 from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
@@ -41,7 +42,7 @@ class DatasetFingerprintExtractor(object):
 
     @staticmethod
     def collect_foreground_intensities(segmentation: np.ndarray, images: np.ndarray, seed: int = 1234,
-                                       num_samples: int = 10000):
+                                       num_samples: int = 10000, ignore_label: int = None):
         """
         images=image with multiple channels = shape (c, x, y(, z))
         """
@@ -57,6 +58,10 @@ class DatasetFingerprintExtractor(object):
 
         # segmentation is 4d: 1,x,y,z. We need to remove the empty dimension for the following code to work
         foreground_mask = segmentation[0] > 0
+        # the ignore label is not part of the foreground. If it is not excluded here it skews the intensity
+        # statistics (see issue #3055)
+        if ignore_label is not None:
+            foreground_mask &= segmentation[0] != ignore_label
         percentiles = np.array((0.5, 50.0, 99.5))
 
         for i in range(len(images)):
@@ -89,7 +94,7 @@ class DatasetFingerprintExtractor(object):
 
     @staticmethod
     def analyze_case(image_files: List[str], segmentation_file: str, reader_writer_class: Type[BaseReaderWriter],
-                     num_samples: int = 10000):
+                     num_samples: int = 10000, ignore_label: int = None):
         rw = reader_writer_class()
         images, properties_images = rw.read_images(image_files)
         segmentation, properties_seg = rw.read_seg(segmentation_file)
@@ -102,7 +107,8 @@ class DatasetFingerprintExtractor(object):
 
         foreground_intensities_per_channel, foreground_intensity_stats_per_channel = \
             DatasetFingerprintExtractor.collect_foreground_intensities(seg_cropped, data_cropped,
-                                                                       num_samples=num_samples)
+                                                                       num_samples=num_samples,
+                                                                       ignore_label=ignore_label)
 
         spacing = properties_images['spacing']
 
@@ -128,12 +134,17 @@ class DatasetFingerprintExtractor(object):
             num_foreground_samples_per_case = int(self.num_foreground_voxels_for_intensitystats //
                                                   len(self.dataset))
 
+            # the ignore label (if any) must not be part of the foreground intensity statistics (issue #3055)
+            label_manager = LabelManager(self.dataset_json['labels'],
+                                         regions_class_order=self.dataset_json.get('regions_class_order'))
+            ignore_label = label_manager.ignore_label
+
             r = []
             with multiprocessing.get_context("spawn").Pool(self.num_processes) as p:
                 for k in self.dataset.keys():
                     r.append(p.starmap_async(DatasetFingerprintExtractor.analyze_case,
                                              ((self.dataset[k]['images'], self.dataset[k]['label'], reader_writer_class,
-                                               num_foreground_samples_per_case),)))
+                                               num_foreground_samples_per_case, ignore_label),)))
                 remaining = list(range(len(self.dataset)))
                 # p is pretty nifti. If we kill workers they just respawn but don't do any work.
                 # So we need to store the original pool of workers.
