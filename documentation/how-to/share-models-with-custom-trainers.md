@@ -17,6 +17,16 @@ Rewrite `trainer_name` in your checkpoint so it points to a trainer that ships w
 nnU-Net (typically `nnUNetTrainer`). The weights then load against the built-in trainer
 directly and users don't need anything beyond a stock nnU-Net install.
 
+```python
+from nnunetv2.utilities.checkpoints import load_checkpoint_file, save_checkpoint_file
+
+checkpoint = load_checkpoint_file('fold_0/checkpoint_final.safetensors')  # a .pth works too
+checkpoint['trainer_name'] = 'nnUNetTrainer'
+save_checkpoint_file(checkpoint, 'fold_0/checkpoint_final.safetensors')
+```
+
+Do not use `torch.save` for this: nnU-Net refuses to load a pickle that has a `.safetensors` name.
+
 **Prerequisites**
 - You did not modify `build_network_architecture` (the network topology must match what
   the built-in trainer produces from the plans).

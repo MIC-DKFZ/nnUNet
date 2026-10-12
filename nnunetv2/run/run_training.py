@@ -9,10 +9,11 @@ from typing import Callable, Optional, Union
 import torch.cuda
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from batchgenerators.utilities.file_and_folder_operations import join, isfile, load_json
+from batchgenerators.utilities.file_and_folder_operations import join, load_json
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.utilities.checkpoints import find_checkpoint_file, resolve_checkpoint_file
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
 from torch.backends import cudnn
@@ -102,20 +103,24 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
     if continue_training and pretrained_weights_file is not None:
         raise RuntimeError('Cannot both continue a training AND load pretrained weights. Pretrained weights can only '
                            'be used at the beginning of the training.')
+    # find_checkpoint_file also finds the .pth checkpoints of trainings started with an older nnU-Net
     if continue_training:
-        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
-        if not isfile(expected_checkpoint_file):
-            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_latest.pth')
+        expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
+                                                             'checkpoint_final.safetensors'))
+        if expected_checkpoint_file is None:
+            expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
+                                                                 'checkpoint_latest.safetensors'))
         # special case where --c is used to run a previously aborted validation
-        if not isfile(expected_checkpoint_file):
-            expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_best.pth')
-        if not isfile(expected_checkpoint_file):
+        if expected_checkpoint_file is None:
+            expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
+                                                                 'checkpoint_best.safetensors'))
+        if expected_checkpoint_file is None:
             print("WARNING: Cannot continue training because there seems to be no checkpoint available to "
                   "continue from. Starting a new training...")
-            expected_checkpoint_file = None
     elif validation_only:
-        expected_checkpoint_file = join(nnunet_trainer.output_folder, 'checkpoint_final.pth')
-        if not isfile(expected_checkpoint_file):
+        expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
+                                                             'checkpoint_final.safetensors'))
+        if expected_checkpoint_file is None:
             raise RuntimeError("Cannot run validation because the training is not finished yet!")
     else:
         if pretrained_weights_file is not None:
@@ -164,7 +169,13 @@ def execute_training(trainer_factory: Callable[[torch.device], nnUNetTrainer], d
         nnunet_trainer.run_training()
 
     if options.val_with_best:
-        nnunet_trainer.load_checkpoint(join(nnunet_trainer.output_folder, 'checkpoint_best.pth'))
+        if dist.is_initialized():
+            # rank 0 may still be writing checkpoint_best (and checkpoint_final) while the other ranks are already here
+            dist.barrier()
+        # resolved here rather than left to load_checkpoint: custom trainers that override it may call torch.load,
+        # which needs the name of the file that exists (checkpoint_best.pth for trainings from older nnU-Net versions)
+        nnunet_trainer.load_checkpoint(resolve_checkpoint_file(join(nnunet_trainer.output_folder,
+                                                                    'checkpoint_best.safetensors')))
     nnunet_trainer.perform_actual_validation(options.export_validation_probabilities)
 
 

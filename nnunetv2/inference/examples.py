@@ -22,7 +22,7 @@ if __name__ == '__main__':
     predictor.initialize_from_trained_model_folder(
         join(nnUNet_results, 'Dataset003_Liver/nnUNetTrainer__nnUNetPlans__3d_lowres'),
         use_folds=(0,),
-        checkpoint_name='checkpoint_final.pth',
+        checkpoint_name='checkpoint_final.safetensors',
     )
     # variant 1: give input and output folders
     predictor.predict_from_files(join(nnUNet_raw, 'Dataset003_Liver/imagesTs'),

@@ -50,8 +50,11 @@ def export_pretrained_model_entry():
     parser.add_argument('-tr', required=False, type=str, default='nnUNetTrainer', help='Trainer class')
     parser.add_argument('-p', required=False, type=str, default='nnUNetPlans', help='plans identifier')
     parser.add_argument('-f', required=False, nargs='+', type=str, default=(0, 1, 2, 3, 4), help='list of fold ids')
-    parser.add_argument('-chk', required=False, nargs='+', type=str, default=('checkpoint_final.pth', ),
-                        help='Lis tof checkpoint names to export. Default: checkpoint_final.pth')
+    parser.add_argument('-chk', required=False, nargs='+', type=str, default=('checkpoint_final.safetensors', ),
+                        help='List of checkpoint names to export. Default: checkpoint_final.safetensors. A name '
+                             'that does not exist is exported in the other format (.pth <-> .safetensors) if that '
+                             'exists. Models trained with older nnU-Net versions have .pth checkpoints. A zip with '
+                             '.safetensors checkpoints needs an nnU-Net version that reads them.')
     parser.add_argument('--not_strict', action='store_false', default=False, required=False, help='Set this to allow missing folds and/or configurations')
     parser.add_argument('--exp_cv_preds', action='store_true', required=False, help='Set this to export the cross-validation predictions as well')
     args = parser.parse_args()

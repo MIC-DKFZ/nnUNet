@@ -64,6 +64,8 @@ from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_lo
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
+from nnunetv2.utilities.checkpoints import check_checkpoint_storable, load_checkpoint_file, other_format_filename, \
+    remove_checkpoint_files, safetensors_filename, save_checkpoint_file, without_training_state
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.ddp import get_ddp_topology
@@ -1036,12 +1038,12 @@ class nnUNetTrainer(object):
         # dirty hack because on_epoch_end increments the epoch counter and this is executed afterwards.
         # This will lead to the wrong current epoch to be stored
         self.current_epoch -= 1
-        self.save_checkpoint(join(self.output_folder, "checkpoint_final.pth"))
+        self.save_checkpoint(join(self.output_folder, "checkpoint_final.safetensors"))
         self.current_epoch += 1
 
         # now we can delete latest
-        if self.global_rank == 0 and isfile(join(self.output_folder, "checkpoint_latest.pth")):
-            os.remove(join(self.output_folder, "checkpoint_latest.pth"))
+        if self.global_rank == 0:
+            remove_checkpoint_files(join(self.output_folder, "checkpoint_latest.safetensors"))
 
         # shut down dataloaders
         old_stdout = sys.stdout
@@ -1233,19 +1235,19 @@ class nnUNetTrainer(object):
         # handling periodic checkpointing
         save_latest_checkpoint = (self.current_epoch + 1) % self.save_every == 0 and self.current_epoch != (self.num_epochs - 1)
         if save_latest_checkpoint or exit_now:
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.safetensors'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
         if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
             self._best_ema = self.logger.get_value('ema_fg_dice', step=-1)
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_best.safetensors'))
 
         if self.global_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
 
         if exit_now:
-            self.print_to_log_file("Epoch ended and termination signal received. checkpoint_latest.pth is written, "
+            self.print_to_log_file("Epoch ended and termination signal received. checkpoint_latest is written, "
                                    "so let's exit gracefully. Now lets raise the keyboard into the sky and interrupt "
                                    "this madness. Expecting either the user or an automated script to continue this "
                                    "training with --c.")
@@ -1254,36 +1256,57 @@ class nnUNetTrainer(object):
         self.current_epoch += 1
 
     def save_checkpoint(self, filename: str) -> None:
-        if self.global_rank == 0:
-            if not self.disable_checkpointing:
-                if self.is_ddp:
-                    mod = self.network.module
-                else:
-                    mod = self.network
-                if isinstance(mod, OptimizedModule):
-                    mod = mod._orig_mod
+        """
+        Checkpoints are written as safetensors files (see nnunetv2/utilities/checkpoints.py). A .pth filename is
+        written as .safetensors, and a .pth file of the same name, left over from an older nnU-Net, is deleted
+        afterwards because the new file replaces it.
 
-                checkpoint = {
-                    'network_weights': mod.state_dict(),
-                    'optimizer_state': self.optimizer.state_dict(),
-                    'grad_scaler_state': self.grad_scaler.state_dict() if self.grad_scaler is not None else None,
-                    'logging': self.logger.get_checkpoint(),
-                    '_best_ema': self._best_ema,
-                    'current_epoch': self.current_epoch + 1,
-                    'init_args': self.my_init_kwargs,
-                    'trainer_name': self.__class__.__name__,
-                    'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
-                }
-                torch.save(checkpoint, filename)
-            else:
-                self.print_to_log_file('No checkpoint written, checkpointing is disabled')
+        checkpoint_final does not keep the optimizer and grad scaler state: training does not continue from it, and
+        the optimizer state is as large as the network weights.
+
+        Only global rank 0 writes. Under DDP the other ranks check that the checkpoint can be stored (see
+        check_checkpoint_storable), so that one that cannot raises on all ranks at the same point. Raised on rank 0
+        alone, the other ranks would wait in their next collective for a rank that is gone, and the job would hang.
+        """
+        if self.disable_checkpointing:
+            self.print_to_log_file('No checkpoint written, checkpointing is disabled')
+            return
+        filename = safetensors_filename(filename)
+        if self.is_ddp:
+            mod = self.network.module
+        else:
+            mod = self.network
+        if isinstance(mod, OptimizedModule):
+            mod = mod._orig_mod
+
+        checkpoint = {
+            'network_weights': mod.state_dict(),
+            'optimizer_state': self.optimizer.state_dict(),
+            'grad_scaler_state': self.grad_scaler.state_dict() if self.grad_scaler is not None else None,
+            'logging': self.logger.get_checkpoint(),
+            '_best_ema': self._best_ema,
+            'current_epoch': self.current_epoch + 1,
+            'init_args': self.my_init_kwargs,
+            'trainer_name': self.__class__.__name__,
+            'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
+        }
+        if os.path.basename(filename) == 'checkpoint_final.safetensors':
+            checkpoint = without_training_state(checkpoint)
+        if self.global_rank == 0:
+            save_checkpoint_file(checkpoint, filename)
+            legacy_file = other_format_filename(filename)
+            if isfile(legacy_file):
+                os.remove(legacy_file)
+        else:
+            check_checkpoint_storable(checkpoint)
 
     def load_checkpoint(self, checkpoint: Union[dict, str]) -> None:
         if not self.was_initialized:
             self.initialize()
 
         if isinstance(checkpoint, str):
-            checkpoint = torch.load(checkpoint, map_location=self.device, weights_only=False)
+            # either format; checkpoints of older nnU-Net versions are .pth files
+            checkpoint = load_checkpoint_file(checkpoint, map_location=self.device)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
@@ -1311,9 +1334,14 @@ class nnUNetTrainer(object):
                 self.network._orig_mod.load_state_dict(new_state_dict)
             else:
                 self.network.load_state_dict(new_state_dict)
-        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        if 'optimizer_state' in checkpoint:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        elif self.current_epoch < self.num_epochs:
+            # checkpoint_final has no optimizer state. Only matters if training continues from it
+            self.print_to_log_file('WARNING: this checkpoint has no optimizer state (checkpoint_final does not keep '
+                                   'it). If training continues from here, the optimizer starts from scratch.')
         if self.grad_scaler is not None:
-            if checkpoint['grad_scaler_state'] is not None:
+            if checkpoint.get('grad_scaler_state') is not None:
                 self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
 
     def perform_actual_validation(self, save_probabilities: bool = False):

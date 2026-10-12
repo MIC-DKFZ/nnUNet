@@ -27,6 +27,7 @@ from nnunetv2.inference.export_prediction import export_prediction_from_logits, 
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, \
     compute_steps_for_sliding_window
 from nnunetv2.utilities.file_path_utilities import get_output_folder, check_workers_alive_and_busy
+from nnunetv2.utilities.checkpoints import find_checkpoint_file, load_checkpoint_file
 from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
 from nnunetv2.utilities.helpers import empty_cache, dummy_context, is_optimized_module, \
     set_default_inductor_cache_dir
@@ -67,9 +68,12 @@ class nnUNetPredictor(object):
 
     def initialize_from_trained_model_folder(self, model_training_output_dir: str,
                                              use_folds: Union[Tuple[Union[int, str]], None],
-                                             checkpoint_name: str = 'checkpoint_final.pth'):
+                                             checkpoint_name: str = 'checkpoint_final.safetensors'):
         """
         This is used when making predictions with a trained model
+
+        checkpoint_name may name either format: if the file does not exist, the same name with the other extension
+        (.safetensors <-> .pth) is used. Models trained with older nnU-Net versions have .pth checkpoints.
         """
         if use_folds is None:
             use_folds = nnUNetPredictor.auto_detect_available_folds(model_training_output_dir, checkpoint_name)
@@ -84,8 +88,9 @@ class nnUNetPredictor(object):
         parameters = []
         for i, f in enumerate(use_folds):
             f = int(f) if f != 'all' else f
-            checkpoint = torch.load(join(model_training_output_dir, f'fold_{f}', checkpoint_name),
-                                    map_location=torch.device('cpu'), weights_only=False)
+            checkpoint = load_checkpoint_file(
+                join(model_training_output_dir, f'fold_{f}', checkpoint_name), map_location=torch.device('cpu'),
+                keys=('network_weights', 'trainer_name', 'init_args', 'inference_allowed_mirroring_axes'))
             if i == 0:
                 trainer_name = checkpoint['trainer_name']
                 configuration_name = checkpoint['init_args']['configuration']
@@ -173,7 +178,8 @@ class nnUNetPredictor(object):
         print('use_folds is None, attempting to auto detect available folds')
         fold_folders = subdirs(model_training_output_dir, prefix='fold_', join=False)
         fold_folders = [i for i in fold_folders if i != 'fold_all']
-        fold_folders = [i for i in fold_folders if isfile(join(model_training_output_dir, i, checkpoint_name))]
+        fold_folders = [i for i in fold_folders
+                        if find_checkpoint_file(join(model_training_output_dir, i, checkpoint_name)) is not None]
         use_folds = [int(i.split('_')[-1]) for i in fold_folders]
         print(f'found the following folds: {use_folds}')
         return use_folds
@@ -842,8 +848,10 @@ def predict_entry_point_modelfolder():
                              'multiple configurations.')
     parser.add_argument('--continue_prediction', '--c', action='store_true',
                         help='Continue an aborted previous prediction (will not overwrite existing files)')
-    parser.add_argument('-chk', type=str, required=False, default='checkpoint_final.pth',
-                        help='Name of the checkpoint you want to use. Default: checkpoint_final.pth')
+    parser.add_argument('-chk', type=str, required=False, default='checkpoint_final.safetensors',
+                        help='Name of the checkpoint you want to use. Default: checkpoint_final.safetensors. If it '
+                             'does not exist, the same name with .pth is used (models trained with older nnU-Net '
+                             'versions have .pth checkpoints), and vice versa.')
     parser.add_argument('-npp', type=int, required=False, default=3,
                         help='Number of processes used for preprocessing. More is not always better. Beware of '
                              'out-of-RAM issues. Default: 3')
@@ -946,8 +954,10 @@ def predict_entry_point():
                              'multiple configurations.')
     parser.add_argument('--continue_prediction', action='store_true',
                         help='Continue an aborted previous prediction (will not overwrite existing files)')
-    parser.add_argument('-chk', type=str, required=False, default='checkpoint_final.pth',
-                        help='Name of the checkpoint you want to use. Default: checkpoint_final.pth')
+    parser.add_argument('-chk', type=str, required=False, default='checkpoint_final.safetensors',
+                        help='Name of the checkpoint you want to use. Default: checkpoint_final.safetensors. If it '
+                             'does not exist, the same name with .pth is used (models trained with older nnU-Net '
+                             'versions have .pth checkpoints), and vice versa.')
     parser.add_argument('-npp', type=int, required=False, default=_getDefaultValue('nnUNet_npp', int, 3),
                         help='Number of processes used for preprocessing. More is not always better. Beware of '
                              'out-of-RAM issues. Default: 3')
@@ -1078,7 +1088,7 @@ if __name__ == '__main__':
     predictor.initialize_from_trained_model_folder(
         join(nnUNet_results, 'Dataset004_Hippocampus/nnUNetTrainer_5epochs__nnUNetPlans__3d_fullres'),
         use_folds=(0,),
-        checkpoint_name='checkpoint_final.pth',
+        checkpoint_name='checkpoint_final.safetensors',
     )
     # predictor.predict_from_files(join(nnUNet_raw, 'Dataset003_Liver/imagesTs'),
     #                              join(nnUNet_raw, 'Dataset003_Liver/imagesTs_predlowres'),

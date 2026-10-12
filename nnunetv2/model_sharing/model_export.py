@@ -1,5 +1,6 @@
 import zipfile
 
+from nnunetv2.utilities.checkpoints import resolve_checkpoint_file
 from nnunetv2.utilities.file_path_utilities import *
 
 
@@ -9,7 +10,7 @@ def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: st
                             plans_identifier: str = 'nnUNetPlans',
                             folds: Tuple[int, ...] = (0, 1, 2, 3, 4),
                             strict: bool = True,
-                            save_checkpoints: Tuple[str, ...] = ('checkpoint_final.pth',),
+                            save_checkpoints: Tuple[str, ...] = ('checkpoint_final.safetensors',),
                             export_crossval_predictions: bool = False) -> None:
     dataset_name = maybe_convert_to_dataset_name(dataset_name_or_id)
     with(zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED)) as zipf:
@@ -36,9 +37,10 @@ def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: st
                 if isfile(source_file):
                     zipf.write(source_file, os.path.relpath(source_file, nnUNet_results))
 
-                # all requested checkpoints
+                # all requested checkpoints, in whichever format they exist (models trained with older nnU-Net
+                # versions have .pth checkpoints)
                 for chk in save_checkpoints:
-                    source_file = join(trainer_output_dir, fold_folder, chk)
+                    source_file = resolve_checkpoint_file(join(trainer_output_dir, fold_folder, chk))
                     zipf.write(source_file, os.path.relpath(source_file, nnUNet_results))
 
                 # progress.png

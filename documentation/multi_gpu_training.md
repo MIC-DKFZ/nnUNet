@@ -92,7 +92,7 @@ because in this mode the launcher (not nnU-Net) decides how many processes there
 ## Stopping gracefully when a cluster job runs out of time
 
 nnU-Net installs a `SIGUSR1` handler. The signal does not interrupt the running epoch: it sets a flag, and at the
-next epoch boundary nnU-Net writes `checkpoint_latest.pth` and exits with status 0. Resubmit with `--c` to continue
+next epoch boundary nnU-Net writes `checkpoint_latest.safetensors` and exits with status 0. Resubmit with `--c` to continue
 exactly where it stopped. (No handler is installed on Windows, which has no `SIGUSR1`.)
 
 Under DDP it is enough for **one** rank to receive the signal. The flag is reduced across the job at every epoch

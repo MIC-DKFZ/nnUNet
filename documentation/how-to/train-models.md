@@ -85,11 +85,13 @@ nnUNet_results/DatasetXXX_Name/TRAINER__PLANS__CONFIGURATION/fold_X
 
 Important artifacts include:
 
-- `checkpoint_final.pth`
-- `checkpoint_best.pth`
+- `checkpoint_final.safetensors`
+- `checkpoint_best.safetensors`
 - `progress.png`
 - `validation/summary.json`
 - `validation/*.npz` if `--npz` was enabled
+
+Models trained with older nnU-Net versions have `.pth` checkpoints instead; they are still read everywhere.
 
 ## Next steps
 

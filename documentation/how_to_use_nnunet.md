@@ -166,10 +166,12 @@ Note that 3d_lowres and 3d_cascade_fullres do not exist here because this datase
 model training output folder (each of the fold_x folder), the following files will be created:
 - debug.json: Contains a summary of blueprint and inferred parameters used for training this model as well as a
 bunch of additional stuff. Not easy to read, but very useful for debugging ;-)
-- checkpoint_best.pth: checkpoint files of the best model identified during training. Not used right now unless you
+- checkpoint_best.safetensors: checkpoint files of the best model identified during training. Not used right now unless you
 explicitly tell nnU-Net to use it.
-- checkpoint_final.pth: checkpoint file of the final model (after training has ended). This is what is used for both
-validation and inference.
+- checkpoint_final.safetensors: checkpoint file of the final model (after training has ended). This is what is used for both
+validation and inference. It holds no optimizer state, which makes it much smaller than checkpoint_best.
+- (checkpoint_latest.safetensors: only while a training runs. Written every 50 epochs so that `--c` can continue the
+training, deleted when it ends.)
 - network_architecture.pdf (only if hiddenlayer is installed!): a pdf document with a figure of the network architecture in it.
 - progress.png: Shows losses, pseudo dice, learning rate and epoch times over the course of the training. At the top is
 a plot of the training (blue) and validation (red) loss during training. Also shows an approximation of
@@ -184,6 +186,9 @@ a plot of the training (blue) and validation (red) loss during training. Also sh
 - validation: in this folder are the predicted validation cases after the training has finished. The summary.json file in here
   contains the validation metrics (a mean over all cases is provided at the start of the file). If `--npz` was set then
 the compressed softmax outputs (saved as .npz files) are in here as well.
+
+Models trained with older nnU-Net versions have `.pth` checkpoints instead. They are still read everywhere a checkpoint
+is read, and `nnUNetv2_convert_checkpoints_to_safetensors` converts them (see the changelog).
 
 During training it is often useful to watch the progress. We therefore recommend that you have a look at the generated
 progress.png when running the first training. It will be updated after each epoch.

@@ -1,5 +1,49 @@
 # Changes that affect custom trainers
 
+## Checkpoints are safetensors files now; `.pth` checkpoints are still read
+
+nnU-Net writes `checkpoint_final`, `checkpoint_best` and `checkpoint_latest` as `.safetensors` instead of `.pth`. A
+`.pth` is a pickle, and `torch.load(..., weights_only=False)` runs any code the file contains; a safetensors file is a
+JSON header plus raw tensor bytes. The checkpoint holds the same dict as before (network weights, optimizer state,
+logging, init args, ...): tensors are stored as tensors, shared ones once, and everything else as typed JSON, so
+loading returns the same values with the same types. `nnunetv2/utilities/checkpoints.py` describes the format.
+
+- **`checkpoint_final` no longer contains `optimizer_state` and `grad_scaler_state`.** Training never continues from
+  it, and the optimizer state is as large as the weights. Continuing a finished training for more epochs therefore
+  starts with a fresh optimizer (nnU-Net prints a warning). `checkpoint_best` and `checkpoint_latest` keep everything.
+- **Old checkpoints keep working.** Everything that reads a checkpoint (inference, `--c`, `--val`, `--val_best`,
+  `-pretrained_weights`, export) reads both formats, and `.pth` files are loaded exactly as before. A checkpoint name
+  finds the file with the other extension if the named one does not exist, so the new default
+  `-chk checkpoint_final.safetensors` finds the `checkpoint_final.pth` of an old model.
+- **Continuing an old training** loads its `.pth`. Whenever the trainer then writes `X.safetensors`, it deletes the
+  `X.pth` next to it, the checkpoint the new file replaces.
+- **`nnUNetv2_convert_checkpoints_to_safetensors -i FOLDER`** converts the `.pth` checkpoints of finished trainings
+  below `FOLDER`, verifies each new file against the `.pth`, and deletes the `.pth` unless `--keep_pth` is set.
+  `checkpoint_final` loses its optimizer state on the way. Only convert checkpoints you trust: loading a `.pth`
+  runs code.
+- nnU-Net versions before this change cannot read `.safetensors` checkpoints.
+
+What custom trainers and scripts need to know:
+
+- `save_checkpoint(filename)` writes `<name>.safetensors`, whatever extension `filename` has, and nnU-Net itself now
+  passes `.safetensors` names. An override that calls `torch.save(checkpoint, filename)` therefore writes a pickle
+  with a `.safetensors` name, which nnU-Net refuses to load (the error says how to rename it). Old:
+  `torch.save(checkpoint, filename)`. New: `save_checkpoint_file(checkpoint, filename)` from
+  `nnunetv2.utilities.checkpoints`.
+- An override of `load_checkpoint` that calls `torch.load(filename, ...)` cannot read the new files. Old:
+  `torch.load(filename, map_location=self.device, weights_only=False)`. New:
+  `load_checkpoint_file(filename, map_location=self.device)`, which reads both formats and, like everything else,
+  finds the file with the other extension if the named one does not exist. Expect `optimizer_state` and
+  `grad_scaler_state` to be missing in `checkpoint_final`.
+- Scripts that open checkpoints with `torch.load` should use `load_checkpoint_file` as well. `torch.load` cannot read
+  a `.safetensors` file.
+- A checkpoint can only hold plain data: tensors, numpy scalars and arrays, `None`, `bool`, `int`, `float`, `str`,
+  lists, tuples, dicts, `torch.device` and `torch.dtype`. That covers everything `nnUNetTrainer` stores. A custom
+  trainer whose `__init__` arguments (they are stored as `init_args`) or whose modules' `get_extra_state()` hold other
+  objects fails when it writes its first checkpoint, `checkpoint_best` after epoch 1, with a `ValueError` naming
+  the entries. Under DDP every rank raises it: `save_checkpoint` builds the checkpoint on all ranks and the ones that
+  do not write check that it can be stored, so the job ends instead of leaving ranks waiting for one that crashed.
+
 ## Segmentation resampling: ties are broken differently, and the memory efficient branch is now the default
 
 `resample_torch_simple` and `resample_torch_fornnunet` resample a segmentation by interpolating each

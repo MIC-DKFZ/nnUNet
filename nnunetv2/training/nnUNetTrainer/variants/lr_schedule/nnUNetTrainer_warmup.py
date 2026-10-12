@@ -5,6 +5,7 @@ from torch._dynamo import OptimizedModule
 
 from nnunetv2.training.lr_scheduler.warmup import Lin_incr_LRScheduler, PolyLRScheduler_offset
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.utilities.checkpoints import load_checkpoint_file
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.utilities.helpers import empty_cache
@@ -83,7 +84,7 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
             self.initialize()
 
         if isinstance(checkpoint, str):
-            checkpoint = torch.load(checkpoint, map_location=self.device, weights_only=False)
+            checkpoint = load_checkpoint_file(checkpoint, map_location=self.device)
         # if state dict comes from nn.DataParallel but we use non-parallel model here then the state dict keys do not
         # match. Use heuristic to make it match
         new_state_dict = {}
@@ -122,7 +123,12 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
         else:
             self.optimizer, self.lr_scheduler = self.configure_optimizers("train")
 
-        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+        if "optimizer_state" in checkpoint:
+            self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+        elif self.current_epoch < self.num_epochs:
+            # checkpoint_final has no optimizer state. Only matters if training continues from it
+            self.print_to_log_file('WARNING: this checkpoint has no optimizer state (checkpoint_final does not keep '
+                                   'it). If training continues from here, the optimizer starts from scratch.')
         if self.grad_scaler is not None:
-            if checkpoint["grad_scaler_state"] is not None:
+            if checkpoint.get("grad_scaler_state") is not None:
                 self.grad_scaler.load_state_dict(checkpoint["grad_scaler_state"])
