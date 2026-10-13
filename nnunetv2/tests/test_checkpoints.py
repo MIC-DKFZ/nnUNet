@@ -16,6 +16,8 @@ from safetensors.torch import load_file, save_file
 import nnunetv2
 from nnunetv2.run.run_training import TrainingRunOptions, execute_training
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.training.nnUNetTrainer.pretraining.pretrainedTrainer import PretrainedTrainer
+from nnunetv2.training.nnUNetTrainer.variants.lr_schedule.nnUNetTrainer_warmup import nnUNetTrainer_warmup
 from nnunetv2.utilities import checkpoints, convert_checkpoints
 from nnunetv2.utilities.checkpoints import assert_checkpoints_equal, find_checkpoint_file, load_checkpoint_file, \
     load_network_weights, read_checkpoint_metadata, resolve_checkpoint_file, save_checkpoint_file, \
@@ -314,7 +316,6 @@ class TestTrainingCheckpoint(_TmpDirTestCase):
         self.assertFalse(os.path.exists(f + '.tmp'))
         assert_checkpoints_equal(first, load_checkpoint_file(f))
 
-
     def test_loaded_tensors_do_not_read_from_the_file(self):
         # safetensors maps the file; the loaded tensors must not see the file change underneath them
         f, plain = self.path('c.safetensors'), self.path('plain.safetensors')
@@ -522,16 +523,25 @@ class TestTrainerCheckpoints(_TmpDirTestCase):
         assert_checkpoints_equal({k: ckpt[k] for k in states[0]}, states[0])
 
     def test_load_final_without_optimizer_state(self):
+        # nnUNetTrainer_warmup and PretrainedTrainer have their own copy of load_checkpoint, so they are checked too,
+        # with a file name and with a checkpoint dict
         ckpt = _training_checkpoint()
-        save_checkpoint_file(without_training_state(ckpt), self.path('checkpoint_final.safetensors'))
-        for num_epochs, warns in ((ckpt['current_epoch'], False), (ckpt['current_epoch'] + 5, True)):
-            with self.subTest(num_epochs=num_epochs):
-                trainer = _fake_trainer(ckpt, num_epochs=num_epochs)
-                optimizer_before = trainer.optimizer.state_dict()
-                nnUNetTrainer.load_checkpoint(trainer, self.path('checkpoint_final.safetensors'))
-                assert_checkpoints_equal(ckpt['network_weights'], trainer.network.state_dict())
-                assert_checkpoints_equal(optimizer_before, trainer.optimizer.state_dict())
-                self.assertEqual(any('no optimizer state' in m for m in trainer.messages), warns)
+        final = self.path('checkpoint_final.safetensors')
+        save_checkpoint_file(without_training_state(ckpt), final)
+        for trainer_class in (nnUNetTrainer, nnUNetTrainer_warmup, PretrainedTrainer):
+            for as_dict in (False, True):
+                for num_epochs, warns in ((ckpt['current_epoch'], False), (ckpt['current_epoch'] + 5, True)):
+                    with self.subTest(trainer_class.__name__, as_dict=as_dict, num_epochs=num_epochs):
+                        trainer = _fake_trainer(ckpt, num_epochs=num_epochs)
+                        # what the two subclasses need to set up their optimizer while loading
+                        trainer.warmup_duration_whole_net = 0
+                        trainer.get_stage = lambda: 'train'
+                        trainer.configure_optimizers = lambda stage, t=trainer: (t.optimizer, None)
+                        optimizer_before = trainer.optimizer.state_dict()
+                        trainer_class.load_checkpoint(trainer, load_checkpoint_file(final) if as_dict else final)
+                        assert_checkpoints_equal(ckpt['network_weights'], trainer.network.state_dict())
+                        assert_checkpoints_equal(optimizer_before, trainer.optimizer.state_dict())
+                        self.assertEqual(any('no optimizer state' in m for m in trainer.messages), warns)
 
 
 class TestConverter(_TmpDirTestCase):
@@ -563,6 +573,19 @@ class TestConverter(_TmpDirTestCase):
         self.assertTrue(os.path.isfile(pth))
         self.assertIsNotNone(convert_checkpoints.convert_checkpoint(pth, overwrite=True))
         self.assertFalse(os.path.isfile(pth))
+
+    def test_scan_does_not_warn_about_kept_pth(self):
+        # --keep_pth leaves both formats behind on purpose; scanning such a folder again must not warn about that
+        fold = self.path('fold_0')
+        self.make_training(fold)
+        names = ('checkpoint_final.pth', 'checkpoint_best.pth')
+        for f in convert_checkpoints.find_checkpoints_to_convert([fold], names):
+            convert_checkpoints.convert_checkpoint(f, keep_pth=True)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            found = convert_checkpoints.find_checkpoints_to_convert([fold], names)
+        self.assertEqual(sorted(os.path.basename(f) for f in found), sorted(names))
+        self.assertEqual([str(m.message) for m in w], [])
 
     def test_unfinished_trainings_are_skipped(self):
         self.make_training(self.path('finished/fold_0'))

@@ -4,8 +4,7 @@ from typing import Iterable, List, Optional
 import torch
 
 from nnunetv2.utilities.checkpoints import CHECKPOINT_EXTENSION, LEGACY_CHECKPOINT_EXTENSION, \
-    assert_checkpoints_equal, find_checkpoint_file, load_checkpoint_file, safetensors_filename, save_checkpoint_file, \
-    without_training_state
+    assert_checkpoints_equal, load_checkpoint_file, safetensors_filename, save_checkpoint_file, without_training_state
 
 
 def convert_checkpoint(pth_file: str, keep_pth: bool = False, overwrite: bool = False) -> Optional[str]:
@@ -60,6 +59,11 @@ def convert_checkpoint(pth_file: str, keep_pth: bool = False, overwrite: bool = 
     return target
 
 
+def _exists_in_either_format(pth_file: str) -> bool:
+    # not find_checkpoint_file: that warns when both formats exist, which --keep_pth leaves behind on purpose
+    return os.path.isfile(pth_file) or os.path.isfile(safetensors_filename(pth_file))
+
+
 def find_checkpoints_to_convert(folders: Iterable[str], checkpoint_names: Iterable[str]) -> List[str]:
     """
     The .pth files with the given names in finished trainings below `folders`. A training is finished if it has a
@@ -72,8 +76,8 @@ def find_checkpoints_to_convert(folders: Iterable[str], checkpoint_names: Iterab
             candidates = [os.path.join(dirpath, n) for n in checkpoint_names if n in filenames]
             if not candidates:
                 continue
-            finished = find_checkpoint_file(os.path.join(dirpath, 'checkpoint_final.pth')) is not None and \
-                find_checkpoint_file(os.path.join(dirpath, 'checkpoint_latest.pth')) is None
+            finished = _exists_in_either_format(os.path.join(dirpath, 'checkpoint_final.pth')) and \
+                not _exists_in_either_format(os.path.join(dirpath, 'checkpoint_latest.pth'))
             if not finished:
                 print(f'Skipping {dirpath}: the training is not finished (no checkpoint_final, or a checkpoint_latest '
                       f'exists). Continue it with nnUNetv2_train ... --c instead; from then on it writes '

@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.checkpoints import load_checkpoint_file
+from nnunetv2.utilities.checkpoints import NO_OPTIMIZER_STATE_WARNING, load_checkpoint_file
 from nnunetv2.utilities.helpers import empty_cache, dummy_context, set_default_inductor_cache_dir
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
@@ -513,8 +513,7 @@ class PretrainedTrainer(nnUNetTrainer):
             self.optimizer.load_state_dict(checkpoint["optimizer_state"])
         elif self.current_epoch < self.num_epochs:
             # only matters if training continues from it
-            self.print_to_log_file('WARNING: this checkpoint has no optimizer state (checkpoint_final does not keep '
-                                   'it). If training continues from here, the optimizer starts from scratch.')
+            self.print_to_log_file(NO_OPTIMIZER_STATE_WARNING)
         if self.grad_scaler is not None:
             if checkpoint.get("grad_scaler_state") is not None:
                 self.grad_scaler.load_state_dict(checkpoint["grad_scaler_state"])

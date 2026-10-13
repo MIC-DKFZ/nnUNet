@@ -64,8 +64,9 @@ from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_lo
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
-from nnunetv2.utilities.checkpoints import check_checkpoint_storable, load_checkpoint_file, other_format_filename, \
-    remove_checkpoint_files, safetensors_filename, save_checkpoint_file, without_training_state
+from nnunetv2.utilities.checkpoints import NO_OPTIMIZER_STATE_WARNING, check_checkpoint_storable, \
+    load_checkpoint_file, other_format_filename, remove_checkpoint_files, safetensors_filename, save_checkpoint_file, \
+    without_training_state
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.ddp import get_ddp_topology
@@ -1338,8 +1339,7 @@ class nnUNetTrainer(object):
             self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         elif self.current_epoch < self.num_epochs:
             # checkpoint_final has no optimizer state. Only matters if training continues from it
-            self.print_to_log_file('WARNING: this checkpoint has no optimizer state (checkpoint_final does not keep '
-                                   'it). If training continues from here, the optimizer starts from scratch.')
+            self.print_to_log_file(NO_OPTIMIZER_STATE_WARNING)
         if self.grad_scaler is not None:
             if checkpoint.get('grad_scaler_state') is not None:
                 self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])

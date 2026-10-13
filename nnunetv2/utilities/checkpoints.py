@@ -50,6 +50,9 @@ FORMAT_VERSION = 1
 # only needed to continue a training. checkpoint_final does not keep them: training never continues from it, and
 # the optimizer state is as large as the network weights
 TRAINING_STATE_KEYS = ('optimizer_state', 'grad_scaler_state')
+# for trainers whose load_checkpoint gets a checkpoint without optimizer state while epochs remain
+NO_OPTIMIZER_STATE_WARNING = ('WARNING: this checkpoint has no optimizer state (checkpoint_final does not keep it). '
+                              'If training continues from here, the optimizer starts from scratch.')
 
 _STATE_TENSOR = '__nnunet_checkpoint_state__'
 _TAG = '$type'
@@ -98,8 +101,10 @@ def find_checkpoint_file(filename: str) -> Optional[str]:
     if os.path.isfile(filename):
         other = other_format_filename(filename)
         if other is not None and os.path.isfile(other):
-            warnings.warn(f'Both {filename} and {other} exist. Using {filename}. To use the other one, ask for '
-                          f'{os.path.basename(other)} by name.')
+            warnings.warn(f'Both {filename} and {other} exist. Using {filename}. To use the other one, pass '
+                          f'{os.path.basename(other)} where a checkpoint name is taken (nnUNetv2_predict -chk), or '
+                          f'move {os.path.basename(filename)} out of the folder. nnUNetv2_train (--c, --val, '
+                          f'--val_best) always uses the .safetensors file.')
         return filename
     other = other_format_filename(filename)
     if other is not None and os.path.isfile(other):
