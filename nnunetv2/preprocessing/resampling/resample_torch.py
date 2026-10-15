@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from batchgenerators.augmentations.utils import SEG_TIEBREAKS
 from einops import rearrange
+from scipy.ndimage import find_objects
 from torch.nn import functional as F
 
 from nnunetv2.configuration import ANISO_THRESHOLD
@@ -83,6 +84,17 @@ def _resample_seg_nearest(data: torch.Tensor, new_shape, mode: str, device) -> t
     return out[0].to(result_dtype)
 
 
+def _label_boxes(labels: torch.Tensor):
+    """
+    {label: tuple of slices}: the bounding box of every positive label in `labels`, from one pass over it
+    (scipy's find_objects). Labels <= 0 and labels that do not occur have no entry. None off the CPU, where
+    callers fall back to the whole volume rather than move the volume to the host for this.
+    """
+    if labels.device.type != 'cpu':
+        return None
+    return {i + 1: b for i, b in enumerate(find_objects(labels.numpy())) if b is not None}
+
+
 def _resample_seg_running_argmax(data: torch.Tensor, new_shape, torch_mode: str, seg_tiebreak: str,
                                  unique_values: torch.Tensor, result_dtype, device) -> torch.Tensor:
     """
@@ -104,21 +116,20 @@ def _resample_seg_running_argmax(data: torch.Tensor, new_shape, torch_mode: str,
     c = data.shape[0]
     result = torch.zeros((c, *new_shape), dtype=result_dtype, device=device)
     best = torch.zeros((c, *new_shape), dtype=torch.float16, device=device)
-    better = torch.empty((c, *new_shape), dtype=torch.bool, device=device)
     scores16 = torch.empty((c, *new_shape), dtype=torch.float16, device=device)
     scores32 = torch.empty((1, c, *new_shape), dtype=torch.float32, device=device)
     onehot = torch.empty((1, *data.shape), dtype=torch.float32, device=device)
     indicator = torch.empty((1, *data.shape), dtype=torch.bool, device=device)
 
-    # `equal` and `scratch` are live only between the float16 cast and the end of the bookkeeping,
+    # `better` and `is_nn` are live only between the float16 cast and the end of the label's update,
     # which is exactly the window in which scores32 holds nothing anyone reads again - the next label
     # overwrites it wholesale. Carving them out of its storage (4 bytes per output voxel, room for
-    # both) keeps the peak where it was instead of 2 bytes per output voxel above it.
+    # both) keeps them off the peak.
     # NOTE: this means nothing may read scores32 after the float16 cast. Keep it that way.
     _pool = scores32.view(torch.bool).reshape(-1)
     _n = result.numel()
-    equal = _pool[:_n].view(result.shape)
-    scratch = _pool[_n:2 * _n].view(result.shape)
+    better = _pool[:_n].view(result.shape)
+    is_nn = _pool[_n:2 * _n].view(result.shape)
 
     hi = torch.tensor(float(SEG_SCALE_FACTOR), device=device)
     lo = torch.tensor(0., device=device)
@@ -132,16 +143,16 @@ def _resample_seg_running_argmax(data: torch.Tensor, new_shape, torch_mode: str,
         # path already makes there: symmetric in the labels, and unbiased in volume.
         # But only if it is one of the tied labels. Where three or more labels meet it can be a label that
         # lost - halving the 2x2x2 block [3,1,1,1,2,2,2,3] scores 1 and 2 at 0.375 each and 3 at 0.25, and
-        # the nearest neighbour is a 3. So rather than marking tied voxels, `nn_top` tracks whether the
-        # nearest neighbour's label currently has the top score: a label that takes the lead strictly
-        # decides that afresh, one that draws level can only add to it. Where it holds at the end the
-        # nearest neighbour is the answer (a no-op where its label won outright); elsewhere the argmax
-        # winner stands. nn_top is the size of the tied mask it replaces; nn itself adds one result sized
-        # volume, since it is needed during the loop now rather than only after it.
+        # the nearest neighbour is a 3. So the nearest neighbour settles a voxel exactly where its own
+        # label has the top score (a no-op where that label won outright); elsewhere the argmax winner
+        # stands. `nn_score` keeps the score of the nearest neighbour's label per voxel - written while
+        # that label is in the loop, two ops per label - and is compared with the top score once, after
+        # the loop. -inf never equals a score.
         # scores32 holds nothing yet, so the float nearest sample can go through it.
         onehot.copy_(data[None])
         nn = _interpolate_into(onehot, new_shape, 'nearest-exact', out=scores32)[0].to(result_dtype)
-        nn_top = torch.zeros((c, *new_shape), dtype=torch.bool, device=device)
+        nn_score = torch.full((c, *new_shape), float('-inf'), dtype=torch.float16, device=device)
+        nn_boxes = _label_boxes(nn)
 
     for u in unique_values:
         torch.eq(data[None], u, out=indicator)
@@ -162,22 +173,21 @@ def _resample_seg_running_argmax(data: torch.Tensor, new_shape, torch_mode: str,
         torch.where(indicator[:, sl], hi, lo, out=onehot[:, sl])
         _interpolate_into(onehot[:, sl], new_shape, torch_mode, out=scores32[:, sl])
         tmp = scores16[sl].copy_(scores32[0, sl])
-        best_v, better_v, equal_v, scratch_v = best[sl], better[sl], equal[sl], scratch[sl]
+        best_v, better_v = best[sl], better[sl]
 
         # '>=' lets the later (larger) label take exact ties, '>' leaves them with the earlier one
         (torch.ge if seg_tiebreak == 'highest' else torch.gt)(tmp, best_v, out=better_v)
         if nearest:
-            # nn_top = (nn_top and not better) or (this label is the nearest neighbour's and takes the lead
-            # or draws level), evaluated against the current leader before `best` is updated. No `> 0`
-            # guard is needed on drawing level: the nearest neighbour's own pixel always carries weight, so
-            # where this label is the nearest neighbour's its score is positive.
-            nn_top_v = nn_top[sl]
-            torch.eq(nn[sl], int(u), out=scratch_v)  # an int, so the int8/int16 compare stays integer
-            torch.ge(tmp, best_v, out=equal_v)
-            equal_v &= scratch_v
-            torch.logical_not(better_v, out=scratch_v)
-            nn_top_v &= scratch_v
-            nn_top_v |= equal_v
+            # Each voxel has one nearest neighbour label, so exactly one label writes its score here. That
+            # is all the bookkeeping the tie-break needs: tracking through the loop whether the nearest
+            # neighbour's label currently leads (what this replaces) took six full-volume ops per label
+            # and ends up with the same answer, nn_score == best. And it only has to look where this
+            # label is the nearest neighbour's: its bounding box, typically a few % of the volume.
+            box = (sl,) if nn_boxes is None or int(u) <= 0 else nn_boxes.get(int(u))
+            if box is not None:
+                is_nn_v, nn_score_v = is_nn[box], nn_score[box]
+                torch.eq(nn[box], int(u), out=is_nn_v)  # an int, so the int8/int16 compare stays integer
+                torch.where(is_nn_v, scores16[box], nn_score_v, out=nn_score_v)
         # masked_fill_ and maximum(out=) rather than boolean indexed assignment: `result[better] = u`
         # and `best[better] = tmp[better]` each materialize an index and a gathered copy, which on a
         # full sized output volume costs more than the score buffer this branch exists to avoid.
@@ -185,9 +195,13 @@ def _resample_seg_running_argmax(data: torch.Tensor, new_shape, torch_mode: str,
         torch.maximum(best_v, tmp, out=best_v)
 
     if nearest:
-        # where, not `result[nn_top] = nn[nn_top]`: nn_top holds nearly everywhere (wherever the nearest
+        # The nearest neighbour's label has the top score exactly where its score equals the final best.
+        # No `> 0` guard is needed: the nearest neighbour's own pixel always carries weight, so its
+        # label's score is positive. scores32 is dead after the loop, so the mask can go into its storage.
+        use_nn = torch.eq(nn_score, best, out=better)
+        # where, not `result[use_nn] = nn[use_nn]`: use_nn holds nearly everywhere (wherever the nearest
         # neighbour's label won outright, too), and indexing with it materializes an int64 index per voxel
-        torch.where(nn_top, nn, result, out=result)
+        torch.where(use_nn, nn, result, out=result)
     return result
 
 
