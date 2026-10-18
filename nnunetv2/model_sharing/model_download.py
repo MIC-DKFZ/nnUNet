@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import requests
@@ -11,13 +12,12 @@ from tqdm import tqdm
 def download_and_install_from_url(url):
     nnUNet_results.require()
     print('Downloading pretrained model from url:', url)
-    import os
     home = os.path.expanduser('~')
     with TemporaryDirectory(prefix='.nnunetdownload_', dir=home) as tmpdir:
-        tempfile = join(tmpdir, 'model.zip')
-        download_file(url=url, local_filename=tempfile, chunk_size=8192 * 16)
+        zip_path = join(tmpdir, 'model.zip')
+        download_file(url=url, local_filename=zip_path, chunk_size=8192 * 16)
         print("Download finished. Extracting...")
-        install_model_from_zip_file(tempfile)
+        install_model_from_zip_file(zip_path)
         print("Done")
 
 
