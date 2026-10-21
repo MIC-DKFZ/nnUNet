@@ -55,12 +55,12 @@ Labels (labelsTr):
 - 1 (nodule): voxels in the masks of >= 2 readers. Dataset022 mostly followed this rule but counted the outline pixels
   as nodule; its masks are not exactly reproducible and are empty for the 14 scans with flipped in-plane orientation
   (README.md in the dataset folder lists the differences).
-- 2 (ignore): lesions without ground truth: voxels in the mask of exactly 1 reader (single-reader nodules) and a 3 mm-
-  radius ball around every point of a 'nodule < 3 mm' mark, unless they are connected (26-neighborhood) to label 1;
-  dilated by 3 voxels (ball in voxel units) so that the whole lesion is covered; never touches label 1 (at least one
-  background voxel in between).
-- 0 (background): everything else. The label 1 mask is the ground truth including its border: where only one reader's
-  mask extends beyond it, it is background, not ignore. 'non-nodule' marks stay background (their extent is unknown).
+- 2 (ignore):
+  - nodules outlined by only one reader, dilated by 3 voxels so that the whole lesion is covered;
+  - small nodules ('nodule < 3 mm' marks): a 3 mm ball around the point.
+  Label 1 is the ground truth including its border, so ignore never touches it: where one reader's mask extends beyond
+  a label 1 nodule, or a small nodule mark lies on it, that stays background.
+- 0 (background): everything else, including 'non-nodule' marks (their extent is unknown).
 Additionally written:
 - readersTr/CASE.nii.gz: uint8, bit r set = voxel in the mask of reader r (r = readingSession order in the XML), so
   other agreement rules can be derived without parsing the XML again.
@@ -391,6 +391,32 @@ def _point_ball_offsets(spacing_zyx, radius_mm):
     return grid[np.linalg.norm(grid * np.array(spacing_zyx), axis=1) <= radius_mm]
 
 
+def make_labels(readers, num_readers, small_nodules_zyx, spacing_zyx):
+    """
+    readers: uint8, bit r = voxel in the mask of reader r. small_nodules_zyx: voxel positions of 'nodule < 3 mm' marks.
+    1 = voxels in the masks of >= 2 readers: the ground truth, including its border.
+    2 = ignore: nodules outlined by only one reader, dilated by 3 voxels to cover the whole lesion, and a 3 mm ball
+        around each small nodule mark. Single-reader voxels and small nodule marks touching label 1 are part of that
+        nodule and stay background; ignore keeps at least one voxel away from label 1.
+    0 = everything else.
+    """
+    count = sum(((readers >> r) & 1).astype(np.uint8) for r in range(num_readers))
+    seg = (count >= MIN_READERS).astype(np.uint8)
+    near_label_1 = dilate(seg == 1, np.ones((3, 3, 3), bool))
+    single = count == 1
+    components, _ = ndimage.label(single | (seg == 1), np.ones((3, 3, 3)))
+    single &= ~np.isin(components, np.unique(components[seg == 1]))
+    ignore = dilate(single, ball(IGNORE_DILATION_VOXELS).astype(bool))
+    offsets = _point_ball_offsets(spacing_zyx, POINT_IGNORE_RADIUS_MM)
+    for zyx in small_nodules_zyx:
+        idx = np.array(zyx) + offsets
+        idx = tuple(idx[np.all((idx >= 0) & (idx < np.array(seg.shape)), axis=1)].T)
+        if not near_label_1[idx].any():
+            ignore[idx] = True
+    seg[ignore & ~near_label_1] = 2
+    return seg
+
+
 def reader_physical_point(reader, index_xyz):
     """World coordinate (mm) of a continuous voxel index, from the header in an sitk.ImageFileReader."""
     return np.array(reader.GetOrigin()) + np.array(reader.GetDirection()).reshape(3, 3) @ \
@@ -518,25 +544,8 @@ def convert_case(case, image_file, patient_folder, output_folder, reads=None):
                 if a['characteristics'] is not None:
                     entry['characteristics'] = a['characteristics']
                 point_marks.append((r, zyx, entry))
-    num_readers = np.zeros(shape_zyx, np.uint8)
-    for r in range(len(used_sessions)):
-        num_readers += (readers >> r) & 1
-
-    # The >= 2 reader mask is the ground truth, including its border: single-reader voxels and 'nodule < 3 mm' balls
-    # connected to it stay background. Only lesions without ground truth (single-reader nodules, small nodules) are
-    # ignored, dilated so that the whole lesion is covered.
-    seg = (num_readers >= MIN_READERS).astype(np.uint8)
-    uncertain = num_readers == 1
-    offsets = _point_ball_offsets(spacing_zyx, POINT_IGNORE_RADIUS_MM)
-    for _, zyx, entry in point_marks:
-        if entry['type'] == 'nodule < 3 mm':
-            idx = np.array(zyx) + offsets
-            idx = idx[np.all((idx >= 0) & (idx < np.array(shape_zyx)), axis=1)]
-            uncertain[tuple(idx.T)] = True
-    components, _ = ndimage.label(uncertain | (seg == 1), np.ones((3, 3, 3)))
-    uncertain &= ~np.isin(components, np.unique(components[seg == 1]))
-    ignore = dilate(uncertain, ball(IGNORE_DILATION_VOXELS).astype(bool))
-    seg[ignore & ~dilate(seg == 1, np.ones((3, 3, 3), bool))] = 2
+    seg = make_labels(readers, len(used_sessions),
+                      [zyx for _, zyx, entry in point_marks if entry['type'] == 'nodule < 3 mm'], spacing_zyx)
     _write(seg, reader, join(output_folder, 'labelsTr', case + '.nii.gz'))
     _write(readers, reader, join(output_folder, 'readersTr', case + '.nii.gz'))
     for r in range(len(used_sessions)):
@@ -564,8 +573,7 @@ def convert_case(case, image_file, patient_folder, output_folder, reads=None):
                   'centroid_world_xyz': [round(float(c), 2) for c in reader_physical_point(reader, centroid[::-1])]}
         if voxels is not None:
             lesion['bbox_voxel_zyx'] = [[int(c.min()), int(c.max()) + 1] for c in zyx]
-            lesion['num_voxels_label'] = {'nodule': int((seg_flat[voxels] == 1).sum()),
-                                          'ignore': int((seg_flat[voxels] == 2).sum())}
+            lesion['num_voxels_label_1'] = int((seg_flat[voxels] == 1).sum())
         lesion['marks'] = marks
         lesions.append(lesion)
     order = {'nodule >= 3 mm': 0, 'nodule < 3 mm': 1, 'non-nodule': 2}
@@ -607,11 +615,10 @@ conversion decision in detail.
 ## Labels (labelsTr)
 - Every reader's mask = union of their 'nodule >= 3 mm' outlines, filled, outline pixels removed (LIDC reader
   instructions: the outline is the first pixels outside the nodule), inclusion=FALSE regions removed.
-- 1 nodule: voxels in the masks of >= 2 readers.
-- 2 ignore: lesions without ground truth: single-reader nodules and a 3 mm ball around each 'nodule < 3 mm' point, if
-  not connected to label 1; dilated by 3 voxels; never touches label 1.
-- 0 background. Label 1 is the ground truth including its border: voxels where only one reader's mask extends beyond
-  it are background, not ignore. The points marked 'non-nodule' (scars, masses > 30 mm, ...) are background too.
+- 1 nodule: voxels in the masks of >= 2 readers. This is the ground truth, including its border.
+- 2 ignore: nodules outlined by only one reader (dilated by 3 voxels), and small nodules ('nodule < 3 mm' marks: 3 mm
+  ball around the point). Ignore never touches label 1.
+- 0 background: everything else, including 'non-nodule' marks (scars, masses > 30 mm, ...).
 
 ## Other files
 - readersTr/: uint8 per case, bit r = voxel in the mask of reader r (XML reading session order; reader identity is
@@ -677,7 +684,8 @@ def write_dataset_json_and_readme(output_folder: str, d22_folder: str, cases):
         'description': 'Thoracic CT scans from the LIDC-IDRI collection (TCIA), one scan per patient (1010 cases), '
                        'with lung nodule labels regenerated from the original reader annotations (TCIA '
                        'LIDC-XML-only.zip): nodule = voxels inside the \'nodule >= 3 mm\' outlines of at least 2 of '
-                       'the 4 readers, ignore = single-reader nodules and small (< 3 mm) nodule marks. This dataset '
+                       'the 4 readers, ignore = nodules outlined by only one reader and small (< 3 mm) nodules. This '
+                       'dataset '
                        f'supersedes {d22_name}, whose masks were made by an undocumented procedure. Images are '
                        f'referenced from {d22_name} via the dataset key; only the labels are stored here, except for '
                        'LIDC-IDRI-0085 and 0672, whose images are truncated in ' + d22_name + ' and were converted '
@@ -707,11 +715,10 @@ def write_dataset_json_and_readme(output_folder: str, d22_folder: str, cases):
                 'consensus) who outlined every \'nodule >= 3 mm\' (3-30 mm) and marked \'nodule < 3 mm\' and '
                 '\'non-nodule\' lesions with a single point. Labels: per reader the outlines are filled with the '
                 'outline pixels removed (the outline is the first pixels outside the nodule) and inclusion=FALSE '
-                'regions removed; 1 = voxels of >= 2 readers, the ground truth including its border (single-reader '
-                'voxels connected to it are background); 2 (ignore) = lesions without ground truth (single-reader '
-                'nodules and a 3 mm ball around each \'nodule < 3 mm\' point, if not connected to label 1), dilated by '
-                '3 voxels, never touching 1; \'non-nodule\' points (incl. masses > 30 mm) are background. Compared '
-                'with these labels, the masks of ' + d22_name +
+                'regions removed. 1 = voxels of >= 2 readers (the ground truth, including its border). 2 (ignore) = '
+                'nodules outlined by only one reader (dilated by 3 voxels) and small nodules (3 mm ball around each '
+                '\'nodule < 3 mm\' mark); ignore never touches label 1. 0 = everything else, including \'non-nodule\' '
+                'marks (incl. masses > 30 mm). Compared with these labels, the masks of ' + d22_name +
                 ' mostly are the voxels inside the outlines of >= 2 readers with the outline pixels counted as nodule, '
                 'but not exactly: they contain some single-reader nodules, miss some nodules outlined by >= 2 readers, '
                 'and are empty for all 14 scans with flipped in-plane orientation (0218, 0262, 0291, 0311, 0313, 0415, '
