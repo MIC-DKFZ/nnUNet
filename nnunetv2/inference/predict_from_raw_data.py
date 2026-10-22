@@ -120,13 +120,24 @@ class nnUNetPredictor(object):
                 "The old signature will be removed in a future version.",
                 DeprecationWarning, stacklevel=2,
             )
-            network = trainer_class.build_network_architecture(
-                configuration_manager.network_arch_class_name,
-                configuration_manager.network_arch_init_kwargs,
-                configuration_manager.network_arch_init_kwargs_req_import,
-                num_input_channels, num_output_channels,
-                enable_deep_supervision=False,
-            )
+            if 'input_patch_size' in sig.parameters:
+                network = trainer_class.build_network_architecture(
+                    configuration_manager.network_arch_class_name,
+                    configuration_manager.network_arch_init_kwargs,
+                    configuration_manager.network_arch_init_kwargs_req_import,
+                    input_patch_size=configuration_manager.patch_size,
+                    num_input_channels=num_input_channels,
+                    num_output_channels=num_output_channels,
+                    enable_deep_supervision=False,
+                )
+            else:
+                network = trainer_class.build_network_architecture(
+                    configuration_manager.network_arch_class_name,
+                    configuration_manager.network_arch_init_kwargs,
+                    configuration_manager.network_arch_init_kwargs_req_import,
+                    num_input_channels, num_output_channels,
+                    enable_deep_supervision=False,
+                )
 
         self.plans_manager = plans_manager
         self.configuration_manager = configuration_manager
