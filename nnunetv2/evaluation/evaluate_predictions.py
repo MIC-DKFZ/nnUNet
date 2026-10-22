@@ -101,14 +101,16 @@ def _labels_to_bin_indices(segmentation_chunk: np.ndarray, lut: np.ndarray, lut_
 
 
 def compute_confusion_matrix(seg_ref: np.ndarray, seg_pred: np.ndarray, labels: Union[List[int], Tuple[int, ...]],
-                             ignore_label: int = None, chunk_size: int = 2 ** 22) -> np.ndarray:
+                             ignore_label: int = None, chunk_size: int = 2 ** 20) -> np.ndarray:
     """
     Returns the confusion matrix of seg_ref (rows) and seg_pred (columns), shape (len(labels) + 1, len(labels) + 1).
     Index i < len(labels) stands for labels[i], the last index collects all values that are not in labels. Voxels
     where seg_ref == ignore_label are not counted at all.
 
     labels must be unique. The volume is processed in chunks of chunk_size voxels so that the temporary integer
-    arrays stay small, no matter how large the images are.
+    arrays stay small, no matter how large the images are. The default keeps each int64 temporary at 8 MiB, below
+    glibc's 32 MiB mmap threshold, so freed temporaries are reused for the next chunk. Larger chunks get freshly
+    mapped memory for every chunk, which the kernel has to fault in and zero, and that is slower than the counting.
     """
     if seg_ref.shape != seg_pred.shape:
         raise ValueError(f'Shape mismatch between reference {seg_ref.shape} and prediction {seg_pred.shape}')
