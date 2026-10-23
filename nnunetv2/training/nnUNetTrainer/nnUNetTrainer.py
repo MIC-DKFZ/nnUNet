@@ -258,14 +258,25 @@ class nnUNetTrainer(object):
                     "The old signature will be removed in a future version.",
                     DeprecationWarning, stacklevel=2,
                 )
-                self.network = self.build_network_architecture(
-                    self.configuration_manager.network_arch_class_name,
-                    self.configuration_manager.network_arch_init_kwargs,
-                    self.configuration_manager.network_arch_init_kwargs_req_import,
-                    self.num_input_channels,
-                    self.label_manager.num_segmentation_heads,
-                    self.enable_deep_supervision
-                ).to(self.device)
+                if 'input_patch_size' in sig.parameters:
+                    self.network = self.build_network_architecture(
+                        self.configuration_manager.network_arch_class_name,
+                        self.configuration_manager.network_arch_init_kwargs,
+                        self.configuration_manager.network_arch_init_kwargs_req_import,
+                        input_patch_size=self.configuration_manager.patch_size,
+                        num_input_channels=self.num_input_channels,
+                        num_output_channels=self.label_manager.num_segmentation_heads,
+                        enable_deep_supervision=self.enable_deep_supervision,
+                    ).to(self.device)
+                else:
+                    self.network = self.build_network_architecture(
+                        self.configuration_manager.network_arch_class_name,
+                        self.configuration_manager.network_arch_init_kwargs,
+                        self.configuration_manager.network_arch_init_kwargs_req_import,
+                        self.num_input_channels,
+                        self.label_manager.num_segmentation_heads,
+                        self.enable_deep_supervision
+                    ).to(self.device)
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
 

@@ -17,6 +17,9 @@ import argparse
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
+from nnunetv2.configuration import default_num_processes
+from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import extract_sampling_locations_for_folder
+from nnunetv2.training.dataloading.foreground_locations import has_foreground_locations
 from nnunetv2.utilities.file_path_utilities import copy_file_if_newer
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
@@ -84,6 +87,31 @@ def get_new_normalization_format(original_config: ConfigurationManager) -> list[
     return ["ZScoreNormalization" for _ in norm_scheme]
 
 
+def maybe_extract_sampling_locations(
+    dataset_name: str,
+    plans_manager: PlansManager,
+    preprocessed_folder: str,
+    overwrite: bool,
+    verbose: bool,
+    progress_bar: bool,
+):
+    """
+    Build the foreground sampling location store for `preprocessed_folder` unless it already has one.
+    Folders preprocessed before the store existed only need this step, not a full re-preprocessing.
+    """
+    if has_foreground_locations(preprocessed_folder) and not overwrite:
+        return
+    label_manager = plans_manager.get_label_manager(load_json(join(nnUNet_preprocessed, dataset_name, "dataset.json")))
+    # only reads segmentations, so it does not need the (RAM-bound) preprocessing process budget
+    extract_sampling_locations_for_folder(
+        preprocessed_folder,
+        label_manager.classes_or_regions_for_sampling,
+        num_processes=default_num_processes,
+        verbose=verbose,
+        show_progress_bar=progress_bar,
+    )
+
+
 def preprocess_like_nnssl(
     dataset_id: int,
     pretrain_name: str,
@@ -93,6 +121,7 @@ def preprocess_like_nnssl(
     num_processes: int,
     verbose: bool,
     overwrite_pp: bool = False,
+    progress_bar: bool = True,
 ):
     """
     Preprocess a dataset relative to pre-training from nnssl.
@@ -179,13 +208,18 @@ def preprocess_like_nnssl(
     # We never overwrite existing currently, as multiple preprocessors can share the same data files.
     #     Otherwise stuff might break. Skip preprocessing if the target folder already exists.
     preprocessed_folder = join(nnUNet_preprocessed, dataset_name, data_identifier)
-    if os.path.isdir(preprocessed_folder) and not overwrite_pp:
+    preprocessed_now = not os.path.isdir(preprocessed_folder) or overwrite_pp
+    if not preprocessed_now:
         print(f"Preprocessed data already exists at {preprocessed_folder}")
         print("Skipping preprocessing. Pass --overwrite_pp (or delete the folder) to re-preprocess.")
     else:
         print("Running preprocessing...")
         preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
         preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
+    # preprocessor.run() starts from an empty folder, so a fresh run always needs a new store
+    maybe_extract_sampling_locations(
+        dataset_name, adapted_plans, preprocessed_folder, preprocessed_now, verbose, progress_bar
+    )
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
     # longer there (useful for compute cluster where only the preprocessed data is available)
     maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
@@ -312,6 +346,12 @@ def preprocess_like_nnssl_entrypoint():
         action="store_true",
         help="[OPTIONAL] Force (re)running preprocessing even if the target preprocessed folder already exists.",
     )
+    parser.add_argument(
+        "--no_pbar",
+        required=False,
+        action="store_true",
+        help="[OPTIONAL] Disable the progress bar. Recommended for cluster environments.",
+    )
     args = parser.parse_args()
 
     dataset_ids: int = args.d
@@ -334,6 +374,7 @@ def preprocess_like_nnssl_entrypoint():
         num_processes=num_processes,
         verbose=verbose,
         overwrite_pp=overwrite_pp,
+        progress_bar=not args.no_pbar,
     )
 
 
@@ -345,6 +386,7 @@ def plan_like_dynamic(
     num_processes: int = 4,
     verbose: bool = False,
     overwrite_pp: bool = False,
+    progress_bar: bool = True,
 ):
     """
     Create a plan that keeps the original nnUNet dynamic architecture intact,
@@ -418,13 +460,18 @@ def plan_like_dynamic(
     data_identifier = adapted_config.data_identifier
     preprocessed_folder = join(nnUNet_preprocessed, dataset_name, data_identifier)
 
-    if os.path.isdir(preprocessed_folder) and not overwrite_pp:
+    preprocessed_now = not os.path.isdir(preprocessed_folder) or overwrite_pp
+    if not preprocessed_now:
         print(f"Preprocessed data already exists at {preprocessed_folder}")
         print("Skipping preprocessing. Pass --overwrite_pp (or delete the folder) to re-preprocess.")
     else:
         print(f"Running preprocessing...")
         preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
         preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
+    # preprocessor.run() starts from an empty folder, so a fresh run always needs a new store
+    maybe_extract_sampling_locations(
+        dataset_name, adapted_plans, preprocessed_folder, preprocessed_now, verbose, progress_bar
+    )
 
     # Copy ground truth segmentations
     maybe_mkdir_p(join(nnUNet_preprocessed, dataset_name, 'gt_segmentations'))
@@ -493,6 +540,12 @@ def plan_like_dynamic_entrypoint():
         action="store_true",
         help="[OPTIONAL] Force (re)running preprocessing even if the target preprocessed folder already exists.",
     )
+    parser.add_argument(
+        "--no_pbar",
+        required=False,
+        action="store_true",
+        help="[OPTIONAL] Disable the progress bar. Recommended for cluster environments.",
+    )
     args = parser.parse_args()
 
     pretrained_checkpoint_path = maybe_download_pretrained_weights(args.pretrained_checkpoint)
@@ -505,6 +558,7 @@ def plan_like_dynamic_entrypoint():
         num_processes=args.np,
         verbose=args.verbose,
         overwrite_pp=args.overwrite_pp,
+        progress_bar=not args.no_pbar,
     )
 
 
