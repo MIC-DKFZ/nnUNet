@@ -173,7 +173,7 @@ class nnUNetDataLoader(DataLoader):
                     bbox_lbs, bbox_ubs = self.get_bbox(i, shape, force_fg)
                     bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
-                    data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0)).float()
+                    data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0).copy()).float()
                     seg_cropped = torch.from_numpy(crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16)).to(torch.int16)
                     if seg_prev is not None:
                         seg_prev_cropped = torch.from_numpy(crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16)).to(torch.int16)
