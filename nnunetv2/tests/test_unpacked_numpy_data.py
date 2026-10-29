@@ -10,34 +10,47 @@ import torch
 from batchgenerators.utilities.file_and_folder_operations import join, save_json
 
 import nnunetv2.training.nnUNetTrainer.nnUNetTrainer as trainer_module
+from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader, _writeable
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetNumpy
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 
-class TestNumpyDatasetLoadCase(unittest.TestCase):
-    def test_unpacked_arrays_are_writable_and_leave_the_files_alone(self):
-        # a crop that lies inside a case is a view of these arrays, and the data augmentation writes into it in
-        # place. With a read-only mapping that write is a segmentation fault in the dataloader worker
+class TestDataLoaderCropsAreWriteable(unittest.TestCase):
+    def test_crops_of_unpacked_data_are_writeable(self):
+        # the data augmentation writes into the patches in place. A crop inside an unpacked .npy case is a view of a
+        # read-only memory-mapped file, and writing into that is a segmentation fault in the dataloader worker
         with TemporaryDirectory() as folder, TemporaryDirectory() as prev_stage_folder:
             rng = np.random.default_rng(0)
-            originals = {
-                join(folder, 'case.npy'): rng.random((2, 8, 9, 10), dtype=np.float32),
-                join(folder, 'case_seg.npy'): rng.integers(-1, 3, (1, 8, 9, 10)).astype(np.int16),
-                join(prev_stage_folder, 'case.npy'): rng.integers(0, 3, (1, 8, 9, 10)).astype(np.int16),
-            }
-            for f, arr in originals.items():
-                np.save(f, arr)
-
+            np.save(join(folder, 'case.npy'), rng.random((2, 20, 20, 20), dtype=np.float32))
+            # int16 like the cast below, so that the cast does not copy and the crop stays a view
+            np.save(join(folder, 'case_seg.npy'), rng.integers(-1, 3, (1, 20, 20, 20)).astype(np.int16))
+            # previous stage segmentations have no channel axis
+            np.save(join(prev_stage_folder, 'case.npy'), rng.integers(0, 3, (20, 20, 20)).astype(np.int16))
             with redirect_stdout(io.StringIO()):  # the notice about the missing foreground location store
                 ds = nnUNetDatasetNumpy(folder, ['case'], folder_with_segs_from_previous_stage=prev_stage_folder)
-            loaded = ds.load_case('case')
-            for arr, original in zip(loaded, originals.values()):
-                np.testing.assert_array_equal(arr, original)
-                arr[:, 2:5, 2:5, 2:5] += 1
-            del loaded, arr
+            # patch size smaller than the case and no padding: every crop lies inside the case
+            dl = nnUNetDataLoader(ds, 2, (8, 8, 8), (8, 8, 8), LabelManager({'background': 0, 'a': 1}, None))
 
-            for f, original in originals.items():
-                np.testing.assert_array_equal(np.load(f), original)
+            writeable = []
+            from_numpy = torch.from_numpy
+
+            def recording_from_numpy(arr):
+                writeable.append(arr.flags.writeable)
+                return from_numpy(arr)
+
+            with mock.patch.object(torch, 'from_numpy', recording_from_numpy):
+                dl.generate_train_batch()
+            self.assertEqual(writeable, [True] * 6)  # 2 samples x (image, segmentation, previous stage)
+
+    def test_only_read_only_arrays_are_copied(self):
+        arr = np.arange(6.)
+        self.assertIs(_writeable(arr), arr)
+        arr.flags.writeable = False
+        copied = _writeable(arr)
+        self.assertIsNot(copied, arr)
+        self.assertTrue(copied.flags.writeable)
+        np.testing.assert_array_equal(copied, arr)
 
 
 class TestOnTrainStartOrder(unittest.TestCase):

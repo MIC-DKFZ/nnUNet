@@ -16,6 +16,15 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
 
+def _writeable(arr: np.ndarray) -> np.ndarray:
+    """
+    The data augmentation writes into the patches in place. A crop that lies inside a case is a view of the case,
+    and for unpacked .npy data that is a read-only memory-mapped file: writing into it crashes the dataloader worker.
+    Only those crops are copied. blosc2 crops and padded crops are new arrays already.
+    """
+    return arr if arr.flags.writeable else arr.copy()
+
+
 class nnUNetDataLoader(DataLoader):
     def __init__(self,
                  data: nnUNetBaseDataset,
@@ -173,10 +182,10 @@ class nnUNetDataLoader(DataLoader):
                     bbox_lbs, bbox_ubs = self.get_bbox(i, shape, force_fg)
                     bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
-                    data_cropped = torch.from_numpy(crop_and_pad_nd(data, bbox, 0)).float()
-                    seg_cropped = torch.from_numpy(crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16)).to(torch.int16)
+                    data_cropped = torch.from_numpy(_writeable(crop_and_pad_nd(data, bbox, 0))).float()
+                    seg_cropped = torch.from_numpy(_writeable(crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16))).to(torch.int16)
                     if seg_prev is not None:
-                        seg_prev_cropped = torch.from_numpy(crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16)).to(torch.int16)
+                        seg_prev_cropped = torch.from_numpy(_writeable(crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16))).to(torch.int16)
                         seg_cropped = torch.cat((seg_cropped, seg_prev_cropped[None]), dim=0)
 
                     if self.patch_size_was_2d:
