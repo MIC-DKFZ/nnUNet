@@ -215,6 +215,8 @@ def preprocess_like_nnssl(
     else:
         print("Running preprocessing...")
         preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
+        if hasattr(preprocessor, 'show_progress_bar'):
+            preprocessor.show_progress_bar = progress_bar
         preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
     # preprocessor.run() starts from an empty folder, so a fresh run always needs a new store
     maybe_extract_sampling_locations(
@@ -467,6 +469,8 @@ def plan_like_dynamic(
     else:
         print(f"Running preprocessing...")
         preprocessor: DefaultPreprocessor = adapted_config.preprocessor_class(verbose=verbose)
+        if hasattr(preprocessor, 'show_progress_bar'):
+            preprocessor.show_progress_bar = progress_bar
         preprocessor.run(dataset_id, "3d_fullres", plans_name, num_processes=num_processes)
     # preprocessor.run() starts from an empty folder, so a fresh run always needs a new store
     maybe_extract_sampling_locations(
