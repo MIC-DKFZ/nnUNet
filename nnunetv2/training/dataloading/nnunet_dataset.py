@@ -281,22 +281,26 @@ class nnUNetBaseDataset(ABC):
 
 class nnUNetDatasetNumpy(nnUNetBaseDataset):
     def load_case(self, identifier):
+        # .npy files are mapped copy-on-write (mmap_mode='c'), not read-only. A crop that lies inside the case is a
+        # view of the mapping, and the data augmentation writes into it in place. Into a read-only mapping that is a
+        # segmentation fault in the dataloader worker. Copy-on-write gives the process private copies of only the
+        # pages it writes and never changes the file
         data_npy_file = join(self.source_folder, identifier + '.npy')
         if not isfile(data_npy_file):
             data = np.load(join(self.source_folder, identifier + '.npz'))['data']
         else:
-            data = np.load(data_npy_file, mmap_mode='r')
+            data = np.load(data_npy_file, mmap_mode='c')
 
         seg_npy_file = join(self.source_folder, identifier + '_seg.npy')
         if not isfile(seg_npy_file):
             seg = np.load(join(self.source_folder, identifier + '.npz'))['seg']
         else:
-            seg = np.load(seg_npy_file, mmap_mode='r')
+            seg = np.load(seg_npy_file, mmap_mode='c')
 
         if self.folder_with_segs_from_previous_stage is not None:
             prev_seg_npy_file = join(self.folder_with_segs_from_previous_stage, identifier + '.npy')
             if isfile(prev_seg_npy_file):
-                seg_prev = np.load(prev_seg_npy_file, 'r')
+                seg_prev = np.load(prev_seg_npy_file, mmap_mode='c')
             else:
                 seg_prev = np.load(join(self.folder_with_segs_from_previous_stage, identifier + '.npz'))['seg']
         else:

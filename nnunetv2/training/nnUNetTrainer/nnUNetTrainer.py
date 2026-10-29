@@ -1011,12 +1011,14 @@ class nnUNetTrainer(object):
                 num_processes=max(1, round(get_allowed_n_proc_DA() // 2)),
                 verify=True)
 
-        # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
-        # which may not be present  when doing inference
-        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
-
         if self.is_ddp:
             dist.barrier()
+
+        # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
+        # which may not be present  when doing inference. Their workers start reading right away, so this has to come
+        # after the unpacking, and in DDP after the barrier: only rank 0 unpacks, and a worker that opens a .npy file
+        # while it is being written fails with "mmap length is greater than file size"
+        self.dataloader_train, self.dataloader_val = self.get_dataloaders()
 
         # copy plans and dataset.json so that they can be used for restoring everything we need for inference
         save_json(self.plans_manager.plans, join(self.output_folder_base, 'plans.json'), sort_keys=False)
