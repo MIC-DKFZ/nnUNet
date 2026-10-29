@@ -51,12 +51,10 @@ class DynamicPretrainedTrainer(PretrainedTrainer):
             )
 
             self.network = self.build_network_architecture(
-                architecture_class_name=self.configuration_manager.network_arch_class_name,
-                arch_init_kwargs=self.configuration_manager.network_arch_init_kwargs,
-                arch_init_kwargs_req_import=self.configuration_manager.network_arch_init_kwargs_req_import,
-                input_patch_size=self.configuration_manager.patch_size,
-                num_input_channels=self.num_input_channels,
-                num_output_channels=self.label_manager.num_segmentation_heads,
+                self.plans_manager,
+                self.configuration_manager,
+                self.num_input_channels,
+                self.label_manager.num_segmentation_heads,
                 enable_deep_supervision=False,
             ).to(self.device)
 

@@ -18,6 +18,7 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context, set_default_i
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from nnunetv2.utilities.load_weights_utils import *
+from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
 warmup_stages = Literal["warmup_all", "warmup_decoder", "train_all", "train_decoder"]
 
 
@@ -87,12 +88,10 @@ class PretrainedTrainer(nnUNetTrainer):
             #   This plan holds details on how the architecture is supposed to be built.
 
             self.network = self.build_network_architecture(
-                architecture_class_name=self.configuration_manager.network_arch_class_name,
-                arch_init_kwargs=self.configuration_manager.network_arch_init_kwargs,
-                arch_init_kwargs_req_import=self.configuration_manager.network_arch_init_kwargs_req_import,
-                input_patch_size=self.configuration_manager.patch_size,  # Set in plan to pt_recommended_patchsize
-                num_input_channels=self.num_input_channels,
-                num_output_channels=self.label_manager.num_segmentation_heads,
+                self.plans_manager,
+                self.configuration_manager,
+                self.num_input_channels,
+                self.label_manager.num_segmentation_heads,
                 enable_deep_supervision=False,
             ).to(self.device)
 
@@ -345,14 +344,11 @@ class PretrainedTrainer(nnUNetTrainer):
 
     @staticmethod
     def build_network_architecture(
-        architecture_class_name: str,
-        arch_init_kwargs: dict,
-        arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
-        input_patch_size: tuple[int, int, int],
+        plans_manager: PlansManager,
+        configuration_manager: ConfigurationManager,
         num_input_channels: int,
         num_output_channels: int,
         enable_deep_supervision: bool = True,
-        **kwargs,
     ) -> AbstractDynamicNetworkArchitectures:
         """
         This is where you build the architecture according to the plans. There is no obligation to use
@@ -373,13 +369,14 @@ class PretrainedTrainer(nnUNetTrainer):
         should be generated. label_manager takes care of all that for you.)
 
         """
+        architecture_class_name = configuration_manager.network_arch_class_name
         if architecture_class_name in ["PlainConvUNet", "ResidualEncoderUNet"] or architecture_class_name.endswith(
             ("PlainConvUNet", "ResidualEncoderUNet")
         ):
             network = get_network_from_plans(
                 architecture_class_name,
-                arch_init_kwargs,
-                arch_init_kwargs_req_import,
+                configuration_manager.network_arch_init_kwargs,
+                configuration_manager.network_arch_init_kwargs_req_import,
                 num_input_channels,
                 num_output_channels,
                 allow_init=True,
@@ -390,7 +387,8 @@ class PretrainedTrainer(nnUNetTrainer):
                 architecture_class_name,
                 input_channels=num_input_channels,
                 output_channels=num_output_channels,
-                input_patchsize=input_patch_size,
+                # nnUNetv2_preprocess_like_nnssl sets the plan's patch size to the pretraining's recommendation
+                input_patchsize=configuration_manager.patch_size,
                 allow_init=True,
                 deep_supervision=False,
             )
