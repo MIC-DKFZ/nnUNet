@@ -51,7 +51,7 @@ dependencies = [
     "yacs",
     "batchgeneratorsv2>=0.3.6",
     "einops",
-    "blosc2>=3.3.2",
+    "blosc2>=4.1.0",
     "safetensors>=0.4.0",
     "timm>=1.0"  # required by nnssl finetuning (Primus); dynamic-network-architectures declares timm unpinned, which can resolve to a version predating timm.layers
 ]
