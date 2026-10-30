@@ -99,7 +99,7 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
 
 
 def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
-                          pretrained_weights_file: str = None):
+                          pretrained_weights_file: str = None, validation_with_best: bool = False):
     if continue_training and pretrained_weights_file is not None:
         raise RuntimeError('Cannot both continue a training AND load pretrained weights. Pretrained weights can only '
                            'be used at the beginning of the training.')
@@ -117,6 +117,12 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
         if expected_checkpoint_file is None:
             print("WARNING: Cannot continue training because there seems to be no checkpoint available to "
                   "continue from. Starting a new training...")
+    elif validation_only and validation_with_best:
+        # does not need checkpoint_final, so this also validates trainings that were stopped before they finished
+        expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
+                                                             'checkpoint_best.safetensors'))
+        if expected_checkpoint_file is None:
+            raise RuntimeError("Cannot run validation with --val_best because there is no checkpoint_best!")
     elif validation_only:
         expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
                                                              'checkpoint_final.safetensors'))
@@ -159,7 +165,7 @@ def execute_training(trainer_factory: Callable[[torch.device], nnUNetTrainer], d
         'Cannot set --c and --val flag at the same time. Dummy.'
 
     maybe_load_checkpoint(nnunet_trainer, options.continue_training, options.only_run_validation,
-                          options.pretrained_weights)
+                          options.pretrained_weights, options.val_with_best)
 
     if torch.cuda.is_available():
         cudnn.deterministic = False
@@ -168,7 +174,8 @@ def execute_training(trainer_factory: Callable[[torch.device], nnUNetTrainer], d
     if not options.only_run_validation:
         nnunet_trainer.run_training()
 
-    if options.val_with_best:
+    # with --val, maybe_load_checkpoint has already loaded checkpoint_best
+    if options.val_with_best and not options.only_run_validation:
         if dist.is_initialized():
             # rank 0 may still be writing checkpoint_best (and checkpoint_final) while the other ranks are already here
             dist.barrier()
@@ -319,7 +326,8 @@ def run_training_entry():
     parser.add_argument('--c', action='store_true', required=False,
                         help='[OPTIONAL] Continue training from latest checkpoint')
     parser.add_argument('--val', action='store_true', required=False,
-                        help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished.')
+                        help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished '
+                             '(with --val_best only that a checkpoint_best exists).')
     parser.add_argument('--val_best', action='store_true', required=False,
                         help='[OPTIONAL] If set, the validation will be performed with the checkpoint_best instead '
                              'of checkpoint_final. NOT COMPATIBLE with --disable_checkpointing! '

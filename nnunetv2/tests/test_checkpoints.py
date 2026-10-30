@@ -683,6 +683,41 @@ class TestRunTraining(_TmpDirTestCase):
         execute_training(lambda device: trainer, torch.device('cpu'), TrainingRunOptions(val_with_best=True))
         self.assertEqual(loaded, [self.path('checkpoint_best.pth')])
 
+    def run_with(self, checkpoints, **options) -> list:
+        """execute_training on a trainer that only records what happens to it"""
+        for c in checkpoints:
+            torch.save({}, self.path(c))
+        events = []
+        trainer = SimpleNamespace(output_folder=self.tmp, run_training=lambda: events.append('train'),
+                                  load_checkpoint=lambda f: events.append(f'load {os.path.basename(f)}'),
+                                  perform_actual_validation=lambda *args: events.append('validate'))
+        execute_training(lambda device: trainer, torch.device('cpu'), TrainingRunOptions(**options))
+        return events
+
+    def test_val_val_best_needs_only_checkpoint_best(self):
+        # a training that was stopped before it finished has checkpoint_best but no checkpoint_final (#3056)
+        events = self.run_with(['checkpoint_best.pth'], only_run_validation=True, val_with_best=True)
+        self.assertEqual(events, ['load checkpoint_best.pth', 'validate'])
+
+    def test_val_val_best_loads_only_checkpoint_best(self):
+        events = self.run_with(['checkpoint_final.safetensors', 'checkpoint_best.safetensors'],
+                               only_run_validation=True, val_with_best=True)
+        self.assertEqual(events, ['load checkpoint_best.safetensors', 'validate'])
+
+    def test_val_val_best_without_checkpoint_best_is_an_error(self):
+        with self.assertRaisesRegex(RuntimeError, 'no checkpoint_best'):
+            self.run_with(['checkpoint_final.safetensors'], only_run_validation=True, val_with_best=True)
+
+    def test_val_still_needs_checkpoint_final(self):
+        with self.assertRaisesRegex(RuntimeError, 'not finished'):
+            self.run_with(['checkpoint_best.safetensors'], only_run_validation=True)
+        self.assertEqual(self.run_with(['checkpoint_final.safetensors'], only_run_validation=True),
+                         ['load checkpoint_final.safetensors', 'validate'])
+
+    def test_val_best_after_training_loads_checkpoint_best(self):
+        events = self.run_with(['checkpoint_best.safetensors'], val_with_best=True)
+        self.assertEqual(events, ['train', 'load checkpoint_best.safetensors', 'validate'])
+
 
 if __name__ == '__main__':
     unittest.main()
