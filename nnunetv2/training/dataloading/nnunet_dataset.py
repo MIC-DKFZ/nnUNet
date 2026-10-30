@@ -377,7 +377,7 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
     def get_shape(self, identifier) -> Tuple[int, ...]:
         # blosc2.open only reads the frame header, no voxels are decompressed
         return tuple(blosc2.open(urlpath=join(self.source_folder, identifier + '.b2nd'), mode='r',
-                                 **self.mmap_kwargs).shape[1:])
+                                 dparams={'nthreads': 1}, **self.mmap_kwargs).shape[1:])
 
     @staticmethod
     def _select_filter(arr: np.ndarray, blocks, chunks, codec, clevel) -> "blosc2.Filter":
@@ -499,7 +499,10 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
     ):
         if isfile(output_filename_truncated + '.b2nd'):
             os.remove(output_filename_truncated + '.b2nd')
-        blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg)
+        # Without an explicit thread count blosc2 uses the process-wide blosc2.nthreads (all cores unless
+        # set_nthreads(1) ran in this process). save_seg runs in the export pool's workers, so that oversubscribes.
+        blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg,
+                       cparams={'nthreads': 1})
 
     @staticmethod
     def get_identifiers(folder: str) -> List[str]:
