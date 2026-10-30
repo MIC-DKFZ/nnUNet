@@ -175,7 +175,8 @@ def train_pretrained_entrypoint():
         "--val",
         action="store_true",
         required=False,
-        help="[OPTIONAL] Set this flag to only run the validation. Requires training to have finished.",
+        help="[OPTIONAL] Set this flag to only run the validation. Requires training to have finished "
+        "(with --val_best only that a checkpoint_best exists).",
     )
     parser.add_argument(
         "--val_best",
