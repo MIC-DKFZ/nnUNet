@@ -836,7 +836,7 @@ class nnUNetTrainer(object):
                 blur_sigma=(0.5, 1.),
                 synchronize_channels=False,
                 synchronize_axes=False,
-                p_per_channel=0.5, benchmark=True
+                p_per_channel=0.5, benchmark=False
             ), apply_probability=0.2
         ))
         transforms.append(RandomTransform(
