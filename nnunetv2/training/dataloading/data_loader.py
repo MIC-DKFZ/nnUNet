@@ -1,4 +1,5 @@
 import os
+import sys
 import warnings
 from typing import Union, Tuple, List
 
@@ -6,6 +7,10 @@ import numpy as np
 import torch
 from batchgenerators.dataloading.data_loader import DataLoader
 from batchgenerators.utilities.file_and_folder_operations import join, load_json
+try:
+    from threadpoolctl import ThreadpoolController
+except ImportError:  # threadpoolctl < 3.0
+    ThreadpoolController = None
 from threadpoolctl import threadpool_limits
 
 from nnunetv2.paths import nnUNet_preprocessed
@@ -23,6 +28,25 @@ def _writeable(arr: np.ndarray) -> np.ndarray:
     Only those crops are copied. blosc2 crops and padded crops are new arrays already.
     """
     return arr if arr.flags.writeable else arr.copy()
+
+
+# threadpool_limits() builds a new controller on every call, and that scans all shared libraries loaded in the process
+# (~7 ms per call with torch loaded). The dataloader enters the limit once per batch, so it keeps one controller per
+# process instead and only builds a new one when modules were imported since, which may have loaded new thread pools.
+# Module globals rather than DataLoader attributes, so that the dataloader stays picklable for its worker processes.
+_threadpool_controller = None
+_threadpool_controller_nmodules = -1
+
+
+def _single_threaded_math_libraries():
+    """Same as threadpool_limits(limits=1, user_api=None), without rescanning the loaded libraries each time"""
+    global _threadpool_controller, _threadpool_controller_nmodules
+    if ThreadpoolController is None:
+        return threadpool_limits(limits=1, user_api=None)
+    if _threadpool_controller is None or len(sys.modules) != _threadpool_controller_nmodules:
+        _threadpool_controller = ThreadpoolController()
+        _threadpool_controller_nmodules = len(sys.modules)
+    return _threadpool_controller.limit(limits=1, user_api=None)
 
 
 class nnUNetDataLoader(DataLoader):
@@ -168,7 +192,7 @@ class nnUNetDataLoader(DataLoader):
         seg_all = None
 
         with torch.no_grad():
-            with threadpool_limits(limits=1, user_api=None):
+            with _single_threaded_math_libraries():
                 for j, i in enumerate(selected_keys):
                     # oversampling foreground will improve stability of model training, especially if many patches are empty
                     # (Lung for example)
