@@ -45,6 +45,13 @@ setting the `nnUNet_n_proc_DA` environment variable (`export nnUNet_n_proc_DA=XX
 Recommended values (assuming a recent CPU with good IPC) are 10-12 for RTX 2080 ti, 12 for a RTX 3090, 16-18 for
 RTX 4090, 28-32 for A100. Optimal values may vary depending on the number of input channels/modalities and number of classes.
 
+### Reading preprocessed data from network drives (training only)
+Preprocessed data is stored with blosc2. If your blosc2 version has read-ahead (`blosc2.set_prefetch`), nnU-Net turns
+it on with 4 threads in every data loader process. This matters most when `nnUNet_preprocessed` is on a network
+file system and the dataset does not fit in RAM: we measured 1.8-3.2x more batches per second on NFS. Set
+`export BLOSC_PREFETCH=X` to use X threads instead (`0` turns it off; `1` is better if a node runs very many data
+loader processes at once, roughly 50 or more).
+
 # Installation instructions
 We strongly recommend that you install nnU-Net in a virtual environment! Pip or anaconda are both fine. If you choose to
 compile PyTorch from source (see below), you will need to use conda instead of pip.

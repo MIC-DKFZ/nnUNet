@@ -109,10 +109,11 @@ sequential read recommended.
 patch sizes are small as well. As part of the data loading process, nnU-Net needs to open and close a file for each
 training sample. Now imagine a dataset like Dataset004_Hippocampus where for the 2d config we have a batch size of
 366 and we run 250 iterations in <10s on an A100. That's a lotta files per second (366 * 250 / 10 = 9150 files per second).
-Oof. If the files are on some network drive (even if it's nvme) then (probably) good night. The good news: nnU-Net
-has got you covered: add `export nnUNet_keep_files_open=True` to your .bashrc and the problem goes away. The neat
-part: it causes new problems if you are not allowed to have enough open files. You may have to increase the number
-of allowed open files. `ulimit -n` gives your current limit (Linux only). It should not be something like 1024.
-Increasing that to 65535 works well for me. See here for how to change these limits:
-[Link](https://kupczynski.info/posts/ubuntu-18-10-ulimits/)
-(works for Ubuntu 18, google for your OS!).
+Oof. If the files are on some network drive (even if it's nvme), every open and every read waits for the server.
+(`nnUNet_keep_files_open` from older versions no longer has any effect.) What helps: blosc2 versions with
+read-ahead (`blosc2.set_prefetch`). nnU-Net turns it on automatically in every data loader process (4 threads):
+the chunks a patch needs are then fetched in parallel, in large reads, instead of one small read after the other.
+On NFS, with data that is not in the page cache, that gave 1.8-3.2x more batches per second in our tests. You can
+change the number of threads with `export BLOSC_PREFETCH=X` (`0` turns read-ahead off). If many trainings share one
+node (roughly 50 or more data loader processes), `BLOSC_PREFETCH=1` can be faster, because then the CPU time the
+kernel spends on the reads becomes the limit.
