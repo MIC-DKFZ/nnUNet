@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Union, Tuple, List
 
 import numpy as np
@@ -47,6 +48,41 @@ def _single_threaded_math_libraries():
         _threadpool_controller = ThreadpoolController()
         _threadpool_controller_nmodules = len(sys.modules)
     return _threadpool_controller.limit(limits=1, user_api=None)
+
+
+# The segmentation crop of a sample runs in a second thread while the data crop runs in the dataloader's own thread.
+# blosc2 (python-blosc2 releases with GIL-free slice reads) and numpy (copies of memory-mapped .npy files) both release
+# the GIL while they read, so the two reads overlap; on network file systems that hides most of the segmentation's
+# read time. With a blosc2 that holds the GIL the reads simply take turns, as before. One thread per process, kept in
+# module globals so that the dataloader stays picklable; a forked worker makes its own.
+_seg_crop_executor = None
+_seg_crop_executor_pid = None
+
+
+def _seg_crop_executor_for_this_process() -> ThreadPoolExecutor:
+    global _seg_crop_executor, _seg_crop_executor_pid
+    if _seg_crop_executor is None or _seg_crop_executor_pid != os.getpid():
+        _seg_crop_executor = ThreadPoolExecutor(1, thread_name_prefix='nnUNet_seg_crop')
+        _seg_crop_executor_pid = os.getpid()
+    return _seg_crop_executor
+
+
+def _crop_segs(seg, seg_prev, bbox):
+    """Crops (int16 numpy arrays) of the segmentation and of the previous stage's segmentation (or None)"""
+    seg_cropped = _writeable(crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16))
+    if seg_prev is None:
+        return seg_cropped, None
+    return seg_cropped, _writeable(crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16))
+
+
+def _crop_segs_async(seg, seg_prev, bbox) -> Future:
+    """_crop_segs in the seg crop thread. Inputs that are torch tensors are cropped right here instead: torch's
+    OpenMP thread limit is per thread, so the limit the dataloader sets would not hold in the seg crop thread."""
+    if isinstance(seg, torch.Tensor) or isinstance(seg_prev, torch.Tensor):
+        done = Future()
+        done.set_result(_crop_segs(seg, seg_prev, bbox))
+        return done
+    return _seg_crop_executor_for_this_process().submit(_crop_segs, seg, seg_prev, bbox)
 
 
 class nnUNetDataLoader(DataLoader):
@@ -207,10 +243,13 @@ class nnUNetDataLoader(DataLoader):
                     bbox_lbs, bbox_ubs = self.get_bbox(i, shape, force_fg)
                     bbox = [[i, j] for i, j in zip(bbox_lbs, bbox_ubs)]
 
+                    # the segmentation(s) are read in the seg crop thread meanwhile (see _crop_segs_async)
+                    segs_cropped = _crop_segs_async(seg, seg_prev, bbox)
                     data_cropped = torch.from_numpy(_writeable(crop_and_pad_nd(data, bbox, 0))).float()
-                    seg_cropped = torch.from_numpy(_writeable(crop_and_pad_nd(seg, bbox, -1, cast_cropped_to=np.int16))).to(torch.int16)
-                    if seg_prev is not None:
-                        seg_prev_cropped = torch.from_numpy(_writeable(crop_and_pad_nd(seg_prev, bbox, -1, cast_cropped_to=np.int16))).to(torch.int16)
+                    seg_cropped, seg_prev_cropped = segs_cropped.result()
+                    seg_cropped = torch.from_numpy(seg_cropped).to(torch.int16)
+                    if seg_prev_cropped is not None:
+                        seg_prev_cropped = torch.from_numpy(seg_prev_cropped).to(torch.int16)
                         seg_cropped = torch.cat((seg_cropped, seg_prev_cropped[None]), dim=0)
 
                     if self.patch_size_was_2d:
