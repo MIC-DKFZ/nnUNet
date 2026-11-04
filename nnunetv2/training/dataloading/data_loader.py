@@ -150,8 +150,9 @@ class nnUNetDataLoader(DataLoader):
             if selected_class is not None:
                 selected_voxel = fg_locations.sample(identifier, selected_class)
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
-                # Make sure it is within the bounds of lb and ub
-                bbox_lbs = [max(lbs[i], selected_voxel[i] - self.patch_size[i] // 2) for i in range(dim)]
+                # Make sure it is within the bounds of lb and ub, so that foreground patches stay inside the case
+                # just like random ones. The voxel is still in the final patch after clamping
+                bbox_lbs = [max(lbs[i], min(ubs[i], selected_voxel[i] - self.patch_size[i] // 2)) for i in range(dim)]
             else:
                 # If the image does not contain any foreground classes, we fall back to random cropping
                 bbox_lbs = [np.random.randint(lbs[i], ubs[i] + 1) for i in range(dim)]
