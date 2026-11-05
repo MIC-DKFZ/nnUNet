@@ -2,15 +2,13 @@ import argparse
 from functools import partial
 from typing import Union
 
-import nnunetv2
 import torch
 from batchgenerators.utilities.file_and_folder_operations import join, load_json
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.run_training import TrainingRunOptions, launch_training
-from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.training.nnUNetTrainer.pretraining.pretrainedTrainer import PretrainedTrainer
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
+from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
 
 def get_trainer_from_args(
         dataset_name_or_id: Union[int, str],
@@ -23,20 +21,8 @@ def get_trainer_from_args(
         overwrite_ckpt_path: str = None,
         continue_training: bool = False,
 ):
-    # load nnunet class and do sanity checks
-    nnunet_trainer = recursive_find_python_class(
-        join(nnunetv2.__path__[0], "training", "nnUNetTrainer"), trainer_name, "nnunetv2.training.nnUNetTrainer"
-    )
-    if nnunet_trainer is None:
-        raise RuntimeError(
-            f"Could not find requested nnunet trainer {trainer_name} in "
-            f"nnunetv2.training.nnUNetTrainer ("
-            f'{join(nnunetv2.__path__[0], "training", "nnUNetTrainer")}). If it is located somewhere '
-            f"else, please move it there."
-        )
-    assert issubclass(nnunet_trainer, nnUNetTrainer), (
-        "The requested nnunet trainer class must inherit from " "nnUNetTrainer"
-    )
+    # same lookup as nnUNetv2_train: built-in trainers first, then the folders in nnUNet_extTrainer
+    nnunet_trainer = recursive_find_trainer_class_by_name(trainer_name)
 
     # handle dataset input. If it's an ID we need to convert to int from string
     if dataset_name_or_id.startswith("Dataset"):

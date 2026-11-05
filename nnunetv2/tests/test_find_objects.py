@@ -80,6 +80,39 @@ class TestFindObjects(unittest.TestCase):
 
             self.assertIn("definitely_missing_dependency", str(exc.exception))
 
+    def test_pretrained_entry_point_finds_external_trainer(self):
+        """nnUNetv2_train_pretrained must resolve trainers from nnUNet_extTrainer like nnUNetv2_train does
+        (GitHub issue #3087)."""
+        from nnunetv2.run.run_training_from_pretrained import get_trainer_from_args
+
+        with TemporaryDirectory() as trainer_dir, TemporaryDirectory() as preprocessed_dir:
+            _write_file(
+                os.path.join(trainer_dir, "ext_pretrained_trainer.py"),
+                """
+                from nnunetv2.training.nnUNetTrainer.pretraining.pretrainedTrainer import PretrainedTrainer
+
+
+                class ExtPretrainedTrainerForLookupTest(PretrainedTrainer):
+                    def __init__(self, *args, **kwargs):
+                        raise NotImplementedError(f"{type(self).__name__} constructed")
+                """,
+            )
+
+            with patch.dict(
+                os.environ,
+                {"nnUNet_extTrainer": trainer_dir, "nnUNet_preprocessed": preprocessed_dir},
+                clear=False,
+            ), patch(
+                "nnunetv2.run.run_training_from_pretrained.load_json",
+                return_value={"plans_name": "nnUNetPlans", "pretrain_info": {"checkpoint_path": None}},
+            ):
+                with self.assertRaises(NotImplementedError) as exc:
+                    get_trainer_from_args(
+                        "Dataset999_Lookup", "3d_fullres", 0, trainer_name="ExtPretrainedTrainerForLookupTest"
+                    )
+
+            self.assertEqual(str(exc.exception), "ExtPretrainedTrainerForLookupTest constructed")
+
 
 class TestRecursiveFindPythonClass(unittest.TestCase):
     def test_skips_phantom_modules_reported_by_iter_modules(self):
