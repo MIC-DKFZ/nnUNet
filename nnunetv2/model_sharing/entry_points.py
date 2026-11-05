@@ -55,7 +55,9 @@ def export_pretrained_model_entry():
                              'that does not exist is exported in the other format (.pth <-> .safetensors) if that '
                              'exists. Models trained with older nnU-Net versions have .pth checkpoints. A zip with '
                              '.safetensors checkpoints needs an nnU-Net version that reads them.')
-    parser.add_argument('--not_strict', action='store_false', default=False, required=False, help='Set this to allow missing folds and/or configurations')
+    parser.add_argument('--not_strict', action='store_true', required=False,
+                        help='Set this to skip configurations that have no trained model instead of raising an error. '
+                             'All requested folds of the exported configurations must exist.')
     parser.add_argument('--exp_cv_preds', action='store_true', required=False, help='Set this to export the cross-validation predictions as well')
     args = parser.parse_args()
 
