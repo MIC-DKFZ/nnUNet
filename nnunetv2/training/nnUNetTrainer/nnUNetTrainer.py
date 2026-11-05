@@ -280,13 +280,17 @@ class nnUNetTrainer(object):
                 self.network = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.network)
                 # static_graph=True would let DDP optimize its gradient buckets from the first iteration and would
                 # also make genuinely unused parameters legal, but it hard-errors on any trainer that changes the
-                # graph between iterations (freezing/unfreezing layers, conditional branches). We do not need it:
-                # the deep supervision weight hack in _build_loss already keeps every parameter in the graph.
+                # graph between iterations (freezing/unfreezing layers, conditional branches). We do not need it.
+                # With deep supervision, the weight hack in _build_loss keeps every parameter in the graph. Without
+                # it, the decoder still has a segmentation layer for every resolution (so that checkpoints load either
+                # way) but only uses the last one, so DDP has to look for unused parameters. That costs <0.3 % of
+                # iteration time; keeping it off with deep supervision keeps DDP's check for unexpectedly unused
+                # parameters.
                 self.network = DDP(
                     self.network,
                     device_ids=[self.local_rank],
                     output_device=self.local_rank,
-                    find_unused_parameters=False)
+                    find_unused_parameters=not self.enable_deep_supervision)
 
             self.loss = self._build_loss()
 
