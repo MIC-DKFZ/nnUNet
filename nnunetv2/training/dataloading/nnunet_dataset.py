@@ -31,8 +31,8 @@ def enable_blosc2_read_ahead():
 
     The setting is per process, so this runs in every process that loads cases (the data loader workers too).
     blosc2's own BLOSC_PREFETCH environment variable takes precedence: if it is set, blosc2 has applied it already and
-    nothing is changed here. BLOSC_PREFETCH=0 turns read-ahead off, BLOSC_PREFETCH=1 suits nodes with very many loader
-    processes (~50 and more), where the kernel's CPU time for the reads becomes the limit. Older blosc2 versions do not
+    nothing is changed here. BLOSC_PREFETCH=0 turns read-ahead off. 4 threads also suit nodes that run many trainings:
+    on NFS, with up to 96 loader processes per node, no other setting was clearly faster. Older blosc2 versions do not
     have read-ahead; then this does nothing.
     """
     global _blosc2_read_ahead_pid

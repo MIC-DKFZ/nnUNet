@@ -114,6 +114,5 @@ Oof. If the files are on some network drive (even if it's nvme), every open and 
 read-ahead (`blosc2.set_prefetch`). nnU-Net turns it on automatically in every data loader process (4 threads):
 the chunks a patch needs are then fetched in parallel, in large reads, instead of one small read after the other.
 On NFS, with data that is not in the page cache, that gave 1.8-3.2x more batches per second in our tests. You can
-change the number of threads with `export BLOSC_PREFETCH=X` (`0` turns read-ahead off). If many trainings share one
-node (roughly 50 or more data loader processes), `BLOSC_PREFETCH=1` can be faster, because then the CPU time the
-kernel spends on the reads becomes the limit.
+change the number of threads with `export BLOSC_PREFETCH=X` (`0` turns read-ahead off). The default of 4 also suits
+nodes shared by many trainings: with up to 96 data loader processes per node, no other setting was clearly faster.

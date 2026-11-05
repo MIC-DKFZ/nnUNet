@@ -49,8 +49,8 @@ RTX 4090, 28-32 for A100. Optimal values may vary depending on the number of inp
 Preprocessed data is stored with blosc2. If your blosc2 version has read-ahead (`blosc2.set_prefetch`), nnU-Net turns
 it on with 4 threads in every data loader process. This matters most when `nnUNet_preprocessed` is on a network
 file system and the dataset does not fit in RAM: we measured 1.8-3.2x more batches per second on NFS. Set
-`export BLOSC_PREFETCH=X` to use X threads instead (`0` turns it off; `1` is better if a node runs very many data
-loader processes at once, roughly 50 or more).
+`export BLOSC_PREFETCH=X` to use X threads instead (`0` turns it off). 4 threads also suit nodes that run many
+trainings at once.
 
 # Installation instructions
 We strongly recommend that you install nnU-Net in a virtual environment! Pip or anaconda are both fine. If you choose to
