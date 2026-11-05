@@ -21,6 +21,7 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.preprocessing.sampling_locations.extract_sampling_locations import extract_sampling_locations_for_folder
 from nnunetv2.training.dataloading.foreground_locations import has_foreground_locations
 from nnunetv2.utilities.file_path_utilities import copy_file_if_newer
+from nnunetv2.utilities.load_weights_utils import get_encoder_family
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 ADAPTATION_MODES = Literal["fixed", "default_nnunet", "no_resample", "like_pretrained"]
@@ -380,6 +381,32 @@ def preprocess_like_nnssl_entrypoint():
     )
 
 
+def check_base_plan_matches_checkpoint(
+    base_network_class_name: str, pt_arch_class_name: str | None, plans_identifier: str
+) -> None:
+    """
+    plan_like_dynamic keeps the base plan's architecture, and DynamicPretrainedTrainer loads the checkpoint's encoder
+    weights into it by parameter name. It can reconcile kernel sizes and depth within one architecture family, but
+    a ResEnc checkpoint has no parameter in common with a PlainConvUNet, so nothing would be loaded. Fail here,
+    before preprocessing, rather than at the start of training. Architectures we do not know are let through.
+    """
+    if pt_arch_class_name is None:
+        return
+    pt_family = get_encoder_family(pt_arch_class_name)
+    base_family = get_encoder_family(base_network_class_name)
+    if pt_family is None or base_family is None or pt_family == base_family:
+        return
+    raise ValueError(
+        f"The checkpoint's architecture ({pt_arch_class_name}, a {pt_family}) does not match the architecture of the "
+        f"base plan {plans_identifier} ({base_network_class_name}). DynamicPretrainedTrainer adapts kernel sizes and "
+        f"depth within one architecture, but it cannot load {pt_family} weights into a {base_family}: none of the "
+        f"pretrained weights would be used. Pass a base plan of the checkpoint's architecture with -pl (for ResEnc "
+        f"checkpoints such as the OpenMind ResEnc-L models: nnUNetv2_plan_experiment -d DATASET_ID "
+        f"-pl nnUNetPlannerResEncL, then -pl nnUNetResEncUNetLPlans here), or use nnUNetv2_preprocess_like_nnssl, "
+        f"which builds the network to match the checkpoint."
+    )
+
+
 def plan_like_dynamic(
     dataset_id: int,
     pretrain_name: str,
@@ -400,7 +427,8 @@ def plan_like_dynamic(
     :param dataset_id: Dataset ID
     :param pretrain_name: Unique name for the pretraining (used in plan name)
     :param pt_ckpt: Path to the pretrained checkpoint
-    :param plans_identifier: Which existing plans to use as base (default: nnUNetPlans)
+    :param plans_identifier: Which existing plans to use as base (default: nnUNetPlans). Its architecture must
+        match the checkpoint's (a ResEnc plan for a ResEnc checkpoint), see check_base_plan_matches_checkpoint.
     :param num_processes: Number of processes for preprocessing
     :param verbose: Whether to print verbose output
     """
@@ -422,6 +450,12 @@ def plan_like_dynamic(
     loaded_pretrain_ckpt = torch.load(pt_ckpt, weights_only=True, map_location="cpu")
     adaptation_plan = loaded_pretrain_ckpt["nnssl_adaptation_plan"]
     citations = loaded_pretrain_ckpt.get("citations", [])
+
+    check_base_plan_matches_checkpoint(
+        downstream_config.network_arch_class_name,
+        adaptation_plan.get("architecture_plans", {}).get("arch_class_name"),
+        plans_identifier,
+    )
 
     # Get pretrain config for reference
     config = list(adaptation_plan["pretrain_plan"]["configurations"].keys())[0]
@@ -523,7 +557,8 @@ def plan_like_dynamic_entrypoint():
         default="nnUNetPlans",
         required=False,
         help="[OPTIONAL] Which existing plans to use as base. Default: nnUNetPlans. "
-             "Can also be nnUNetResEncUNetLPlans, etc.",
+             "Can also be nnUNetResEncUNetLPlans, etc. Its architecture must match the checkpoint's: "
+             "ResEnc checkpoints (such as the OpenMind ResEnc-L models) need a ResEnc plan.",
     )
     parser.add_argument(
         "-np",

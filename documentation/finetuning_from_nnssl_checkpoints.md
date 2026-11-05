@@ -51,8 +51,8 @@ There are two ways to bring the pre-trained weights into your downstream trainin
 - **Keep an existing (ResEnc) architecture** (`nnUNetv2_plan_like_dynamic`). An existing
   nnU-Net plan (e.g. a ResEnc preset such as `nnUNetResEncUNetLPlans`) is kept as-is, and
   any mismatch (kernel sizes, depth) between its architecture and the pre-trained weights
-  is reconciled at load time. This **requires that base plan to already exist**. Use
-  `DynamicPretrainedTrainer`.
+  is reconciled at load time. This **requires that base plan to already exist and to use
+  the same architecture as the checkpoint**. Use `DynamicPretrainedTrainer`.
 - **Adapt the architecture to the checkpoint** (`nnUNetv2_preprocess_like_nnssl`). The
   downstream network is built to match the pre-trained architecture, and the data is
   preprocessed to match the pre-training spacing/normalization. This is the recommended
@@ -65,6 +65,13 @@ This route reuses an existing nnU-Net plan and its architecture, so **the base p
 already exist**. `nnUNetv2_plan_like_dynamic` reads it and errors out if it is missing. For
 the OpenMind ResEnc-L checkpoints, create the ResEnc-L plan first, then layer the
 pretraining info on top of it.
+
+**The base plan must use the checkpoint's architecture.** `DynamicPretrainedTrainer` adapts
+kernel sizes and depth within one architecture, but it cannot move weights between
+architectures: a ResEnc checkpoint has no parameter in common with the `PlainConvUNet` of
+the default `nnUNetPlans`. `nnUNetv2_plan_like_dynamic` therefore refuses a base plan whose
+architecture differs from the checkpoint's, and `DynamicPretrainedTrainer` stops if none of
+the pre-trained encoder weights fit the network.
 
 ```bash
 # 1) Create the ResEnc-L plan and preprocess the dataset (this is the base plan for step 2).
@@ -148,7 +155,9 @@ class names in `nnunetv2/training/nnUNetTrainer/pretraining/` for the full list.
   schedule.
 - `PretrainedTrainer_Primusx`. For Primus transformer checkpoints.
 - `DynamicPretrainedTrainer` (and `DynamicPretrainedTrainer_adam_150ep`). Reconciles
-  architecture mismatches (kernel sizes, depth) against an existing nnU-Net/ResEnc plan.
+  architecture mismatches (kernel sizes, depth) against an existing nnU-Net/ResEnc plan of
+  the checkpoint's architecture. It prints how many of the network's encoder parameters
+  were loaded from the checkpoint.
 
 ## Citing the pre-trained checkpoint
 

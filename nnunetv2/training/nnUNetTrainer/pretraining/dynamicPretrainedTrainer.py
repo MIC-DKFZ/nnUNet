@@ -154,6 +154,8 @@ class DynamicPretrainedTrainer(PretrainedTrainer):
             adapt_encoder_weights_for_architecture,
             handle_pos_embed_resize,
             filter_state_dict,
+            parameters_assigned_by,
+            summarize_adaptation_log,
         )
 
         key_to_encoder = network.key_to_encoder
@@ -268,6 +270,8 @@ class DynamicPretrainedTrainer(PretrainedTrainer):
             # Load with strict=False to allow partial loading
             encoder_module = network.get_submodule(key_to_encoder)
             encoder_module.load_state_dict(new_encoder_weights, strict=False)
+            assigned = parameters_assigned_by(encoder_module, new_encoder_weights)
+            target_params = {id(p): p for p in encoder_module.parameters()}
 
         else:
             # Separate stem and encoder
@@ -362,7 +366,36 @@ class DynamicPretrainedTrainer(PretrainedTrainer):
             stem_module = network.get_submodule(key_to_stem)
             stem_module.load_state_dict(new_stem_weights, strict=False)
 
+            assigned = parameters_assigned_by(encoder_module, new_encoder_weights)
+            assigned.update(parameters_assigned_by(stem_module, new_stem_weights))
+            target_params = {id(p): p for m in (encoder_module, stem_module) for p in m.parameters()}
+
             del new_stem_weights, stem_weights
+
+        # Weights are matched by parameter name and everything else is skipped, so a checkpoint of another
+        # architecture family (a ResEnc checkpoint with a PlainConvUNet plan) loads nothing at all
+        if len(assigned) == 0:
+            example_pt = next(iter(encoder_weights), None)
+            example_target = next((n for n, _ in network.get_submodule(key_to_encoder).named_parameters()), None)
+            raise RuntimeError(
+                "None of the pretrained encoder weights fit this network, so finetuning would start from random "
+                f"weights. The checkpoint's encoder parameters (e.g. '{example_pt}') have no counterpart in the "
+                f"network's encoder (e.g. '{key_to_encoder}.{example_target}'). This happens when the plans use "
+                "another architecture than the checkpoint, for example a ResEnc checkpoint with a PlainConvUNet "
+                "plan such as nnUNetPlans. Create the plans from a base plan of the checkpoint's architecture "
+                "(nnUNetv2_plan_like_dynamic -pl, e.g. nnUNetResEncUNetLPlans for ResEnc-L checkpoints), or use "
+                "nnUNetv2_preprocess_like_nnssl, which builds the network to match the checkpoint."
+            )
+        n_loaded = sum(p.numel() for p in assigned.values())
+        n_total = sum(p.numel() for p in target_params.values())
+        print(
+            f"[Dynamic Adaptation] Pretrained weights loaded into {len(assigned)} of {len(target_params)} encoder "
+            f"parameter tensors ({n_loaded / 1e6:.2f}M of {n_total / 1e6:.2f}M parameters, "
+            f"{100 * n_loaded / n_total:.1f} %)."
+            + (" The others keep their random initialization." if len(assigned) < len(target_params) else "")
+        )
+        if adaptation_log:
+            print(f"[Dynamic Adaptation] Pretrained encoder weights: {summarize_adaptation_log(adaptation_log)}")
 
         # Handle LPE that's not in encoder or stem
         if not need_to_adapt_lpe and key_to_lpe is not None:

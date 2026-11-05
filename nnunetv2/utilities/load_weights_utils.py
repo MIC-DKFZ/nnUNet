@@ -1,8 +1,55 @@
+from collections import Counter
 from einops import rearrange
 import torch.nn.functional as F
 import torch
+from torch import nn
 from typing import Dict, List, Tuple, Optional
 import re
+
+
+# nnssl's preset names (ArchitecturePlans.arch_class_name) for networks built from dynamic_network_architectures'
+# ResidualEncoderUNet, so with its encoder parameter names
+NNSSL_RESENC_PRESETS = ("ResEncL", "NoSkipResEncL")
+
+
+def get_encoder_family(arch_class_name: str) -> Optional[str]:
+    """
+    The encoder layout an architecture name stands for: 'ResidualEncoderUNet', 'PlainConvUNet', 'Primus', or None if
+    unknown. Encoder weights can only be loaded by parameter name within one family. Accepts nnssl's preset names
+    (ResEncL, PrimusM, ...) as well as the class names in nnU-Net plans, with or without module path.
+    """
+    name = arch_class_name.split(".")[-1]
+    if name in NNSSL_RESENC_PRESETS or name.endswith("ResidualEncoderUNet"):
+        return "ResidualEncoderUNet"
+    if name.endswith("PlainConvUNet"):
+        return "PlainConvUNet"
+    if name.startswith("Primus"):
+        return "Primus"
+    return None
+
+
+def parameters_assigned_by(module: nn.Module, state_dict: Dict[str, torch.Tensor]) -> Dict[int, nn.Parameter]:
+    """
+    The parameters of `module` that `module.load_state_dict(state_dict, strict=False)` assigns, keyed by id. Keys
+    the module does not have are ignored by that call, so they are not counted. A parameter registered under two
+    names (dynamic_network_architectures' conv blocks hold each conv as `conv` and as `all_modules.0`) counts once.
+    """
+    params = {id(p): p for p in module.parameters()}
+    targets = module.state_dict(keep_vars=True)
+    return {id(targets[k]): targets[k] for k in state_dict if k in targets and id(targets[k]) in params}
+
+
+def summarize_adaptation_log(adaptation_log: Dict[str, str]) -> str:
+    """Counts the entries of adapt_encoder_weights_for_architecture's adaptation_log by what happened to them."""
+    counts = Counter()
+    for what in adaptation_log.values():
+        if what.startswith("kernel adapted"):
+            counts["kernel adapted"] += 1
+        elif what.startswith("skipped (shape mismatch"):
+            counts["skipped (shape mismatch)"] += 1
+        else:
+            counts[what] += 1
+    return ", ".join(f"{n}x {what}" for what, n in counts.items())
 
 
 def adapt_conv_kernel_size(
@@ -150,8 +197,9 @@ def adapt_encoder_weights_for_architecture(
 
         target_weight = target_state_dict[key]
 
-        # Check if this is a conv weight that might need kernel adaptation
-        if 'conv.weight' in rest_of_key and len(pt_weight.shape) >= 4:
+        # Check if this is a conv weight that might need kernel adaptation. dynamic_network_architectures registers
+        # each conv twice (`conv.weight` and `all_modules.0.weight`), so match on the shape, not the name
+        if rest_of_key.endswith('weight') and len(pt_weight.shape) >= 4:
             pt_kernel = list(pt_weight.shape[2:])  # [D, H, W] or [H, W]
             target_kernel = list(target_weight.shape[2:])
 
