@@ -48,6 +48,43 @@ def enable_blosc2_read_ahead():
         warnings.warn(f'Could not turn on blosc2 read-ahead ({e!r}); reading without it.')
 
 
+def write_b2nd(arr: np.ndarray, path: str, chunks, blocks, cparams: dict) -> None:
+    """
+    Compress ``arr`` into a blosc2 array in RAM and write it to ``path`` with Python's own file I/O, so that every
+    write error raises.
+
+    Letting blosc2 write the file (blosc2.asarray(urlpath=...)) catches errors of the write calls themselves, but not
+    errors reported when the file is closed: blosc2 discards the result of closing the file and never calls fsync
+    (checked up to c-blosc2 3.5.0). Network filesystems such as NFS report a full quota or disk only when the data
+    reaches the server, which is at fsync or close at the latest, so preprocessing onto a full NFS share could leave
+    truncated cases behind and still finish without an error. Python raises on errors in write, fsync and close.
+
+    The data is written to ``path + '.tmp'`` and renamed onto ``path`` once it is on disk, so a failed or interrupted
+    write never leaves a partial file under the final name. An existing file at ``path`` is replaced.
+
+    The compressed array is held in RAM twice while it is written: as a frame (contiguous=True) and as the bytes
+    to_cframe() copies it into. Without contiguous=True, blosc2 releases up to 4.14.1 build a third copy in
+    to_cframe(). The files are the same either way.
+    """
+    compressed = blosc2.asarray(np.ascontiguousarray(arr), chunks=chunks, blocks=blocks, cparams=cparams,
+                                contiguous=True)
+    cframe = compressed.to_cframe()
+    del compressed
+    tmp = path + '.tmp'
+    try:
+        with open(tmp, 'wb') as f:
+            f.write(cframe)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def comp_blosc2_params(
     image_size: Sequence[int],
     patch_size: Sequence[int],
@@ -507,21 +544,8 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
 
         # print(output_filename_truncated, data.shape, seg.shape, blocks, chunks, blocks_seg, chunks_seg, data.dtype, seg.dtype)
 
-        blosc2.asarray(
-            np.ascontiguousarray(data),
-            urlpath=output_filename_truncated + '.b2nd',
-            chunks=chunks,
-            blocks=blocks,
-            cparams=cparams,
-        )
-
-        blosc2.asarray(
-            np.ascontiguousarray(seg),
-            urlpath=output_filename_truncated + '_seg.b2nd',
-            chunks=chunks_seg,
-            blocks=blocks_seg,
-            cparams=cparams_seg,
-        )
+        write_b2nd(data, output_filename_truncated + '.b2nd', chunks, blocks, cparams)
+        write_b2nd(seg, output_filename_truncated + '_seg.b2nd', chunks_seg, blocks_seg, cparams_seg)
 
         write_pickle(properties, output_filename_truncated + '.pkl')
 
@@ -532,12 +556,12 @@ class nnUNetDatasetBlosc2(nnUNetBaseDataset):
             chunks_seg=None,
             blocks_seg=None
     ):
+        # Remove an existing file first, so that a failed write does not leave an older segmentation in its place
         if isfile(output_filename_truncated + '.b2nd'):
             os.remove(output_filename_truncated + '.b2nd')
         # Without an explicit thread count blosc2 uses the process-wide blosc2.nthreads (all cores unless
         # set_nthreads(1) ran in this process). save_seg runs in the export pool's workers, so that oversubscribes.
-        blosc2.asarray(seg, urlpath=output_filename_truncated + '.b2nd', chunks=chunks_seg, blocks=blocks_seg,
-                       cparams={'nthreads': 1})
+        write_b2nd(seg, output_filename_truncated + '.b2nd', chunks_seg, blocks_seg, {'nthreads': 1})
 
     @staticmethod
     def get_identifiers(folder: str) -> List[str]:
