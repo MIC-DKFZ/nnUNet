@@ -13,7 +13,8 @@ from batchgenerators.utilities.file_and_folder_operations import join, load_json
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.run.load_pretrained_weights import load_pretrained_weights
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.checkpoints import find_checkpoint_file, resolve_checkpoint_file
+from nnunetv2.utilities.checkpoints import CHECKPOINT_EXTENSION, find_checkpoint_file, read_checkpoint_metadata, \
+    resolve_checkpoint_file
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
 from torch.backends import cudnn
@@ -98,6 +99,46 @@ def get_trainer_from_args(dataset_name_or_id: Union[int, str],
     return nnunet_trainer
 
 
+def _stored_epoch(checkpoint_file: str) -> Optional[int]:
+    """
+    The current_epoch stored in a checkpoint (the number of finished epochs), read without loading its tensors.
+    None if the file does not tell, for example because a custom trainer writes checkpoints of its own.
+    """
+    try:
+        if checkpoint_file.endswith(CHECKPOINT_EXTENSION):
+            epoch = read_checkpoint_metadata(checkpoint_file).get('current_epoch')
+        else:
+            # mmap: the tensors are mapped, not read. Loading a .pth runs code, but this is the file we will load anyway
+            epoch = torch.load(checkpoint_file, map_location='cpu', weights_only=False, mmap=True).get('current_epoch')
+        return None if epoch is None else int(epoch)
+    except Exception:
+        return None
+
+
+def _checkpoint_to_continue_from(output_folder: str) -> Optional[str]:
+    """
+    checkpoint_final if the training has finished (--c then runs the validation if it is missing). Otherwise the newer
+    of checkpoint_latest and checkpoint_best. checkpoint_latest is only written every save_every epochs,
+    checkpoint_best whenever the EMA pseudo Dice improves, so after a crash checkpoint_best is often newer, and both
+    hold the full training state. Newer means more finished epochs, not a later modification time, which copying
+    changes. A tie, or a checkpoint that does not tell its epoch, goes to checkpoint_latest.
+    find_checkpoint_file also finds the .pth checkpoints of trainings started with an older nnU-Net.
+    """
+    final = find_checkpoint_file(join(output_folder, 'checkpoint_final.safetensors'))
+    if final is not None:
+        return final
+    latest = find_checkpoint_file(join(output_folder, 'checkpoint_latest.safetensors'))
+    best = find_checkpoint_file(join(output_folder, 'checkpoint_best.safetensors'))
+    if latest is None or best is None:
+        return best if latest is None else latest
+    latest_epoch, best_epoch = _stored_epoch(latest), _stored_epoch(best)
+    if latest_epoch is not None and best_epoch is not None and best_epoch > latest_epoch:
+        print(f"Continuing from {os.path.basename(best)} ({best_epoch} epochs) because it is newer than "
+              f"{os.path.basename(latest)} ({latest_epoch} epochs).")
+        return best
+    return latest
+
+
 def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool, validation_only: bool,
                           pretrained_weights_file: str = None, validation_with_best: bool = False):
     if continue_training and pretrained_weights_file is not None:
@@ -105,15 +146,7 @@ def maybe_load_checkpoint(nnunet_trainer: nnUNetTrainer, continue_training: bool
                            'be used at the beginning of the training.')
     # find_checkpoint_file also finds the .pth checkpoints of trainings started with an older nnU-Net
     if continue_training:
-        expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
-                                                             'checkpoint_final.safetensors'))
-        if expected_checkpoint_file is None:
-            expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
-                                                                 'checkpoint_latest.safetensors'))
-        # special case where --c is used to run a previously aborted validation
-        if expected_checkpoint_file is None:
-            expected_checkpoint_file = find_checkpoint_file(join(nnunet_trainer.output_folder,
-                                                                 'checkpoint_best.safetensors'))
+        expected_checkpoint_file = _checkpoint_to_continue_from(nnunet_trainer.output_folder)
         if expected_checkpoint_file is None:
             print("WARNING: Cannot continue training because there seems to be no checkpoint available to "
                   "continue from. Starting a new training...")
@@ -324,7 +357,8 @@ def run_training_entry():
                         help='[OPTIONAL] Save softmax predictions from final validation as npz files (in addition to predicted '
                              'segmentations). Needed for finding the best ensemble.')
     parser.add_argument('--c', action='store_true', required=False,
-                        help='[OPTIONAL] Continue training from latest checkpoint')
+                        help='[OPTIONAL] Continue training from the newest checkpoint: checkpoint_latest or '
+                             'checkpoint_best, whichever has more finished epochs')
     parser.add_argument('--val', action='store_true', required=False,
                         help='[OPTIONAL] Set this flag to only run the validation. Requires training to have finished '
                              '(with --val_best only that a checkpoint_best exists).')

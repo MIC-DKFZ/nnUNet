@@ -718,6 +718,53 @@ class TestRunTraining(_TmpDirTestCase):
         events = self.run_with(['checkpoint_best.safetensors'], val_with_best=True)
         self.assertEqual(events, ['train', 'load checkpoint_best.safetensors', 'validate'])
 
+    def continue_from(self, epochs: dict) -> list:
+        """--c in a folder with just these checkpoints, {file name: stored current_epoch}"""
+        for name in os.listdir(self.tmp):
+            os.remove(self.path(name))
+        for name, epoch in epochs.items():
+            ckpt = _training_checkpoint()
+            ckpt['current_epoch'] = epoch
+            if name.endswith('.safetensors'):
+                save_checkpoint_file(ckpt, self.path(name))
+            else:
+                torch.save(ckpt, self.path(name))
+        with mock.patch('builtins.print'):
+            return self.run_with([], continue_training=True)
+
+    def test_continue_from_checkpoint_best_if_it_is_newer(self):
+        # checkpoint_latest is written every save_every epochs, checkpoint_best whenever the EMA pseudo Dice improves
+        events = self.continue_from({'checkpoint_latest.safetensors': 100, 'checkpoint_best.safetensors': 117})
+        self.assertEqual(events, ['load checkpoint_best.safetensors', 'train', 'validate'])
+
+    def test_continue_from_checkpoint_latest_if_it_is_newer_or_as_new(self):
+        for best_epoch in (80, 100):
+            with self.subTest(best_epoch=best_epoch):
+                events = self.continue_from({'checkpoint_latest.safetensors': 100,
+                                             'checkpoint_best.safetensors': best_epoch})
+                self.assertEqual(events, ['load checkpoint_latest.safetensors', 'train', 'validate'])
+
+    def test_continue_compares_epochs_across_formats(self):
+        # a training started with an older nnU-Net and continued with this one
+        self.assertEqual(self.continue_from({'checkpoint_latest.safetensors': 100, 'checkpoint_best.pth': 117})[0],
+                         'load checkpoint_best.pth')
+        self.assertEqual(self.continue_from({'checkpoint_latest.pth': 100, 'checkpoint_best.safetensors': 117})[0],
+                         'load checkpoint_best.safetensors')
+
+    def test_continue_from_checkpoint_final_if_the_training_finished(self):
+        events = self.continue_from({'checkpoint_final.safetensors': 1000, 'checkpoint_best.safetensors': 1000})
+        self.assertEqual(events[0], 'load checkpoint_final.safetensors')
+
+    def test_continue_from_checkpoint_latest_if_epochs_are_unknown(self):
+        # custom trainers may write checkpoints of their own (here: pickles without current_epoch, with any name)
+        events = self.run_with(['checkpoint_latest.safetensors', 'checkpoint_best.pth'], continue_training=True)
+        self.assertEqual(events[0], 'load checkpoint_latest.safetensors')
+
+    def test_continue_with_only_one_checkpoint_or_none(self):
+        self.assertEqual(self.continue_from({'checkpoint_best.safetensors': 30})[0], 'load checkpoint_best.safetensors')
+        self.assertEqual(self.continue_from({'checkpoint_latest.pth': 50})[0], 'load checkpoint_latest.pth')
+        self.assertEqual(self.continue_from({}), ['train', 'validate'])
+
 
 if __name__ == '__main__':
     unittest.main()

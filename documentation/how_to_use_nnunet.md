@@ -92,7 +92,7 @@ UNET_CONFIGURATION is a string that identifies the requested U-Net configuration
 the 5-fold-cross-validation is trained.
 
 nnU-Net stores a checkpoint every 50 epochs. If you need to continue a previous training, just add a `--c` to the
-training command.
+training command. It continues from `checkpoint_latest` or `checkpoint_best`, whichever has more finished epochs.
 
 IMPORTANT: If you plan to use `nnUNetv2_find_best_configuration` (see below) add the `--npz` flag. This makes
 nnU-Net save the softmax outputs during the final validation. They are needed for that. Exported softmax
@@ -171,7 +171,7 @@ explicitly tell nnU-Net to use it.
 - checkpoint_final.safetensors: checkpoint file of the final model (after training has ended). This is what is used for both
 validation and inference. It holds no optimizer state, which makes it much smaller than checkpoint_best.
 - (checkpoint_latest.safetensors: only while a training runs. Written every 50 epochs so that `--c` can continue the
-training, deleted when it ends.)
+training, deleted when it ends. `--c` uses checkpoint_best instead if that one is newer.)
 - network_architecture.pdf (only if hiddenlayer is installed!): a pdf document with a figure of the network architecture in it.
 - progress.png: Shows losses, pseudo dice, learning rate and epoch times over the course of the training. At the top is
 a plot of the training (blue) and validation (red) loss during training. Also shows an approximation of
