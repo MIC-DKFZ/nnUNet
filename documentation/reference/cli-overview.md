@@ -19,6 +19,17 @@ This page groups the main nnU-Net v2 command-line entry points by workflow stage
 
 - `nnUNetv2_train`: train a configuration and fold
 
+## Finetuning from self-supervised (nnssl) checkpoints
+
+These use their own plans and trainers and leave the standard commands unchanged. See
+[Finetuning from nnssl checkpoints](../finetuning_from_nnssl_checkpoints.md).
+
+- `nnUNetv2_preprocess_like_nnssl`: plan an architecture that matches the checkpoint and preprocess the data like
+  the pre-training (the recommended default)
+- `nnUNetv2_plan_like_dynamic`: keep an existing plan (e.g. a ResEnc preset) and add the checkpoint to it;
+  architecture mismatches are reconciled when the weights are loaded
+- `nnUNetv2_train_pretrained`: train from one of these plans, starting from the pre-trained weights
+
 ## Inference
 
 - `nnUNetv2_predict`: run prediction using dataset id and stored results
@@ -44,6 +55,8 @@ This page groups the main nnU-Net v2 command-line entry points by workflow stage
 
 - `nnUNetv2_move_plans_between_datasets`: reuse plans across datasets
 - `nnUNetv2_plot_overlay_pngs`: create overlay PNGs for visualization
+- `nnUNetv2_convert_checkpoints_to_safetensors`: convert the `.pth` checkpoints of models trained with older
+  nnU-Net versions to `.safetensors`. See [Run inference](../how-to/run-inference.md#checkpoints-safetensors-and-pth)
 
 ## Help and discovery
 
