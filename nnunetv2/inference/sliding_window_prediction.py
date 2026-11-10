@@ -1,21 +1,27 @@
-from functools import lru_cache
+from functools import lru_cache, reduce
 
 import numpy as np
 import torch
 from typing import Union, Tuple, List
 from acvl_utils.cropping_and_padding.padding import pad_nd_image
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter1d
 
 
 @lru_cache(maxsize=2)
 def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], sigma_scale: float = 1. / 8,
                      value_scaling_factor: float = 1, dtype=torch.float16, device=torch.device('cuda', 0)) \
         -> torch.Tensor:
-    tmp = np.zeros(tile_size)
-    center_coords = [i // 2 for i in tile_size]
-    sigmas = [i * sigma_scale for i in tile_size]
-    tmp[tuple(center_coords)] = 1
-    gaussian_importance_map = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
+    # scipy's gaussian_filter of a centred delta, from 1d responses: gaussian_filter filters axis 0 first, then 1, ...,
+    # so each voxel is ((r0[i] * r1[j]) * r2[k]), which is what the left fold of outer products computes. Bit-identical
+    # to the 3d filter (nnunetv2/tests/test_compute_gaussian.py), and much faster.
+    responses = []
+    for size in tile_size:
+        delta = np.zeros(size)
+        delta[size // 2] = 1
+        sigma = size * sigma_scale
+        # gaussian_filter skips axes with sigma <= 1e-15
+        responses.append(gaussian_filter1d(delta, sigma, order=0, mode='constant', cval=0) if sigma > 1e-15 else delta)
+    gaussian_importance_map = reduce(np.multiply.outer, responses)
     gaussian_importance_map /= (np.max(gaussian_importance_map) / value_scaling_factor)
 
     gaussian_importance_map = torch.from_numpy(gaussian_importance_map)
