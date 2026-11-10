@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import inspect
 import multiprocessing
 import shutil
 from time import sleep
@@ -20,18 +21,32 @@ from typing import Union
 import SimpleITK
 import numpy as np
 import pandas as pd
+from acvl_utils.cropping_and_padding.bounding_boxes import bounding_box_to_slice
 from batchgenerators.utilities.file_and_folder_operations import *
 from tqdm import tqdm
 
 import nnunetv2
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_raw
-from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero
+from nnunetv2.preprocessing.cropping.cropping import crop_to_nonzero, get_nonzero_bbox
 from nnunetv2.preprocessing.resampling.default_resampling import compute_new_shape
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2, comp_blosc2_params
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
+
+
+def skip_seg_kwargs(method) -> dict:
+    """
+    For inference callers of a preprocessor's run_case / run_case_npy that only use the returned segmentation if they
+    passed one in (the previous stage of a cascade): {'return_seg': False} if method accepts it, {} otherwise. method
+    may come from a custom preprocessor whose signature predates return_seg. See DefaultPreprocessor.run_case_npy.
+    """
+    try:
+        accepts = 'return_seg' in inspect.signature(method).parameters
+    except (TypeError, ValueError):
+        accepts = False
+    return {'return_seg': False} if accepts else {}
 
 
 class DefaultPreprocessor(object):
@@ -44,7 +59,15 @@ class DefaultPreprocessor(object):
 
     def run_case_npy(self, data: np.ndarray, seg: Union[np.ndarray, None], properties: dict,
                      plans_manager: PlansManager, configuration_manager: ConfigurationManager,
-                     dataset_json: Union[dict, str]):
+                     dataset_json: Union[dict, str], return_seg: bool = True):
+        """
+        return_seg=False is for inference without a segmentation (seg is None) when the caller does not use the
+        segmentation returned here, which then holds nothing but the nonzero mask (-1 outside of it). None is returned
+        in its place and the mask is not resampled. If the normalization does not use the mask either (see
+        _normalization_needs_nonzero_mask), it is not computed at all: the image is cropped to the bounding box of its
+        nonzero voxels, which is the same box (see get_nonzero_bbox). data and properties are the same as with
+        return_seg=True. With a segmentation, return_seg changes nothing.
+        """
         # let's not mess up the inputs!
         data = data.astype(np.float32)  # this creates a copy
         if seg is not None:
@@ -52,6 +75,8 @@ class DefaultPreprocessor(object):
             seg = np.copy(seg)
 
         has_seg = seg is not None
+        # see docstring. With a segmentation, return_seg changes nothing
+        drop_seg = not has_seg and not return_seg
 
         # apply transpose_forward, this also needs to be applied to the spacing!
         data = data.transpose([0, *[i + 1 for i in plans_manager.transpose_forward]])
@@ -62,8 +87,13 @@ class DefaultPreprocessor(object):
         # crop, remember to store size before cropping!
         shape_before_cropping = data.shape[1:]
         properties['shape_before_cropping'] = shape_before_cropping
-        # this command will generate a segmentation. This is important because of the nonzero mask which we may need
-        data, seg, bbox = crop_to_nonzero(data, seg)
+        if drop_seg and not self._normalization_needs_nonzero_mask(configuration_manager):
+            # nothing needs the nonzero mask, so we skip building it and only crop to its bounding box
+            bbox = get_nonzero_bbox(data)
+            data = data[(slice(None), *bounding_box_to_slice(bbox))]
+        else:
+            # this generates a segmentation with the nonzero mask, which normalization may need
+            data, seg, bbox = crop_to_nonzero(data, seg)
         properties['bbox_used_for_cropping'] = bbox
         # print(data.shape, seg.shape)
         properties['shape_after_cropping_and_before_resampling'] = data.shape[1:]
@@ -83,12 +113,16 @@ class DefaultPreprocessor(object):
         # longer fitting the images perfectly!
         data = self._normalize(data, seg, configuration_manager,
                                plans_manager.foreground_intensity_properties_per_channel)
+        if drop_seg:
+            # the nonzero mask was only needed for normalization
+            seg = None
 
         # print('current shape', data.shape[1:], 'current_spacing', original_spacing,
         #       '\ntarget shape', new_shape, 'target_spacing', target_spacing)
         old_shape = data.shape[1:]
         data = configuration_manager.resampling_fn_data(data, new_shape, original_spacing, target_spacing)
-        seg = configuration_manager.resampling_fn_seg(seg, new_shape, original_spacing, target_spacing)
+        if seg is not None:
+            seg = configuration_manager.resampling_fn_seg(seg, new_shape, original_spacing, target_spacing)
         if self.verbose:
             print(f'old shape: {old_shape}, new_shape: {new_shape}, old_spacing: {original_spacing}, '
                   f'new_spacing: {target_spacing}, fn_data: {configuration_manager.resampling_fn_data}')
@@ -107,6 +141,8 @@ class DefaultPreprocessor(object):
             # np.sort(pd.unique(x.ravel())) is deliberate: measurably faster than np.unique (~17 vs ~26 ms on a
             # 10 M voxel TotalSegmentator segmentation).
             properties['present_labels'] = [int(i) for i in np.sort(pd.unique(seg.ravel()))]
+        if seg is None:
+            return data, seg, properties
         if np.max(seg) > 127:
             seg = seg.astype(np.int16)
         else:
@@ -115,9 +151,9 @@ class DefaultPreprocessor(object):
 
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
                  configuration_manager: ConfigurationManager,
-                 dataset_json: Union[dict, str]):
+                 dataset_json: Union[dict, str], return_seg: bool = True):
         """
-        seg file can be none (test cases)
+        seg file can be none (test cases). For return_seg see run_case_npy
 
         order of operations is: transpose -> crop -> resample
         so when we export we need to run the following order: resample -> crop -> transpose (we could also run
@@ -139,8 +175,10 @@ class DefaultPreprocessor(object):
 
         if self.verbose:
             print(seg_file)
+        # a custom preprocessor's run_case_npy may not take return_seg
+        kwargs = {} if return_seg else skip_seg_kwargs(self.run_case_npy)
         data, seg, data_properties = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
-                                      dataset_json)
+                                      dataset_json, **kwargs)
         return data, seg, data_properties
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
@@ -340,18 +378,39 @@ class DefaultPreprocessor(object):
     #         foreground_coords = foreground_coords[~mask]
     #     return class_locs
 
-    def _normalize(self, data: np.ndarray, seg: np.ndarray, configuration_manager: ConfigurationManager,
+    @staticmethod
+    def _get_normalizer_class(scheme: str):
+        normalizer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing", "normalization"),
+                                                       scheme,
+                                                       'nnunetv2.preprocessing.normalization')
+        if normalizer_class is None:
+            raise RuntimeError(f'Unable to locate class \'{scheme}\' for normalization')
+        return normalizer_class
+
+    def _normalization_needs_nonzero_mask(self, configuration_manager: ConfigurationManager) -> bool:
+        """
+        False if no channel normalizes within the nonzero mask (use_mask_for_norm) and every channel's normalization
+        class itself declares that it looks at the mask only if use_mask_for_norm is set
+        (ImageNormalization.uses_seg_only_if_use_mask_for_norm; not inherited, because a subclass may change run() or
+        use_mask_for_norm). A preprocessor that overrides _normalize always gets the mask.
+        """
+        if type(self)._normalize is not DefaultPreprocessor._normalize:
+            return True
+        for c, scheme in enumerate(configuration_manager.normalization_schemes):
+            if configuration_manager.use_mask_for_norm[c]:
+                return True
+            if not self._get_normalizer_class(scheme).__dict__.get('uses_seg_only_if_use_mask_for_norm', False):
+                return True
+        return False
+
+    def _normalize(self, data: np.ndarray, seg: Union[np.ndarray, None], configuration_manager: ConfigurationManager,
                    foreground_intensity_properties_per_channel: dict) -> np.ndarray:
+        """seg is None if no channel needs the nonzero mask (see run_case_npy)"""
         for c in range(data.shape[0]):
-            scheme = configuration_manager.normalization_schemes[c]
-            normalizer_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing", "normalization"),
-                                                           scheme,
-                                                           'nnunetv2.preprocessing.normalization')
-            if normalizer_class is None:
-                raise RuntimeError(f'Unable to locate class \'{scheme}\' for normalization')
+            normalizer_class = self._get_normalizer_class(configuration_manager.normalization_schemes[c])
             normalizer = normalizer_class(use_mask_for_norm=configuration_manager.use_mask_for_norm[c],
                                           intensityproperties=foreground_intensity_properties_per_channel[str(c)])
-            data[c] = normalizer.run(data[c], seg[0])
+            data[c] = normalizer.run(data[c], None if seg is None else seg[0])
         return data
 
     def run(self, dataset_name_or_id: Union[int, str], configuration_name: str, plans_identifier: str,

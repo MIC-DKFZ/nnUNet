@@ -12,6 +12,19 @@ What is different: if your code changes the network's weights or buffers in plac
 no longer resets them to `list_of_parameters`, and changes made in place to the tensors of a state dict in
 `list_of_parameters` are no longer loaded. Call `predictor.network.load_state_dict(...)` yourself in that case.
 
+## Inference preprocessing can skip the nonzero mask (`return_seg=False`)
+
+`DefaultPreprocessor.run_case` and `run_case_npy` take a new argument `return_seg` (default `True`, which changes
+nothing). nnU-Net's own inference code passes `return_seg=False` when no segmentation of a previous stage is
+preprocessed along: the segmentation that would only hold the nonzero mask is then not resampled and `None` is returned
+in its place, and the mask is not built at all unless the normalization needs it. Data and properties are identical.
+
+- Custom preprocessors whose `run_case` / `run_case_npy` do not take `return_seg` are called as before.
+- A custom preprocessor that overrides `_normalize` always gets the mask.
+- Custom normalization schemes always get the mask, as before. If your scheme's `run()` looks at `seg` only when
+  `use_mask_for_norm` is set (like all of nnU-Net's own schemes), set `uses_seg_only_if_use_mask_for_norm = True` on
+  the class to let inference skip it. Subclasses do not inherit this setting.
+
 ## Checkpoints are safetensors files now; `.pth` checkpoints are still read
 
 nnU-Net writes `checkpoint_final`, `checkpoint_best` and `checkpoint_latest` as `.safetensors` instead of `.pth`. A

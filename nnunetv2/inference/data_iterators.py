@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from batchgenerators.dataloading.data_loader import DataLoader
 
-from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
+from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor, skip_seg_kwargs
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
@@ -27,14 +27,17 @@ def preprocess_fromfiles_save_to_queue(list_of_lists: List[List[str]],
     try:
         label_manager = plans_manager.get_label_manager(dataset_json)
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+        kwargs = skip_seg_kwargs(preprocessor.run_case)
         for idx in range(len(list_of_lists)):
+            seg_file = list_of_segs_from_prev_stage_files[idx] if list_of_segs_from_prev_stage_files is not None \
+                else None
             data, seg, data_properties = preprocessor.run_case(list_of_lists[idx],
-                                                               list_of_segs_from_prev_stage_files[
-                                                                   idx] if list_of_segs_from_prev_stage_files is not None else None,
+                                                               seg_file,
                                                                plans_manager,
                                                                configuration_manager,
-                                                               dataset_json)
-            if list_of_segs_from_prev_stage_files is not None and list_of_segs_from_prev_stage_files[idx] is not None:
+                                                               dataset_json,
+                                                               **kwargs)
+            if seg_file is not None:
                 seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
                 data = np.vstack((data, seg_onehot))
 
@@ -153,7 +156,8 @@ class PreprocessAdapter(DataLoader):
         # preprocessing and then there might be misalignments
         data, seg, data_properties = self.preprocessor.run_case(files, seg_prev_stage, self.plans_manager,
                                                                 self.configuration_manager,
-                                                                self.dataset_json)
+                                                                self.dataset_json,
+                                                                **skip_seg_kwargs(self.preprocessor.run_case))
         if seg_prev_stage is not None:
             seg_onehot = convert_labelmap_to_one_hot(seg[0], self.label_manager.foreground_labels, data.dtype)
             data = np.vstack((data, seg_onehot))
@@ -198,7 +202,8 @@ class PreprocessAdapterFromNpy(DataLoader):
         data, seg, props = self.preprocessor.run_case_npy(image, seg_prev_stage, props,
                                                    self.plans_manager,
                                                    self.configuration_manager,
-                                                   self.dataset_json)
+                                                   self.dataset_json,
+                                                   **skip_seg_kwargs(self.preprocessor.run_case_npy))
         if seg_prev_stage is not None:
             seg_onehot = convert_labelmap_to_one_hot(seg[0], self.label_manager.foreground_labels, data.dtype)
             data = np.vstack((data, seg_onehot))
@@ -222,16 +227,18 @@ def preprocess_fromnpy_save_to_queue(list_of_images: List[np.ndarray],
     try:
         label_manager = plans_manager.get_label_manager(dataset_json)
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+        kwargs = skip_seg_kwargs(preprocessor.run_case_npy)
         for idx in range(len(list_of_images)):
+            seg_prev_stage = list_of_segs_from_prev_stage[idx] if list_of_segs_from_prev_stage is not None else None
             data, seg, props = preprocessor.run_case_npy(list_of_images[idx],
-                                                  list_of_segs_from_prev_stage[
-                                                      idx] if list_of_segs_from_prev_stage is not None else None,
+                                                  seg_prev_stage,
                                                   list_of_image_properties[idx],
                                                   plans_manager,
                                                   configuration_manager,
-                                                  dataset_json)
+                                                  dataset_json,
+                                                  **kwargs)
             list_of_image_properties[idx] = props
-            if list_of_segs_from_prev_stage is not None and list_of_segs_from_prev_stage[idx] is not None:
+            if seg_prev_stage is not None:
                 seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
                 data = np.vstack((data, seg_onehot))
 

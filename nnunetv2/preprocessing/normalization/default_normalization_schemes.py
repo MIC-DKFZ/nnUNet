@@ -7,6 +7,10 @@ from numpy import number
 
 class ImageNormalization(ABC):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = None
+    # True if run() looks at seg only when use_mask_for_norm is set: inference preprocessing then skips building the
+    # nonzero mask for channels without use_mask_for_norm. Only counts where a class sets it itself; subclasses do not
+    # inherit it (see DefaultPreprocessor._normalization_needs_nonzero_mask)
+    uses_seg_only_if_use_mask_for_norm = False
 
     def __init__(self, use_mask_for_norm: bool = None, intensityproperties: dict = None,
                  target_dtype: Type[number] = np.float32):
@@ -26,6 +30,7 @@ class ImageNormalization(ABC):
 
 class ZScoreNormalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = True
+    uses_seg_only_if_use_mask_for_norm = True
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         """
@@ -57,6 +62,7 @@ class ZScoreNormalization(ImageNormalization):
 
 class CTNormalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+    uses_seg_only_if_use_mask_for_norm = True
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
@@ -75,6 +81,7 @@ class CTNormalization(ImageNormalization):
 
 class NoNormalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+    uses_seg_only_if_use_mask_for_norm = True
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         return image.astype(self.target_dtype, copy=False)
@@ -82,6 +89,7 @@ class NoNormalization(ImageNormalization):
 
 class RescaleTo01Normalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+    uses_seg_only_if_use_mask_for_norm = True
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         eps = 1e-8 if not self.target_dtype == np.float16 else 1e-4
@@ -93,6 +101,7 @@ class RescaleTo01Normalization(ImageNormalization):
 
 class RGBTo01Normalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+    uses_seg_only_if_use_mask_for_norm = True
 
     def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
         assert image.min() >= 0, "RGB images are uint 8, for whatever reason I found pixel values smaller than 0. " \

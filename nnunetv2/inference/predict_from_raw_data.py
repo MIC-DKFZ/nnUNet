@@ -27,6 +27,7 @@ from nnunetv2.inference.export_prediction import export_prediction_from_logits, 
     convert_predicted_logits_to_segmentation_with_correct_shape
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, \
     compute_steps_for_sliding_window
+from nnunetv2.preprocessing.preprocessors.default_preprocessor import skip_seg_kwargs
 from nnunetv2.utilities.file_path_utilities import get_output_folder, check_workers_alive_and_busy
 from nnunetv2.utilities.checkpoints import find_checkpoint_file, load_checkpoint_file
 from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
@@ -798,7 +799,8 @@ class nnUNetPredictor(object):
                 sps,
                 self.plans_manager,
                 self.configuration_manager,
-                self.dataset_json
+                self.dataset_json,
+                **skip_seg_kwargs(preprocessor.run_case)
             )
             if folder_with_segs_from_prev_stage is not None:
                 seg_onehot = convert_labelmap_to_one_hot(seg[0], label_manager.foreground_labels, data.dtype)
