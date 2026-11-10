@@ -18,6 +18,26 @@ if TYPE_CHECKING:
     from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
 
+def argmax_first_axis(x: np.ndarray, max_elements_per_slab: int = 2 ** 22) -> np.ndarray:
+    """
+    x.argmax(0), the same result, faster and with less memory for float16 x (nnU-Net's logits are float16).
+
+    numpy's argmax has no vectorized float16 loop, and along an axis other than the last one it first makes a
+    contiguous transposed copy of the whole array. Here float16 input is cast to float32 one slab (along axis 1) at a
+    time, straight into channel-last order, so each slab is copied once and reduced along its contiguous last axis.
+    The cast is exact, so every comparison, the tie break (first maximum) and NaN handling (first NaN) are unchanged.
+    Other dtypes go to numpy's argmax as they are.
+    """
+    if x.dtype != np.float16 or x.ndim < 2:
+        return x.argmax(0)
+    out = np.empty(x.shape[1:], dtype=np.intp)
+    elements_per_row = x.shape[0] * int(np.prod(x.shape[2:], dtype=np.int64))
+    rows = max(1, max_elements_per_slab // max(1, elements_per_row))
+    for start in range(0, x.shape[1], rows):
+        out[start:start + rows] = np.moveaxis(x[:, start:start + rows], 0, -1).astype(np.float32, order='C').argmax(-1)
+    return out
+
+
 class LabelManager(object):
     def __init__(self, label_dict: dict, regions_class_order: Union[List[int], None], force_use_labels: bool = False,
                  inference_nonlin=None):
@@ -175,7 +195,7 @@ class LabelManager(object):
             is_numpy = isinstance(predicted_probabilities, np.ndarray)
             if not is_numpy:
                 predicted_probabilities = predicted_probabilities.numpy()
-            segmentation = predicted_probabilities.argmax(0)
+            segmentation = argmax_first_axis(predicted_probabilities)
             if not is_numpy:
                 segmentation = torch.from_numpy(segmentation)
 
