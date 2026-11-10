@@ -1,5 +1,14 @@
 # Changes that affect custom trainers
 
+## `nnUNetPredictor` no longer turns on `torch.backends.cudnn.benchmark`
+
+Creating an `nnUNetPredictor` for a CUDA device used to set `torch.backends.cudnn.benchmark = True` for the whole
+process. It now leaves the setting alone. cuDNN's algorithm search took 1.2 s and 2.2 GB of extra device memory on the
+first case of a 3d ResEnc model (192^3 patches, RTX 4090) and made the following cases about 1 % faster, so it only
+paid off over a few dozen cases. The algorithms it picks, and with them the predictions, can also differ between runs.
+To get the old behaviour, set `torch.backends.cudnn.benchmark = True` yourself. Training (`nnUNetv2_train`) still
+enables it, so the final validation is unaffected.
+
 ## `nnUNetPredictor` keeps a single model's weights loaded
 
 `predict_logits_from_preprocessed_data` (and everything that predicts through it, such as `predict_from_files` and

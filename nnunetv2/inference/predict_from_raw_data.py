@@ -62,9 +62,10 @@ class nnUNetPredictor(object):
         self.tile_step_size = tile_step_size
         self.use_gaussian = use_gaussian
         self.use_mirroring = use_mirroring
-        if device.type == 'cuda':
-            torch.backends.cudnn.benchmark = True
-        else:
+        # torch.backends.cudnn.benchmark is left as it is: its algorithm search costs time and device memory on the
+        # first case, which only pays off over many cases, and the algorithms it picks (and with them the predictions)
+        # can differ between runs
+        if device.type != 'cuda':
             print('perform_everything_on_device=True is only supported for cuda devices! Setting this to False')
             perform_everything_on_device = False
         self.device = device
