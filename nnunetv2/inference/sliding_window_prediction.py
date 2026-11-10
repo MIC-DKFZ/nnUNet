@@ -7,6 +7,7 @@ from acvl_utils.cropping_and_padding.padding import pad_nd_image
 from scipy.ndimage import gaussian_filter1d
 
 
+# nnUNetPredictor does not clear this cache between calls. maxsize=2 bounds it (192^3 in fp16: 14 MB on the device)
 @lru_cache(maxsize=2)
 def compute_gaussian(tile_size: Union[Tuple[int, ...], List[int]], sigma_scale: float = 1. / 8,
                      value_scaling_factor: float = 1, dtype=torch.float16, device=torch.device('cuda', 0)) \

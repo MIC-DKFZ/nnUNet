@@ -12,7 +12,6 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, save
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.inference.export_prediction import convert_predicted_logits_to_segmentation_with_correct_shape
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
-from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.helpers import empty_cache
 from nnunetv2.utilities.plans_handling.plans_handler import ConfigurationManager, PlansManager
@@ -140,8 +139,6 @@ class JHUPredictor(nnUNetPredictor):
         if isinstance(data_iterator, MultiThreadedAugmenter):
             data_iterator._finish()
 
-        # clear lru cache
-        compute_gaussian.cache_clear()
         # clear device cache
         empty_cache(self.device)
         return ret

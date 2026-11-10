@@ -452,8 +452,6 @@ class nnUNetPredictor(object):
         if isinstance(data_iterator, MultiThreadedAugmenter):
             data_iterator._finish()
 
-        # clear lru cache
-        compute_gaussian.cache_clear()
         # clear device cache
         empty_cache(self.device)
         return ret
@@ -804,8 +802,6 @@ class nnUNetPredictor(object):
                      data_properties,
                      save_probabilities))
 
-        # clear lru cache
-        compute_gaussian.cache_clear()
         # clear device cache
         empty_cache(self.device)
         return ret
