@@ -1,6 +1,6 @@
 """
-nnUNetPredictor keeps what does not change between cases: compute_gaussian's cache survives the end of a prediction
-call.
+nnUNetPredictor keeps what does not change between cases: a single model's weights stay loaded, and compute_gaussian's
+cache survives the end of a prediction call. Both must leave the predictions unchanged.
 """
 import os
 import tempfile
@@ -77,9 +77,84 @@ def _predictor_from_folder(weights):
     return predictor
 
 
+def _expected_logits(predictor, weights, data):
+    """what predict_logits_from_preprocessed_data computed when it loaded every state dict for every case"""
+    expected = None
+    for w in weights:
+        predictor.network.load_state_dict(w)
+        logits = predictor.predict_sliding_window_return_logits(data).to('cpu')
+        expected = logits if expected is None else expected + logits
+    if len(weights) > 1:
+        expected /= len(weights)
+    return expected
+
+
 def _cases(n):
     rng = np.random.default_rng(0)
     return [torch.from_numpy(rng.normal(size=(1, 20 + 3 * i, 18, 17)).astype(np.float32)) for i in range(n)]
+
+
+@mock.patch.dict(os.environ, {'nnUNet_compile': 'f'})
+class TestWeightsStayLoaded(unittest.TestCase):
+    def setUp(self):
+        self._threads = torch.get_num_threads()
+        torch.set_num_threads(1)
+
+    def tearDown(self):
+        torch.set_num_threads(self._threads)
+
+    def _predict_counting_loads(self, predictor, data):
+        module = getattr(predictor.network, '_orig_mod', predictor.network)
+        with mock.patch.object(module, 'load_state_dict', wraps=module.load_state_dict) as spy:
+            logits = predictor.predict_logits_from_preprocessed_data(data)
+        return logits, spy.call_count
+
+    def test_single_fold_is_not_reloaded(self):
+        weights = _fold_weights(1)
+        predictor = _predictor_from_folder(weights)
+        reference = _predictor_from_folder(weights)
+        for data in _cases(3):
+            logits, n_loads = self._predict_counting_loads(predictor, data)
+            self.assertEqual(n_loads, 0)
+            self.assertTrue(torch.equal(logits, _expected_logits(reference, weights, data)))
+
+    def test_fold_ensemble_loads_every_fold(self):
+        weights = _fold_weights(3)
+        predictor = _predictor_from_folder(weights)
+        reference = _predictor_from_folder(weights)
+        for i, data in enumerate(_cases(2)):
+            logits, n_loads = self._predict_counting_loads(predictor, data)
+            # fold 0 is still loaded from initialization for the first case only
+            self.assertEqual(n_loads, 2 if i == 0 else 3)
+            self.assertTrue(torch.equal(logits, _expected_logits(reference, weights, data)))
+
+    def test_manual_initialization_loads_once(self):
+        weights = _fold_weights(2)
+        network = _network()  # random weights, neither of the two
+        reference = _predictor_from_folder(weights[:1])
+        predictor = nnUNetPredictor(device=torch.device('cpu'), perform_everything_on_device=False, allow_tqdm=False)
+        predictor.manual_initialization(network, reference.plans_manager, reference.configuration_manager,
+                                        weights[:1], DATASET_JSON, 'nnUNetTrainer', (0, 1, 2))
+        for i, data in enumerate(_cases(3)):
+            logits, n_loads = self._predict_counting_loads(predictor, data)
+            self.assertEqual(n_loads, 1 if i == 0 else 0)
+            self.assertTrue(torch.equal(logits, _expected_logits(reference, weights[:1], data)))
+
+    def test_replaced_network_or_parameters_are_loaded(self):
+        weights = _fold_weights(2)
+        predictor = _predictor_from_folder(weights[:1])
+        reference = _predictor_from_folder(weights[:1])
+        data = _cases(1)[0]
+
+        predictor.network = _network()
+        logits, n_loads = self._predict_counting_loads(predictor, data)
+        self.assertEqual(n_loads, 1)
+        self.assertTrue(torch.equal(logits, _expected_logits(reference, weights[:1], data)))
+
+        predictor.list_of_parameters = [weights[1]]
+        logits, n_loads = self._predict_counting_loads(predictor, data)
+        self.assertEqual(n_loads, 1)
+        self.assertTrue(torch.equal(logits, _expected_logits(reference, weights[1:], data)))
 
 
 @mock.patch.dict(os.environ, {'nnUNet_compile': 'f'})

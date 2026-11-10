@@ -1,5 +1,17 @@
 # Changes that affect custom trainers
 
+## `nnUNetPredictor` keeps a single model's weights loaded
+
+`predict_logits_from_preprocessed_data` (and everything that predicts through it, such as `predict_from_files` and
+`predict_single_npy_array`) used to load the state dicts in `list_of_parameters` into the network for every case, even
+with a single fold. It now loads a state dict only if the network does not hold it already: it remembers which state
+dict object it loaded into which network module. Fold ensembles still load every fold for every case, and replacing
+`predictor.network` or `predictor.list_of_parameters` loads the weights again, as before. Predictions are unchanged.
+
+What is different: if your code changes the network's weights or buffers in place between predictions, the next case
+no longer resets them to `list_of_parameters`, and changes made in place to the tensors of a state dict in
+`list_of_parameters` are no longer loaded. Call `predictor.network.load_state_dict(...)` yourself in that case.
+
 ## Checkpoints are safetensors files now; `.pth` checkpoints are still read
 
 nnU-Net writes `checkpoint_final`, `checkpoint_best` and `checkpoint_latest` as `.safetensors` instead of `.pth`. A
