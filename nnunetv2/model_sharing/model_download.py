@@ -26,8 +26,8 @@ def download_file(url: str, local_filename: str, chunk_size: Optional[int] = 819
     # NOTE the stream=True parameter below
     with requests.get(url, stream=True, timeout=100) as r:
         r.raise_for_status()
-        content_length = r.headers.get("Content-Length")
-        total = int(content_length) if content_length is not None else None
+        # Content-Length is optional (chunked transfer encoding). Without it, the progress bar shows no percentage
+        total = int(r.headers['Content-Length']) if 'Content-Length' in r.headers else None
         # tqdm.wrapattr does not close the file. Close it ourselves, also when the download fails, otherwise the
         # caller cannot delete it on Windows
         with open(local_filename, 'wb') as fh, \
