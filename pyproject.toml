@@ -49,7 +49,7 @@ dependencies = [
     "seaborn",
     "imagecodecs",
     "yacs",
-    "batchgeneratorsv2>=0.3.6",
+    "batchgeneratorsv2>=0.3.8",
     "einops",
     "blosc2>=4.1.0",
     "safetensors>=0.4.0",
