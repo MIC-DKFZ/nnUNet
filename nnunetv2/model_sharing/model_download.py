@@ -26,10 +26,12 @@ def download_file(url: str, local_filename: str, chunk_size: Optional[int] = 819
     # NOTE the stream=True parameter below
     with requests.get(url, stream=True, timeout=100) as r:
         r.raise_for_status()
+        content_length = r.headers.get("Content-Length")
+        total = int(content_length) if content_length is not None else None
         # tqdm.wrapattr does not close the file. Close it ourselves, also when the download fails, otherwise the
         # caller cannot delete it on Windows
         with open(local_filename, 'wb') as fh, \
-                tqdm.wrapattr(fh, "write", total=int(r.headers.get("Content-Length"))) as f:
+                tqdm.wrapattr(fh, "write", total=total) as f:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
     return local_filename
