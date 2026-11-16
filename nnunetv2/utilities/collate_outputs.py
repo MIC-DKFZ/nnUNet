@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import torch
 
 
 def collate_outputs(outputs: List[dict]):
@@ -16,6 +17,11 @@ def collate_outputs(outputs: List[dict]):
             collated[k] = [o[k] for o in outputs]
         elif isinstance(outputs[0][k], np.ndarray):
             collated[k] = np.vstack([o[k][None] for o in outputs])
+        elif isinstance(outputs[0][k], torch.Tensor):
+            # e.g. the training loss, which train_step leaves on the device. One transfer for all of them, then the
+            # same as for numpy arrays
+            arrays = torch.stack([o[k].detach() for o in outputs]).cpu().numpy()
+            collated[k] = np.vstack([a[None] for a in arrays])
         elif isinstance(outputs[0][k], list):
             collated[k] = [item for o in outputs for item in o[k]]
         else:

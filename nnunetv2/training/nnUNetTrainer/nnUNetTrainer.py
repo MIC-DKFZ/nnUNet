@@ -216,6 +216,10 @@ class nnUNetTrainer(object):
         self.save_every = 50
         self.disable_checkpointing = False
 
+        # progress.png is written at most this often (seconds). 0 plots every epoch
+        self.plot_progress_every_s = 60
+        self._last_progress_plot = None
+
         self.was_initialized = False
 
         self.print_to_log_file("\n#######################################################################\n"
@@ -428,6 +432,24 @@ class nnUNetTrainer(object):
             deep_supervision_scales = None  # for train and val_transforms
         return deep_supervision_scales
 
+    @property
+    def oversample_foreground_percent(self) -> float:
+        """
+        Share of each batch that is sampled to contain foreground. Set it for the whole batch (default 0.33). Under DDP,
+        _set_batch_size_and_oversample works out each rank's share of it, and from then on reading the attribute
+        returns that share (this is what the data loader gets). The value that was set is kept, so calling
+        _set_batch_size_and_oversample again splits the batch's value again instead of splitting a rank's share of
+        it, which would change how much is oversampled. Setting the attribute discards the share.
+        """
+        if self._oversample_foreground_percent_this_rank is not None:
+            return self._oversample_foreground_percent_this_rank
+        return self._oversample_foreground_percent
+
+    @oversample_foreground_percent.setter
+    def oversample_foreground_percent(self, value: float):
+        self._oversample_foreground_percent = value
+        self._oversample_foreground_percent_this_rank = None
+
     def _set_batch_size_and_oversample(self):
         if not self.is_ddp:
             # set batch size to what the plan says, leave oversample untouched
@@ -453,12 +475,13 @@ class nnUNetTrainer(object):
             # We need to use the same scheme here because an oversample of 0.33 with a batch size of 2 will be rounded
             # to an oversample of 0.5 (1 sample random, one oversampled). This may get lost if we just numerically
             # compute oversample
-            oversample = [True if not i < round(global_batch_size * (1 - self.oversample_foreground_percent)) else False
+            global_oversample = self._oversample_foreground_percent  # the batch's value, see oversample_foreground_percent
+            oversample = [True if not i < round(global_batch_size * (1 - global_oversample)) else False
                           for i in range(global_batch_size)]
 
-            if sample_id_high / global_batch_size < (1 - self.oversample_foreground_percent):
+            if sample_id_high / global_batch_size < (1 - global_oversample):
                 oversample_percent = 0.0
-            elif sample_id_low / global_batch_size > (1 - self.oversample_foreground_percent):
+            elif sample_id_low / global_batch_size > (1 - global_oversample):
                 oversample_percent = 1.0
             else:
                 oversample_percent = sum(oversample[sample_id_low:sample_id_high]) / batch_size_per_GPU[self.global_rank]
@@ -467,7 +490,7 @@ class nnUNetTrainer(object):
             print("global rank", self.global_rank, "batch_size", batch_size_per_GPU[self.global_rank])
 
             self.batch_size = batch_size_per_GPU[self.global_rank]
-            self.oversample_foreground_percent = oversample_percent
+            self._oversample_foreground_percent_this_rank = oversample_percent
 
     def _build_loss(self):
         if self.label_manager.has_regions:
@@ -587,8 +610,18 @@ class nnUNetTrainer(object):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
+        # Fused SGD does the whole update in one pass over the parameters instead of several, and GradScaler hands it
+        # the inf check on the GPU instead of making the host wait for it every step. Same results as foreach SGD
+        fused = self.device.type == 'cuda' and 'fused' in inspect.signature(torch.optim.SGD.__init__).parameters
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                    momentum=0.99, nesterov=True)
+                                    momentum=0.99, nesterov=True, **({'fused': True} if fused else {}))
+        if fused:
+            # Fused SGD creates its momentum buffers with empty_like in its first step. If GradScaler skips that step
+            # (inf / nan gradients), they are never written and the next step uses uninitialised memory as momentum.
+            # Zeros make every first step exactly what foreach SGD does: 0.99 * 0 + g = g
+            for group in optimizer.param_groups:
+                for p in group['params']:
+                    optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
@@ -1106,7 +1139,9 @@ class nnUNetTrainer(object):
             l.backward()
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
-        return {'loss': l.detach().cpu().numpy()}
+        # The loss stays on the device: reading it here would make the host wait for the GPU in every iteration.
+        # collate_outputs moves all of an epoch's losses at once
+        return {'loss': l.detach()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
         outputs = collate_outputs(train_outputs)
@@ -1251,7 +1286,7 @@ class nnUNetTrainer(object):
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.safetensors'))
 
         if self.global_rank == 0:
-            self.logger.plot_progress_png(self.output_folder)
+            self._maybe_plot_progress(force=exit_now or self.current_epoch == self.num_epochs - 1)
 
         if exit_now:
             self.print_to_log_file("Epoch ended and termination signal received. checkpoint_latest is written, "
@@ -1261,6 +1296,17 @@ class nnUNetTrainer(object):
             sys.exit(0)
 
         self.current_epoch += 1
+
+    def _maybe_plot_progress(self, force: bool = False):
+        """
+        Writes progress.png, at most every self.plot_progress_every_s seconds. Plotting takes 0.4 - 1.2 s and grows with
+        the number of epochs, which adds up when epochs are short. The first epoch of a run is always plotted, and
+        on_epoch_end forces the last epoch and an epoch that ends with a termination signal.
+        """
+        now = time()
+        if force or self._last_progress_plot is None or now - self._last_progress_plot >= self.plot_progress_every_s:
+            self.logger.plot_progress_png(self.output_folder)
+            self._last_progress_plot = now
 
     def save_checkpoint(self, filename: str) -> None:
         """
@@ -1342,13 +1388,26 @@ class nnUNetTrainer(object):
             else:
                 self.network.load_state_dict(new_state_dict)
         if 'optimizer_state' in checkpoint:
-            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+            self._load_optimizer_state(checkpoint['optimizer_state'])
         elif self.current_epoch < self.num_epochs:
             # checkpoint_final has no optimizer state. Only matters if training continues from it
             self.print_to_log_file(NO_OPTIMIZER_STATE_WARNING)
         if self.grad_scaler is not None:
             if checkpoint.get('grad_scaler_state') is not None:
                 self.grad_scaler.load_state_dict(checkpoint['grad_scaler_state'])
+
+    def _load_optimizer_state(self, optimizer_state: dict) -> None:
+        """
+        Optimizer.load_state_dict also restores the implementation flags (fused, foreach) saved with the state. A
+        checkpoint written by a differently built optimizer would switch ours: a foreach checkpoint (any training from
+        before SGD was fused) turns the fused SGD of configure_optimizers into a non-fused one that GradScaler still
+        treats as fused, an AssertionError in the first step. Keep the implementation configure_optimizers chose; the
+        state itself is the same for all of them.
+        """
+        impl_flags = [{k: g[k] for k in ('fused', 'foreach') if k in g} for g in self.optimizer.param_groups]
+        self.optimizer.load_state_dict(optimizer_state)
+        for group, flags in zip(self.optimizer.param_groups, impl_flags):
+            group.update(flags)
 
     def perform_actual_validation(self, save_probabilities: bool = False):
         self.set_deep_supervision_enabled(False)

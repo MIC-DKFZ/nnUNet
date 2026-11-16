@@ -34,6 +34,41 @@ in its place, and the mask is not built at all unless the normalization needs it
   `use_mask_for_norm` is set (like all of nnU-Net's own schemes), set `uses_seg_only_if_use_mask_for_norm = True` on
   the class to let inference skip it. Subclasses do not inherit this setting.
 
+## Training loop: fused SGD, the training loss stays on the GPU, progress.png at most once a minute
+
+Three changes make every training iteration cheaper on the host. Training results are unchanged: fused SGD computes
+the same update as the foreach SGD it replaces, and the logged training loss is the same mean of the same values.
+The gain is largest where the host and not the GPU limits the speed (small patches or networks, fast GPUs, slow CPUs).
+
+- **`configure_optimizers` builds fused SGD on CUDA** (`fused=True`, if the installed torch has it), with its momentum
+  buffers initialised to zero. Other devices keep foreach SGD. Custom `configure_optimizers` are not affected.
+- **`load_checkpoint` keeps the optimizer implementation that `configure_optimizers` built.**
+  `Optimizer.load_state_dict` also restores the `fused` / `foreach` flags stored in a checkpoint; nnU-Net now puts
+  back the ones of its own optimizer (`_load_optimizer_state`). Trainings started before this change continue with
+  `--c` on fused SGD. An override of `load_checkpoint` that calls `self.optimizer.load_state_dict(...)` itself should
+  call `self._load_optimizer_state(...)` instead: continuing a foreach checkpoint with fused SGD otherwise fails in
+  the first step (`AssertionError` in `GradScaler.step`).
+- **`train_step` returns the loss as a detached tensor on the training device**, no longer as a numpy array, so that
+  the host does not wait for the GPU in every iteration. `collate_outputs` now also accepts tensors and moves them in
+  one transfer, so `on_train_epoch_end` and overrides that use `collate_outputs` see numpy arrays as before. Code that
+  reads `train_outputs[i]['loss']` directly gets a tensor. Old: `np.mean([o['loss'] for o in train_outputs])`. New:
+  `np.mean(collate_outputs(train_outputs)['loss'])`, or `.item()` on each. A `train_step` override that returns numpy
+  arrays keeps working.
+- **progress.png is written at most every `self.plot_progress_every_s` seconds** (default 60), and always after the
+  first epoch of a run, after the last one and before an exit on a termination signal. Plotting takes 0.4 - 1.2 s per
+  epoch and grows with the number of epochs. `self.plot_progress_every_s = 0` restores a plot after every epoch.
+
+## DDP: `oversample_foreground_percent` is the value for the whole batch again after `_set_batch_size_and_oversample`
+
+Under DDP, `_set_batch_size_and_oversample` used to overwrite `oversample_foreground_percent` with the share of the
+current rank. A trainer that called it a second time (for example after changing the batch size) then split that
+share again, and the fraction of foreground-forced samples changed. `oversample_foreground_percent` is now a property:
+setting it sets the value for the whole batch, and after the split reading it returns the rank's share, as before.
+Every call splits the batch's value, and setting the attribute again discards the share. Nothing changes for trainers
+that call the method once (`initialize` does) or that set the attribute and then call it. A subclass that defines
+`oversample_foreground_percent` as a class attribute replaces the property, and under DDP the split then raises an
+`AttributeError`. Set it in `__init__` instead (`nnUNetTrainer.__init__` overrode such a class attribute before, too).
+
 ## Checkpoints are safetensors files now; `.pth` checkpoints are still read
 
 nnU-Net writes `checkpoint_final`, `checkpoint_best` and `checkpoint_latest` as `.safetensors` instead of `.pth`. A

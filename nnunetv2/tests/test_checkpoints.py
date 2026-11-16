@@ -463,13 +463,15 @@ def _fake_trainer(ckpt: dict, num_epochs: int = 10) -> SimpleNamespace:
     opt = torch.optim.SGD(net.parameters(), lr=0.01, momentum=0.99, nesterov=True)
     opt.load_state_dict(ckpt['optimizer_state'])
     messages = []
-    return SimpleNamespace(
+    trainer = SimpleNamespace(
         global_rank=0, disable_checkpointing=False, is_ddp=False, was_initialized=True, device=torch.device('cpu'),
         network=net, optimizer=opt, grad_scaler=None, logger=_FakeLogger(ckpt['logging']), _best_ema=ckpt['_best_ema'],
         current_epoch=ckpt['current_epoch'] - 1,  # save_checkpoint stores current_epoch + 1
         num_epochs=num_epochs, my_init_kwargs=ckpt['init_args'],
         inference_allowed_mirroring_axes=ckpt['inference_allowed_mirroring_axes'],
         print_to_log_file=lambda *args, **kwargs: messages.append(' '.join(str(a) for a in args)), messages=messages)
+    trainer._load_optimizer_state = lambda state: nnUNetTrainer._load_optimizer_state(trainer, state)
+    return trainer
 
 
 class TestTrainerCheckpoints(_TmpDirTestCase):
