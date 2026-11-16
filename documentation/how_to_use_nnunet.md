@@ -254,6 +254,10 @@ strongly recommend you use all 5 folds. Thus, all 5 folds must have been trained
 If you wish to make predictions with a single model, train the `all` fold and specify it in `nnUNetv2_predict`
 with `-f all`
 
+For datasets with many classes and/or very large images where `nnUNetv2_predict` runs out of RAM/VRAM, there is an
+optional memory-efficient alternative, `nnUNetv2_predict_streaming`. See
+[Memory-efficient (streaming) inference](how-to/run-inference-streaming.md).
+
 #### Ensembling multiple configurations
 If you wish to ensemble multiple predictions (typically form different configurations), you can do so with the following command:
 ```bash

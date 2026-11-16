@@ -28,6 +28,15 @@ By default, inference uses the 5 trained folds as an ensemble. If you trained th
 nnUNetv2_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -d DATASET_NAME_OR_ID -c CONFIGURATION -f all
 ```
 
+### Memory-efficient (streaming) inference (optional)
+
+For datasets with many classes and/or very large images, where the default predictor needs too much RAM/VRAM,
+`nnUNetv2_predict_streaming` is an optional drop-in alternative that streams the prediction so the full probability
+volume is never held in memory. It is segmentation-only (no `--save_probabilities`) and resamples slightly
+differently from the default. See:
+
+- [Memory-efficient (streaming) inference](run-inference-streaming.md)
+
 ## Ensemble multiple configuration outputs
 
 ```bash

@@ -33,7 +33,9 @@ These use their own plans and trainers and leave the standard commands unchanged
 ## Inference
 
 - `nnUNetv2_predict`: run prediction using dataset id and stored results
+- `nnUNetv2_predict_streaming`: optional memory-efficient alternative to `nnUNetv2_predict` for many-class / very large images ([guide](../how-to/run-inference-streaming.md))
 - `nnUNetv2_predict_from_modelfolder`: run prediction from an explicit model folder
+- `nnUNetv2_reorder_labels`: give a trained model new label ids without retraining ([guide](../how-to/run-inference-streaming.md#giving-a-model-new-label-ids))
 - `nnUNetv2_ensemble`: ensemble multiple prediction folders
 - `nnUNetv2_apply_postprocessing`: apply postprocessing to prediction outputs
 

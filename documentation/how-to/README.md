@@ -18,6 +18,7 @@ This section groups the existing documentation by task.
 - [Train models](train-models.md)
 - [Find the best configuration](find-best-configuration.md)
 - [Run inference](run-inference.md)
+- [Memory-efficient (streaming) inference](run-inference-streaming.md) (optional alternative to `nnUNetv2_predict`)
 
 ## Training options and related topics
 
