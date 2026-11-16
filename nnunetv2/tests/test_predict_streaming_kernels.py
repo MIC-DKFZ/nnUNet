@@ -198,6 +198,37 @@ class TestKernels(unittest.TestCase):
             sk.emit_argmax = orig
             sk._SELFTEST.clear()
 
+    def test_launches_on_the_device_of_the_tensors(self):
+        """Triton launches on the thread's current device: both wrappers make the tensors' device current."""
+        entered = []
+
+        def spy(device):
+            entered.append(torch.device(device))
+            return torch.cuda.device(device)
+        sk._SELFTEST.clear()
+        try:
+            with mock.patch.object(sk, 'cuda_device', side_effect=spy):
+                self.assertTrue(sk.kernels_selftest(torch.device('cuda'), torch.float16))
+        finally:
+            sk._SELFTEST.clear()
+        self.assertGreater(len(entered), 1)
+        self.assertTrue(all(d.type == 'cuda' and d.index == torch.cuda.current_device() for d in entered), entered)
+
+    @unittest.skipUnless(CUDA and torch.cuda.device_count() > 1, 'two CUDA devices')
+    def test_predictor_on_a_device_that_is_not_current(self):
+        src, tgt, step, osp, msp, sepz = GEOMETRIES[0]
+        data, props = _case(src, tgt, osp)
+        previous = torch.cuda.current_device()
+        torch.cuda.set_device(0)
+        try:
+            p = _predictor(torch.device('cuda', 1), step=step, model_spacing=msp, sepz=sepz)
+            ref = _run(p, data, props, kernels=False)
+            got = _run(p, data, props, kernels=True)
+            self.assertEqual(torch.cuda.current_device(), 0)
+        finally:
+            torch.cuda.set_device(previous)
+        np.testing.assert_array_equal(got, ref)
+
     def test_selftest_rejects_unknown_ring_dtype(self):
         self.assertFalse(sk.kernels_selftest(torch.device('cuda'), torch.bfloat16))
 

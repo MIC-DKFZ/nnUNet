@@ -2,6 +2,8 @@
 Triton kernels for nnUNetPredictorStreaming. Both reproduce the predictor's torch path bit for bit, for an fp16 and an
 fp32 ring; the predictor uses them on CUDA when Triton imports (no Windows wheels) and kernels_selftest passes for the
 ring dtype (compute capability >= 7.0, both kernels bit-identical, no exception), and keeps the torch path otherwise.
+Triton launches a kernel on the calling thread's current CUDA device, so both wrappers make the device of their tensors
+current for the launch: a predictor on cuda:1 works while cuda:0 is current.
 Tests: nnunetv2/tests/test_predict_streaming_kernels.py.
 
 accumulate_: ring_slice += pred * gaussian in one pass instead of two, with torch's roundings: round16(pred * g)
@@ -17,6 +19,7 @@ import numpy as np
 import torch
 import triton
 import triton.language as tl
+from torch.cuda import device as cuda_device
 
 
 @triton.jit
@@ -44,9 +47,10 @@ def accumulate_(ring_slice: torch.Tensor, pred: torch.Tensor, gaussian: torch.Te
     gaussian = gaussian.contiguous()
     assert ring_slice.stride(3) == 1 and ring_slice.dtype in (torch.float16, torch.float32)
     assert pred.dtype == gaussian.dtype == torch.float16
-    _accumulate_kernel[(C * P0 * P1,)](ring_slice, pred, gaussian, ring_slice.stride(0), ring_slice.stride(1),
-                                       ring_slice.stride(2), P0 * P1, P1=P1, P2=P2,
-                                       BLOCK=triton.next_power_of_2(P2), enable_fp_fusion=False)
+    with cuda_device(ring_slice.device):             # Triton launches on the current device and its stream
+        _accumulate_kernel[(C * P0 * P1,)](ring_slice, pred, gaussian, ring_slice.stride(0), ring_slice.stride(1),
+                                           ring_slice.stride(2), P0 * P1, P1=P1, P2=P2,
+                                           BLOCK=triton.next_power_of_2(P2), enable_fp_fusion=False)
 
 
 def bilinear_tables(src_len: int, dst_len: int, device, select: torch.Tensor = None):
@@ -144,9 +148,10 @@ def emit_argmax(l0: torch.Tensor, l1: torch.Tensor, n0: torch.Tensor, n1: torch.
     assert out.is_contiguous()
     grid = (T0, triton.cdiv(T1, block))
     # torch multiplies a float32 tensor by the python double (1.0 - w) rounded to float32, not by 1 - float32(w)
-    _emit_kernel[grid](l0, l1, n0, n1, out, out if best is None else best, *tab0, *tab1, float(w), float(1.0 - w), C,
-                       l0.stride(0), l0.stride(1), n0.stride(0), T1, BLOCK=block, BLEND=bool(blend),
-                       STORE_BEST=best is not None, RING_FP16=l0.dtype == torch.float16, enable_fp_fusion=False)
+    with cuda_device(out.device):                    # Triton launches on the current device and its stream
+        _emit_kernel[grid](l0, l1, n0, n1, out, out if best is None else best, *tab0, *tab1, float(w), float(1.0 - w),
+                           C, l0.stride(0), l0.stride(1), n0.stride(0), T1, BLOCK=block, BLEND=bool(blend),
+                           STORE_BEST=best is not None, RING_FP16=l0.dtype == torch.float16, enable_fp_fusion=False)
 
 
 _SELFTEST = {}
