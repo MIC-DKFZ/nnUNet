@@ -28,18 +28,27 @@ class SimpleITKIO(BaseReaderWriter):
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
+        return self.read_sitk_images([sitk.ReadImage(f) for f in image_fnames], image_fnames)
+
+    def read_sitk_images(self, itk_images: List[sitk.Image],
+                         image_fnames: Union[List[str], Tuple[str, ...], None] = None) -> Tuple[np.ndarray, dict]:
+        """read_images for images already in memory (e.g. handed over by another tool): exactly what read_images
+        returns for the same images stored as files. image_fnames only names them in messages."""
+        if image_fnames is None:
+            image_fnames = [f'<in-memory image {i}>' for i in range(len(itk_images))]
         images = []
+        viewed_images = []  # GetArrayViewFromImage views an image's buffer: the image must outlive the vstack below
         spacings = []
         origins = []
         directions = []
 
         spacings_for_nnunet = []
-        for f in image_fnames:
-            itk_image = sitk.ReadImage(f)
+        for f, itk_image in zip(image_fnames, itk_images):
             spacings.append(itk_image.GetSpacing())
             origins.append(itk_image.GetOrigin())
             directions.append(itk_image.GetDirection())
-            npy_image = sitk.GetArrayFromImage(itk_image)
+            viewed_images.append(itk_image)
+            npy_image = sitk.GetArrayViewFromImage(itk_image)
             if npy_image.ndim == 2:
                 # 2d
                 npy_image = npy_image[None, None]
@@ -115,6 +124,10 @@ class SimpleITKIO(BaseReaderWriter):
         return self.read_images((seg_fname, ))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
+        sitk.WriteImage(self.seg_to_sitk(seg, properties), output_fname, True)
+
+    def seg_to_sitk(self, seg: np.ndarray, properties: dict) -> sitk.Image:
+        """The image write_seg would write, in memory."""
         assert seg.ndim == 3, 'segmentation must be 3d. If you are exporting a 2d segmentation, please provide it as shape 1,x,y'
         output_dimension = len(properties['sitk_stuff']['spacing'])
         assert 1 < output_dimension < 4
@@ -125,27 +138,60 @@ class SimpleITKIO(BaseReaderWriter):
         itk_image.SetSpacing(properties['sitk_stuff']['spacing'])
         itk_image.SetOrigin(properties['sitk_stuff']['origin'])
         itk_image.SetDirection(properties['sitk_stuff']['direction'])
+        return itk_image
 
-        sitk.WriteImage(itk_image, output_fname, True)
+
+def _dicom_orient_view(itk_image: sitk.Image, orientation: str) -> Tuple[np.ndarray, tuple, sitk.Image]:
+    """
+    sitk.DICOMOrient(itk_image, orientation) as (its voxels as GetArrayViewFromImage gives them, its (spacing, origin,
+    direction), the image the voxels are a view of). For scalar 3d images the voxels are a view of itk_image's own
+    buffer, permuted and flipped as DICOMOrient permutes and flips the axes, and the geometry is what DICOMOrient gives
+    a one-byte stand-in with the same geometry. That avoids the reoriented copy (and DICOMOrient's intermediate one).
+    """
+    if itk_image.GetDimension() != 3 or itk_image.GetNumberOfComponentsPerPixel() != 1:
+        oriented = sitk.DICOMOrient(itk_image, orientation)
+        geometry = (oriented.GetSpacing(), oriented.GetOrigin(), oriented.GetDirection())
+        return sitk.GetArrayViewFromImage(oriented), geometry, oriented
+    stand_in = sitk.Image(itk_image.GetSize(), sitk.sitkUInt8)
+    stand_in.CopyInformation(itk_image)
+    oriented = sitk.DICOMOrient(stand_in, orientation)
+    geometry = (oriented.GetSpacing(), oriented.GetOrigin(), oriented.GetDirection())
+    del stand_in, oriented
+    # DICOMOrient permutes the axes and flips some of them: each new direction column is +- one of the old ones
+    dots = np.reshape(geometry[2], (3, 3)).T @ np.reshape(itk_image.GetDirection(), (3, 3))  # [new axis, old axis]
+    source_axis = np.abs(dots).argmax(1)
+    # numpy's axes are ITK's in reverse order
+    view = sitk.GetArrayViewFromImage(itk_image).transpose([2 - source_axis[2 - i] for i in range(3)])
+    for axis in range(3):
+        if dots[axis, source_axis[axis]] < 0:
+            view = np.flip(view, 2 - axis)
+    return view, geometry, itk_image
 
 
 class SimpleITKIOWithReorient(SimpleITKIO):
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]], orientation = "RAS") -> Tuple[np.ndarray, dict]:
+        return self.read_sitk_images([sitk.ReadImage(f) for f in image_fnames], image_fnames, orientation)
+
+    def read_sitk_images(self, itk_images: List[sitk.Image], image_fnames: Union[List[str], Tuple[str, ...], None] = None,
+                         orientation="RAS") -> Tuple[np.ndarray, dict]:
+        """read_images for images already in memory (e.g. handed over by another tool): exactly what read_images
+        returns for the same images stored as files. image_fnames only names them in messages."""
+        if image_fnames is None:
+            image_fnames = [f'<in-memory image {i}>' for i in range(len(itk_images))]
         images = []
+        viewed_images = []  # GetArrayViewFromImage views an image's buffer: the image must outlive the vstack below
         spacings = []
         origins = []
         directions = []
 
         spacings_for_nnunet = []
-        for f in image_fnames:
-            itk_image = sitk.ReadImage(f)
+        for f, itk_image in zip(image_fnames, itk_images):
             original_orientation = sitk.DICOMOrientImageFilter_GetOrientationFromDirectionCosines(itk_image.GetDirection())
-            itk_image = sitk.DICOMOrient(itk_image, orientation)
-            # print(sitk.DICOMOrientImageFilter_GetOrientationFromDirectionCosines(itk_image.GetDirection()))
-            spacings.append(itk_image.GetSpacing())
-            origins.append(itk_image.GetOrigin())
-            directions.append(itk_image.GetDirection())
-            npy_image = sitk.GetArrayFromImage(itk_image)
+            npy_image, geometry, viewed_image = _dicom_orient_view(itk_image, orientation)
+            spacings.append(geometry[0])
+            origins.append(geometry[1])
+            directions.append(geometry[2])
+            viewed_images.append(viewed_image)
             if npy_image.ndim == 2:
                 # 2d
                 npy_image = npy_image[None, None]
@@ -216,9 +262,16 @@ class SimpleITKIOWithReorient(SimpleITKIO):
             # are returned x,y,z but spacing is returned z,y,x. Duh.
             'spacing': spacings_for_nnunet[0]
         }
-        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
+        # the reoriented views can be permuted: write them into a C-ordered result, as np.vstack does for plain arrays
+        data = np.empty((sum(i.shape[0] for i in images), *images[0].shape[1:]), dtype=np.float32)
+        np.concatenate(images, axis=0, out=data, casting='unsafe')
+        return data, dict
 
     def write_seg(self, seg, output_fname, properties):
+        sitk.WriteImage(self.seg_to_sitk(seg, properties), output_fname, True)
+
+    def seg_to_sitk(self, seg: np.ndarray, properties: dict) -> sitk.Image:
+        """The image write_seg would write, in memory (reoriented back to the input's orientation)."""
         assert seg.ndim == 3, 'segmentation must be 3d. If you are exporting a 2d segmentation, please provide it as shape 1,x,y'
         output_dimension = len(properties['sitk_stuff']['spacing'])
         assert 1 < output_dimension < 4
@@ -229,6 +282,4 @@ class SimpleITKIOWithReorient(SimpleITKIO):
         itk_image.SetSpacing(properties['sitk_stuff']['spacing'])
         itk_image.SetOrigin(properties['sitk_stuff']['origin'])
         itk_image.SetDirection(properties['sitk_stuff']['direction'])
-        itk_image = sitk.DICOMOrient(itk_image, properties['sitk_stuff']['original_orientation'])
-
-        sitk.WriteImage(itk_image, output_fname, True)
+        return sitk.DICOMOrient(itk_image, properties['sitk_stuff']['original_orientation'])

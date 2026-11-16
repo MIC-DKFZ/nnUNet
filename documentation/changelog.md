@@ -1,5 +1,27 @@
 # Changes that affect custom trainers
 
+## NIfTI readers: images already in memory, and fewer copies of the image
+
+`NibabelIO` / `NibabelIOWithReorient` gained `read_nibabel_images` and `seg_to_nibabel`, `SimpleITKIO` /
+`SimpleITKIOWithReorient` gained `read_sitk_images` and `seg_to_sitk`. They take images that are already in memory
+(nibabel / SimpleITK image objects, for example handed over by another tool) and return exactly what `read_images`
+returns for the same images stored as files; `seg_to_*` return the image that `write_seg` would write.
+`read_images` and `write_seg` now go through them, so a custom reader that overrides only those two is unaffected.
+
+`NibabelIO`, `NibabelIOWithReorient`, `SimpleITKIO` and `SimpleITKIOWithReorient` return the same arrays and properties
+as before, bit for bit, but make fewer full-size copies of the image on the way. Reading a 512 x 512 x 1940 CT (int16
+with scl_slope / scl_inter; 1.9 GB as float32) used to raise the peak memory by 7.6 GB with either nibabel reader. Now
+it is 2.9 GB, and the read is about 10 % faster. With the SimpleITK readers it went from 5.7 GB (`SimpleITKIO`) and
+7.6 GB (`SimpleITKIOWithReorient`) to 4.7 GB, which is the peak of SimpleITK's own `ReadImage` for this file.
+
+- The nibabel readers no longer create `get_fdata()`'s float64 image. They read a stored image once in its stored dtype,
+  reorient it as a view and convert it to float32 in small blocks, with nibabel's own scaling in float64.
+- `read_nibabel_images` does not fill the `get_fdata()` cache of the images it is given, so an image you keep does not
+  hold a float64 copy afterwards. It checks shapes, affines and spacings before it reads any voxels.
+- The SimpleITK readers take views of the ITK images' buffers instead of copying them. `SimpleITKIOWithReorient`
+  reorients a 3d image as a view of its buffer and takes the geometry from `DICOMOrient` applied to a one-byte stand-in,
+  instead of reorienting a copy.
+
 ## `nnUNetPredictor` no longer turns on `torch.backends.cudnn.benchmark`
 
 Creating an `nnUNetPredictor` for a CUDA device used to set `torch.backends.cudnn.benchmark = True` for the whole

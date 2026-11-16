@@ -14,12 +14,74 @@
 #    limitations under the License.
 from typing import Tuple, Union, List
 import numpy as np
-from nibabel.orientations import io_orientation, axcodes2ornt, ornt_transform
+from nibabel.arrayproxy import ArrayProxy
+from nibabel.orientations import io_orientation, axcodes2ornt, ornt_transform, apply_orientation
+from nibabel.volumeutils import apply_read_scaling
 
 from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 import nibabel
 
 from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
+
+_IDENTITY_ORNT = [[0, 1], [1, 1], [2, 1]]
+# voxels converted to float64 at a time when an image is read into the float32 result: 2 MB per temporary, small enough
+# to stay in the CPU cache (one slice of a 512x512 CT; 4 MB blocks read it 20 % slower)
+_BLOCK_VOXELS = 2 ** 18
+
+
+def _reoriented_geometry(nib_image: nibabel.spatialimages.SpatialImage, ornt) -> nibabel.spatialimages.SpatialImage:
+    """
+    nib_image.as_reoriented(ornt) without its voxels: the same call on a zero-byte stand-in with the same shape, affine
+    and header. Only the affine and header of the result are meaningful.
+    """
+    if np.array_equal(ornt, _IDENTITY_ORNT):
+        return nib_image  # as_reoriented returns the image itself
+    shape_only = np.broadcast_to(np.zeros((), dtype=np.uint8), nib_image.shape)
+    return nib_image.__class__(shape_only, nib_image.affine, nib_image.header).as_reoriented(ornt)
+
+
+def _read_into(out: np.ndarray, nib_image: nibabel.spatialimages.SpatialImage, ornt=None) -> None:
+    """
+    Writes the voxels of nib_image.get_fdata() (ornt None or identity), or of nib_image.as_reoriented(ornt).get_fdata(),
+    transposed to SimpleITK's axis order and cast to float32, into out. These are exactly the voxels NibabelIO and
+    NibabelIOWithReorient have always returned, but neither the float64 image those calls create nor a second copy of
+    it is ever held: a stored image is read once in its stored dtype, reoriented as a view and converted block by block
+    with nibabel's own scaling.
+    """
+    dataobj = nib_image.dataobj
+    reorient = ornt is not None and not np.array_equal(ornt, _IDENTITY_ORNT)
+    if type(dataobj) is ArrayProxy and (reorient or not nib_image.in_memory):
+        # an image in a file (get_fdata() would return a filled cache instead; as_reoriented reads the file regardless).
+        # ArrayProxy._get_scaled: get_fdata() scales in float64, as_reoriented (np.asanyarray(dataobj)) in the slope's
+        # dtype, each where the scale factors cast to it safely
+        array = dataobj.get_unscaled()
+        slope, inter = np.asanyarray(dataobj.slope), np.asanyarray(dataobj.inter)
+        scale_dtype = slope.dtype if reorient else np.dtype(np.float64)
+        slope = slope.astype(scale_dtype) if np.can_cast(slope, scale_dtype) else slope
+        inter = inter.astype(scale_dtype) if np.can_cast(inter, scale_dtype) else inter
+
+        def to_float64(block):
+            return np.asarray(apply_read_scaling(block, slope, inter), dtype=np.float64)
+    elif isinstance(dataobj, np.ndarray) and (reorient or dataobj.dtype != np.float64):
+        # an image in memory: get_fdata() is its array as float64 (or a filled cache of that, which this ignores)
+        array = dataobj
+
+        def to_float64(block):
+            return np.asarray(block, dtype=np.float64)
+    else:
+        # float64 arrays, filled caches and other proxies: nibabel's float64 voxels as they are
+        array = (nib_image.as_reoriented(ornt) if reorient else nib_image).get_fdata(caching='unchanged')
+        reorient, to_float64 = False, None
+    if reorient:
+        array = apply_orientation(array, ornt)
+    # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
+    array = array.transpose((2, 1, 0))
+    if to_float64 is None:
+        out[...] = array
+        return
+    step = max(1, _BLOCK_VOXELS // max(1, array[0].size))
+    for start in range(0, array.shape[0], step):
+        out[start:start + step] = to_float64(array[start:start + step])
 
 
 class NibabelIO(BaseReaderWriter):
@@ -35,12 +97,20 @@ class NibabelIO(BaseReaderWriter):
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
-        images = []
+        return self.read_nibabel_images([nibabel.load(f) for f in image_fnames], image_fnames)
+
+    def read_nibabel_images(self, nib_images: List[nibabel.Nifti1Image],
+                            image_fnames: Union[List[str], Tuple[str, ...], None] = None) -> Tuple[np.ndarray, dict]:
+        """read_images for images already in memory (e.g. handed over by another tool): exactly what read_images
+        returns for the same images stored as files. image_fnames only names them in messages."""
+        nib_images = list(nib_images)  # iterated twice: geometry first, then the voxels
+        if image_fnames is None:
+            image_fnames = [f'<in-memory image {i}>' for i in range(len(nib_images))]
+        shapes = []
         original_affines = []
 
         spacings_for_nnunet = []
-        for f in image_fnames:
-            nib_image = nibabel.load(f)
+        for nib_image in nib_images:
             assert nib_image.ndim == 3, 'only 3d images are supported by NibabelIO'
             original_affine = nib_image.affine
 
@@ -51,13 +121,13 @@ class NibabelIO(BaseReaderWriter):
                 [float(i) for i in nib_image.header.get_zooms()[::-1]]
             )
 
-            # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
-            images.append(nib_image.get_fdata().transpose((2, 1, 0))[None])
+            # the voxels are read once the geometry is checked, transposed to SimpleITK's axis order
+            shapes.append((1, *nib_image.shape[::-1]))
 
-        if not self._check_all_same([i.shape for i in images]):
+        if not self._check_all_same(shapes):
             print('ERROR! Not all input images have the same shape!')
             print('Shapes:')
-            print([i.shape for i in images])
+            print(shapes)
             print('Image files:')
             print(image_fnames)
             raise RuntimeError()
@@ -85,16 +155,22 @@ class NibabelIO(BaseReaderWriter):
             },
             'spacing': spacings_for_nnunet[0]
         }
-        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
+        data = np.empty((len(shapes), *shapes[0][1:]), dtype=np.float32)
+        for channel, nib_image in zip(data, nib_images):
+            _read_into(channel, nib_image)
+        return data, dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname,))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
+        nibabel.save(self.seg_to_nibabel(seg, properties), output_fname)
+
+    def seg_to_nibabel(self, seg: np.ndarray, properties: dict, name: str = 'in-memory segmentation') -> nibabel.Nifti1Image:
+        """The image write_seg would write, in memory."""
         # revert transpose
         seg = seg.transpose((2, 1, 0)).astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False)
-        seg_nib = nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['original_affine'])
-        nibabel.save(seg_nib, output_fname)
+        return nibabel.Nifti1Image(seg, affine=properties['nibabel_stuff']['original_affine'])
 
 
 class NibabelIOWithReorient(BaseReaderWriter):
@@ -112,16 +188,26 @@ class NibabelIOWithReorient(BaseReaderWriter):
     ]
 
     def read_images(self, image_fnames: Union[List[str], Tuple[str, ...]]) -> Tuple[np.ndarray, dict]:
-        images = []
+        return self.read_nibabel_images([nibabel.load(f) for f in image_fnames], image_fnames)
+
+    def read_nibabel_images(self, nib_images: List[nibabel.Nifti1Image],
+                            image_fnames: Union[List[str], Tuple[str, ...], None] = None) -> Tuple[np.ndarray, dict]:
+        """read_images for images already in memory (e.g. handed over by another tool): exactly what read_images
+        returns for the same images stored as files. image_fnames only names them in messages."""
+        nib_images = list(nib_images)  # iterated twice: geometry first, then the voxels
+        if image_fnames is None:
+            image_fnames = [f'<in-memory image {i}>' for i in range(len(nib_images))]
+        shapes = []
+        orientations = []
         original_affines = []
         reoriented_affines = []
 
         spacings_for_nnunet = []
-        for f in image_fnames:
-            nib_image = nibabel.load(f)
+        for nib_image in nib_images:
             assert nib_image.ndim == 3, 'only 3d images are supported by NibabelIO'
             original_affine = nib_image.affine
-            reoriented_image = nib_image.as_reoriented(io_orientation(original_affine))
+            orientations.append(io_orientation(original_affine))
+            reoriented_image = _reoriented_geometry(nib_image, orientations[-1])
             reoriented_affine = reoriented_image.affine
 
             original_affines.append(original_affine)
@@ -132,13 +218,13 @@ class NibabelIOWithReorient(BaseReaderWriter):
                 [float(i) for i in reoriented_image.header.get_zooms()[::-1]]
             )
 
-            # transpose image to be consistent with the way SimpleITk reads images. Yeah. Annoying.
-            images.append(reoriented_image.get_fdata().transpose((2, 1, 0))[None])
+            # the voxels are read once the geometry is checked, transposed to SimpleITK's axis order
+            shapes.append((1, *reoriented_image.shape[::-1]))
 
-        if not self._check_all_same([i.shape for i in images]):
+        if not self._check_all_same(shapes):
             print('ERROR! Not all input images have the same shape!')
             print('Shapes:')
-            print([i.shape for i in images])
+            print(shapes)
             print('Image files:')
             print(image_fnames)
             raise RuntimeError()
@@ -167,12 +253,19 @@ class NibabelIOWithReorient(BaseReaderWriter):
             },
             'spacing': spacings_for_nnunet[0]
         }
-        return np.vstack(images, dtype=np.float32, casting='unsafe'), dict
+        data = np.empty((len(shapes), *shapes[0][1:]), dtype=np.float32)
+        for channel, nib_image, ornt in zip(data, nib_images, orientations):
+            _read_into(channel, nib_image, ornt)
+        return data, dict
 
     def read_seg(self, seg_fname: str) -> Tuple[np.ndarray, dict]:
         return self.read_images((seg_fname,))
 
     def write_seg(self, seg: np.ndarray, output_fname: str, properties: dict) -> None:
+        nibabel.save(self.seg_to_nibabel(seg, properties, output_fname), output_fname)
+
+    def seg_to_nibabel(self, seg: np.ndarray, properties: dict, name: str = 'in-memory segmentation') -> nibabel.Nifti1Image:
+        """The image write_seg would write, in memory (reoriented back to the input's orientation)."""
         # revert transpose
         seg = seg.transpose((2, 1, 0)).astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False)
 
@@ -183,10 +276,10 @@ class NibabelIOWithReorient(BaseReaderWriter):
         from_canonical = ornt_transform(ras_ornt, img_ornt)
         seg_nib_reoriented = seg_nib.as_reoriented(from_canonical)
         if not np.allclose(properties['nibabel_stuff']['original_affine'], seg_nib_reoriented.affine):
-            print(f'WARNING: Restored affine does not match original affine. File: {output_fname}')
+            print(f'WARNING: Restored affine does not match original affine. File: {name}')
             print('Original affine\n', properties['nibabel_stuff']['original_affine'])
             print('Restored affine\n', seg_nib_reoriented.affine)
-        nibabel.save(seg_nib_reoriented, output_fname)
+        return seg_nib_reoriented
 
 
 if __name__ == '__main__':
