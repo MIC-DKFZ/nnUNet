@@ -19,8 +19,7 @@ from unittest import mock
 import numpy as np
 import torch
 
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
-from nnunetv2.inference.predict_streaming import nnUNetPredictorStreaming, unwrap_network
+from nnunetv2.inference.predict_streaming import unwrap_network
 from nnunetv2.tests.test_predict_streaming_feature_ring import GEOMETRIES, _Base, _case, _net, _predictor, _state
 
 CUDA = torch.cuda.is_available()
@@ -71,18 +70,18 @@ class TestWeightsCPU(_Base):
         fresh._prepare_standalone_inference()
         np.testing.assert_array_equal(got, fresh._predict_and_export_streaming(data, props))
 
-    def test_parent_logit_method_invalidates(self):
-        p = _predictor(self.DEV, folds=2, feature_ring=False)
-        p._prepare_standalone_inference()
-        data, props = _case(*GEOMETRIES[0][:2])
-        ref = p._predict_and_export_streaming(data, props)        # leaves fold 1 loaded
-
-        def parent(self_, x):                                     # stands in for the parent: loads fold 0 last
-            unwrap_network(self_.network).load_state_dict(self_.list_of_parameters[0])
-        with mock.patch.object(nnUNetPredictor, 'predict_logits_from_preprocessed_data', parent):
-            p.predict_logits_from_preprocessed_data(data)
-        self.assertIsNone(p._loaded)
-        np.testing.assert_array_equal(p._predict_and_export_streaming(data, props), ref)
+    def test_parent_logit_method_shares_the_weight_cache(self):
+        """The parent's logit method and the streaming pass load folds through one cache (_load_parameters), so
+        whatever the parent leaves loaded, the next streaming pass holds the right weights."""
+        for folds in (1, 2):
+            with self.subTest(folds=folds):
+                p = _predictor(self.DEV, folds=folds, feature_ring=False)
+                p._prepare_standalone_inference()
+                data, props = _case(*GEOMETRIES[0][:2])
+                ref = p._predict_and_export_streaming(data, props)
+                p.predict_logits_from_preprocessed_data(data)          # loads every fold, the last one stays
+                self.assertIs(p._loaded_parameters[1], p.list_of_parameters[-1])
+                np.testing.assert_array_equal(p._predict_and_export_streaming(data, props), ref)
 
     def test_many_cases_equal_fresh_predictor(self):
         cases = [_case(src, tgt, osp, seed=i) for i, (src, tgt, _, osp, *_) in enumerate(GEOMETRIES)]

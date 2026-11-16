@@ -37,6 +37,17 @@ def is_optimized_module(module) -> bool:
     return dynamo is not None and isinstance(module, dynamo.OptimizedModule)
 
 
+def unwrap_network(network: torch.nn.Module) -> torch.nn.Module:
+    """The plain module behind DistributedDataParallel and torch.compile wrappers (they share its parameters)."""
+    if isinstance(network, torch.nn.parallel.DistributedDataParallel):
+        network = network.module
+    if is_optimized_module(network):
+        network = network._orig_mod
+    if isinstance(network, torch.nn.parallel.DistributedDataParallel):
+        network = network.module
+    return network
+
+
 def set_default_inductor_cache_dir():
     """
     Call right before torch.compile. torch.compile caches its compiled artifacts on disk, by default in

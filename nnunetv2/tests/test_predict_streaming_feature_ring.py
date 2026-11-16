@@ -13,7 +13,6 @@ applied per output slice. It must give the logit ring's segmentation up to float
 - where it does not apply (2d, deep supervision, unknown architectures) the predictor says why and keeps the logits.
 """
 import contextlib
-import os
 import unittest
 from functools import partial
 from types import SimpleNamespace
@@ -241,7 +240,7 @@ class TestFeatureRingCPU(_Base):
             p.predict_logits_from_preprocessed_data(torch.zeros(1, 16, 16, 16))
         data, props = _case(*GEOMETRIES[0][:2])
         p._predict_and_export_streaming(data, props)             # leaves fold 1 loaded
-        self.assertEqual(p._loaded.fold, 1)
+        self.assertIs(p._loaded_parameters[1], p.list_of_parameters[1])
         p.restore_head()
         self.assertIsNone(p._detached_head)
         self.assertEqual([sorted(s) for s in p.list_of_parameters], [sorted(s) for s in full_state])

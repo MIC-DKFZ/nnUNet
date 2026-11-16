@@ -145,15 +145,11 @@ class DC_and_CE_loss_chunked(DC_and_CE_loss):
     efficient) dice over the batch dimension. Dice is bit-for-bit identical to the unchunked loss;
     cross entropy is identical up to floating-point summation order (see ChunkedRobustCrossEntropyLoss).
     """
-    # The budget is also a class attribute, so that a
-    # subclass (and through it a trainer) can lower it without touching _build_loss. Chunking below the
-    # int32 limit is still exact, and it is the only way to use this to cut the dice's peak VRAM at all
-    # at 160^3 / 118 classes, where batch * classes * voxels stays under 2**31 and nothing would be
-    # chunked otherwise. The default is the int32 limit. NOTE the saving is small - ~10% of the loss' fwd+bwd peak,
-    # zero off its forward peak - because chunking cannot shrink what autograd retains (the softmax
-    # output and y_onehot, both full (b, c, *spatial) fp32, both kept whole no matter the chunk count).
-    # See the comment above DC_and_CE_loss_chunked_lowMem in
-    # nnunetv2/training/nnUNetTrainer/variants/loss/nnUNetTrainer_chunkedLoss.py for the measurements.
+    # The budget is a class attribute, so that a subclass (and through it a trainer) can lower it without
+    # touching _build_loss; the default is the int32 limit. Chunking below the limit is still exact, but saves
+    # little VRAM (measured ~10 % of the loss' fwd+bwd peak at 119 classes / 160^3, nothing off its forward
+    # peak): chunking cannot shrink what autograd retains (the softmax output and y_onehot, both full
+    # (b, c, *spatial) fp32, kept whole whatever the chunk count).
     max_elements_per_chunk = DEFAULT_MAX_ELEMENTS_PER_CHUNK
 
     def __init__(self, soft_dice_kwargs, ce_kwargs, weight_ce=1, weight_dice=1, ignore_label=None,

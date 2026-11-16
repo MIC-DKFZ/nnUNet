@@ -25,8 +25,7 @@ trilinear (align_corners=False). Where the plans resample probabilities with nnU
 for a case, streaming follows it: the low-resolution axis takes the nearest source slice instead of a linear
 blend, chosen by the same determine_do_sep_z_and_axis call the default export makes. Anything streaming cannot
 reproduce (e.g. cubic probability resampling) falls back to plain trilinear, and force_trilinear=True
-(--force_trilinear) always does - that was the only behaviour before separate-z support. A notice is printed
-at runtime either way.
+(--force_trilinear) always does. A notice is printed at runtime either way.
 
 Supports 2d and 3d configurations and fold ensembling (logits averaged per slab). No probability export.
 
@@ -41,7 +40,7 @@ and the ring can hold the layer's input f (the decoder's last features, 32 chann
 its output (one channel per class). The layer is detached from the network before it is compiled and applied per
 finished source slice, in float32. A K-fold ensemble keeps one block of features per fold and applies the folds'
 layers side by side, which is exact as well; the ring then has K x features channels, so it is used only while that is
-fewer than the class count (else the logit ring, as before). Same segmentation up to floating-point rounding (the sums
+fewer than the class count (else the logit ring). Same segmentation up to floating-point rounding (the sums
 run in a different order). feature_ring=False / --logit_ring keeps the logits.
 
 Standalone inference (the predict_* entry points and the CLI) runs with cudnn.benchmark off and compiles the network
@@ -66,20 +65,19 @@ import copy
 import inspect
 import io
 import itertools
-import math
 import os
 import time
 import weakref
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from concurrent.futures.process import BrokenProcessPool
 from threading import Thread
-from typing import Any, Callable, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
 from acvl_utils.cropping_and_padding.bounding_boxes import insert_crop_into_image
 from acvl_utils.cropping_and_padding.padding import pad_nd_image
-from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, save_json
+from batchgenerators.utilities.file_and_folder_operations import join, load_json, maybe_mkdir_p, save_json
 from torch.nn import functional as F
 
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
@@ -91,23 +89,13 @@ from nnunetv2.preprocessing.resampling.default_resampling import determine_do_se
 from nnunetv2.preprocessing.resampling.resample_torch import resample_torch_fornnunet
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian, compute_steps_for_sliding_window
 from nnunetv2.utilities.checkpoints import find_checkpoint_file, load_checkpoint_file
-from nnunetv2.utilities.helpers import empty_cache, dummy_context, is_optimized_module, \
+from nnunetv2.utilities.helpers import empty_cache, dummy_context, is_optimized_module, unwrap_network, \
     set_default_inductor_cache_dir
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 # compile policy 'auto' (resolve_compile): compile for batches of more than this many cases, never for fewer
 AUTO_COMPILE_MAX_CASES = 4
-
-
-def export_streamed_segmentation(segmentation: np.ndarray, properties: dict, output_fname: str,
-                                 reader_writer_class):
-    """
-    Background-worker entry point. The streaming predictor already performed resampling + argmax + cropping/
-    transpose reversion on the GPU/main process, so the only remaining (slow, I/O bound) work here is writing
-    the single-channel segmentation to disk. This mirrors the role of nnU-Net's export pool but does far less.
-    """
-    rw = reader_writer_class()
-    rw.write_seg(segmentation, output_fname, properties)
 
 
 def _ring_segments(start: int, stop: int, capacity: int) -> List[Tuple[int, int, int, int]]:
@@ -136,7 +124,7 @@ def separate_z_rule(resampling_fn) -> Tuple[bool, Union[str, None]]:
 
     Returns (reproducible, rule). rule is 'nearest-exact' / 'nearest' (torch's kernels) or 'scipy'
     (resample_data_or_seg, order_z=0); None means the separate-z path is linear along that axis too, i.e. plain
-    trilinear. Not reproducible (False, None): streaming resamples trilinear, as it did before separate-z support.
+    trilinear. Not reproducible (False, None): streaming resamples plain trilinear.
     """
     fn = getattr(resampling_fn, 'func', resampling_fn)
     try:
@@ -228,25 +216,6 @@ def maybe_enable_expandable_segments() -> bool:
     return True
 
 
-def unwrap_network(network: torch.nn.Module) -> torch.nn.Module:
-    """The plain module behind DistributedDataParallel and torch.compile wrappers (they share its parameters)."""
-    if isinstance(network, torch.nn.parallel.DistributedDataParallel):
-        network = network.module
-    if is_optimized_module(network):
-        network = network._orig_mod
-    if isinstance(network, torch.nn.parallel.DistributedDataParallel):
-        network = network.module
-    return network
-
-
-class LoadedWeights(NamedTuple):
-    """What _load_fold put into the network: the fold index, the (unwrapped) network module and the state dict; the
-    latter two are compared by identity."""
-    fold: int
-    module: torch.nn.Module
-    state_dict: dict
-
-
 def find_linear_head(network: torch.nn.Module) -> Tuple[Union[str, None], str]:
     """
     (qualified name, '') of the network's final per-voxel linear layer if the network is one whose forward we know
@@ -283,8 +252,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
     resolution and segmentation export in a single streaming pass that keeps only a thin band of the
     (num_classes, *internal_shape) volume in GPU memory at any time.
 
-    force_trilinear=True resamples plain trilinear even where the plans' separate-z path would fire (the only
-    behaviour before separate-z support; see the module docstring).
+    force_trilinear=True resamples plain trilinear even where the plans' separate-z path would fire (module
+    docstring).
     compile: 'auto' (default; None means the same) compiles for batches of more than AUTO_COMPILE_MAX_CASES cases and
     not for single images; True / False force it on / off (resolve_compile). set_compile changes it later.
     feature_ring: accumulate the decoder's last features instead of the class logits wherever that is exact and the
@@ -324,8 +293,6 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         self.num_processes_preprocessing = num_processes_preprocessing
         self.num_processes_export = num_processes_export
         self.fold_weights_on_device = fold_weights_on_device
-        # LoadedWeights the network holds, so that _load_fold does not load them again
-        self._loaded = None
         # 2d fold ensembles: (identity key, one network per fold), see _fold_networks_2d
         self._fold_nets_2d = None
         # set by detach_head while the network's output layer is detached (feature ring), else None
@@ -481,7 +448,6 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         self._detached_head = {'network': net, 'parent': parent, 'idx': int(idx), 'module': module,
                                'heads': heads, 'list_of_parameters': self.list_of_parameters, 'stacked': None}
         self.list_of_parameters = params
-        self._loaded = None
         self.feature_ring_status = (f'on: the ring holds {len(heads)} x {module.in_channels} decoder features instead '
                                     f'of {module.out_channels} logits')
         return True
@@ -493,7 +459,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         if d is None:
             return
         module = d['module']
-        fold = self._loaded.fold if self._loaded is not None else None
+        loaded = self._loaded_parameters          # (module, state dict) the network holds, see _load_fold
+        fold = next((i for i, p in enumerate(self.list_of_parameters) if loaded is not None and p is loaded[1]
+                     and loaded[0]() is d['network']), None)
         if fold is not None and d['list_of_parameters'][fold] is not None:
             W, b = d['heads'][fold]
             with torch.no_grad():
@@ -524,10 +492,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
 
     def predict_logits_from_preprocessed_data(self, data: torch.Tensor) -> torch.Tensor:
         self._logit_methods_unavailable()
-        try:
-            return super().predict_logits_from_preprocessed_data(data)
-        finally:
-            self._loaded = None                                   # it loaded every fold into the network
+        return super().predict_logits_from_preprocessed_data(data)
 
     def predict_sliding_window_return_logits(self, input_image: torch.Tensor) -> Union[np.ndarray, torch.Tensor]:
         self._logit_methods_unavailable()
@@ -668,9 +633,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         """
         if self.device.type != 'cuda' or len(self.configuration_manager.patch_size) != 3:
             return
-        if self.use_gaussian:          # cached; the same call as in _predict_and_export_streaming
-            compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8, value_scaling_factor=10,
-                             device=self.device)
+        self._gaussian()                                     # cached for the streaming pass
         self.network = self.network.to(self.device).eval()
         self._load_fold(0)
         num_inputs = determine_num_input_channels(self.plans_manager, self.configuration_manager, self.dataset_json)
@@ -684,12 +647,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             with torch.autocast(self.device.type, enabled=False):
                 torch.mm(head_W, f)
             del f
-        if self._use_triton_kernels and ring_dtype in (torch.float16, torch.float32):
-            try:
-                from nnunetv2.inference import streaming_kernels
-                streaming_kernels.kernels_selftest(self.device, ring_dtype)
-            except ImportError:
-                pass
+        self._streaming_kernels(ring_dtype)                  # their self-test, once per process
         del x, out
         torch.cuda.synchronize(self.device)
 
@@ -773,7 +731,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             if hasattr(data_iterator, 'start'):
                 # its workers start and preprocess the first cases while the weights load and the GPU warms up here
                 # (and a compiled network compiles); other iterators may preprocess lazily on the first next(), so
-                # for them this waits until their first case arrives, as before
+                # for them this waits until their first case arrives
                 data_iterator.start()
                 try:
                     self._prepare_standalone_inference(num_cases)
@@ -899,12 +857,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         weights only once preprocessing is done). Applies to .safetensors checkpoints; a .pth checkpoint has to be
         unpickled whole to read its metadata, so .pth weights are loaded right away.
         """
-        from batchgenerators.utilities.file_and_folder_operations import load_json
         # nnUNetTrainer.build_network_architecture is exactly this call; importing the trainer module would pull in
         # the training stack (losses -> torch._dynamo, ~0.4 s per process) for nothing
         from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
-        from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
-        from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
         with self._quiet():
             if self._weights_loader is not None:          # a previous model still loading: let it finish, drop it
@@ -963,8 +918,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
     def print_streaming_deviation_notice(self):
         """
         Tell the user, loudly, how streaming inference differs from the default nnUNetv2_predict so results are
-        never silently different. The most important one: resampling of the predicted logits is OVERRIDDEN with
-        plain torch trilinear instead of whatever the plans configured.
+        never silently different. The most important one: how the predicted logits are resampled (the plans'
+        resampling where streaming reproduces it, plain torch trilinear otherwise).
         """
         from nnunetv2.configuration import ANISO_THRESHOLD
         cfg = self.configuration_manager.configuration
@@ -1054,8 +1009,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         """
         Pick the slab axis that minimizes the ring buffer, which dominates VRAM:
             ring ~ num_classes * ring_capacity(a) * internal_cross_section(a)
-        with ring_capacity(a) = patch_size[a] + max_step_gap(a) + 8 (the actual ring is patch_size[a] + 1; the
-        ranking keeps the old estimate on purpose, so the chosen axis - and with it the output - does not change) and
+        with ring_capacity(a) = patch_size[a] + max_step_gap(a) + 8 (the actual ring is patch_size[a] + 1; this term
+        is a ranking heuristic, and changing it changes the chosen axis - and with it the output - on some cases) and
         internal_cross_section(a) = prod(source_shape) / source_shape[a].
         num_classes and dtype are constant across axes, so they drop out of the argmin.
 
@@ -1093,20 +1048,12 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
 
     def _load_fold(self, fold_index: int):
         """
-        Make the (single, possibly torch.compile'd) network hold fold fold_index's weights, unless it already does:
-        _loaded remembers the network module and the state dict it got by identity, so a single model is loaded once
-        and kept across cases, while replacing self.network, list_of_parameters or one of its state dicts triggers a
-        load. Not noticed: changing a state dict in place, or loading weights into the network directly - reset
-        _loaded = None after that (predict_logits_from_preprocessed_data does). compile guards on input shape/stride,
-        not weight values, so swapping weights does not recompile.
+        Make the (possibly torch.compile'd) network hold fold fold_index's weights, unless it already does
+        (nnUNetPredictor._load_parameters: tracked by identity of module and state dict, so a single model is loaded
+        once and kept across cases). compile guards on input shape/stride, not weight values, so swapping weights does
+        not recompile.
         """
-        target = unwrap_network(self.network)
-        params = self.list_of_parameters[fold_index]
-        loaded = self._loaded
-        if loaded is not None and loaded.module is target and loaded.state_dict is params:
-            return
-        target.load_state_dict(params)
-        self._loaded = LoadedWeights(fold_index, target, params)
+        self._load_parameters(self.list_of_parameters[fold_index])
 
     def _place_fold_weights(self):
         """
@@ -1165,6 +1112,29 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             prediction = prediction / (len(combos) + 1)
         return prediction
 
+    def _gaussian(self) -> Union[torch.Tensor, None]:
+        """The tile weighting on the device, or None without Gaussian weighting. compute_gaussian is cached, and
+        warm_up and both streaming paths must hit the same cache entry, so this is the one place its arguments live."""
+        if not self.use_gaussian:
+            return None
+        return compute_gaussian(tuple(self.configuration_manager.patch_size), sigma_scale=1. / 8,
+                                value_scaling_factor=10, device=self.device)
+
+    def _seg_dtype(self) -> torch.dtype:
+        """dtype of the segmentation on the device (uint8, int16 from 255 foreground labels on; see _revert_geometry)."""
+        return torch.uint8 if len(self.label_manager.foreground_labels) < 255 else torch.int16
+
+    def _streaming_kernels(self, ring_dtype: torch.dtype):
+        """The fused Triton kernels (streaming_kernels) if they may be used here - CUDA, Triton importable, and their
+        once-per-process self-test passed for this ring dtype - else None (torch path)."""
+        if not self._use_triton_kernels or self.device.type != 'cuda':
+            return None
+        try:
+            from nnunetv2.inference import streaming_kernels
+        except ImportError:
+            return None
+        return streaming_kernels if streaming_kernels.kernels_selftest(self.device, ring_dtype) else None
+
     def _reduce_to_seg(self, resampled_logits: torch.Tensor, out_torch_dtype: torch.dtype) -> torch.Tensor:
         """Channel reduction: argmax for softmax (monotonic -> on logits), ordered threshold for sigmoid/regions."""
         lm = self.label_manager
@@ -1180,8 +1150,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         lm = self.label_manager
         out_dtype = np.uint8 if len(lm.foreground_labels) < 255 else np.uint16
         reverted = np.zeros(properties['shape_before_cropping'], dtype=out_dtype)
-        reverted = insert_crop_into_image(reverted, seg_xyz.astype(out_dtype),
-                                          properties['bbox_used_for_cropping'])
+        reverted = insert_crop_into_image(reverted, seg_xyz, properties['bbox_used_for_cropping'])
         return reverted.transpose(self.plans_manager.transpose_backward)
 
     @torch.inference_mode()
@@ -1261,12 +1230,11 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 print(f'[streaming] ring buffers = {ring_mb:.1f} MB '
                       f'({"logits" if fr is None else "features"} {tuple(ring.shape)} {ring_dtype})')
 
-            gaussian = compute_gaussian(tuple(patch_size), sigma_scale=1. / 8, value_scaling_factor=10,
-                                        device=device) if self.use_gaussian else None
+            gaussian = self._gaussian()
             gaussian_c = gaussian.permute(perm).contiguous() if self.use_gaussian else None
 
             # ---- output (canonical slab-first), single channel ----
-            out_torch_dtype = torch.uint8 if len(lm.foreground_labels) < 255 else torch.int16
+            out_torch_dtype = self._seg_dtype()
             out_seg_canonical = torch.zeros((target_slab, *target_cross), dtype=out_torch_dtype, device=device)
 
             # ---- separate-z: the low-resolution axis copies its nearest source slice (None: trilinear) ----
@@ -1291,16 +1259,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             # host copies of the slab-axis maps: no device sync per target plane (identical values)
             i0_l, i1_l, w_l = i0_map.tolist(), i1_map.tolist(), w_map.tolist()
 
-            # fused Triton kernels (CUDA + Triton, fp16 or fp32 ring); both need their once-per-process self-test
-            use_kernels = self._use_triton_kernels and device.type == 'cuda' and \
-                ring_dtype in (torch.float16, torch.float32)
-            _sk = None
-            if use_kernels:
-                try:
-                    from nnunetv2.inference import streaming_kernels as _sk
-                except ImportError:
-                    use_kernels = False
-            use_kernels = use_kernels and _sk.kernels_selftest(device, ring_dtype)
+            # fused Triton kernels (CUDA + Triton, fp16 or fp32 ring, self-test passed)
+            _sk = self._streaming_kernels(ring_dtype)
+            use_kernels = _sk is not None
             fused_accumulate = use_kernels and self.use_gaussian
             fused_emit = use_kernels and not has_regions
             if fused_emit:
@@ -1350,10 +1311,12 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 inplane_cache[src_idx_unpadded] = resampled
                 return resampled
 
-            emit_state = {'j': 0, 'released_pad': 0, 'max_cache': 0}
+            emitted = 0                     # target planes written so far
+            released_pad = 0                # lowest padded source slice the ring must still hold
 
             def emit_available(final_hi_pad: int):
-                j = emit_state['j']
+                nonlocal emitted, released_pad
+                j = emitted
                 while j < target_slab:
                     i0 = i0_l[j]; i1 = i1_l[j]
                     # padded source coords of the two neighbours
@@ -1361,7 +1324,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                         break                                            # neighbour not finalized yet
                     w = w_l[j]
                     # lowest source slice the ring must still hold after this plane: the next plane's lower neighbour
-                    emit_state['released_pad'] = (i0_l[j + 1] + pad_off) if j + 1 < target_slab else 1 << 60
+                    released_pad = (i0_l[j + 1] + pad_off) if j + 1 < target_slab else 1 << 60
                     if fused_emit:
                         if fr is None:
                             s0 = (i0 + pad_off) % ring_capacity
@@ -1377,15 +1340,13 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                     sl1 = get_inplane(i1) if i1 != i0 else sl0
                     out_float = sl0 if i1 == i0 else (1.0 - w) * sl0 + w * sl1
                     out_seg_canonical[j] = self._reduce_to_seg(out_float, out_torch_dtype)
-                    if len(inplane_cache) > emit_state['max_cache']:
-                        emit_state['max_cache'] = len(inplane_cache)
                     # evict in-plane slices below the current source index: source indices are monotone
                     # non-decreasing in j, so anything < i0 will never be needed again. Evicting per-slice (rather
                     # than per emit-pass) keeps the cache at ~2 entries instead of a whole pass' worth.
                     for k in [kk for kk in inplane_cache if kk < i0]:
                         del inplane_cache[k]
                     j += 1
-                emit_state['j'] = j
+                emitted = j
 
             # ---- sliding-window positions within a slab, patches cut from the device-resident input ----
             cross_offsets = [(o0, o1) for o0 in steps[cross[0]] for o1 in steps[cross[1]]]
@@ -1403,9 +1364,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 if upto <= zeroed_hi:
                     return
                 # defensive: do not overwrite source slices that have not yet been emitted
-                if upto - ring_capacity > emit_state['released_pad'] and zeroed_hi > 0:
+                if upto - ring_capacity > released_pad and zeroed_hi > 0:
                     raise RuntimeError(f"ring_capacity={ring_capacity} too small: about to overwrite un-emitted "
-                                       f"source slice (zeroing up to {upto}, still needed from {emit_state['released_pad']})")
+                                       f"source slice (zeroing up to {upto}, still needed from {released_pad})")
                 for _, rlo, rhi, _ in _ring_segments(zeroed_hi, upto, ring_capacity):
                     ring[:, rlo:rhi].zero_()
                     ring_npred[rlo:rhi].zero_()
@@ -1445,16 +1406,11 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             for k, s_slab in enumerate(slab_steps):
                 flush_slab(s_slab)
                 emit_available(slab_steps[k + 1] if k + 1 < len(slab_steps) else shape_padded[a] + 1)
-            assert emit_state['j'] == target_slab, \
-                f"streaming emit incomplete: emitted {emit_state['j']} of {target_slab} target slices"
+            assert emitted == target_slab, f"streaming emit incomplete: emitted {emitted} of {target_slab} target slices"
 
-            if self.verbose:
-                cache_entry_mb = num_classes * target_cross[0] * target_cross[1] * 4 / 1024 ** 2
-                print(f'[streaming] folds={num_folds} peak in-plane cache entries = {emit_state["max_cache"]} '
-                      f'(~{cache_entry_mb:.1f} MB each -> ~{emit_state["max_cache"] * cache_entry_mb:.0f} MB)')
-                if device.type == 'cuda':
-                    print(f'[streaming] peak GPU allocated this case = '
-                          f'{torch.cuda.max_memory_allocated(device) / 1024 ** 3:.3f} GB')
+            if self.verbose and device.type == 'cuda':
+                print(f'[streaming] peak GPU allocated this case = '
+                      f'{torch.cuda.max_memory_allocated(device) / 1024 ** 3:.3f} GB')
 
             # no empty_cache per case: the next case reuses the cached blocks (_cache_emptied_after)
             del ring, ring_npred, inplane_cache, head_cache, data
@@ -1478,7 +1434,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         patch_size = list(cm.patch_size)                                # (p0, p1)
         num_classes = lm.num_segmentation_heads
         num_folds = len(self.list_of_parameters)
-        out_torch_dtype = torch.uint8 if len(lm.foreground_labels) < 255 else torch.int16
+        out_torch_dtype = self._seg_dtype()
 
         # Resident fold networks: a 2d slice has very few patches, so swapping weights per slice (like the 3d ring
         # path does per slab) would dominate runtime. 2d weights are small, so we keep one network per fold.
@@ -1512,8 +1468,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 cross_sel = (k, nearest_source_index(src_len, target_cross[k], sep[1]).to(device))
 
             out_seg = torch.zeros((num_slices, *target_cross), dtype=out_torch_dtype, device=device)
-            gaussian = compute_gaussian(tuple(patch_size), sigma_scale=1. / 8, value_scaling_factor=10,
-                                        device=device) if self.use_gaussian else None
+            gaussian = self._gaussian()
             steps = compute_steps_for_sliding_window(shape_padded[1:], patch_size, self.tile_step_size)
             pcr0, pcr1 = patch_size[0], patch_size[1]
             grid = [(o0, o1) for o0 in steps[0] for o1 in steps[1]]
@@ -1560,10 +1515,6 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         sliding-window reordering noise.
         """
         device = self.device
-        lm = self.label_manager
-        has_regions = lm.has_regions
-        regions_class_order = lm.regions_class_order
-        num_classes = logits.shape[0]
         source_shape = list(logits.shape[1:])
 
         # validation helper: any slab axis is correct (resampler is axis-agnostic), default to longest target
@@ -1578,7 +1529,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         # canonical (C, slab, cross0, cross1)
         logits_c = logits.permute(0, 1 + perm[0], 1 + perm[1], 1 + perm[2]).contiguous()
 
-        out_torch_dtype = torch.uint8 if len(lm.foreground_labels) < 255 else torch.int16
+        out_torch_dtype = self._seg_dtype()
         out_seg_canonical = torch.zeros((target_slab, *target_cross), dtype=out_torch_dtype, device=device)
         slab_rule = separate_z[1] if separate_z is not None and separate_z[0] == a else None
         cross_sel = None
@@ -1606,13 +1557,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             sl0 = get_inplane(i0)
             sl1 = get_inplane(i1) if i1 != i0 else sl0
             out_float = sl0 if i1 == i0 else (1.0 - w) * sl0 + w * sl1
-            if has_regions:
-                seg = torch.zeros(out_float.shape[1:], dtype=out_torch_dtype, device=device)
-                for region_idx, cls in enumerate(regions_class_order):
-                    seg[out_float[region_idx] > 0] = cls
-                out_seg_canonical[j] = seg
-            else:
-                out_seg_canonical[j] = out_float.argmax(0).to(out_torch_dtype)
+            out_seg_canonical[j] = self._reduce_to_seg(out_float, out_torch_dtype)
             for k in [kk for kk in inplane_cache if kk < i0]:
                 del inplane_cache[k]
 
@@ -1684,8 +1629,7 @@ def predict_entry_point_streaming():
     parser.add_argument('-slab_axis', type=int, required=False, default=-1,
                         help='Spatial axis (0/1/2) to stream along. Default: -1 = auto (chosen to minimize VRAM).')
     parser.add_argument('--force_trilinear', action='store_true', required=False, default=False,
-                        help='Resample plain trilinear even where the plans\' separate-z path would fire (the '
-                             'behaviour before separate-z support).')
+                        help='Resample plain trilinear even where the plans\' separate-z path would fire.')
     parser.add_argument('--compile', choices=('on', 'off'), required=False, default=None,
                         help='torch.compile the network. Default: follow the nnUNet_compile environment variable, '
                              'else compile when predicting more than 4 cases, wherever available (CUDA + Triton). '

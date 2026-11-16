@@ -43,9 +43,8 @@ class TestTrainerValidationPredictor(_Base):
                                                     device=device, allow_tqdm=False, feature_ring=fr)
             ref = _predictor(device)
             ref.plans_manager.get_label_manager = lambda dataset_json: ref.label_manager
-            p.manual_initialization(trainer_network, ref.plans_manager, ref.configuration_manager, None, {},
+            p.manual_initialization(trainer_network, ref.plans_manager, ref.configuration_manager, [None], {},
                                     'nnUNetTrainer', (0, 1, 2))
-            p.list_of_parameters = [None]
             p.setup_feature_ring()
             self.assertEqual(p._detached_head is not None, fr)
             if fr:

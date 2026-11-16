@@ -43,9 +43,9 @@ from torch import distributed as dist
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
-from nnunetv2.inference.predict_streaming import export_streamed_segmentation, nnUNetPredictorStreaming, \
-    separate_z_rule, unwrap_network
+from nnunetv2.inference.predict_streaming import nnUNetPredictorStreaming, separate_z_rule
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
+from nnunetv2.inference.streaming_pipeline import write_segmentation
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 from nnunetv2.training.nnUNetTrainer.variants.data_augmentation.nnUNetTrainerDAOrd0 import \
     nnUNetTrainer_DASegOrd0_NoMirroring
@@ -53,7 +53,8 @@ from nnunetv2.training.nnUNetTrainer.variants.loss.nnUNetTrainer_chunkedLoss imp
 from nnunetv2.training.nnUNetTrainer.variants.training_length.nnUNetTrainer_Xepochs_NoMirroring import \
     nnUNetTrainer_2000epochs_NoMirroring
 from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
-from nnunetv2.utilities.helpers import dummy_context, empty_cache, is_optimized_module, set_default_inductor_cache_dir
+from nnunetv2.utilities.helpers import dummy_context, empty_cache, is_optimized_module, \
+    set_default_inductor_cache_dir, unwrap_network
 
 
 class nnUNetPredictorStreamingFromTrainer(nnUNetPredictorStreaming):
@@ -61,9 +62,9 @@ class nnUNetPredictorStreamingFromTrainer(nnUNetPredictorStreaming):
     nnUNetPredictorStreaming fed by nnUNetTrainer.manual_initialization instead of by a results folder.
 
     The trainer hands over the live network with the weights already in it, so there is nothing to ensemble and no
-    state_dict to swap. list_of_parameters is set to a single placeholder (the streaming loop uses its length as the
-    fold count) and the per-slab weight load is a no-op. This also avoids load_state_dict on a torch.compile'd or DDP
-    wrapped module during validation.
+    state_dict to swap: it passes list_of_parameters = [None] (the streaming loop uses its length as the fold count)
+    and the per-slab weight load is a no-op. This also avoids load_state_dict on a torch.compile'd or DDP wrapped
+    module during validation.
     """
 
     def _load_fold(self, fold_index: int):
@@ -140,12 +141,10 @@ class StreamingValidationMixin:
                                                         perform_everything_on_device=True, device=self.device,
                                                         verbose=False, verbose_preprocessing=False, allow_tqdm=False,
                                                         feature_ring=self.streaming_feature_ring)
-        predictor.manual_initialization(self.network, self.plans_manager, self.configuration_manager, None,
+        # [None]: one resident model, whose weights the network already holds (nnUNetPredictorStreamingFromTrainer)
+        predictor.manual_initialization(self.network, self.plans_manager, self.configuration_manager, [None],
                                         self.dataset_json, self.__class__.__name__,
                                         self.inference_allowed_mirroring_axes)
-        # one resident model, no ensembling. The streaming loop reads len(list_of_parameters) as the fold count and
-        # calls _load_fold, which is a no-op here
-        predictor.list_of_parameters = [None]
         # feature ring: the output layer comes off the trainer's network here and goes back in the finally below
         predictor.setup_feature_ring()
         self._log_streaming_validation_notice(predictor)
@@ -205,9 +204,9 @@ class StreamingValidationMixin:
                         # the export worker only has to write it (no resampling, no argmax)
                         results.append(
                             segmentation_export_pool.starmap_async(
-                                export_streamed_segmentation, (
-                                    (segmentation, properties, output_filename_truncated + file_ending,
-                                     reader_writer_class),
+                                write_segmentation, (
+                                    (segmentation, properties, output_filename_truncated, reader_writer_class,
+                                     file_ending),
                                 )
                             )
                         )

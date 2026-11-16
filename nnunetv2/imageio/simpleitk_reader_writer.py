@@ -267,19 +267,6 @@ class SimpleITKIOWithReorient(SimpleITKIO):
         np.concatenate(images, axis=0, out=data, casting='unsafe')
         return data, dict
 
-    def write_seg(self, seg, output_fname, properties):
-        sitk.WriteImage(self.seg_to_sitk(seg, properties), output_fname, True)
-
     def seg_to_sitk(self, seg: np.ndarray, properties: dict) -> sitk.Image:
         """The image write_seg would write, in memory (reoriented back to the input's orientation)."""
-        assert seg.ndim == 3, 'segmentation must be 3d. If you are exporting a 2d segmentation, please provide it as shape 1,x,y'
-        output_dimension = len(properties['sitk_stuff']['spacing'])
-        assert 1 < output_dimension < 4
-        if output_dimension == 2:
-            seg = seg[0]
-
-        itk_image = sitk.GetImageFromArray(seg.astype(np.uint8 if np.max(seg) < 255 else np.uint16, copy=False))
-        itk_image.SetSpacing(properties['sitk_stuff']['spacing'])
-        itk_image.SetOrigin(properties['sitk_stuff']['origin'])
-        itk_image.SetDirection(properties['sitk_stuff']['direction'])
-        return sitk.DICOMOrient(itk_image, properties['sitk_stuff']['original_orientation'])
+        return sitk.DICOMOrient(super().seg_to_sitk(seg, properties), properties['sitk_stuff']['original_orientation'])

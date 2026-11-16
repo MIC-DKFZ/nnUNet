@@ -92,18 +92,19 @@ def with_resampling_threads(configuration_manager: ConfigurationManager, num_thr
 def load_and_preprocess(load_fn: Optional[Callable], case, plans_manager: PlansManager,
                         configuration_manager: ConfigurationManager, dataset_json: dict, preprocessor,
                         resampling_threads: Optional[int] = None):
-    """Load one case (load_fn, or the plans' reader for a list of files) and run nnU-Net's preprocessing on it,
-    without the nonzero-mask segmentation inference does not use (skip_seg_kwargs). resampling_threads:
-    CPU threads for torch resampling (with_resampling_threads; None: the plans' setting). Returns (data float32
-    (c, *internal shape), properties)."""
-    if load_fn is None:
-        image, properties = plans_manager.image_reader_writer_class().read_images(case)
-    else:
-        image, properties = load_fn(case)
+    """Load one case (load_fn, or the plans' reader for a list of files: the preprocessor's run_case, as in
+    nnUNetv2_predict) and run nnU-Net's preprocessing on it, without the nonzero-mask segmentation inference does not
+    use (skip_seg_kwargs). resampling_threads: CPU threads for torch resampling (with_resampling_threads; None: the
+    plans' setting). Returns (data float32 (c, *internal shape), properties)."""
     if resampling_threads is not None:
         configuration_manager = with_resampling_threads(configuration_manager, resampling_threads)
-    data, _, properties = preprocessor.run_case_npy(image, None, properties, plans_manager, configuration_manager,
-                                                    dataset_json, **skip_seg_kwargs(preprocessor.run_case_npy))
+    if load_fn is None:
+        data, _, properties = preprocessor.run_case(case, None, plans_manager, configuration_manager, dataset_json,
+                                                    **skip_seg_kwargs(preprocessor.run_case))
+    else:
+        image, properties = load_fn(case)
+        data, _, properties = preprocessor.run_case_npy(image, None, properties, plans_manager, configuration_manager,
+                                                        dataset_json, **skip_seg_kwargs(preprocessor.run_case_npy))
     return np.ascontiguousarray(data, dtype=np.float32), properties
 
 
