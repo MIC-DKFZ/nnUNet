@@ -1350,11 +1350,7 @@ class nnUNetTrainer(object):
         if save_latest_checkpoint or exit_now:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.safetensors'))
 
-        # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
-        if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
-            self._best_ema = self.logger.get_value('ema_fg_dice', step=-1)
-            self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_best.safetensors'))
+        self._maybe_save_checkpoint_best()
 
         if self.global_rank == 0:
             self._maybe_plot_progress(force=exit_now or self.current_epoch == self.num_epochs - 1)
@@ -1368,6 +1364,17 @@ class nnUNetTrainer(object):
             sys.exit(0)
 
         self.current_epoch += 1
+
+    def _maybe_save_checkpoint_best(self):
+        """
+        Writes checkpoint_best if this epoch's EMA pseudo Dice is the best so far. Called by on_epoch_end; a trainer
+        that wants only some epochs to compete overrides this.
+        """
+        # ema_fg_dice is computed by the logger and can be accessed like this
+        if self._best_ema is None or self.logger.get_value('ema_fg_dice', step=-1) > self._best_ema:
+            self._best_ema = self.logger.get_value('ema_fg_dice', step=-1)
+            self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_best.safetensors'))
 
     def _maybe_plot_progress(self, force: bool = False):
         """
