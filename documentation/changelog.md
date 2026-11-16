@@ -118,6 +118,37 @@ What custom trainers and scripts need to know:
   the entries. Under DDP every rank raises it: `save_checkpoint` builds the checkpoint on all ranks and the ones that
   do not write check that it can be stored, so the job ends instead of leaving ranks waiting for one that crashed.
 
+## The compound loss is compiled as a whole, and `_build_loss` picks its loss classes from class attributes
+
+`nnUNetTrainer._build_loss` used to compile only the dice term (`loss.dc = torch.compile(loss.dc)`); it now
+compiles the whole compound loss. The dice and the CE both start from the same logits (softmax vs
+log_softmax), so one graph lets inductor share that work and lets AOTAutograd recompute instead of saving.
+Measured on a 4090 at 119 classes / 128^3 / bs 2 / AMP, fwd+bwd peak over the inputs and time for the
+compound loss: **6.07 GiB / 38.2 ms with only `loss.dc` compiled, 3.78 GiB / 18.9 ms compiled as a whole**
+(eager: 9.30 GiB / 77.6 ms). At 160^3 the same change measured -35 % peak and 1.65x; on a 14 class
+3d_fullres it is 0.59 -> 0.39 GiB.
+
+**This changes results very slightly, in a direction that is an improvement.** The dice term is
+bit-identical. Eager `F.cross_entropy` under autocast dispatches the fused ATen kernel, which is not
+autocast-listed, so its internal `log_softmax` runs in fp16; `torch.compile` decomposes it and the
+`log_softmax` gets the fp32 treatment, which is 4.3x closer to an fp64 reference. The memory saving and the
+accuracy change have the same cause and cannot be separated. Magnitude: ~1e-7 relative on the loss, about
+one ulp on the fp16 gradient.
+
+**Checked against Dice, not only against the loss.** The previous and the new wiring were trained from scratch
+against each other on 8 datasets (ResEnc-L, fold 0, 1000 dense epochs, everything else identical): mean
+difference **-0.14 Dice points, sd 0.53, p = 0.48, 95 % CI -0.59 .. +0.31**, 3 better / 5 worse. That bounds
+any systematic shift well under ±0.6 points. End to end the change is worth ~1 % on few-class datasets and
+**11 % on a 127 class one**, which is where the loss is a large part of the step.
+
+`nnUNetTrainer` also gained two class attributes, **`dice_class`** and **`dc_and_ce_class`**, which
+`_build_loss` instantiates instead of naming `MemoryEfficientSoftDiceLoss` / `DC_and_CE_loss` directly. The
+defaults reproduce the previous behaviour exactly. They exist so a mixin can swap the loss implementation
+without overriding `_build_loss` - see `ChunkedLossMixin`
+(`variants/loss/nnUNetTrainer_chunkedLoss.py`), which selects the batch-chunked CE and dice needed once
+`batch * num_classes * voxels` reaches PyTorch's int32 indexing limit in the `nll_loss2d` backward. If your
+trainer overrides `_build_loss`, nothing changes; if you want the swap to reach it, read the attributes.
+
 ## Segmentation resampling: ties are broken differently, and the memory efficient branch is now the default
 
 `resample_torch_simple` and `resample_torch_fornnunet` resample a segmentation by interpolating each

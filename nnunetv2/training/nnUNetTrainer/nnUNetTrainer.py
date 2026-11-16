@@ -99,6 +99,13 @@ def zero_missing_momentum_buffers(optimizer: torch.optim.Optimizer) -> None:
 
 
 class nnUNetTrainer(object):
+    # The loss classes _build_loss instantiates. They are class attributes rather than hardcoded names so that a
+    # mixin can swap in a different implementation - ChunkedLossMixin does exactly that for the many-class
+    # datasets - without having to duplicate _build_loss in every trainer variant. The defaults reproduce the
+    # stock behaviour exactly.
+    dice_class = MemoryEfficientSoftDiceLoss
+    dc_and_ce_class = DC_and_CE_loss
+
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
@@ -518,15 +525,47 @@ class nnUNetTrainer(object):
                                    {'batch_dice': self.configuration_manager.batch_dice,
                                     'do_bg': True, 'smooth': 1e-5, 'ddp': self.is_ddp},
                                    use_ignore_label=self.label_manager.ignore_label is not None,
-                                   dice_class=MemoryEfficientSoftDiceLoss)
+                                   dice_class=self.dice_class)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+            loss = self.dc_and_ce_class({'batch_dice': self.configuration_manager.batch_dice,
+                                         'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1,
+                                        weight_dice=1, ignore_label=self.label_manager.ignore_label,
+                                        dice_class=self.dice_class)
 
         if self._do_i_compile():
+            # Compile the WHOLE compound loss, not just loss.dc. The dice and the CE both start from the
+            # same logits (softmax vs log_softmax), so one graph lets inductor share that work and, more
+            # importantly, lets AOTAutograd recompute instead of saving: with only loss.dc compiled, CE
+            # still keeps its log_softmax output twice (once fp16, once cast to fp32 for nll_loss2d).
+            # Measured on a 4090, b=2 / 119 classes / 160^3 / 5 deep supervision scales / batch_dice, peak
+            # VRAM over the inputs and time for the whole deep supervision loss, fwd+bwd:
+            #     loss.dc compiled (what this used to do)   10.37 GiB   112.5 ms
+            #     whole loss compiled                        6.71 GiB    68.4 ms
+            # i.e. -35% peak and 1.65x. At D017 3d_fullres (14 classes, 48x192x192): 0.59 -> 0.39 GiB,
+            # 5.3 -> 3.4 ms.
+            #
+            # This DOES change results, in one specific and benign way. Against an fp64 reference on the
+            # same fp16 inputs (b=2 / 119 classes / 64^3, |loss - fp64|):
+            #     dice term:  eager == loss.dc compiled == whole compiled, BIT-IDENTICAL
+            #     CE term:    eager 1.545e-06   whole compiled 3.621e-07   (4.3x closer to fp64)
+            # The dice is untouched. All of the difference is the CE, and it is an accuracy IMPROVEMENT:
+            # eager F.cross_entropy under autocast dispatches the fused ATen cross_entropy_loss, which is
+            # not an autocast-listed op, so its internal log_softmax runs in fp16 and only the following
+            # nll_loss gets cast to fp32 (that fp16 log_softmax output is exactly one of the tensors the
+            # old wiring kept alive). torch.compile decomposes cross_entropy, so log_softmax gets the fp32
+            # treatment - the compiled CE is bit-identical to explicitly writing
+            # F.nll_loss(F.log_softmax(x.float(), 1), y), which is the more correct computation. The memory
+            # saving and the accuracy change have the same cause and cannot be separated.
+            #
+            # Every wiring is deterministic (bit-identical over 3 repeats), so this is a systematic shift,
+            # not run-to-run noise. Magnitude: 1.7e-7 relative on the loss; the gradient's error against
+            # fp64 drops from 7.0e-4 to 4.4e-4 of max|grad|, which fp16 grad storage then rounds to about
+            # one ulp. Verified equal-or-better against the eager loss for batch_dice on/off, ignore_label,
+            # regions (DC_and_BCE), weight_dice=0, DDP, and changing spatial shapes.
+            # A 10 epoch D017 3d_fullres check (nnUNetPlans, fold 0) put the old run between two new runs
+            # on train loss, val loss and pseudo dice, i.e. inside the run-to-run spread.
             set_default_inductor_cache_dir()
-            loss.dc = torch.compile(loss.dc)
+            loss = torch.compile(loss)
 
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
         # this gives higher resolution outputs more weight in the loss
