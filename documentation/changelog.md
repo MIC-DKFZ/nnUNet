@@ -149,6 +149,22 @@ without overriding `_build_loss` - see `ChunkedLossMixin`
 `batch * num_classes * voxels` reaches PyTorch's int32 indexing limit in the `nll_loss2d` backward. If your
 trainer overrides `_build_loss`, nothing changes; if you want the swap to reach it, read the attributes.
 
+## The online evaluation no longer builds a one-hot
+
+For softmax training, `nnUNetTrainer.validation_step` computed the green line by scattering the argmax into
+a `(b, num_classes, *patch_size)` one-hot and handing that to `get_tp_fp_fn_tn`. That one-hot is ~3.3 GB at
+118 classes / 192^3 / bs 2, before `get_tp_fp_fn_tn` allocates on top, and it was the memory ceiling of the
+validation step on datasets with many classes. It is replaced by **`get_tp_fp_fn_from_argmax`**
+(`nnunetv2/training/loss/dice.py`), which accumulates the `(num_classes, num_classes)` confusion matrix over
+(prediction, target) in one pass - 133 KB at 129 classes. It is exactly equivalent, including the ignore
+label; region-based training is untouched and still uses `get_tp_fp_fn_tn`. Tests:
+`nnunetv2/tests/test_online_evaluation.py`.
+
+`on_validation_epoch_end` now wraps the Dice division in `np.errstate` instead of letting it warn. A class
+absent from both prediction and target still gives `0/0 = nan` and is still dropped by the `np.nanmean`, so
+`mean_fg_dice` is unchanged - only the warning spam is gone. Custom trainers that read
+`dice_per_class_or_region` should keep expecting `nan` there.
+
 ## Segmentation resampling: ties are broken differently, and the memory efficient branch is now the default
 
 `resample_torch_simple` and `resample_torch_fornnunet` resample a segmentation by interpolating each

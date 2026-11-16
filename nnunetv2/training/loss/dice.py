@@ -127,6 +127,34 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         return -dc
 
 
+def get_tp_fp_fn_from_argmax(pred_seg: torch.Tensor, gt: torch.Tensor, num_classes: int,
+                             mask: torch.Tensor = None):
+    """
+    tp, fp and fn per class from an argmax'ed prediction, summed over the batch and all spatial axes.
+
+    Equivalent to get_tp_fp_fn_tn(one_hot(pred_seg), gt, axes=[0] + spatial, mask=mask), but without ever
+    building the (b, num_classes, *spatial) one hot - it accumulates the (num_classes, num_classes)
+    confusion matrix over (prediction, target) instead, in a single pass. That matters for the online
+    evaluation on datasets with many classes: at 118 classes / 192^3 / bs2 the one hot alone is ~3.3 GB,
+    while the confusion matrix is 133 KB at 129 classes.
+
+    Only for softmax training (a single label map). Region based training predicts overlapping foreground
+    per head and has no confusion matrix; use get_tp_fp_fn_tn there.
+
+    :param pred_seg: (b, 1, x, y(, z)) integer label map, values in [0, num_classes)
+    :param gt: (b, 1, x, y(, z)) integer label map, values in [0, num_classes)
+    :param num_classes: number of segmentation heads, i.e. len(label_manager.all_labels)
+    :param mask: (b, 1, x, y(, z)), 1 for valid voxels and 0 for invalid (ignore label) ones
+    :return: tp, fp, fn - each an int64 tensor of shape (num_classes, )
+    """
+    with torch.no_grad():
+        valid = mask.flatten().bool() if mask is not None else slice(None)
+        idx = (pred_seg.flatten() * num_classes + gt.flatten().long())[valid]
+        cm = torch.bincount(idx, minlength=num_classes * num_classes).view(num_classes, num_classes)
+        tp = cm.diagonal()
+        return tp, cm.sum(1) - tp, cm.sum(0) - tp  # cm[predicted, target], so sum(1) is the prediction
+
+
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """
     net_output must be (b, c, x, y(, z)))

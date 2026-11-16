@@ -63,7 +63,7 @@ from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import MetaLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
+from nnunetv2.training.loss.dice import get_tp_fp_fn_from_argmax, get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.checkpoints import NO_OPTIMIZER_STATE_WARNING, check_checkpoint_storable, \
     load_checkpoint_file, other_format_filename, remove_checkpoint_files, safetensors_filename, save_checkpoint_file, \
@@ -1248,9 +1248,6 @@ class nnUNetTrainer(object):
         else:
             # no need for softmax
             output_seg = output.argmax(1)[:, None]
-            predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float16)
-            predicted_segmentation_onehot.scatter_(1, output_seg, 1)
-            del output_seg
 
         if self.label_manager.has_ignore_label:
             if not self.label_manager.has_regions:
@@ -1267,7 +1264,16 @@ class nnUNetTrainer(object):
         else:
             mask = None
 
-        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
+        if self.label_manager.has_regions:
+            tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
+        else:
+            # Softmax training: the prediction is a single label map, so the confusion matrix over
+            # (prediction, target) carries everything and no (b, num_classes, *patch_size) one hot has to
+            # exist. That one hot is what made this step the VRAM ceiling on many-class datasets - at 118
+            # classes / 192^3 / bs2 it is ~3.3 GB on its own, before get_tp_fp_fn_tn allocates on top.
+            # Exactly equivalent to the one hot path (nnunetv2/tests/test_online_evaluation.py).
+            tp, fp, fn = get_tp_fp_fn_from_argmax(output_seg, target, output.shape[1], mask=mask)
+            del output_seg
 
         # like the training loss (see train_step), these stay on the device and run_training moves them once per epoch
         tp_hard = tp.detach()
@@ -1309,7 +1315,13 @@ class nnUNetTrainer(object):
         else:
             loss_here = np.mean(outputs_collated['loss'])
 
-        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
+        # A class absent from BOTH prediction and target gives 0/0 = nan, and the nanmean below drops it -
+        # which is what we want: it carries no information about this epoch. On a dataset with many classes
+        # that is a good fraction of the label set every epoch, so the invalid-value warning would be printed
+        # for every validation epoch; silence it rather than perturbing the denominator, which would turn
+        # those classes into hard zeros and pull mean_fg_dice down.
+        with np.errstate(invalid='ignore', divide='ignore'):
+            global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
         mean_fg_dice = np.nanmean(global_dc_per_class)
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
