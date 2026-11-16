@@ -98,7 +98,7 @@ def generate_dataset_json(output_folder: str,
     if release is not None:
         dataset_json['release'] = release
     if citation is not None:
-        dataset_json['citation'] = release
+        dataset_json['citation'] = citation
     if description is not None:
         dataset_json['description'] = description
     if overwrite_image_reader_writer is not None:
