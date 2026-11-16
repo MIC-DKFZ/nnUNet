@@ -1084,7 +1084,17 @@ class nnUNetTrainer(object):
         if self.global_rank == 0:
             remove_checkpoint_files(join(self.output_folder, "checkpoint_latest.safetensors"))
 
-        # shut down dataloaders
+        self._shutdown_dataloaders()
+
+        empty_cache(self.device)
+        self.print_to_log_file("Training done.")
+
+    def _shutdown_dataloaders(self):
+        """
+        Stops the data augmentation workers, at the end of training and before the exit on a termination signal. Exiting
+        with the workers still running kills them under the augmenters' results threads, which then print "One or more
+        background workers are no longer alive" tracebacks.
+        """
         old_stdout = sys.stdout
         with open(os.devnull, 'w') as f:
             sys.stdout = f
@@ -1095,9 +1105,6 @@ class nnUNetTrainer(object):
                     isinstance(self.dataloader_val, (NonDetMultiThreadedAugmenter, MultiThreadedAugmenter)):
                 self.dataloader_val._finish()
             sys.stdout = old_stdout
-
-        empty_cache(self.device)
-        self.print_to_log_file("Training done.")
 
     def on_train_epoch_start(self):
         self.network.train()
@@ -1211,9 +1218,10 @@ class nnUNetTrainer(object):
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
 
-        tp_hard = tp.detach().cpu().numpy()
-        fp_hard = fp.detach().cpu().numpy()
-        fn_hard = fn.detach().cpu().numpy()
+        # like the training loss (see train_step), these stay on the device and collate_outputs moves them once per epoch
+        tp_hard = tp.detach()
+        fp_hard = fp.detach()
+        fn_hard = fn.detach()
         if not self.label_manager.has_regions:
             # if we train with regions all segmentation heads predict some kind of foreground. In conventional
             # (softmax training) there needs tobe one output for the background. We are not interested in the
@@ -1223,7 +1231,7 @@ class nnUNetTrainer(object):
             fp_hard = fp_hard[1:]
             fn_hard = fn_hard[1:]
 
-        return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
+        return {'loss': l.detach(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
 
     def on_validation_epoch_end(self, val_outputs: List[dict]):
         outputs_collated = collate_outputs(val_outputs)
@@ -1293,6 +1301,7 @@ class nnUNetTrainer(object):
                                    "so let's exit gracefully. Now lets raise the keyboard into the sky and interrupt "
                                    "this madness. Expecting either the user or an automated script to continue this "
                                    "training with --c.")
+            self._shutdown_dataloaders()
             sys.exit(0)
 
         self.current_epoch += 1

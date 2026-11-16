@@ -34,7 +34,7 @@ in its place, and the mask is not built at all unless the normalization needs it
   `use_mask_for_norm` is set (like all of nnU-Net's own schemes), set `uses_seg_only_if_use_mask_for_norm = True` on
   the class to let inference skip it. Subclasses do not inherit this setting.
 
-## Training loop: fused SGD, the training loss stays on the GPU, progress.png at most once a minute
+## Training loop: fused SGD, step outputs stay on the GPU, progress.png at most once a minute
 
 Three changes make every training iteration cheaper on the host. Training results are unchanged: fused SGD computes
 the same update as the foreach SGD it replaces, and the logged training loss is the same mean of the same values.
@@ -48,15 +48,19 @@ The gain is largest where the host and not the GPU limits the speed (small patch
   `--c` on fused SGD. An override of `load_checkpoint` that calls `self.optimizer.load_state_dict(...)` itself should
   call `self._load_optimizer_state(...)` instead: continuing a foreach checkpoint with fused SGD otherwise fails in
   the first step (`AssertionError` in `GradScaler.step`).
-- **`train_step` returns the loss as a detached tensor on the training device**, no longer as a numpy array, so that
-  the host does not wait for the GPU in every iteration. `collate_outputs` now also accepts tensors and moves them in
-  one transfer, so `on_train_epoch_end` and overrides that use `collate_outputs` see numpy arrays as before. Code that
-  reads `train_outputs[i]['loss']` directly gets a tensor. Old: `np.mean([o['loss'] for o in train_outputs])`. New:
-  `np.mean(collate_outputs(train_outputs)['loss'])`, or `.item()` on each. A `train_step` override that returns numpy
-  arrays keeps working.
+- **`train_step` and `validation_step` return their outputs as detached tensors on the training device** (the loss;
+  `tp_hard`, `fp_hard`, `fn_hard` of the validation step), no longer as numpy arrays, so that the host does not wait for
+  the GPU in every iteration. `collate_outputs` now also accepts tensors and moves them in one transfer per key, so
+  `on_train_epoch_end`, `on_validation_epoch_end` and overrides that use `collate_outputs` see the same numpy arrays as
+  before. Code that reads `train_outputs[i]['loss']` (or a validation output) directly gets a tensor. Old:
+  `np.mean([o['loss'] for o in train_outputs])`. New: `np.mean(collate_outputs(train_outputs)['loss'])`, or `.item()` on
+  each. Step overrides that return numpy arrays keep working.
 - **progress.png is written at most every `self.plot_progress_every_s` seconds** (default 60), and always after the
   first epoch of a run, after the last one and before an exit on a termination signal. Plotting takes 0.4 - 1.2 s per
   epoch and grows with the number of epochs. `self.plot_progress_every_s = 0` restores a plot after every epoch.
+- **The exit on a termination signal (SIGUSR1) stops the data augmentation workers first** (`_shutdown_dataloaders`,
+  which `on_train_end` uses as well). Before, the workers were killed under the augmenters' results threads, which
+  printed "One or more background workers are no longer alive" tracebacks although the exit was clean.
 
 ## DDP: `oversample_foreground_percent` is the value for the whole batch again after `_set_batch_size_and_oversample`
 

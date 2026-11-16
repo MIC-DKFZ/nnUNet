@@ -1,9 +1,12 @@
 import copy
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 import numpy as np
 import torch
+
+from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMultiThreadedAugmenter
 
 from nnunetv2.training.logging.nnunet_logger import MetaLogger
 from nnunetv2.training.nnUNetTrainer import nnUNetTrainer as trainer_module
@@ -29,6 +32,7 @@ def _trainer(device: str = 'cpu') -> nnUNetTrainer:
     t._best_ema = None
     t.plot_progress_every_s = 60
     t._last_progress_plot = None
+    t.dataloader_train = t.dataloader_val = None
     return t
 
 
@@ -59,6 +63,53 @@ class TestTrainLoss(unittest.TestCase):
         out = t.train_step({'data': torch.randn(2, 1, 8, 8, 8), 'target': torch.randn(2, 2, 8, 8, 8)})
         self.assertIsInstance(out['loss'], torch.Tensor)
         self.assertFalse(out['loss'].requires_grad)
+
+
+class TestValidationOutputs(unittest.TestCase):
+    def _val_outputs(self, n: int = 3):
+        t = _trainer()
+        torch.manual_seed(0)
+        t.network = torch.nn.Conv3d(1, 3, 3, padding=1)
+        t.loss = lambda output, target: output.float().mean()
+        t.enable_deep_supervision = False
+        t.label_manager = SimpleNamespace(has_regions=False, has_ignore_label=False)
+        with torch.no_grad():
+            return t, [t.validation_step({'data': torch.randn(2, 1, 8, 8, 8),
+                                          'target': torch.randint(0, 3, (2, 1, 8, 8, 8))}) for _ in range(n)]
+
+    def test_validation_step_returns_device_tensors(self):
+        _, outputs = self._val_outputs(1)
+        for k in ('loss', 'tp_hard', 'fp_hard', 'fn_hard'):
+            self.assertIsInstance(outputs[0][k], torch.Tensor, k)
+        self.assertEqual(outputs[0]['tp_hard'].shape, (2,))  # background dropped
+
+    def test_logged_values_unchanged(self):
+        # the same outputs as numpy arrays, which validation_step returned before
+        t, outputs = self._val_outputs()
+        ref = _trainer()
+        t.on_validation_epoch_end(outputs)
+        ref.on_validation_epoch_end([{k: v.cpu().numpy() for k, v in o.items()} for o in outputs])
+        for key in ('val_losses', 'mean_fg_dice', 'dice_per_class_or_region'):
+            self.assertEqual(t.logger.get_value(key, step=-1), ref.logger.get_value(key, step=-1), key)
+
+
+class TestExitOnSignal(unittest.TestCase):
+    def test_data_loaders_stop_before_the_exit(self):
+        t = _trainer()
+        t.current_epoch = 10
+        for key, value in (('train_losses', 0.5), ('val_losses', 0.5), ('dice_per_class_or_region', [0.5]),
+                           ('mean_fg_dice', 0.5), ('epoch_start_timestamps', 0.), ('epoch_end_timestamps', 1.)):
+            t.logger.log(key, value, t.current_epoch)
+        t.logger.plot_progress_png = lambda folder: None
+        t.dataloader_train = mock.MagicMock(spec=NonDetMultiThreadedAugmenter)
+        t.dataloader_val = mock.MagicMock(spec=NonDetMultiThreadedAugmenter)
+        with mock.patch.object(nnUNetTrainer, 'save_checkpoint'), \
+                mock.patch.object(nnUNetTrainer, 'print_to_log_file'), \
+                mock.patch.object(nnUNetTrainer, '_exit_signal_received', lambda self: True):
+            with self.assertRaises(SystemExit):
+                t.on_epoch_end()
+        t.dataloader_train._finish.assert_called_once()
+        t.dataloader_val._finish.assert_called_once()
 
 
 class TestProgressPlot(unittest.TestCase):
