@@ -178,6 +178,25 @@ nnUNetv2_reorder_labels -i MODEL_FOLDER -o NEW_MODEL_FOLDER -l labels.json
 `labels.json` holds the new `{label name: id}` mapping (a `dataset.json` works too). The new folder is for inference
 only (no optimizer state or training logs). Region-based models are not supported.
 
+## Streaming final validation in training
+
+The final validation of `nnUNetv2_train` (and `--val`) exports its predictions the way `nnUNetv2_predict` does, so with
+many classes on large images it runs out of RAM. Trainers with `StreamingValidationMixin`
+(`nnunetv2/training/nnUNetTrainer/variants/validation/nnUNetTrainer_streamingValidation.py`) validate with the streaming
+predictor instead. Training is unchanged, resampling follows the plans as described above, and the training log says
+which resampling and which slab buffer were used. 3d configurations only, no cascades, no `--npz`.
+
+- `nnUNetTrainer_SV`: `nnUNetTrainer` with streaming validation.
+- `nnUNetTrainer_2000epochs_NoMirroring_SV`: 2000 epochs without mirroring.
+- `nnUNetTrainer_DASegOrd0_NoMirroring_SV` and its `_2000epochs_SV` / `_5000epochs_SV` versions: a recipe for datasets
+  with many classes. The spatial augmentation resamples the segmentation with nearest neighbour instead of
+  interpolating one channel per class (which makes the augmentation CPU bound at 100+ classes), there is no
+  mirroring, and the loss is chunked over the batch once it would exceed PyTorch's int32 indexing limit
+  (`ChunkedLossMixin`; below that limit it is exactly the stock loss).
+
+To add streaming validation to your own trainer, mix it in first:
+`class MyTrainer_SV(StreamingValidationMixin, MyTrainer)`.
+
 ## Notes on memory and performance
 
 - Peak VRAM is bounded by one slab of the internal prediction (≈ `channels × (patch_size_along_slab + 1) ×

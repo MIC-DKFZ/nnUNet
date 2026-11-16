@@ -1,5 +1,21 @@
 # Changes that affect custom trainers
 
+## Streaming final validation: `StreamingValidationMixin` and trainers that use it
+
+`nnunetv2/training/nnUNetTrainer/variants/validation/nnUNetTrainer_streamingValidation.py` adds
+`StreamingValidationMixin`, which replaces `perform_actual_validation` with one through `nnUNetPredictorStreaming`.
+The stock final validation resamples the full `(num_classes, *original_shape)` probability volume of every case on the
+CPU and runs out of RAM with many classes on large images; the streaming one never builds that volume. Training is
+unchanged. Resampling follows the plans as in `nnUNetv2_predict_streaming`, so the validation segmentations match those
+of the stock validation up to float rounding at argmax boundaries; plans whose resampling streaming cannot reproduce
+(e.g. cubic) get torch trilinear and a warning in the training log. 3d configurations only; no cascade, next-stage
+prediction or probability export.
+
+New trainers: `nnUNetTrainer_SV`, `nnUNetTrainer_2000epochs_NoMirroring_SV`, and
+`nnUNetTrainer_DASegOrd0_NoMirroring_SV` with `_2000epochs_SV` / `_5000epochs_SV` versions (order-0 segmentation
+resampling in the spatial augmentation, no mirroring, `ChunkedLossMixin`). Mix `StreamingValidationMixin` in first
+to give your own trainer streaming validation. Nothing changes for existing trainers.
+
 ## NIfTI readers: images already in memory, and fewer copies of the image
 
 `NibabelIO` / `NibabelIOWithReorient` gained `read_nibabel_images` and `seg_to_nibabel`, `SimpleITKIO` /
