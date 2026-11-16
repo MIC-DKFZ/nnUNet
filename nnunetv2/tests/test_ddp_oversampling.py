@@ -30,7 +30,7 @@ def _n_forced(batch_size: int, percent: float) -> int:
     return sum(not i < round(batch_size * (1 - percent)) for i in range(batch_size))
 
 
-def _forced(trainers) -> int:
+def _n_forced_all_ranks(trainers) -> int:
     return sum(_n_forced(t.batch_size, t.oversample_foreground_percent) for t in trainers)
 
 
@@ -41,7 +41,7 @@ class TestDDPOversampling(unittest.TestCase):
                 trainers = _ranks(world_size, batch_size)
                 _split(trainers)
                 self.assertEqual(sum(t.batch_size for t in trainers), batch_size)
-                self.assertEqual(_forced(trainers), _n_forced(batch_size, 0.33))
+                self.assertEqual(_n_forced_all_ranks(trainers), _n_forced(batch_size, 0.33))
 
     def test_second_split_is_the_same(self):
         # before the fix the second call split each rank's share again: 4 instead of 5 forced samples of 16 on
@@ -53,7 +53,7 @@ class TestDDPOversampling(unittest.TestCase):
                 first = [t.oversample_foreground_percent for t in trainers]
                 _split(trainers)
                 self.assertEqual([t.oversample_foreground_percent for t in trainers], first)
-                self.assertEqual(_forced(trainers), 5)
+                self.assertEqual(_n_forced_all_ranks(trainers), 5)
 
     def test_setting_a_new_value_then_splitting(self):
         trainers = _ranks(8, 16)
@@ -63,7 +63,7 @@ class TestDDPOversampling(unittest.TestCase):
             # until the next split, reading returns what was set
             self.assertEqual(t.oversample_foreground_percent, 0.5)
         _split(trainers)
-        self.assertEqual(_forced(trainers), _n_forced(16, 0.5))
+        self.assertEqual(_n_forced_all_ranks(trainers), _n_forced(16, 0.5))
 
     def test_without_ddp_the_value_is_untouched(self):
         t = _ranks(1, 2, 0.33)[0]

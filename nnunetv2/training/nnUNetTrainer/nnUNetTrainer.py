@@ -1,3 +1,4 @@
+import contextlib
 import inspect
 import multiprocessing
 import os
@@ -67,7 +68,7 @@ from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.checkpoints import NO_OPTIMIZER_STATE_WARNING, check_checkpoint_storable, \
     load_checkpoint_file, other_format_filename, remove_checkpoint_files, safetensors_filename, save_checkpoint_file, \
     without_training_state
-from nnunetv2.utilities.collate_outputs import collate_outputs
+from nnunetv2.utilities.collate_outputs import collate_outputs, outputs_to_host
 from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.ddp import get_ddp_topology
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
@@ -76,6 +77,25 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context, set_default_inductor_cache_dir
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
+
+
+# fused SGD is not in every torch version nnU-Net supports
+SGD_HAS_FUSED = 'fused' in inspect.signature(torch.optim.SGD.__init__).parameters
+
+
+def zero_missing_momentum_buffers(optimizer: torch.optim.Optimizer) -> None:
+    """
+    Gives every parameter of a fused SGD param group that has no momentum buffer a zero one. Fused SGD creates the
+    buffers with empty_like in its first step, and if GradScaler skips that step (inf / nan gradients) they are never
+    written: the next step uses uninitialised memory as momentum. After loading a checkpoint of foreach SGD, parameters
+    that had not received a gradient yet have no buffer, and fused SGD fails when some buffers exist and others do not.
+    Foreach SGD starts a missing buffer as the gradient, which is what a zero buffer gives: 0.99 * 0 + g = g.
+    """
+    for group in optimizer.param_groups:
+        if group.get('fused') and group.get('momentum', 0) != 0:
+            for p in group['params']:
+                if optimizer.state[p].get('momentum_buffer') is None:
+                    optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
 
 
 class nnUNetTrainer(object):
@@ -611,17 +631,12 @@ class nnUNetTrainer(object):
 
     def configure_optimizers(self):
         # Fused SGD does the whole update in one pass over the parameters instead of several, and GradScaler hands it
-        # the inf check on the GPU instead of making the host wait for it every step. Same results as foreach SGD
-        fused = self.device.type == 'cuda' and 'fused' in inspect.signature(torch.optim.SGD.__init__).parameters
+        # the inf check on the GPU instead of making the host wait for it every step. It computes the same update as
+        # foreach SGD (nnunetv2/tests/test_training_loop_host_overhead.py)
+        fused = self.device.type == 'cuda' and SGD_HAS_FUSED
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True, **({'fused': True} if fused else {}))
-        if fused:
-            # Fused SGD creates its momentum buffers with empty_like in its first step. If GradScaler skips that step
-            # (inf / nan gradients), they are never written and the next step uses uninitialised memory as momentum.
-            # Zeros make every first step exactly what foreach SGD does: 0.99 * 0 + g = g
-            for group in optimizer.param_groups:
-                for p in group['params']:
-                    optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
+        zero_missing_momentum_buffers(optimizer)
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
@@ -1095,16 +1110,13 @@ class nnUNetTrainer(object):
         with the workers still running kills them under the augmenters' results threads, which then print "One or more
         background workers are no longer alive" tracebacks.
         """
-        old_stdout = sys.stdout
-        with open(os.devnull, 'w') as f:
-            sys.stdout = f
+        with open(os.devnull, 'w') as f, contextlib.redirect_stdout(f):
             if self.dataloader_train is not None and \
                     isinstance(self.dataloader_train, (NonDetMultiThreadedAugmenter, MultiThreadedAugmenter)):
                 self.dataloader_train._finish()
             if self.dataloader_val is not None and \
                     isinstance(self.dataloader_val, (NonDetMultiThreadedAugmenter, MultiThreadedAugmenter)):
                 self.dataloader_val._finish()
-            sys.stdout = old_stdout
 
     def on_train_epoch_start(self):
         self.network.train()
@@ -1147,7 +1159,7 @@ class nnUNetTrainer(object):
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
         # The loss stays on the device: reading it here would make the host wait for the GPU in every iteration.
-        # collate_outputs moves all of an epoch's losses at once
+        # run_training moves all of an epoch's losses at once (outputs_to_host)
         return {'loss': l.detach()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
@@ -1218,7 +1230,7 @@ class nnUNetTrainer(object):
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
 
-        # like the training loss (see train_step), these stay on the device and collate_outputs moves them once per epoch
+        # like the training loss (see train_step), these stay on the device and run_training moves them once per epoch
         tp_hard = tp.detach()
         fp_hard = fp.detach()
         fn_hard = fn.detach()
@@ -1417,6 +1429,8 @@ class nnUNetTrainer(object):
         self.optimizer.load_state_dict(optimizer_state)
         for group, flags in zip(self.optimizer.param_groups, impl_flags):
             group.update(flags)
+        # a foreach checkpoint has no momentum buffer for parameters that had not received a gradient yet
+        zero_missing_momentum_buffers(self.optimizer)
 
     def perform_actual_validation(self, save_probabilities: bool = False):
         self.set_deep_supervision_enabled(False)
@@ -1589,14 +1603,16 @@ class nnUNetTrainer(object):
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
                 train_outputs.append(self.train_step(next(self.dataloader_train)))
-            self.on_train_epoch_end(train_outputs)
+            # the steps leave their outputs on the device (see train_step); the epoch-end hooks get them as numpy
+            # arrays, all moved at once
+            self.on_train_epoch_end(outputs_to_host(train_outputs))
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
                 for batch_id in range(self.num_val_iterations_per_epoch):
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
-                self.on_validation_epoch_end(val_outputs)
+                self.on_validation_epoch_end(outputs_to_host(val_outputs))
 
             self.on_epoch_end()
 

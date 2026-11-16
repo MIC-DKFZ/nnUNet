@@ -41,7 +41,8 @@ the same update as the foreach SGD it replaces, and the logged training loss is 
 The gain is largest where the host and not the GPU limits the speed (small patches or networks, fast GPUs, slow CPUs).
 
 - **`configure_optimizers` builds fused SGD on CUDA** (`fused=True`, if the installed torch has it), with its momentum
-  buffers initialised to zero. Other devices keep foreach SGD. Custom `configure_optimizers` are not affected.
+  buffers initialised to zero (`zero_missing_momentum_buffers`). Other devices keep foreach SGD. Custom
+  `configure_optimizers` are not affected.
 - **`load_checkpoint` keeps the optimizer implementation that `configure_optimizers` built.**
   `Optimizer.load_state_dict` also restores the `fused` / `foreach` flags stored in a checkpoint; nnU-Net now puts
   back the ones of its own optimizer (`_load_optimizer_state`). Trainings started before this change continue with
@@ -50,11 +51,11 @@ The gain is largest where the host and not the GPU limits the speed (small patch
   the first step (`AssertionError` in `GradScaler.step`).
 - **`train_step` and `validation_step` return their outputs as detached tensors on the training device** (the loss;
   `tp_hard`, `fp_hard`, `fn_hard` of the validation step), no longer as numpy arrays, so that the host does not wait for
-  the GPU in every iteration. `collate_outputs` now also accepts tensors and moves them in one transfer per key, so
-  `on_train_epoch_end`, `on_validation_epoch_end` and overrides that use `collate_outputs` see the same numpy arrays as
-  before. Code that reads `train_outputs[i]['loss']` (or a validation output) directly gets a tensor. Old:
-  `np.mean([o['loss'] for o in train_outputs])`. New: `np.mean(collate_outputs(train_outputs)['loss'])`, or `.item()` on
-  each. Step overrides that return numpy arrays keep working.
+  the GPU in every iteration. `run_training` moves an epoch's outputs to the host at once (`outputs_to_host`, one
+  transfer per key), so `on_train_epoch_end` and `on_validation_epoch_end`, and overrides of them, get the same numpy
+  arrays as before. Only code that calls the steps itself and reads their outputs gets tensors: a custom `run_training`
+  should pass them through `outputs_to_host` too (`collate_outputs` accepts tensors as well). Step overrides that
+  return numpy arrays keep working.
 - **progress.png is written at most every `self.plot_progress_every_s` seconds** (default 60), and always after the
   first epoch of a run, after the last one and before an exit on a termination signal. Plotting takes 0.4 - 1.2 s per
   epoch and grows with the number of epochs. `self.plot_progress_every_s = 0` restores a plot after every epoch.

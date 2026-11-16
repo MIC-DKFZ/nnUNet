@@ -508,7 +508,7 @@ class PretrainedTrainer(nnUNetTrainer):
                     if torch.is_tensor(v):
                         st[k] = v.cpu()
 
-            self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+            self._load_optimizer_state(checkpoint["optimizer_state"])
         elif self.current_epoch < self.num_epochs:
             # only matters if training continues from it
             self.print_to_log_file(NO_OPTIMIZER_STATE_WARNING)

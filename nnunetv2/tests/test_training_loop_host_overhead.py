@@ -11,7 +11,7 @@ from batchgenerators.dataloading.nondet_multi_threaded_augmenter import NonDetMu
 from nnunetv2.training.logging.nnunet_logger import MetaLogger
 from nnunetv2.training.nnUNetTrainer import nnUNetTrainer as trainer_module
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
-from nnunetv2.utilities.collate_outputs import collate_outputs
+from nnunetv2.utilities.collate_outputs import collate_outputs, outputs_to_host
 
 CUDA = torch.cuda.is_available()
 
@@ -34,6 +34,13 @@ def _trainer(device: str = 'cpu') -> nnUNetTrainer:
     t._last_progress_plot = None
     t.dataloader_train = t.dataloader_val = None
     return t
+
+
+def _log_one_epoch(t: nnUNetTrainer, epoch: int):
+    # what on_epoch_end reads from the logger
+    for key, value in (('train_losses', 0.5), ('val_losses', 0.5), ('dice_per_class_or_region', [0.5]),
+                       ('mean_fg_dice', 0.5), ('epoch_start_timestamps', 0.), ('epoch_end_timestamps', 1.)):
+        t.logger.log(key, value, epoch)
 
 
 class TestTrainLoss(unittest.TestCase):
@@ -63,6 +70,54 @@ class TestTrainLoss(unittest.TestCase):
         out = t.train_step({'data': torch.randn(2, 1, 8, 8, 8), 'target': torch.randn(2, 2, 8, 8, 8)})
         self.assertIsInstance(out['loss'], torch.Tensor)
         self.assertFalse(out['loss'].requires_grad)
+
+
+class TestOutputsToHost(unittest.TestCase):
+    def test_same_as_numpy_per_step(self):
+        # what the steps returned before: each output's .cpu().numpy(), a 0-d array for the loss
+        outputs = [{'loss': torch.tensor(0.5 * i), 'tp_hard': torch.arange(3.) * i, 'name': 'x'} for i in range(4)]
+        ref = [{k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in o.items()} for o in outputs]
+        for o, r in zip(outputs_to_host(outputs), ref):
+            self.assertEqual(o.keys(), r.keys())
+            for k in r:
+                self.assertEqual(type(o[k]), type(r[k]), k)
+                self.assertTrue(np.array_equal(o[k], r[k]), k)
+                if isinstance(r[k], np.ndarray):
+                    self.assertEqual((o[k].dtype, o[k].shape), (r[k].dtype, r[k].shape), k)
+
+    def test_numpy_and_empty_unchanged(self):
+        outputs = [{'loss': np.zeros(())}]
+        self.assertIs(outputs_to_host(outputs), outputs)
+        self.assertEqual(outputs_to_host([]), [])
+
+
+class _EpochEndReadsOutputs(nnUNetTrainer):
+    """An override that reads the step outputs directly, as custom trainers written for numpy outputs do."""
+    def on_train_epoch_end(self, train_outputs):
+        self.seen_types = {type(o['loss']) for o in train_outputs}
+        self.seen_train = np.mean([o['loss'] for o in train_outputs])
+
+    def on_validation_epoch_end(self, val_outputs):
+        self.seen_types |= {type(o[k]) for o in val_outputs for k in o}
+        self.seen_val = np.sum([o['tp_hard'] for o in val_outputs], 0)
+
+
+class TestRunTraining(unittest.TestCase):
+    def test_epoch_end_hooks_get_numpy(self):
+        t = object.__new__(_EpochEndReadsOutputs)
+        t.current_epoch, t.num_epochs = 0, 1
+        t.num_iterations_per_epoch, t.num_val_iterations_per_epoch = 3, 2
+        t.dataloader_train = t.dataloader_val = iter(lambda: None, 1)
+        t.train_step = lambda batch: {'loss': torch.tensor(0.25)}
+        t.validation_step = lambda batch: {'loss': torch.tensor(1.), 'tp_hard': torch.tensor([1., 2.])}
+        for hook in ('on_train_start', 'on_epoch_start', 'on_train_epoch_start', 'on_validation_epoch_start',
+                     'on_epoch_end', 'on_train_end'):
+            setattr(t, hook, lambda: None)
+        t.run_training()
+        # numpy, not tensors: np.mean over CUDA tensors raises
+        self.assertEqual(t.seen_types, {np.ndarray})
+        self.assertEqual(t.seen_train, 0.25)
+        self.assertTrue(np.array_equal(t.seen_val, [2., 4.]))
 
 
 class TestValidationOutputs(unittest.TestCase):
@@ -97,9 +152,7 @@ class TestExitOnSignal(unittest.TestCase):
     def test_data_loaders_stop_before_the_exit(self):
         t = _trainer()
         t.current_epoch = 10
-        for key, value in (('train_losses', 0.5), ('val_losses', 0.5), ('dice_per_class_or_region', [0.5]),
-                           ('mean_fg_dice', 0.5), ('epoch_start_timestamps', 0.), ('epoch_end_timestamps', 1.)):
-            t.logger.log(key, value, t.current_epoch)
+        _log_one_epoch(t, t.current_epoch)
         t.logger.plot_progress_png = lambda folder: None
         t.dataloader_train = mock.MagicMock(spec=NonDetMultiThreadedAugmenter)
         t.dataloader_val = mock.MagicMock(spec=NonDetMultiThreadedAugmenter)
@@ -136,9 +189,7 @@ class TestProgressPlot(unittest.TestCase):
         # on_epoch_end of an epoch 5 s after the last plot; returns whether it plotted
         t = _trainer()
         t.current_epoch = epoch
-        for key, value in (('train_losses', 0.5), ('val_losses', 0.5), ('dice_per_class_or_region', [0.5]),
-                           ('mean_fg_dice', 0.5), ('epoch_start_timestamps', 0.), ('epoch_end_timestamps', 1.)):
-            t.logger.log(key, value, epoch)
+        _log_one_epoch(t, epoch)
         t._last_progress_plot = last_plot
         plotted = []
         t.logger.plot_progress_png = lambda folder: plotted.append(epoch)
@@ -162,7 +213,7 @@ def _scaled_step(network, optimizer, scaler, grads, inf: bool):
     """One GradScaler step on given gradients, as train_step does after backward; inf puts an overflow into them."""
     scale = scaler.scale(torch.ones((), device='cuda'))
     for p, g in zip(network.parameters(), grads):
-        p.grad = g * scale
+        p.grad = None if g is None else g * scale
     if inf:
         next(network.parameters()).grad.view(-1)[0] = float('inf')
     scaler.unscale_(optimizer)
@@ -218,6 +269,33 @@ class TestFusedSGD(unittest.TestCase):
             net_foreach, _, _ = self._train(False, infs)
             for a, b in zip(net_fused.parameters(), net_foreach.parameters()):
                 self.assertTrue(torch.equal(a, b), f'differs with overflows {infs}')
+
+    def test_continue_foreach_checkpoint_without_some_momentum_buffers(self):
+        # a parameter that has not received a gradient yet (e.g. a frozen layer) has no momentum buffer in a foreach
+        # checkpoint; fused SGD refuses a mix of present and missing buffers unless _load_optimizer_state fills them
+        frozen = 0
+        first = [[None if i == frozen else g for i, g in enumerate(step)] for step in self.grads[:2]]
+        net_ref = _net()
+        opt_ref = _foreach_sgd(net_ref)
+        scaler_ref = torch.amp.GradScaler('cuda')
+        for g in first:
+            _scaled_step(net_ref, opt_ref, scaler_ref, g, False)
+        self.assertNotIn('momentum_buffer', opt_ref.state[list(net_ref.parameters())[frozen]])
+        ckpt = copy.deepcopy({'net': net_ref.state_dict(), 'opt': opt_ref.state_dict(), 'scaler': scaler_ref.state_dict()})
+        for g in self.grads[2:]:
+            _scaled_step(net_ref, opt_ref, scaler_ref, g, False)
+
+        t = _trainer('cuda')
+        t.network = _net()
+        t.network.load_state_dict(ckpt['net'])
+        t.optimizer, _ = t.configure_optimizers()
+        t._load_optimizer_state(ckpt['opt'])
+        scaler = torch.amp.GradScaler('cuda')
+        scaler.load_state_dict(ckpt['scaler'])
+        for g in self.grads[2:]:
+            _scaled_step(t.network, t.optimizer, scaler, g, False)
+        for a, b in zip(t.network.parameters(), net_ref.parameters()):
+            self.assertTrue(torch.equal(a, b))
 
     def test_continue_foreach_checkpoint_with_fused_sgd(self):
         # 2 foreach steps, checkpoint, 2 more: the reference. A fused trainer that loads the checkpoint must keep fused

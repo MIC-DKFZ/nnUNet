@@ -124,7 +124,7 @@ class nnUNetTrainer_warmup(nnUNetTrainer):
             self.optimizer, self.lr_scheduler = self.configure_optimizers("train")
 
         if "optimizer_state" in checkpoint:
-            self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+            self._load_optimizer_state(checkpoint["optimizer_state"])
         elif self.current_epoch < self.num_epochs:
             # checkpoint_final has no optimizer state. Only matters if training continues from it
             self.print_to_log_file(NO_OPTIMIZER_STATE_WARNING)

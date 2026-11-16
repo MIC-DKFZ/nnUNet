@@ -70,3 +70,17 @@ parameters. So DDP and single-GPU training do not optimize exactly the same obje
 - **Deferred because:** it changes the loss, so it needs a Dice-parity run before it can land, and the current
   difference is numerically negligible.
 - **Breaks:** nothing structurally; results shift by an immeasurable amount.
+
+### Give the per-rank foreground oversampling its own attribute
+
+`oversample_foreground_percent` is a property: setting it sets the value for the whole batch, and after
+`_set_batch_size_and_oversample` has split the batch across DDP ranks, reading it returns this rank's share. One
+name for two values, so that the method can be called more than once without splitting a share again.
+
+- **Do:** keep `oversample_foreground_percent` as the plain attribute for the whole batch and store the split in
+  `self.oversample_foreground_percent_this_rank` (equal to it without DDP); `get_dataloaders` passes that one to the
+  data loaders.
+- **Deferred because:** custom trainers outside the repository read `self.oversample_foreground_percent` when they
+  build their own data loaders, and would silently get the batch's value instead of their rank's share under DDP.
+- **Breaks:** custom `get_dataloaders` (and anything else) that reads `oversample_foreground_percent` after the split
+  and expects the rank's share.
