@@ -1,9 +1,9 @@
 # Memory-efficient (streaming) inference
 
 `nnUNetv2_predict_streaming` is an **optional, drop-in alternative to [`nnUNetv2_predict`](run-inference.md)**.
-It produces the same segmentations but is designed for cases where the default predictor needs an impractical
-amount of RAM/VRAM: datasets with **many classes** and/or **very large images** (e.g. 100+ classes at
-512×512×1024).
+It produces the same segmentations up to floating-point rounding at label boundaries (see below), but is designed
+for cases where the default predictor needs an impractical amount of RAM/VRAM: datasets with **many classes** and/or
+**very large images** (e.g. 100+ classes at 512×512×1024).
 
 You do not need this for normal datasets. Use the regular [`nnUNetv2_predict`](run-inference.md) unless memory
 is the bottleneck.
@@ -34,8 +34,7 @@ This is **not** bit-for-bit identical to `nnUNetv2_predict`. The differences are
     decided per case exactly as `nnUNetv2_predict` decides it. Results match to within the same boundary noise
     (the scipy resampler computes in float64, streaming in float32).
   - Resampling streaming cannot reproduce (e.g. cubic probability resampling) is replaced by plain trilinear;
-    the runtime notice says so. `--force_trilinear` uses plain trilinear everywhere, which was the only behaviour
-    before separate-z support.
+    the runtime notice says so. `--force_trilinear` uses plain trilinear everywhere.
 - **No probability export.** Segmentation only — there is no `--save_probabilities`. If you need probabilities
   (e.g. to ensemble across configurations with `nnUNetv2_ensemble`), use `nnUNetv2_predict`.
 - **Single configuration**, but **fold ensembling is supported** (logits are averaged per slab). 2d and 3d
@@ -184,7 +183,8 @@ The final validation of `nnUNetv2_train` (and `--val`) exports its predictions t
 many classes on large images it runs out of RAM. Trainers with `StreamingValidationMixin`
 (`nnunetv2/training/nnUNetTrainer/variants/validation/nnUNetTrainer_streamingValidation.py`) validate with the streaming
 predictor instead. Training is unchanged, resampling follows the plans as described above, and the training log says
-which resampling and which slab buffer were used. 3d configurations only, no cascades, no `--npz`.
+which resampling and which slab buffer were used. 3d configurations only, no cascades, no `--npz`; other
+configurations are refused when training starts.
 
 - `nnUNetTrainer_SV`: `nnUNetTrainer` with streaming validation.
 - `nnUNetTrainer_2000epochs_NoMirroring_SV`: 2000 epochs without mirroring.
@@ -207,12 +207,12 @@ To add streaming validation to your own trainer, mix it in first:
 - **Feature ring (3d, on by default).** The network's last layer is a 1×1×1 convolution, and everything between it and
   the argmax is linear (test-time mirroring, Gaussian weighting, the sum over overlapping patches and folds, linear
   resampling). So the slab buffer holds the *input* of that layer — the decoder's last features, 32 channels for the
-  standard U-Nets — instead of one channel per class, and the layer is applied once per output slice. The buffer no
-  longer grows with the number of classes (≈3.7× smaller at 120 classes). The layer is detached from the network
+  standard U-Nets — instead of one channel per class, and the layer is applied once per output slice. The buffer does
+  not grow with the number of classes (≈3.7× smaller at 120 classes). The layer is detached from the network
   before it is compiled, so this works with `--compile on`. Fold ensembles keep one block of features per fold, so they
   use it only while `folds × 32` is below the number of classes (e.g. up to 3 folds at 117 classes); otherwise, for 2d
-  configurations and for architectures whose output layer is not a known 1×1 convolution, the buffer holds the logits
-  as before. The runtime notice says which buffer is used and why. The segmentation is the same up to floating-point
+  configurations and for architectures whose output layer is not a known 1×1 convolution, the buffer holds
+  the logits. The runtime notice says which buffer is used and why. The segmentation is the same up to floating-point
   rounding (the sums run in a different order); `--logit_ring` turns it off.
 - On CUDA with Triton, accumulating patches into that slab and the per-plane resample + argmax run as fused GPU
   kernels that reproduce the plain torch computation bit for bit (checked once per process; everything falls back to

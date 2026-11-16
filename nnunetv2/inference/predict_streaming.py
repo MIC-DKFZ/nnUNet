@@ -516,6 +516,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         spacing_transposed = [properties['spacing'][i] for i in self.plans_manager.transpose_forward]
         current_spacing = cm.spacing if len(cm.spacing) == len(properties['shape_after_cropping_and_before_resampling']) \
             else [spacing_transposed[0], *cm.spacing]
+        # axes the plans do not resample (spacing None) keep the case's own spacing, as in the default export
+        current_spacing = [s if c is None else c for c, s in zip(current_spacing, spacing_transposed)]
         do_separate_z, axis = determine_do_sep_z_and_axis(params['force_separate_z'].default, current_spacing,
                                                           spacing_transposed,
                                                           params['separate_z_anisotropy_threshold'].default)
@@ -925,7 +927,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         cfg = self.configuration_manager.configuration
         fn = cfg.get('resampling_fn_probabilities')
         kw = cfg.get('resampling_fn_probabilities_kwargs')
-        spacing = self.configuration_manager.spacing
+        spacing = [s for s in self.configuration_manager.spacing if s is not None]   # None: axis not resampled
         aniso_ratio = (max(spacing) / min(spacing)) if (spacing and min(spacing) > 0) else 1.0
 
         reproducible, _ = separate_z_rule(self.configuration_manager.resampling_fn_probabilities)

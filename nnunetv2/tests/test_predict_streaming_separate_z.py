@@ -6,6 +6,8 @@ resample_data_or_seg_to_shape) on logits that take their separate-z path.
 What these cannot show is the full pipeline on a trained model (sliding window, ring buffer, cropping); that
 was checked against nnUNetv2_predict on trained models with separate-z plans.
 """
+import contextlib
+import io
 import unittest
 from functools import partial
 from types import SimpleNamespace
@@ -82,6 +84,25 @@ class TestSeparateZForCase(unittest.TestCase):
 
     def _props(self, spacing, shape=(10, 37, 37)):
         return {'spacing': list(spacing), 'shape_after_cropping_and_before_resampling': shape}
+
+    def test_axes_the_plans_do_not_resample(self):
+        """Plans spacing None (an axis the plans keep at the case's spacing, see test_no_resample.py): the case's own
+        spacing stands in for it, as in export_prediction.convert_predicted_logits_to_segmentation_with_correct_shape,
+        so the decision equals the one for the case's spacing written out."""
+        case = self._props((4., .8, .8))
+        for fn in (TORCH_SEPZ, SCIPY_SEPZ):
+            for model_spacing, resolved in (((None, None, None), (4., .8, .8)), ((None, 1., 1.), (4., 1., 1.)),
+                                            ((1., None, None), (1., .8, .8))):
+                with self.subTest(fn=fn.func.__name__, model_spacing=model_spacing):
+                    self.assertEqual(_predictor(fn, model_spacing=model_spacing).separate_z_for_case(case),
+                                     _predictor(fn, model_spacing=resolved).separate_z_for_case(case))
+
+    def test_notice_with_axes_the_plans_do_not_resample(self):
+        p = _predictor(SCIPY_SEPZ, model_spacing=(None, 1., 1.))
+        p.list_of_parameters = [{}]
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            p.print_streaming_deviation_notice()
+        self.assertIn('RESAMPLING FOLLOWS THE PLANS', out.getvalue())
 
     def test_decision(self):
         aniso, iso = self._props((4., .8, .8)), self._props((1., 1., 1.))

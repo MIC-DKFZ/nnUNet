@@ -103,6 +103,11 @@ class StreamingValidationMixin:
     # accumulate the decoder's last features instead of the class logits (module docstring); False = logits
     streaming_feature_ring = True
 
+    def initialize(self):
+        # refuse a configuration the final validation cannot handle before training, not after it
+        self._streaming_validation_sanity_checks()
+        super().initialize()
+
     def _streaming_validation_sanity_checks(self):
         assert not self.is_cascaded, \
             ('Streaming validation does not support the cascade: it never materializes the full probability volume, '

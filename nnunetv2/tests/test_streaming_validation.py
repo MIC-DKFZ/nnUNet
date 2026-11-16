@@ -129,6 +129,25 @@ class TestTrainers(unittest.TestCase):
             if epochs is not None:
                 self.assertEqual(self._make(cls).num_epochs, epochs)
 
+    def test_unsupported_configurations_are_refused_before_training(self):
+        cls = recursive_find_trainer_class_by_name('nnUNetTrainer_DASegOrd0_NoMirroring_SV')
+        for patch_size, cascaded, next_stages, refused in (((16, 16, 16), False, None, False),
+                                                           ((16, 16), False, None, True),
+                                                           ((16, 16, 16), True, None, True),
+                                                           ((16, 16, 16), False, ['3d_cascade_fullres'], True)):
+            with self.subTest(patch_size=patch_size, cascaded=cascaded, next_stages=next_stages):
+                t = self._make(cls)
+                t.is_cascaded = cascaded
+                t.configuration_name = '3d_lowres'
+                t.configuration_manager = SimpleNamespace(patch_size=patch_size, next_stage_names=next_stages)
+                with mock.patch.object(nnUNetTrainer, 'initialize') as stock_initialize:
+                    if refused:
+                        self.assertRaises(AssertionError, t.initialize)
+                        stock_initialize.assert_not_called()
+                    else:
+                        t.initialize()
+                        stock_initialize.assert_called_once()
+
     def test_stock_trainers_keep_the_stock_loss(self):
         for name in ('nnUNetTrainer_SV', 'nnUNetTrainer_2000epochs_NoMirroring_SV'):
             cls = recursive_find_trainer_class_by_name(name)

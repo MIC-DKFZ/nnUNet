@@ -3,10 +3,10 @@ Batch-chunked CE and Dice, for training with many classes (100+ classes at large
 
 PyTorch's nll_loss2d CUDA kernel (cross entropy backward) indexes with int32. Once
 batch * num_classes * voxels grows large enough the backward hits an illegal memory access
-(observed on 3d_fullres, 192^3 patches, 118 classes at >= 3 samples per GPU: 3 * 118 * 192^3 > 2^31). The
-einsum-free dice ops additionally allocate a (b, c, *spatial) one-hot / product tensor which is
-wasteful at large batch sizes. Both are avoided by processing the batch in chunks small enough that
-batch_chunk * num_classes * voxels stays under this many elements per kernel launch.
+(observed on 3d_fullres, 192^3 patches, 118 classes at >= 3 samples per GPU: 3 * 118 * 192^3 > 2^31). This
+is avoided by processing the batch in chunks small enough that batch_chunk * num_classes * voxels stays
+under that limit per kernel launch. The dice's transient (b, c, *spatial) product tensor then exists one
+chunk at a time; what autograd keeps for the backward stays full size (see DC_and_CE_loss_chunked).
 
 Below the limit nothing is chunked and the exact parent computation runs, so these classes are safe
 drop-in replacements at any size.

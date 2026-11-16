@@ -32,8 +32,9 @@ nnUNetv2_predict -i INPUT_FOLDER -o OUTPUT_FOLDER -d DATASET_NAME_OR_ID -c CONFI
 
 For datasets with many classes and/or very large images, where the default predictor needs too much RAM/VRAM,
 `nnUNetv2_predict_streaming` is an optional drop-in alternative that streams the prediction so the full probability
-volume is never held in memory. It is segmentation-only (no `--save_probabilities`) and resamples slightly
-differently from the default. See:
+volume is never held in memory. It is segmentation-only (no `--save_probabilities`). Its resampling follows the
+plans, so the segmentations match those of `nnUNetv2_predict` up to floating-point rounding at label boundaries.
+See:
 
 - [Memory-efficient (streaming) inference](run-inference-streaming.md)
 

@@ -9,7 +9,8 @@ CPU and runs out of RAM with many classes on large images; the streaming one nev
 unchanged. Resampling follows the plans as in `nnUNetv2_predict_streaming`, so the validation segmentations match those
 of the stock validation up to float rounding at argmax boundaries; plans whose resampling streaming cannot reproduce
 (e.g. cubic) get torch trilinear and a warning in the training log. 3d configurations only; no cascade, next-stage
-prediction or probability export.
+prediction or probability export; the trainers check this at `initialize`, so an unsupported configuration fails
+before training, not after it.
 
 New trainers: `nnUNetTrainer_SV`, `nnUNetTrainer_2000epochs_NoMirroring_SV`, and
 `nnUNetTrainer_DASegOrd0_NoMirroring_SV` with `_2000epochs_SV` / `_5000epochs_SV` versions (order-0 segmentation
@@ -22,7 +23,10 @@ to give your own trainer streaming validation. Nothing changes for existing trai
 `SimpleITKIOWithReorient` gained `read_sitk_images` and `seg_to_sitk`. They take images that are already in memory
 (nibabel / SimpleITK image objects, for example handed over by another tool) and return exactly what `read_images`
 returns for the same images stored as files; `seg_to_*` return the image that `write_seg` would write.
-`read_images` and `write_seg` now go through them, so a custom reader that overrides only those two is unaffected.
+`read_images` and `write_seg` now go through them. A custom reader that overrides `read_images` or `write_seg` works
+as before; the new in-memory methods do not go through those overrides. `SimpleITKIOWithReorient` no longer defines
+its own `write_seg`: it inherits `SimpleITKIO.write_seg`, which writes `seg_to_sitk`'s (reoriented) image, so the
+written files are unchanged.
 
 `NibabelIO`, `NibabelIOWithReorient`, `SimpleITKIO` and `SimpleITKIOWithReorient` return the same arrays and properties
 as before, bit for bit, but make fewer full-size copies of the image on the way. Reading a 512 x 512 x 1940 CT (int16
@@ -100,6 +104,12 @@ The gain is largest where the host and not the GPU limits the speed (small patch
 - **The exit on a termination signal (SIGUSR1) stops the data augmentation workers first** (`_shutdown_dataloaders`,
   which `on_train_end` uses as well). Before, the workers were killed under the augmenters' results threads, which
   printed "One or more background workers are no longer alive" tracebacks although the exit was clean.
+
+## `checkpoint_best` is written through `_maybe_save_checkpoint_best`
+
+`on_epoch_end` writes `checkpoint_best` through the new method `_maybe_save_checkpoint_best`, with the same rule as
+before (a new best EMA pseudo Dice). A trainer that wants only some epochs to compete for `checkpoint_best` overrides
+that method instead of copying `on_epoch_end`. Trainers that override `on_epoch_end` are not affected.
 
 ## DDP: `oversample_foreground_percent` is the value for the whole batch again after `_set_batch_size_and_oversample`
 
@@ -187,6 +197,11 @@ without overriding `_build_loss` - see `ChunkedLossMixin`
 `batch * num_classes * voxels` reaches PyTorch's int32 indexing limit in the `nll_loss2d` backward. If your
 trainer overrides `_build_loss`, nothing changes; if you want the swap to reach it, read the attributes.
 
+With compilation on, the compound loss that `_build_loss` returns (or wraps in `DeepSupervisionWrapper`) is now the
+compiled module (`torch._dynamo.OptimizedModule`) instead of the `DC_and_CE_loss` itself, whose `dc` used to be
+the compiled part. Attribute access is forwarded to the loss, but `isinstance` checks have to look at
+`._orig_mod`.
+
 ## The online evaluation no longer builds a one-hot
 
 For softmax training, `nnUNetTrainer.validation_step` computed the green line by scattering the argmax into
@@ -201,7 +216,8 @@ label; region-based training is untouched and still uses `get_tp_fp_fn_tn`. Test
 `on_validation_epoch_end` now wraps the Dice division in `np.errstate` instead of letting it warn. A class
 absent from both prediction and target still gives `0/0 = nan` and is still dropped by the `np.nanmean`, so
 `mean_fg_dice` is unchanged - only the warning spam is gone. Custom trainers that read
-`dice_per_class_or_region` should keep expecting `nan` there.
+`dice_per_class_or_region` should keep expecting `nan` there. For softmax training, `tp_hard`, `fp_hard` and
+`fn_hard` are now integer counts (int64) instead of floats, with the same values.
 
 ## Segmentation resampling: ties are broken differently, and the memory efficient branch is now the default
 
