@@ -75,6 +75,36 @@ nnUNetv2_train DATASET_NAME_OR_ID 2d 0 --npz -num_gpus X
 
 For multi-node training, or to use PyTorch's standard launcher, run via `torchrun` (do not pass `-num_gpus` in that case). See [Multi-GPU training](../multi_gpu_training.md) for the full guide covering both options.
 
+## Faster training: progressive growing of patch size (PGPS)
+
+The PGPS trainers train with the progressive patch size schedule of [Progressive Growing of Patch Size: Curriculum
+Learning for Accelerated and Improved Medical Image Segmentation](https://arxiv.org/abs/2510.23241) (PGPS-Efficiency).
+Training starts with the smallest patch the network accepts (one unit of the encoder's total stride per axis), grows one
+axis by one unit at a time and gives every patch size the same number of epochs, so the last part of the training uses the
+configured patch size. Batch size, iterations per epoch, the learning rate schedule and inference are unchanged.
+
+```bash
+nnUNetv2_train DATASET_NAME_OR_ID 3d_fullres 0 -tr nnUNetTrainer_PGPS
+```
+
+| trainer | epochs | compute |
+|---|---|---|
+| `nnUNetTrainer_PGPS` | 1000 | about 0.4x that of `nnUNetTrainer` (1000 epochs) |
+| `nnUNetTrainer_PGPS_2700epochs` | 2700 | about that of `nnUNetTrainer` |
+| `nnUNetTrainer_DASegOrd0_NoMirroring_PGPS_2700epochs_SV` | 2700 | about that of `nnUNetTrainer_DASegOrd0_NoMirroring_SV` (1000 epochs) |
+| `nnUNetTrainer_DASegOrd0_NoMirroring_PGPS_5400epochs_SV` | 5400 | about that of `nnUNetTrainer_DASegOrd0_NoMirroring_2000epochs_SV` |
+
+The last two are for datasets with many classes (see `nnUNetTrainer_DASegOrd0_NoMirroring_SV` in
+[Memory-efficient (streaming) inference](run-inference-streaming.md#streaming-final-validation-in-training)).
+
+- `checkpoint_best` is only written in the last stage, because earlier stages validate on smaller patches.
+- With `torch.compile` on a CUDA device, the stages with small patches train with CUDA graphs. Their epochs are 2-3x
+  faster that way, with the same numerics.
+- To give your own trainer PGPS, mix `PGPSEfficiencyMixin`
+  (`nnunetv2/training/nnUNetTrainer/variants/patch_size/nnUNetTrainer_PGPS.py`) in first:
+  `class MyTrainer_PGPS(PGPSEfficiencyMixin, MyTrainer)`.
+- If you use PGPS, please cite the paper linked above.
+
 ## Output location
 
 Training outputs are written under:

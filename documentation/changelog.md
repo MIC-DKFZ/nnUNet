@@ -1,5 +1,21 @@
 # Changes that affect custom trainers
 
+## Progressive growing of patch size: `PGPSEfficiencyMixin` and trainers that use it
+
+`nnunetv2/training/nnUNetTrainer/variants/patch_size/nnUNetTrainer_PGPS.py` adds `PGPSEfficiencyMixin`, the progressive
+patch size schedule of [Progressive Growing of Patch Size](https://arxiv.org/abs/2510.23241) (PGPS-Efficiency), and the
+trainers `nnUNetTrainer_PGPS`, `nnUNetTrainer_PGPS_2700epochs`, `nnUNetTrainer_DASegOrd0_NoMirroring_PGPS_2700epochs_SV`
+and `nnUNetTrainer_DASegOrd0_NoMirroring_PGPS_5400epochs_SV` (see [Train models](how-to/train-models.md)). Mix it in first
+to give your own trainer PGPS. Nothing changes for existing trainers.
+
+- The stage patch size is written into the trainer's configuration manager; `plans.json` keeps the configured one. The
+  dataloaders are built again at every stage switch, and only the last stage writes `checkpoint_best`.
+- With `torch.compile` on CUDA, the training steps of stages with up to `pgps_cudagraph_max_patch_voxels` voxels per patch
+  run as CUDA graphs (same numerics). `pgps_cudagraphs = False` switches them off.
+- While a PGPS trainer runs, all compiled code is dropped at every stage switch (`torch._dynamo.reset()`), and in the stage
+  whose bottleneck has a single voxel, InstanceNorm's check for more than one spatial element is skipped inside the steps
+  of that stage only. No global setting of torch.compile is changed.
+
 ## Streaming final validation: `StreamingValidationMixin` and trainers that use it
 
 `nnunetv2/training/nnUNetTrainer/variants/validation/nnUNetTrainer_streamingValidation.py` adds
