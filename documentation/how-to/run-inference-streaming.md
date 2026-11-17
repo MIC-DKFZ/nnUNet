@@ -21,7 +21,8 @@ slab axis is chosen automatically to minimize VRAM.
 
 ## How it differs from `nnUNetv2_predict`
 
-This is **not** bit-for-bit identical to `nnUNetv2_predict`. The differences are printed as a notice at runtime:
+Segmentations match `nnUNetv2_predict` up to floating-point rounding at label boundaries; they are not bit-for-bit
+identical. A notice printed at startup summarizes how the run predicts. In detail:
 
 - **Resampling follows the plans where it can.** Predicted logits are resampled with torch trilinear
   interpolation (`F.interpolate(mode='trilinear', align_corners=False)`), computed separably slab by slab.

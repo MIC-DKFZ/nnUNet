@@ -917,11 +917,12 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 loader['thread'].start()
                 self._weights_loader = loader
 
-    def print_streaming_deviation_notice(self):
+    def print_streaming_deviation_notice(self, slab_axis: Union[int, None] = None):
         """
-        Tell the user, loudly, how streaming inference differs from the default nnUNetv2_predict so results are
-        never silently different. The most important one: how the predicted logits are resampled (the plans'
-        resampling where streaming reproduces it, plain torch trilinear otherwise).
+        Print how this run predicts, so the user can see that it reproduces nnUNetv2_predict, and where it does not
+        (resampling that streaming cannot reproduce, or force_trilinear), what differs. The most important item is how
+        the predicted logits are resampled: the plans' resampling where streaming reproduces it, plain torch trilinear
+        otherwise.
         """
         from nnunetv2.configuration import ANISO_THRESHOLD
         cfg = self.configuration_manager.configuration
@@ -931,44 +932,44 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         aniso_ratio = (max(spacing) / min(spacing)) if (spacing and min(spacing) > 0) else 1.0
 
         reproducible, _ = separate_z_rule(self.configuration_manager.resampling_fn_probabilities)
+        follows_plans = reproducible and not self.force_trilinear
         lines = ["", "#" * 92,
                  "# nnUNetv2_predict_streaming - memory-efficient streaming inference",
-                 "# This is NOT identical to nnUNetv2_predict. Differences:",
-                 "#"]
-        if reproducible and not self.force_trilinear:
-            lines += [f"#  * RESAMPLING FOLLOWS THE PLANS: resampling_fn_probabilities='{fn}' with kwargs {kw}.",
-                      "#    Torch trilinear (align_corners=False), or - for cases where its separate-z path fires -",
-                      "#    bilinear in-plane + nearest along the low-resolution axis, decided per case exactly as",
-                      "#    nnUNetv2_predict decides it. Matches the default export up to float rounding at argmax",
-                      "#    boundaries (separable vs fused interpolation; scipy computes in float64).",
-                      "#    --force_trilinear restores plain trilinear everywhere."]
+                 "# Prediction, resampling and argmax run in one pass over thin slabs of the image, so the",
+                 "# full probability volume is never held in memory."]
+        if follows_plans:
+            lines += ["# Segmentations match nnUNetv2_predict up to floating-point rounding at label boundaries.",
+                      "#",
+                      f"#  * Resampling as configured in the plans: {fn} with kwargs {kw}",
+                      "#    (separate-z decided per case, as in nnUNetv2_predict)."]
         else:
-            why = 'force_trilinear is set' if self.force_trilinear else 'streaming cannot reproduce it'
-            lines += [f"#  * RESAMPLING OVERRIDDEN ({why}): the plans configure resampling_fn_probabilities='{fn}'",
-                      f"#    with kwargs {kw}. Streaming resamples predicted logits with plain",
-                      "#    torch trilinear interpolation (align_corners=False). Segmentation is argmax/region-threshold",
-                      "#    of the resampled logits, exactly as for the default path otherwise."]
-        if (self.force_trilinear or not reproducible) and aniso_ratio > ANISO_THRESHOLD and \
-                (kw is None or kw.get('force_separate_z', None) is not False):
-            lines += [f"#    !! Your spacing is anisotropic (max/min = {aniso_ratio:.2f} > {ANISO_THRESHOLD}). The default",
-                      "#    path would resample separately along the low-resolution axis; trilinear differs more here.",
-                      "#    Results can deviate from nnUNetv2_predict by more than the usual sub-voxel boundary noise."]
-        elif self.force_trilinear or not reproducible:
-            lines += ["#    For (near-)isotropic spacing this typically matches nnUNetv2_predict to within boundary noise."]
+            why = 'force_trilinear is set' if self.force_trilinear else 'streaming cannot reproduce the plans\' resampling'
+            lines += ["# Same as nnUNetv2_predict except for how the predicted logits are resampled:",
+                      "#",
+                      f"#  ! Resampling ({why}): the plans configure {fn} with kwargs {kw};",
+                      "#    streaming resamples the logits with plain torch trilinear (align_corners=False)."]
+            if aniso_ratio > ANISO_THRESHOLD and (kw is None or kw.get('force_separate_z', None) is not False):
+                lines += [f"#    The spacing is anisotropic (max/min = {aniso_ratio:.2f} > {ANISO_THRESHOLD}), where "
+                          f"nnUNetv2_predict",
+                          "#    resamples the low-resolution axis separately: expect deviations beyond boundary noise."]
+            else:
+                lines += ["#    At (near-)isotropic spacing this typically matches nnUNetv2_predict to within boundary "
+                          "noise."]
         n_folds = len(self.list_of_parameters)
         if n_folds == 1:
-            lines += ["#", "#  * Single model (one fold)."]
+            lines += ["#  * Model: single fold."]
         else:
-            lines += ["#", f"#  * Ensembling {n_folds} folds: logits are averaged per slab before resampling."]
+            lines += [f"#  * Model: ensemble of {n_folds} folds (logits averaged per slab)."]
         if self._detached_head is not None:
-            lines += [f"#  * Feature ring: {self.feature_ring_status[len('on: '):]};",
-                      "#    the output layer is applied per output slice (same segmentation up to float rounding).",
-                      "#    --logit_ring keeps the logits."]
+            lines += [f"#  * Feature ring: {self.feature_ring_status[len('on: '):]} (--logit_ring keeps the logits)."]
         else:
             lines += [f"#  * Logit ring (feature ring {self.feature_ring_status})."]
-        lines += ["#  * NO probability export (segmentation only).",
-                  "#  * Slab axis is auto-selected to minimize VRAM (override with -slab_axis).",
-                  "#" * 92, ""]
+        lines += ["#  * Output: segmentations (use nnUNetv2_predict if you need probabilities)."]
+        if slab_axis is None:
+            lines += ["#  * Slab axis: chosen per case to minimize VRAM (-slab_axis overrides)."]
+        else:
+            lines += [f"#  * Slab axis: {slab_axis} (set with -slab_axis)."]
+        lines += ["#" * 92, ""]
         print("\n".join(lines))
 
     @torch.inference_mode()
@@ -993,7 +994,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             list_of_lists, output_filename_truncated, _ = self._manage_input_and_output_lists(
                 source_folder_or_list_of_lists, output_folder, None, overwrite, part_id, num_parts, False)
             self._prepare_standalone_inference(num_cases=len(list_of_lists))
-            self.print_streaming_deviation_notice()
+            self.print_streaming_deviation_notice(slab_axis)
             maybe_mkdir_p(output_folder)
             # store these so postprocessing / ensembling tooling can be pointed at the output folder, like nnU-Net does
             save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)

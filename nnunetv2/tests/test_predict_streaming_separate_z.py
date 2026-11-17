@@ -102,7 +102,7 @@ class TestSeparateZForCase(unittest.TestCase):
         p.list_of_parameters = [{}]
         with contextlib.redirect_stdout(io.StringIO()) as out:
             p.print_streaming_deviation_notice()
-        self.assertIn('RESAMPLING FOLLOWS THE PLANS', out.getvalue())
+        self.assertIn('Resampling as configured in the plans', out.getvalue())
 
     def test_decision(self):
         aniso, iso = self._props((4., .8, .8)), self._props((1., 1., 1.))
