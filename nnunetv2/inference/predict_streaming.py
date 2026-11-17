@@ -97,6 +97,11 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 # compile policy 'auto' (resolve_compile): compile for batches of more than this many cases, never for fewer
 AUTO_COMPILE_MAX_CASES = 4
 
+# printed by nnUNetv2_predict_streaming and written to the training log by streaming validation
+STREAMING_CITATION = ("Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Ulrich Harsy, C., "
+                      "Langenberg, M., Happold, S. M., & Maier-Hein, K. H. (2026). Segment Everything, Materialize "
+                      "Nothing: Exact Streaming Inference for Many-Class 3D Segmentation. arXiv:XXXX.XXXXX.")
+
 
 def _ring_segments(start: int, stop: int, capacity: int) -> List[Tuple[int, int, int, int]]:
     """
@@ -1654,10 +1659,11 @@ def predict_entry_point_streaming():
                              'effect for a single fold or 2d configurations.')
 
     print("\n#######################################################################\n"
-          "Please cite the following paper when using nnU-Net:\n"
+          "Please cite the following papers when using nnU-Net's streaming inference:\n"
           "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
           "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
-          "Nature methods, 18(2), 203-211.\n#######################################################################\n")
+          "Nature methods, 18(2), 203-211.\n"
+          f"{STREAMING_CITATION}\n#######################################################################\n")
 
     args = parser.parse_args()
     folds = [i if i == 'all' else int(i) for i in args.f]

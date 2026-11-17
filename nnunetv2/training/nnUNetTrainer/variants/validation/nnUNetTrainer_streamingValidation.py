@@ -43,7 +43,7 @@ from torch import distributed as dist
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder
-from nnunetv2.inference.predict_streaming import nnUNetPredictorStreaming, separate_z_rule
+from nnunetv2.inference.predict_streaming import STREAMING_CITATION, nnUNetPredictorStreaming, separate_z_rule
 from nnunetv2.inference.sliding_window_prediction import compute_gaussian
 from nnunetv2.inference.streaming_pipeline import write_segmentation
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
@@ -277,6 +277,8 @@ class StreamingValidationMixin:
                 f'this run is not strictly comparable to that of the stock validation.',
                 also_print_to_console=True)
         self.print_to_log_file(f'  Slab buffer: feature ring {predictor.feature_ring_status}',
+                               also_print_to_console=True)
+        self.print_to_log_file('  Please cite the following paper when using streaming inference: ' + STREAMING_CITATION,
                                also_print_to_console=True)
 
 

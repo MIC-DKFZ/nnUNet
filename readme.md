@@ -36,6 +36,7 @@ Useful entry points:
 - Dataset preparation: [Prepare a dataset](documentation/how-to/prepare-a-dataset.md)
 - Training workflow: [Train models](documentation/how-to/train-models.md)
 - Inference workflow: [Run inference](documentation/how-to/run-inference.md)
+- Many classes or very large images: [Memory-efficient (streaming) inference](documentation/how-to/run-inference-streaming.md)
 - Recommended residual encoder presets: [Residual Encoder Presets in nnU-Net](documentation/resenc_presets.md)
 - Finetuning from nnssl self-supervised checkpoints: [Finetune from nnssl checkpoints](documentation/finetuning_from_nnssl_checkpoints.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -61,6 +62,15 @@ Nature Methods, 18(2), 203-211.
 Additional recent work on residual encoder presets and benchmarking:
 
 - [nnU-Net Revisited: A Call for Rigorous Validation in 3D Medical Image Segmentation](https://arxiv.org/pdf/2404.09556.pdf)
+
+If you use [streaming inference](documentation/how-to/run-inference-streaming.md) (`nnUNetv2_predict_streaming`,
+`nnUNetPredictorStreaming` or the streaming validation of the `_SV` trainers), please also cite:
+
+```text
+Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Ulrich Harsy, C., Langenberg, M., Happold, S. M., &
+Maier-Hein, K. H. (2026). Segment Everything, Materialize Nothing: Exact Streaming Inference for Many-Class 3D
+Segmentation. arXiv:XXXX.XXXXX.
+```
 
 ## Project Notes
 

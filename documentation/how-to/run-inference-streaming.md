@@ -8,6 +8,17 @@ for cases where the default predictor needs an impractical amount of RAM/VRAM: d
 You do not need this for normal datasets. Use the regular [`nnUNetv2_predict`](run-inference.md) unless memory
 is the bottleneck.
 
+## Citation
+
+If you use streaming inference (`nnUNetv2_predict_streaming`, `nnUNetPredictorStreaming` or the streaming validation of
+the `_SV` trainers), please cite the following paper in addition to nnU-Net:
+
+```text
+Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Ulrich Harsy, C., Langenberg, M., Happold, S. M., &
+Maier-Hein, K. H. (2026). Segment Everything, Materialize Nothing: Exact Streaming Inference for Many-Class 3D
+Segmentation. arXiv:XXXX.XXXXX.
+```
+
 ## Why it exists
 
 The default predictor materializes the full `(num_classes, *image_shape)` probability volume, resamples that whole
