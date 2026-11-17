@@ -13,7 +13,7 @@ from nnunetv2.evaluation.evaluate_predictions import compute_metrics_on_folder, 
 from nnunetv2.paths import nnUNet_preprocessed, nnUNet_results
 from nnunetv2.postprocessing.remove_connected_components import determine_postprocessing
 from nnunetv2.utilities.file_path_utilities import maybe_convert_to_dataset_name, get_output_folder, \
-    convert_identifier_to_trainer_plans_config, get_ensemble_name, folds_tuple_to_string
+    get_ensemble_name, folds_tuple_to_string
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 
 default_trained_models = tuple([
@@ -101,7 +101,8 @@ def find_best_configuration(dataset_name_or_id,
         accumulate_cv_results(output_folder, merged_output_folder, folds, num_processes, overwrite)
         all_results[identifier] = {
             'source': merged_output_folder,
-            'result': load_summary_json(join(merged_output_folder, 'summary.json'))['foreground_mean']['Dice']
+            'result': load_summary_json(join(merged_output_folder, 'summary.json'))['foreground_mean']['Dice'],
+            'models': [m]
         }
 
     if allow_ensembling:
@@ -136,7 +137,8 @@ def find_best_configuration(dataset_name_or_id,
                 all_results[identifier] = \
                     {
                     'source': output_folder_ensemble,
-                    'result': load_summary_json(join(output_folder_ensemble, 'summary.json'))['foreground_mean']['Dice']
+                    'result': load_summary_json(join(output_folder_ensemble, 'summary.json'))['foreground_mean']['Dice'],
+                    'models': [m1, m2]
                     }
 
     # pick best and report inference command
@@ -177,30 +179,14 @@ def find_best_configuration(dataset_name_or_id,
             'selected_model_or_models': []
         }
     }
-    # convert best key to inference command:
-    if best_key.startswith('ensemble___'):
-        prefix, m1, m2, folds_string = best_key.split('___')
-        tr1, pl1, c1 = convert_identifier_to_trainer_plans_config(m1)
-        tr2, pl2, c2 = convert_identifier_to_trainer_plans_config(m2)
+    # convert best key to inference command. We take the models from all_results instead of parsing best_key because
+    # plans identifiers can contain '__' and '___' (nnUNetv2_preprocess_like_nnssl), which makes the key ambiguous
+    for m in all_results[best_key]['models']:
         return_dict['best_model_or_ensemble']['selected_model_or_models'].append(
             {
-                'configuration': c1,
-                'trainer': tr1,
-                'plans_identifier': pl1,
-            })
-        return_dict['best_model_or_ensemble']['selected_model_or_models'].append(
-            {
-                'configuration': c2,
-                'trainer': tr2,
-                'plans_identifier': pl2,
-            })
-    else:
-        tr, pl, c = convert_identifier_to_trainer_plans_config(best_key)
-        return_dict['best_model_or_ensemble']['selected_model_or_models'].append(
-            {
-                'configuration': c,
-                'trainer': tr,
-                'plans_identifier': pl,
+                'configuration': m['configuration'],
+                'trainer': m['trainer'],
+                'plans_identifier': m['plans'],
             })
 
     save_json(return_dict, join(nnUNet_results, dataset_name, 'inference_information.json'))  # save this so that we don't have to run this

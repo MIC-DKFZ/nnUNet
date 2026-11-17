@@ -12,7 +12,14 @@ def convert_trainer_plans_config_to_identifier(trainer_name, plans_identifier, c
 
 
 def convert_identifier_to_trainer_plans_config(identifier: str):
-    return os.path.basename(identifier).split('__')
+    # Plans identifiers can contain '__' (nnUNetv2_preprocess_like_nnssl writes ptPlans__<name>____Spacing__...,
+    # nnUNetv2_plan_like_dynamic writes ptPlans_dynamic__<name>), so we assume that the trainer and configuration names
+    # do not: the trainer ends at the first '__', the configuration starts after the last one, and the plans are what
+    # is between. This is a guess: if the trainer name contains '__' (e.g. PretrainedTrainer_adam__nomirroring), the
+    # identifier is ambiguous and the split is wrong. Where you know the trainer, plans and configuration, use them.
+    trainer, rest = os.path.basename(identifier).split('__', 1)
+    plans, configuration = rest.rsplit('__', 1)
+    return trainer, plans, configuration
 
 
 def get_output_folder(dataset_name_or_id: Union[str, int], trainer_name: str = 'nnUNetTrainer',
@@ -38,10 +45,9 @@ def parse_dataset_trainer_plans_configuration_from_path(path: str):
         assert len(folders[:idx]) >= 2, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                         'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
         if folders[idx - 2].startswith('Dataset'):
-            split = folders[idx - 1].split('__')
-            assert len(split) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
-                                        'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
-            return folders[idx - 2], *split
+            assert len(folders[idx - 1].split('__')) >= 3, 'Bad path, cannot extract what I need. Your path needs ' \
+                                        'to be at least DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
+            return folders[idx - 2], *convert_identifier_to_trainer_plans_config(folders[idx - 1])
     else:
         # we can only check for dataset followed by a string that is separable into three strings by splitting with '__'
         # look for DatasetXXX
@@ -50,10 +56,9 @@ def parse_dataset_trainer_plans_configuration_from_path(path: str):
             idx = dataset_folder.index(True)
             assert len(folders) >= (idx + 1), 'Bad path, cannot extract what I need. Your path needs to be at least ' \
                                         'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
-            split = folders[idx + 1].split('__')
-            assert len(split) == 3, 'Bad path, cannot extract what I need. Your path needs to be at least ' \
-                                       'DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
-            return folders[idx], *split
+            assert len(folders[idx + 1].split('__')) >= 3, 'Bad path, cannot extract what I need. Your path needs ' \
+                                       'to be at least DatasetXXX/MODULE__PLANS__CONFIGURATION for this to work'
+            return folders[idx], *convert_identifier_to_trainer_plans_config(folders[idx + 1])
 
 
 def get_ensemble_name(model1_folder, model2_folder, folds: Tuple[int, ...]):
@@ -70,6 +75,8 @@ def get_ensemble_name_from_d_tr_c(dataset, tr1, p1, c1, tr2, p2, c2, folds: Tupl
 
 
 def convert_ensemble_folder_to_model_identifiers_and_folds(ensemble_folder: str):
+    # Wrong when a plans identifier contains '___' (nnUNetv2_preprocess_like_nnssl plans do): the name is then
+    # ambiguous. Prefer comparing against get_ensemble_name() of the models you expect, as model_export does.
     prefix, *models, folds = os.path.basename(ensemble_folder).split('___')
     return models, folds
 

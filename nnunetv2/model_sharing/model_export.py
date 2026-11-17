@@ -91,17 +91,17 @@ def export_pretrained_model(dataset_name_or_id: Union[int, str], output_file: st
             print("No ensemble directory found for task", dataset_name_or_id)
             return
         subd = subdirs(ensemble_dir, join=False)
-                # figure out whether the models in the ensemble are all within the exported models here
+        # figure out whether the models in the ensemble are all within the exported models here. Ensemble folders are
+        # named ensemble___<model1>___<model2>___<folds> (see get_ensemble_name). We do not split that name on '___'
+        # because plans identifiers can contain '___' (nnUNetv2_preprocess_like_nnssl). Instead we compare it against
+        # the names that pairs of exported models would have
+        exported_models = [convert_trainer_plans_config_to_identifier(trainer, plans_identifier, c)
+                           for c in configurations]
+        exported_model_pairs = {f'{m1}___{m2}' for m1 in exported_models for m2 in exported_models}
         for ens in subd:
-            identifiers, folds = convert_ensemble_folder_to_model_identifiers_and_folds(ens)
-            ok = True
-            for i in identifiers:
-                tr, pl, c = convert_identifier_to_trainer_plans_config(i)
-                if tr == trainer and pl == plans_identifier and c in configurations:
-                    pass
-                else:
-                    ok = False
-            if ok:
+            # strip the 'ensemble' prefix and the folds
+            models = ens.partition('___')[2].rpartition('___')[0]
+            if models in exported_model_pairs:
                 print(f'found matching ensemble: {ens}')
                 source_folder = join(ensemble_dir, ens)
                 if export_crossval_predictions:
