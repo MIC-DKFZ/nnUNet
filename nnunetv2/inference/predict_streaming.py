@@ -1042,17 +1042,18 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         For each target index along the slab axis return (i0, i1, w) such that the resampled value is
         (1 - w) * source[i0] + w * source[i1]. Replicates torch F.interpolate(mode=linear, align_corners=False),
         or, with nearest_rule (the slab axis is the separate-z axis), copies one source slice: i0 == i1, w = 0.
+        w stays on the host: it is float64 (MPS has no float64) and only read back as Python floats.
         """
         if nearest_rule is not None:
             idx = nearest_source_index(source_len, target_len, nearest_rule)
-            return idx.to(device), idx.to(device), torch.zeros(target_len, dtype=torch.float64, device=device)
+            return idx.to(device), idx.to(device), torch.zeros(target_len, dtype=torch.float64)
         scale = source_len / target_len
         j = torch.arange(target_len, dtype=torch.float64)
         src = torch.clamp((j + 0.5) * scale - 0.5, min=0.0)
         i0 = torch.clamp(torch.floor(src).long(), max=source_len - 1)
         i1 = torch.clamp(i0 + 1, max=source_len - 1)
         w = (src - i0.to(torch.float64))
-        return i0.to(device), i1.to(device), w.to(device)
+        return i0.to(device), i1.to(device), w
 
     def _load_fold(self, fold_index: int):
         """
