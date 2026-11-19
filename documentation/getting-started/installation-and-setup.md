@@ -4,7 +4,7 @@ This guide consolidates the setup steps needed for a first nnU-Net v2 run.
 
 ## 1. Check the basics
 
-- Use Python 3.10 or newer.
+- Use Python 3.11 or newer.
 - Linux is the primary target, but Windows and macOS are also supported.
 - GPU is strongly recommended for training.
 - Apple `mps` can be used, but 3D convolutions may still require CPU fallback.

@@ -35,6 +35,8 @@ from nnunetv2.tests.test_predict_streaming_regions import _image as _smooth_imag
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 
 CPU = torch.device('cpu')
+# uint16 probability files (the default) need torch.uint16 (torch >= 2.3; the intel_macos extra pins torch < 2.3)
+NEEDS_UINT16 = unittest.skipUnless(hasattr(torch, 'uint16'), 'uint16 probabilities need torch >= 2.3')
 SOFTMAX = LabelManager({'background': 0, 'a': 1, 'b': 2, 'c': 3}, None)
 FULL, BBOX = (23, 19, 21), [[3, 20], [0, 19], [5, 16]]           # cropped along two axes, not along the third
 
@@ -99,6 +101,7 @@ def _reference(logits: torch.Tensor, lm: LabelManager, properties: dict, transpo
     return probs.numpy().transpose([0] + [i + 1 for i in transpose_backward])
 
 
+@NEEDS_UINT16
 class TestWriter(unittest.TestCase):
     DEV = CPU
 
@@ -177,6 +180,7 @@ class TestWriterCUDA(TestWriter):
     DEV = torch.device('cuda')
 
 
+@NEEDS_UINT16
 class TestTwoD(unittest.TestCase):
     def test_2d_configuration(self):
         p = _predictor(CPU, patch=(16, 16), feature_ring=False, num_classes=13, model_spacing=(1., 1.))
@@ -195,6 +199,7 @@ class TestTwoD(unittest.TestCase):
         self.assertGreater(len(np.unique(seg[1:8, 2:39])), 4)
 
 
+@NEEDS_UINT16
 class TestEndToEnd(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -286,6 +291,7 @@ class TestEndToEnd(unittest.TestCase):
         self.assertEqual({k: os.path.getmtime(join(out, f'case_{k}.nii.gz')) for k in (0, 2)}, mtimes)
 
 
+@NEEDS_UINT16
 class TestRegionsEndToEnd(unittest.TestCase):
     """
     Region-based (sigmoid) models end to end, with the region model fixture of test_predict_streaming_regions. Per case:

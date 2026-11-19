@@ -11,7 +11,8 @@ size and speed) plus `<case>.pkl`; see [streaming inference](how-to/run-inferenc
 `nnUNetPredictor.probabilities_file_ending` (`.npz`; `.b2nd` for the streaming predictor) names the file that
 `--continue_prediction` looks for. `nnUNetv2_ensemble` does not read `.b2nd` files.
 
-nnU-Net now requires `blosc2>=4.15.0` (was `>=4.1.0`): it writes these files 2-3x faster than 4.14.1.
+nnU-Net now requires `blosc2>=4.15.0` (was `>=4.1.0`): it writes these files 2-3x faster than 4.14.1. blosc2 needs
+Python 3.11 or newer since 4.4.1, so nnU-Net now requires Python >= 3.11 (was 3.10).
 
 ## Training patches can always move: a minimum range of patch positions along every axis
 

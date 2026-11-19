@@ -56,7 +56,7 @@ trainings at once.
 We strongly recommend that you install nnU-Net in a virtual environment! Pip or anaconda are both fine. If you choose to
 compile PyTorch from source (see below), you will need to use conda instead of pip.
 
-Use a recent version of Python! 3.9 or newer is guaranteed to work!
+Use a recent version of Python! nnU-Net needs Python 3.11 or newer.
 
 **nnU-Net v2 can coexist with nnU-Net v1! Both can be installed at the same time.**
 
