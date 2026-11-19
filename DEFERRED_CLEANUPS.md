@@ -19,6 +19,38 @@ entry as it lands, and mention the removals in `documentation/changelog.md`.
 
 ## For nnU-Net v3
 
+### Make the streaming predictor the default, in inference and in validation
+
+Streaming inference (`nnUNetPredictorStreaming`) never builds the `(num_classes, *image_shape)` volume. Today it is
+opt-in: `nnUNetv2_predict_streaming` and the `_SV` trainers. `nnUNetv2_predict` and the final validation of
+`nnUNetv2_train` still use the predictor that does build it.
+
+- **Do:**
+  - Commands: `nnUNetv2_predict` runs the streaming predictor, `nnUNetv2_predict_legacy` the current one, and
+    `nnUNetv2_predict_streaming` goes away. The `nnUNetPredictor` class stays as it is.
+  - Validation: the trainer's final validation streams. The `_SV` trainers stay as aliases.
+  - Fall back to the current predictor, with a notice, where streaming cannot reproduce it:
+    - cascades;
+    - probability resampling functions streaming does not implement (the notice says what to change to stream);
+    - label managers that override `convert_logits_to_segmentation`, `convert_probabilities_to_segmentation` or
+      `apply_inference_nonlin`, or use a non-standard nonlinearity.
+  - Memory: after a GPU out-of-memory error the predictor keeps input, output and ring buffer in RAM for the rest
+    of its life. Users can also choose that from the start.
+  - Probabilities are `.b2nd` everywhere:
+    - `nnUNetv2_train --save_probabilities` writes them (`--npz` stays as a deprecated alias);
+    - `nnUNetv2_ensemble` and `nnUNetv2_find_best_configuration` read `.b2nd` and `.npz` and merge slab by slab;
+    - in-memory probabilities come back as a blosc2 array (uint16, or float32); dense tensors stay with the
+      current predictor.
+- **Deferred because:** it changes what the main commands do and write.
+  - Segmentations differ from the current predictor's at label boundaries (floating-point rounding).
+  - Probability files change from `.npz` to `.b2nd`.
+  - A command disappears and the validation flag is renamed.
+- **Breaks:**
+  - scripts that call `nnUNetv2_predict_streaming` or read `.npz` probabilities from `nnUNetv2_predict` or
+    validation;
+  - comparisons that expect the current predictor's output bit for bit;
+  - custom trainers that rely on the stock `perform_actual_validation` writing `.npz`.
+
 ### Collapse the four DDP rank attributes into the DDPTopology they came from
 
 `nnUNetTrainer.__init__` unpacks `get_ddp_topology()` into `self.local_rank`, `self.global_rank`,
