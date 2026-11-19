@@ -96,10 +96,16 @@ class nnUNetDataLoader(DataLoader):
                  sampling_probabilities: Union[List[int], Tuple[int, ...], np.ndarray] = None,
                  pad_sides: Union[List[int], Tuple[int, ...]] = None,
                  probabilistic_oversampling: bool = False,
-                 transforms=None):
+                 transforms=None,
+                 min_patch_range_div: Union[int, None] = 2):
         """
         If we get a 2D patch size, make it pseudo 3D and remember to remove the singleton dimension before
         returning the batch
+
+        min_patch_range_div: along every axis, the final patch can be placed anywhere in a range of at least
+        final_patch_size // min_patch_range_div voxels, also in cases that are smaller than or about as large as the
+        patch (see get_bbox). None places patches only where they lie inside the case, and centers cases smaller than
+        the patch.
         """
         super().__init__(data, batch_size, 1, None, True,
                          False, True, sampling_probabilities)
@@ -134,6 +140,13 @@ class nnUNetDataLoader(DataLoader):
             else self._probabilistic_oversampling
         self.transforms = transforms
 
+        if min_patch_range_div is not None and min_patch_range_div < 1:
+            raise ValueError(f'min_patch_range_div must be None or >= 1, got {min_patch_range_div}')
+        self.min_patch_range_div = min_patch_range_div
+        # the shortest range of positions of the final patch along each axis (see get_bbox)
+        self.min_patch_range = [0 if min_patch_range_div is None else int(f) // min_patch_range_div
+                                for f in self.final_patch_size]
+
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
         determines whether sample sample_idx in a minibatch needs to be guaranteed foreground
@@ -161,6 +174,18 @@ class nnUNetDataLoader(DataLoader):
         # define what the upper and lower bound can be to then sample form them with np.random.randint
         lbs = [- need_to_pad[i] // 2 for i in range(dim)]
         ubs = [data_shape[i] + need_to_pad[i] // 2 + need_to_pad[i] % 2 - self.patch_size[i] for i in range(dim)]
+        # Patches must be able to move along every axis, otherwise the network can tie its decisions to positions in
+        # the patch. Random cropping moves the patch within a large case, but within the range above a case smaller
+        # than the final patch sits at exactly the same place in every sample (the spatial augmentation acts about the
+        # patch center), and a case only a little larger hardly moves. So where the range is shorter than
+        # self.min_patch_range it is widened to that, equally on both sides, and the patch reaches into the padding.
+        # Longer ranges stay as they are. Random and foreground patches alike: foreground patches are clamped to this
+        # range further down
+        for d in range(dim):
+            deficit = self.min_patch_range[d] - (ubs[d] - lbs[d])
+            if deficit > 0:
+                lbs[d] -= deficit // 2
+                ubs[d] += deficit - deficit // 2
 
         # if not force_fg then we can just sample the bbox randomly from lb and ub. Else we need to make sure we get
         # at least one of the foreground classes in the patch
@@ -210,8 +235,8 @@ class nnUNetDataLoader(DataLoader):
             if selected_class is not None:
                 selected_voxel = fg_locations.sample(identifier, selected_class)
                 # selected voxel is center voxel. Subtract half the patch size to get lower bbox voxel.
-                # Make sure it is within the bounds of lb and ub, so that foreground patches stay inside the case
-                # just like random ones. The voxel is still in the final patch after clamping
+                # Make sure it is within the bounds of lb and ub, so that foreground patches are placed within the
+                # same range as random ones. The voxel is still in the final patch after clamping
                 bbox_lbs = [max(lbs[i], min(ubs[i], selected_voxel[i] - self.patch_size[i] // 2)) for i in range(dim)]
             else:
                 # If the image does not contain any foreground classes, we fall back to random cropping

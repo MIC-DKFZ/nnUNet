@@ -1,5 +1,32 @@
 # Changes that affect custom trainers
 
+## Training patches can always move: a minimum range of patch positions along every axis
+
+`nnUNetDataLoader.get_bbox` draws patch positions only where the final patch lies inside the case, and pads a case
+that is smaller than the patch on both sides, centered. Up to 2.8.1, foreground patches were clamped to that range at
+the lower border only (GitHub PR #3033): near the upper border they reached into the padding, and a case smaller than
+the patch was pushed off-center in foreground patches. With that fixed (clamped at both borders), a case smaller than
+the patch sat at exactly the same place in every training sample, because all spatial augmentation acts about the
+patch center, and a case only a little larger than the patch hardly moved. The network can then tie its decisions to
+positions in the patch. That cost Dice on datasets with such cases.
+
+Now the final patch can always move by at least half its size along every axis: where the range of positions inside
+the case is shorter than `final_patch_size // 2` (cases smaller than, as large as, or up to 1.5 times the patch along an
+axis), it is widened to that, equally on both sides, and the patch reaches into the padding. Cases at least 1.5 times
+the patch are sampled as before. This holds for random and foreground patches, in the training and validation
+dataloaders. The slice axis of 2D configurations (final patch size 1) is unchanged.
+
+Measured with ResEnc-L, 3d_fullres, 5-fold cross-validation on 10 datasets, against the fix above alone: ACDC +0.0060
+and Prostate +0.0153 foreground Dice, better on every fold of both; over the 9 datasets other than Colon +0.0034 on
+average and better on 8; no dataset worse beyond run-to-run noise (BraTS -0.0011). Against earlier runs with the
+lower-border clamp, the fix alone was -0.003 on ACDC and -0.010 on Prostate; with the minimum range both end above
+those runs. 2d and 3d_lowres use the same code but were not measured.
+
+`nnUNetDataLoader` has a new keyword argument `min_patch_range_div` (default 2; the minimum range per axis is
+`final_patch_size // min_patch_range_div`, kept in `self.min_patch_range`). `min_patch_range_div=None` keeps patches
+inside the case and centers small cases, as with the fix alone. Custom trainers that build `nnUNetDataLoader` get the
+new default; a subclass that overrides `get_bbox` without calling it keeps its own placement.
+
 ## Progressive growing of patch size: `PGPSEfficiencyMixin` and trainers that use it
 
 `nnunetv2/training/nnUNetTrainer/variants/patch_size/nnUNetTrainer_PGPS.py` adds `PGPSEfficiencyMixin`, the progressive
