@@ -215,15 +215,54 @@ tiny probabilities every class has far away from its structure into exact zeros,
 stored region probabilities at 0.5 can flip voxels whose probability lies within 7.6e-6 of 0.5; the exported
 segmentation is computed before rounding.)
 
-```python
-from nnunetv2.inference.streaming_probabilities import load_streamed_probabilities, open_streamed_probabilities
+### Reading the probabilities
 
-arr = open_streamed_probabilities('OUTPUT_FOLDER/case.b2nd')    # blosc2 array as stored (uint16); nothing read yet
-liver = arr[5] / arr.schunk.vlmeta['nnunet']['scale']           # one class (scale: 65535 for uint16, 1 for float32)
-probs = load_streamed_probabilities('OUTPUT_FOLDER/case.b2nd')  # all classes as float32: num_classes x image in RAM
+The file is read lazily: slicing it decompresses only what you ask for, so a pipeline never has to load the whole
+volume. With nnU-Net's helpers:
+
+```python
+from nnunetv2.inference.streaming_probabilities import load_streamed_probabilities
+
+class_5 = load_streamed_probabilities('OUTPUT_FOLDER/case.b2nd', channels=5)  # one class, float32 probabilities
+probs = load_streamed_probabilities('OUTPUT_FOLDER/case.b2nd')                # all classes, float32 (C, *image)
 ```
 
-What it costs, measured on an RTX 4090 with a Ryzen 9 7950X and a local NVMe SSD (one fold, no TTA): for 117 classes on
+Without nnU-Net, blosc2 alone reads them:
+
+```python
+import blosc2
+import numpy as np
+
+arr = blosc2.open('OUTPUT_FOLDER/case.b2nd', mode='r', mmap_mode='r')  # leave out mmap_mode on Windows
+scale = arr.schunk.vlmeta['nnunet']['scale']                            # 65535 for uint16 files, 1 for --float32
+class_5 = arr[5].astype(np.float32) / scale                             # decompresses only that class
+```
+
+- **Channels.** For softmax models channel `c` is label `c`, and the channels sum to 1. For region-based models channel
+  `c` is region `c` in the order of `label_manager.foreground_regions` (the regions of `dataset.json`); these are
+  sigmoids and do not sum to 1. `arr.schunk.vlmeta['nnunet']['nonlinearity']` says which.
+- **Axis order.** The reader's, as in the `.npz` of `nnUNetv2_predict`: voxel `[c, i, j, k]` lines up with the
+  segmentation array as nnU-Net's reader returns it (for `SimpleITKIO`, the order of `sitk.GetArrayFromImage`).
+- **Memory.** The whole volume as float32 needs `num_classes × voxels × 4` bytes, e.g. ~18 GB for 117 classes on a CT
+  of 38 million voxels. Otherwise go class by class (`arr[c]`) or band by band (`arr[:, i0:i1]`).
+- **Geometry.** It is in `<case>.pkl`. nnU-Net's `write_seg` casts to `uint8`, so to write a probability map as an
+  image, set the geometry yourself. For `SimpleITKIO` (other readers keep it under other keys, e.g. `nibabel_stuff`):
+
+```python
+import SimpleITK as sitk
+from batchgenerators.utilities.file_and_folder_operations import load_pickle
+
+geometry = load_pickle('OUTPUT_FOLDER/case.pkl')['sitk_stuff']
+img = sitk.GetImageFromArray(class_5)
+img.SetSpacing(geometry['spacing'])
+img.SetOrigin(geometry['origin'])
+img.SetDirection(geometry['direction'])
+sitk.WriteImage(img, 'OUTPUT_FOLDER/case_class_5.nii.gz')
+```
+
+### What it costs
+
+Measured on an RTX 4090 with a Ryzen 9 7950X and a local NVMe SSD (one fold, no TTA): for 117 classes on
 whole-body CTs of 38-46 million voxels the prediction took 0.3-0.6 s longer (3.4-4.1 s instead of 2.8-3.7 s) and the
 probability files were 46-67 MB (9-11 GB as uncompressed `uint16`); for 125 classes on 512×512×~380 CTs it took 1-2 s
 longer (6.3-7.4 s instead of 5.3-6.1 s), for 57-65 MB files (25 GB uncompressed). Peak VRAM grows by 0.15-0.75 GiB,
@@ -231,13 +270,14 @@ mostly two buffers of 4 output slices of all classes. The files are written by a
 threads (`nnUNetPredictorStreaming.probability_compression_threads`; `probability_planes_per_chunk` sets the slices per
 buffer). `nnUNetv2_ensemble` does not read `.b2nd` files.
 
-**Lossless float probabilities (`--float32`).** For those who need them, `--float32` stores the probabilities
-themselves (`predictor.probability_dtype = 'float32'` in the Python API). It comes with a warning: floats keep the
-tiny probabilities, and their mantissas are noise, so float32 compresses only 1.3x. On two of the CTs above
-that meant 14 GB (117 classes) and 36 GB (125 classes) per image instead of 46 and 57 MB, and a prediction 2.5-4x
-slower (7-11 s instead of 2.7 s, 18-21 s instead of 6 s), with twice the GPU buffer memory. There is no float16 option:
-its error near 1 is up to 2.4e-4 (`uint16`: 7.6e-6), and it compresses only about 9x, so it would be less precise than
-`uint16` and still produce large files.
+### Lossless float32 probabilities (`--float32`)
+
+For those who need them, `--float32` stores the probabilities themselves (`predictor.probability_dtype = 'float32'`
+in the Python API). It comes with a warning: floats keep the tiny probabilities, and their mantissas are noise, so
+float32 compresses only 1.3x. On two of the CTs above that meant 14 GB (117 classes) and 36 GB (125 classes) per image
+instead of 46 and 57 MB, and a prediction 2.5-4x slower (7-11 s instead of 2.7 s, 18-21 s instead of 6 s), with twice
+the GPU buffer memory. There is no float16 option: its error near 1 is up to 2.4e-4 (`uint16`: 7.6e-6), and it
+compresses only about 9x, so it would be less precise than `uint16` and still produce large files.
 
 ## Streaming final validation in training
 
