@@ -28,9 +28,12 @@ reproduce (e.g. cubic probability resampling) falls back to plain trilinear, and
 (--force_trilinear) always does. A notice is printed at runtime either way.
 
 Supports 2d and 3d configurations and fold ensembling (logits averaged per slab). No probability export.
+Softmax and region-based (sigmoid) models: argmax over the logits, or for regions the ordered threshold of
+LabelManager.convert_probabilities_to_segmentation on the logits (sigmoid(x) > 0.5 <=> x > 0, regions painted in
+regions_class_order, the last one wins); the sigmoid itself is never computed.
 
-On CUDA with Triton, accumulation and the per-plane resample + argmax run as fused kernels (streaming_kernels.py)
-that reproduce the torch path bit for bit; the torch path is the fallback everywhere else.
+On CUDA with Triton, accumulation and the per-plane resample + argmax / region threshold run as fused kernels
+(streaming_kernels.py) that reproduce the torch path bit for bit; the torch path is the fallback everywhere else.
 
 Feature ring (3d, default on where it applies). The network ends in a per-voxel linear layer (decoder.seg_layers[-1],
 a 1x1x1 convolution with bias), and everything between that layer and the argmax / region threshold is linear: mirror
@@ -938,10 +941,13 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
 
         reproducible, _ = separate_z_rule(self.configuration_manager.resampling_fn_probabilities)
         follows_plans = reproducible and not self.force_trilinear
-        lines = ["", "#" * 92,
-                 "# nnUNetv2_predict_streaming - memory-efficient streaming inference",
-                 "# Prediction, resampling and argmax run in one pass over thin slabs of the image, so the",
-                 "# full probability volume is never held in memory."]
+        lines = ["", "#" * 92, "# nnUNetv2_predict_streaming - memory-efficient streaming inference"]
+        if self.label_manager.has_regions:
+            lines += ["# Prediction, resampling and the region thresholds run in one pass over thin slabs of the",
+                      "# image, so the full probability volume is never held in memory."]
+        else:
+            lines += ["# Prediction, resampling and argmax run in one pass over thin slabs of the image, so the",
+                      "# full probability volume is never held in memory."]
         if follows_plans:
             lines += ["# Segmentations match nnUNetv2_predict up to floating-point rounding at label boundaries.",
                       "#",
@@ -1272,13 +1278,15 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             _sk = self._streaming_kernels(ring_dtype)
             use_kernels = _sk is not None
             fused_accumulate = use_kernels and self.use_gaussian
-            fused_emit = use_kernels and not has_regions
+            fused_emit = use_kernels
             if fused_emit:
                 sel = [None, None]
                 if cross_sel is not None:
                     sel[cross_sel[0]] = cross_sel[1]
                 tab_c0 = _sk.bilinear_tables(cross_src[0], target_cross[0], device, sel[0])
                 tab_c1 = _sk.bilinear_tables(cross_src[1], target_cross[1], device, sel[1])
+                region_labels = torch.tensor(lm.regions_class_order, dtype=torch.int32, device=device) \
+                    if has_regions else None
 
             head_cache = {}
 
@@ -1342,7 +1350,11 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                             n0, n1 = ring_npred[s0, cross0_crop, cross1_crop], ring_npred[s1, cross0_crop, cross1_crop]
                         else:                                            # fp32 logits of the two source slices
                             (l0, n0), (l1, n1) = head_logits(i0 + pad_off), head_logits(i1 + pad_off)
-                        _sk.emit_argmax(l0, l1, n0, n1, w, i1 != i0, tab_c0, tab_c1, out_seg_canonical[j])
+                        if region_labels is None:
+                            _sk.emit_argmax(l0, l1, n0, n1, w, i1 != i0, tab_c0, tab_c1, out_seg_canonical[j])
+                        else:
+                            _sk.emit_regions(l0, l1, n0, n1, w, i1 != i0, tab_c0, tab_c1, region_labels,
+                                             out_seg_canonical[j])
                         j += 1
                         continue
                     sl0 = get_inplane(i0)

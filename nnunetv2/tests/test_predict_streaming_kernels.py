@@ -3,8 +3,9 @@ nnUNetPredictorStreaming: the ring size, the fused Triton kernels and the standa
 
 - The ring of patch + 1 slices gives the same segmentation as a much larger ring (CPU and CUDA).
 - The fused kernels (accumulate, emit) reproduce the torch path bit for bit, kernel by kernel and end to end on a
-  small random network, for an fp16 and an fp32 ring (CUDA + Triton only); kernels_selftest rejects a kernel that is
-  off by one rounding or raises, and the predictor then keeps the torch path.
+  small random network, for an fp16 and an fp32 ring (CUDA + Triton only), for softmax (argmax) and region-based
+  (ordered threshold) models; kernels_selftest rejects a kernel that is off by one rounding, a wrong region rule or
+  one that raises, and the predictor then keeps the torch path.
 - resolve_compile's precedence (explicit request > nnUNet_compile > available) and set_default_inductor_cache_dir.
 """
 import os
@@ -42,7 +43,12 @@ class _Net(torch.nn.Module):
         return self.b(torch.nn.functional.leaky_relu(self.a(x))) * 4
 
 
-def _predictor(device, num_classes=6, patch=(16, 16, 16), step=0.5, model_spacing=(1., 1., 1.), sepz=False, seed=0):
+# region-based model: 6 overlapping regions painted in an order that is not sorted (label 2 is painted twice)
+REGIONS_CLASS_ORDER = (2, 5, 1, 2, 4, 3)
+
+
+def _predictor(device, num_classes=6, patch=(16, 16, 16), step=0.5, model_spacing=(1., 1., 1.), sepz=False, seed=0,
+               regions=None):
     torch.manual_seed(seed)
     p = nnUNetPredictorStreaming(tile_step_size=step, use_gaussian=True, use_mirroring=False, device=device,
                                  allow_tqdm=False)
@@ -50,8 +56,14 @@ def _predictor(device, num_classes=6, patch=(16, 16, 16), step=0.5, model_spacin
     p.network = net
     p.list_of_parameters = [net.state_dict()]
     p.allowed_mirroring_axes = None
-    p.label_manager = SimpleNamespace(has_regions=False, regions_class_order=None, num_segmentation_heads=num_classes,
-                                      foreground_labels=list(range(1, num_classes)))
+    if regions is None:
+        p.label_manager = SimpleNamespace(has_regions=False, regions_class_order=None,
+                                          num_segmentation_heads=num_classes,
+                                          foreground_labels=list(range(1, num_classes)))
+    else:
+        assert len(regions) == num_classes
+        p.label_manager = SimpleNamespace(has_regions=True, regions_class_order=list(regions),
+                                          num_segmentation_heads=num_classes, foreground_labels=sorted(set(regions)))
     fn = partial(resample_torch_fornnunet, is_seg=False, force_separate_z=None if sepz else False,
                  memefficient_seg_resampling=True)
     p.configuration_manager = SimpleNamespace(patch_size=list(patch), resampling_fn_probabilities=fn,
@@ -93,10 +105,10 @@ class TestRingAndKernelsEndToEnd(unittest.TestCase):
     def tearDown(self):
         torch.backends.cudnn.benchmark, torch.backends.cudnn.deterministic = self._bench
 
-    def _check(self, device, kernels, ring_dtypes=(torch.float16,)):
+    def _check(self, device, kernels, ring_dtypes=(torch.float16,), regions=None):
         for (src, tgt, step, osp, msp, sepz), dt in [(g, d) for g in GEOMETRIES for d in ring_dtypes]:
-            with self.subTest(src=src, tgt=tgt, step=step, sepz=sepz, ring_dtype=dt):
-                p = _predictor(device, step=step, model_spacing=msp, sepz=sepz)
+            with self.subTest(src=src, tgt=tgt, step=step, sepz=sepz, ring_dtype=dt, regions=regions):
+                p = _predictor(device, step=step, model_spacing=msp, sepz=sepz, regions=regions)
                 data, props = _case(src, tgt, osp)
                 big_ring_torch = _run(p, data, props, margin=200, kernels=False, ring_dtype=dt)
                 small_ring = _run(p, data, props, kernels=kernels, ring_dtype=dt)
@@ -111,23 +123,36 @@ class TestRingAndKernelsEndToEnd(unittest.TestCase):
     def test_ring_size_cuda_torch_path(self):
         self._check(torch.device('cuda'), kernels=False, ring_dtypes=RING_DTYPES)
 
+    def test_ring_size_cpu_regions(self):
+        self._check(torch.device('cpu'), kernels=False, ring_dtypes=RING_DTYPES, regions=REGIONS_CLASS_ORDER)
+
     @unittest.skipUnless(KERNELS, 'CUDA + Triton')
     def test_kernels_match_torch_path(self):
         self._check(torch.device('cuda'), kernels=True, ring_dtypes=RING_DTYPES)
 
     @unittest.skipUnless(KERNELS, 'CUDA + Triton')
+    def test_kernels_match_torch_path_regions(self):
+        self._check(torch.device('cuda'), kernels=True, ring_dtypes=RING_DTYPES, regions=REGIONS_CLASS_ORDER)
+
+    @unittest.skipUnless(KERNELS, 'CUDA + Triton')
     def test_kernels_used_for_both_ring_dtypes(self):
         # the match above must not come from a silent fallback to the torch path
-        p = _predictor(torch.device('cuda'))
         data, props = _case(*GEOMETRIES[0][:2])
-        for dt in RING_DTYPES:
-            with self.subTest(ring_dtype=dt), \
-                    mock.patch.object(sk, 'emit_argmax', wraps=sk.emit_argmax) as emit, \
-                    mock.patch.object(sk, 'accumulate_', wraps=sk.accumulate_) as acc:
-                _run(p, data, props, kernels=True, ring_dtype=dt)
-                self.assertGreater(emit.call_count, 0)
-                self.assertGreater(acc.call_count, 0)
-                self.assertEqual(acc.call_args.args[0].dtype, dt)
+        for regions in (None, REGIONS_CLASS_ORDER):
+            p = _predictor(torch.device('cuda'), regions=regions)
+            for dt in RING_DTYPES:
+                with self.subTest(ring_dtype=dt, regions=regions), \
+                        mock.patch.object(sk, 'emit_argmax', wraps=sk.emit_argmax) as emit, \
+                        mock.patch.object(sk, 'emit_regions', wraps=sk.emit_regions) as emit_r, \
+                        mock.patch.object(sk, 'accumulate_', wraps=sk.accumulate_) as acc:
+                    _run(p, data, props, kernels=True, ring_dtype=dt)
+                    used, unused = (emit, emit_r) if regions is None else (emit_r, emit)
+                    self.assertGreater(used.call_count, 0)
+                    self.assertEqual(unused.call_count, 0)
+                    self.assertGreater(acc.call_count, 0)
+                    self.assertEqual(acc.call_args.args[0].dtype, dt)
+                    if regions is not None:
+                        self.assertEqual(emit_r.call_args.args[8].tolist(), list(regions))
 
     def test_ring_guard_fires_when_too_small(self):
         p = _predictor(torch.device('cpu'))
@@ -184,6 +209,48 @@ class TestKernels(unittest.TestCase):
                                sk.bilinear_tables(S1, T1, 'cuda'), out, best=best)
                 self.assertTrue(torch.equal(best, ref_val), (C, S0, S1, T0, T1, w))
                 self.assertTrue(torch.equal(out, ref_arg.to(torch.uint8)), (C, S0, S1, T0, T1, w))
+
+    def test_emit_regions_bitwise(self):
+        for dt in RING_DTYPES:
+            for out_dtype in (torch.uint8, torch.int16):
+                with self.subTest(ring_dtype=dt, out_dtype=out_dtype):
+                    self._emit_regions_bitwise(dt, out_dtype)
+
+    def _emit_regions_bitwise(self, ring_dtype, out_dtype):
+        g = torch.Generator(device='cuda').manual_seed(2)
+        # painting order not sorted; with 6 regions, label 3 is painted by two of them
+        for (C, S0, S1, T0, T1), labels in (((6, 33, 47, 52, 29), [3, 6, 1, 5, 2, 3]),
+                                            ((4, 80, 40, 41, 97), [2, 4, 1, 3]), ((1, 64, 64, 64, 64), [1])):
+            region_labels = torch.tensor(labels, dtype=torch.int32, device='cuda')
+            for w, blend in ((0.0, False), (0.25, True), (0.6180339887498949, True)):
+                n0 = (torch.rand(S0, S1, device='cuda', generator=g) * 30 + 1).to(ring_dtype)
+                n1 = (torch.rand(S0, S1, device='cuda', generator=g) * 30 + 1).to(ring_dtype)
+                l0 = (torch.randn(C, S0, S1, device='cuda', generator=g) * 400).to(ring_dtype)
+                l1 = (torch.randn(C, S0, S1, device='cuda', generator=g) * 400).to(ring_dtype)
+                l0[:, :3] = l1[:, :3] = 0                                 # exactly 0 is not > 0: background
+                ref_val = _torch_emit(l0, l1, n0, n1, w, (T0, T1)) if blend else \
+                    F.interpolate((l0 / n0).float()[None], size=(T0, T1), mode='bilinear', align_corners=False)[0]
+                ref = torch.zeros((T0, T1), dtype=out_dtype, device='cuda')
+                for k, lab in enumerate(labels):                          # nnUNetPredictorStreaming._reduce_to_seg
+                    ref[ref_val[k] > 0] = lab
+                self.assertGreater(len(torch.unique(ref)), min(C, 3))
+                out = torch.full((T0, T1), 99, dtype=out_dtype, device='cuda')
+                sk.emit_regions(l0, l1, n0, n1, w, blend, sk.bilinear_tables(S0, T0, 'cuda'),
+                                sk.bilinear_tables(S1, T1, 'cuda'), region_labels, out)
+                self.assertTrue(torch.equal(out, ref), (C, S0, S1, T0, T1, w))
+
+    def test_selftest_rejects_wrong_region_rule(self):
+        orig = sk.emit_regions
+        try:
+            sk._SELFTEST.clear()
+            # the first region wins instead of the last one
+            sk.emit_regions = lambda l0, l1, n0, n1, w, blend, t0, t1, labels, out, **k: \
+                orig(l0.flip(0), l1.flip(0), n0, n1, w, blend, t0, t1, labels.flip(0).contiguous(), out, **k)
+            for dt in RING_DTYPES:
+                self.assertFalse(sk.kernels_selftest(torch.device('cuda'), dt))
+        finally:
+            sk.emit_regions = orig
+            sk._SELFTEST.clear()
 
     def test_selftest_rejects_one_rounding_off(self):
         for dt in RING_DTYPES:
@@ -250,6 +317,7 @@ class TestKernels(unittest.TestCase):
         ref = _run(p, data, props, kernels=False)
         with mock.patch.object(sk, 'kernels_selftest', return_value=False), \
                 mock.patch.object(sk, 'emit_argmax', side_effect=AssertionError('kernel used')), \
+                mock.patch.object(sk, 'emit_regions', side_effect=AssertionError('kernel used')), \
                 mock.patch.object(sk, 'accumulate_', side_effect=AssertionError('kernel used')):
             np.testing.assert_array_equal(_run(p, data, props, kernels=True), ref)
 

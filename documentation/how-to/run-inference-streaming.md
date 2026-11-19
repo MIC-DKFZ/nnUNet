@@ -51,6 +51,11 @@ identical. A notice printed at startup summarizes how the run predicts. In detai
   (e.g. to ensemble across configurations with `nnUNetv2_ensemble`), use `nnUNetv2_predict`.
 - **Single configuration**, but **fold ensembling is supported** (logits are averaged per slab). 2d and 3d
   configurations are both supported. Cascaded models (previous-stage predictions) are not supported.
+- **Region-based models are supported** (sigmoid outputs, `regions_class_order` in `dataset.json`, see
+  [region-based training](../region_based_training.md)). The segmentation follows `nnUNetv2_predict`: each
+  region is thresholded at sigmoid 0.5 and the regions are painted in `regions_class_order`, so a later region
+  overwrites an earlier one. Streaming thresholds the resampled logits at 0 instead, which is the same decision without
+  computing the sigmoid.
 
 Segmentation quality is otherwise equivalent — validated against `nnUNetv2_predict` at >99.999% voxel agreement for
 2d and 3d torchres models with 2-fold ensembling, with the few differing voxels being boundary-level fp/GPU noise.
@@ -217,18 +222,19 @@ To add streaming validation to your own trainer, mix it in first:
 - The weights of a single model are uploaded to the GPU once per run, and the GPU memory cache is released at the end
   of each `predict_*` call, not after every case.
 - **Feature ring (3d, on by default).** The network's last layer is a 1×1×1 convolution, and everything between it and
-  the argmax is linear (test-time mirroring, Gaussian weighting, the sum over overlapping patches and folds, linear
-  resampling). So the slab buffer holds the *input* of that layer — the decoder's last features, 32 channels for the
-  standard U-Nets — instead of one channel per class, and the layer is applied once per output slice. The buffer does
-  not grow with the number of classes (≈3.7× smaller at 120 classes). The layer is detached from the network
-  before it is compiled, so this works with `--compile on`. Fold ensembles keep one block of features per fold, so they
-  use it only while `folds × 32` is below the number of classes (e.g. up to 3 folds at 117 classes); otherwise, for 2d
-  configurations and for architectures whose output layer is not a known 1×1 convolution, the buffer holds
-  the logits. The runtime notice says which buffer is used and why. The segmentation is the same up to floating-point
-  rounding (the sums run in a different order); `--logit_ring` turns it off.
-- On CUDA with Triton, accumulating patches into that slab and the per-plane resample + argmax run as fused GPU
-  kernels that reproduce the plain torch computation bit for bit (checked once per process; everything falls back to
-  the torch computation without Triton, e.g. on Windows, with identical results).
+  the argmax (or the region threshold) is linear (test-time mirroring, Gaussian weighting, the sum over overlapping
+  patches and folds, linear resampling). So the slab buffer holds the *input* of that layer — the decoder's last
+  features, 32 channels for the standard U-Nets — instead of one channel per class, and the layer is applied once per
+  output slice. The buffer does not grow with the number of classes (≈3.7× smaller at 120 classes). The layer is
+  detached from the network before it is compiled, so this works with `--compile on`. Fold ensembles keep one block
+  of features per fold, so they use it only while `folds × 32` is below the number of classes (e.g. up to 3 folds at
+  117 classes); otherwise, for 2d configurations and for architectures whose output layer is not a known 1×1
+  convolution, the buffer holds the logits. The runtime notice says which buffer is used and why. The segmentation is
+  the same up to floating-point rounding (the sums run in a different order); `--logit_ring` turns it off.
+- On CUDA with Triton, accumulating patches into that slab and the per-plane resample + argmax (region threshold for
+  region-based models) run as fused GPU kernels that reproduce the plain torch computation bit for bit (checked once
+  per process; everything falls back to the torch computation without Triton, e.g. on Windows, with identical
+  results).
 - Standalone streaming inference runs with `cudnn.benchmark` off: its autotuning costs time and a one-off VRAM peak
   in every new process for a forward pass that is only marginally faster.
 - Throughput is comparable to `nnUNetv2_predict` (often slightly faster, since resampling runs on the GPU). Fold

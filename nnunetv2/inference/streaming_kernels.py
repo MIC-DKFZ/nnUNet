@@ -14,6 +14,9 @@ emit_argmax: one target plane straight from the ring, the torch emit's arithmeti
     blend with float32(1 - w), and the first-maximum argmax as a running max over channels -> uint8/int16 labels.
     Nothing C-sized exists at output resolution (the torch path holds ~3 (C, target cross-section) fp32 planes). The
     contraction pattern is a property of the torch build, hence kernels_selftest.
+emit_regions: the same plane for region-based (sigmoid) models: the same per-channel values, then the ordered
+    threshold of the torch emit instead of the argmax: each voxel gets the label of the last region (channel order =
+    regions_class_order) whose value is > 0 (sigmoid > 0.5), background where there is none.
 """
 import numpy as np
 import torch
@@ -92,9 +95,9 @@ def _bilinear_norm(lp, np_, base, oaa, oab, oba, obb, naa, nab, nba, nbb, m, h0,
 
 
 @triton.jit
-def _emit_kernel(l0_ptr, l1_ptr, n0_ptr, n1_ptr, out_ptr, best_ptr, a0_ptr, a1_ptr, al_ptr, b0_ptr, b1_ptr, bl_ptr,
-                 w, wc, C, ls_c, ls_y, ns_y, T1, BLOCK: tl.constexpr, BLEND: tl.constexpr, STORE_BEST: tl.constexpr,
-                 RING_FP16: tl.constexpr):
+def _emit_kernel(l0_ptr, l1_ptr, n0_ptr, n1_ptr, out_ptr, best_ptr, lab_ptr, a0_ptr, a1_ptr, al_ptr, b0_ptr, b1_ptr,
+                 bl_ptr, w, wc, C, ls_c, ls_y, ns_y, T1, BLOCK: tl.constexpr, BLEND: tl.constexpr,
+                 STORE_BEST: tl.constexpr, RING_FP16: tl.constexpr, REGIONS: tl.constexpr):
     t0 = tl.program_id(0)
     t1 = tl.program_id(1) * BLOCK + tl.arange(0, BLOCK)
     m = t1 < T1
@@ -128,12 +131,34 @@ def _emit_kernel(l0_ptr, l1_ptr, n0_ptr, n1_ptr, out_ptr, best_ptr, a0_ptr, a1_p
             v1 = _bilinear_norm(l1_ptr, n1_ptr, base, oaa, oab, oba, obb, n1aa, n1ab, n1ba, n1bb, m, h0, h1, w0, w1,
                                 RING_FP16)
             v = wc * v + w * v1
-        upd = v > best                          # strict: first maximum wins, as torch.argmax
-        best = tl.where(upd, v, best)
-        arg = tl.where(upd, c, arg)
+        if REGIONS:                             # torch: seg[v > 0] = label, region by region (the last one wins)
+            arg = tl.where(v > 0., tl.load(lab_ptr + c), arg)
+        else:
+            upd = v > best                      # strict: first maximum wins, as torch.argmax
+            best = tl.where(upd, v, best)
+            arg = tl.where(upd, c, arg)
     tl.store(out_ptr + t0 * T1 + t1, arg.to(out_ptr.dtype.element_ty), mask=m)
     if STORE_BEST:                              # self-test only: the winning value, for a bitwise comparison
         tl.store(best_ptr + t0 * T1 + t1, best, mask=m)
+
+
+def _launch_emit(l0, l1, n0, n1, w, blend, tab0, tab1, out, block, best, region_labels):
+    C = l0.shape[0]
+    T0, T1 = out.shape
+    assert l0.stride() == l1.stride() and l0.stride(2) == 1 and n0.stride() == n1.stride() and n0.stride(1) == 1
+    assert l0.dtype == l1.dtype == n0.dtype == n1.dtype and l0.dtype in (torch.float16, torch.float32)
+    assert out.is_contiguous()
+    if region_labels is not None:
+        assert region_labels.dtype == torch.int32 and region_labels.shape == (C,) and region_labels.is_contiguous()
+        assert region_labels.device == out.device
+    grid = (T0, triton.cdiv(T1, block))
+    # torch multiplies a float32 tensor by the python double (1.0 - w) rounded to float32, not by 1 - float32(w)
+    with cuda_device(out.device):                    # Triton launches on the current device and its stream
+        _emit_kernel[grid](l0, l1, n0, n1, out, out if best is None else best,
+                           out if region_labels is None else region_labels, *tab0, *tab1, float(w), float(1.0 - w),
+                           C, l0.stride(0), l0.stride(1), n0.stride(0), T1, BLOCK=block, BLEND=bool(blend),
+                           STORE_BEST=best is not None, RING_FP16=l0.dtype == torch.float16,
+                           REGIONS=region_labels is not None, enable_fp_fusion=False)
 
 
 def emit_argmax(l0: torch.Tensor, l1: torch.Tensor, n0: torch.Tensor, n1: torch.Tensor, w: float, blend: bool,
@@ -141,17 +166,15 @@ def emit_argmax(l0: torch.Tensor, l1: torch.Tensor, n0: torch.Tensor, n1: torch.
     """One target plane, bit-identical to the torch emit of nnUNetPredictorStreaming (this torch build; see
     selftest). l0/l1: (C, s0, s1) ring views (unit last stride, same strides); n0/n1: (s0, s1); all four fp16 or
     all four fp32 (the ring dtype); out (T0, T1) uint8/int16. blend=False: the plane copies source slice 0 (i0 == i1)."""
-    C = l0.shape[0]
-    T0, T1 = out.shape
-    assert l0.stride() == l1.stride() and l0.stride(2) == 1 and n0.stride() == n1.stride() and n0.stride(1) == 1
-    assert l0.dtype == l1.dtype == n0.dtype == n1.dtype and l0.dtype in (torch.float16, torch.float32)
-    assert out.is_contiguous()
-    grid = (T0, triton.cdiv(T1, block))
-    # torch multiplies a float32 tensor by the python double (1.0 - w) rounded to float32, not by 1 - float32(w)
-    with cuda_device(out.device):                    # Triton launches on the current device and its stream
-        _emit_kernel[grid](l0, l1, n0, n1, out, out if best is None else best, *tab0, *tab1, float(w), float(1.0 - w),
-                           C, l0.stride(0), l0.stride(1), n0.stride(0), T1, BLOCK=block, BLEND=bool(blend),
-                           STORE_BEST=best is not None, RING_FP16=l0.dtype == torch.float16, enable_fp_fusion=False)
+    _launch_emit(l0, l1, n0, n1, w, blend, tab0, tab1, out, block, best, None)
+
+
+def emit_regions(l0: torch.Tensor, l1: torch.Tensor, n0: torch.Tensor, n1: torch.Tensor, w: float, blend: bool,
+                 tab0, tab1, region_labels: torch.Tensor, out: torch.Tensor, block: int = 128):
+    """emit_argmax for region-based (sigmoid) models: region_labels (C,) int32 on the device holds the label painted
+    for each channel (regions_class_order); a voxel gets the label of the last channel whose value is > 0, else 0.
+    Bit-identical to the torch emit (nnUNetPredictorStreaming._reduce_to_seg) for the same per-channel values."""
+    _launch_emit(l0, l1, n0, n1, w, blend, tab0, tab1, out, block, None, region_labels)
 
 
 _SELFTEST = {}
@@ -184,6 +207,16 @@ def _selftest_cases(device, ring_dtype):
         emit_argmax(l0, l1, n0, n1, w, True, bilinear_tables(S0, T0, device), bilinear_tables(S1, T1, device), out,
                     best=best)
         if not (torch.equal(out, ref_arg.to(torch.uint8)) and torch.equal(best, ref_val)):
+            return False
+        # regions: the ordered threshold on the same values, labels in an order that is not sorted
+        labels = torch.tensor([(3 * k) % C + 1 for k in range(C)], dtype=torch.int32, device=device)   # C = 7, 5
+        ref_seg = torch.zeros((T0, T1), dtype=torch.uint8, device=device)
+        blended = (1.0 - w) * b0 + w * b1
+        for k in range(C):
+            ref_seg[blended[k] > 0] = int(labels[k])
+        emit_regions(l0, l1, n0, n1, w, True, bilinear_tables(S0, T0, device), bilinear_tables(S1, T1, device),
+                     labels, out)
+        if not torch.equal(out, ref_seg):
             return False
     return True
 

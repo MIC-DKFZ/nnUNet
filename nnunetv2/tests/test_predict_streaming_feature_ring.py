@@ -5,7 +5,8 @@ applied per output slice. It must give the logit ring's segmentation up to float
 - single fold on small dynamic_network_architectures UNets (PlainConv, ResEnc), with and without TTA, trilinear and
   separate-z geometries; regions (sigmoid, the unfused emit); 2- and 3-fold ensembles (one feature block per fold) and
   the switch back to the logit ring once folds x features >= classes (CPU, fp32 throughout);
-- CUDA: the fused kernels with fp16 and fp32 rings, the network in fp32 (autocast off) and in fp16 (autocast);
+- CUDA: the fused kernels with fp16 and fp32 rings, the network in fp32 (autocast off) and in fp16 (autocast), for
+  regions too (the fused region emit gives the torch path's segmentation exactly);
   torch.compile (the layer is detached before compiling, also from a network compiled at initialization);
 - detach / restore: the logit-returning nnUNetPredictor methods refuse while the layer is detached, restore_head
   gives back the original network and state dicts; the trainer's validation predictor (heads from the live network)
@@ -276,6 +277,27 @@ class TestFeatureRingCUDA(_Base):
         # the network vs fp32 per slice) and the ring's rounding
         for dt in (torch.float16, torch.float32):
             self._compare(dt, False, KERNELS, 0.998, tta=True)
+
+    def test_regions(self):
+        # the feature ring's fp32 slice logits go through the region threshold, fused (emit_regions) or in torch
+        for kernels in ((False, True) if KERNELS else (False,)):
+            self._compare(torch.float32, True, kernels, 0.9999, num_classes=6, regions=(1, 2, 3, 4, 5, 6))
+
+    @unittest.skipUnless(KERNELS, 'CUDA + Triton')
+    def test_regions_fused_emit_matches_torch_path(self):
+        make = partial(_predictor, self.DEV, num_classes=6, regions=(3, 1, 4, 1, 5, 2))
+        data, props = _case(*GEOMETRIES[0][:2])
+        segs = []
+        for kernels in (False, True):
+            p = make()
+            p._use_triton_kernels = kernels
+            p._prepare_standalone_inference()
+            self.assertIsNotNone(p._detached_head)
+            with mock.patch.object(sk, 'emit_regions', wraps=sk.emit_regions) as emit:
+                segs.append(p._predict_and_export_streaming(data, props))
+            self.assertEqual(emit.call_count > 0, kernels)
+        self.assertGreater(len(np.unique(segs[0])), 3)
+        np.testing.assert_array_equal(segs[1], segs[0])
 
     @unittest.skipUnless(KERNELS, 'CUDA + Triton')
     def test_fused_kernels_used(self):
