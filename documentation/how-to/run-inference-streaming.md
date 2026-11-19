@@ -47,8 +47,9 @@ identical. A notice printed at startup summarizes how the run predicts. In detai
     (the scipy resampler computes in float64, streaming in float32).
   - Resampling streaming cannot reproduce (e.g. cubic probability resampling) is replaced by plain trilinear;
     the runtime notice says so. `--force_trilinear` uses plain trilinear everywhere.
-- **No probability export.** Segmentation only — there is no `--save_probabilities`. If you need probabilities
-  (e.g. to ensemble across configurations with `nnUNetv2_ensemble`), use `nnUNetv2_predict`.
+- **Probabilities go to `.b2nd` files, not `.npz`.** `--save_probabilities` writes `<case>.b2nd` (+ `<case>.pkl`)
+  next to each segmentation, slice by slice during the prediction (see [Probability export](#probability-export)).
+  `nnUNetv2_ensemble` does not read these files; to ensemble configurations with it, use `nnUNetv2_predict`.
 - **Single configuration**, but **fold ensembling is supported** (logits are averaged per slab). 2d and 3d
   configurations are both supported. Cascaded models (previous-stage predictions) are not supported.
 - **Region-based models are supported** (sigmoid outputs, `regions_class_order` in `dataset.json`, see
@@ -80,6 +81,9 @@ Test-time augmentation uses the mirror axes stored in the checkpoint, exactly li
 
 Streaming-specific options:
 
+- `--save_probabilities`: also write the predicted probabilities, see [Probability export](#probability-export).
+- `--float32` (with `--save_probabilities`): store the probabilities losslessly as float32 instead of `uint16`. Much
+  larger files and a much slower prediction; see [Probability export](#probability-export).
 - `-slab_axis`: spatial axis (0/1/2) to stream along. Default: auto (chosen to minimize VRAM).
 - `--compile {on,off}`: `torch.compile` the network. Default: follow the `nnUNet_compile` environment variable if it is
   set, otherwise compile when more than 4 cases are predicted and torch.compile is available (CUDA with Triton; not
@@ -193,6 +197,47 @@ nnUNetv2_reorder_labels -i MODEL_FOLDER -o NEW_MODEL_FOLDER -l labels.json
 
 `labels.json` holds the new `{label name: id}` mapping (a `dataset.json` works too). The new folder is for inference
 only (no optimizer state or training logs). Region-based models are not supported.
+
+## Probability export
+
+`--save_probabilities` (`save_probabilities=True` in the Python API) writes the predicted probabilities (softmax over
+the classes, or the sigmoid of each region for region-based models) to `<case>.b2nd` next to the segmentation, plus
+`<case>.pkl` with the case's properties, as `nnUNetv2_predict` writes them. Each output slice is written as soon as it
+is final, so the full probability volume never exists in memory, only on disk. Without `--save_probabilities` none of
+this runs, and the segmentation is the same with and without it.
+
+The file is a [blosc2](https://www.blosc.org/python-blosc2/) array of shape `(num_classes, *image_shape)`, in the axis
+order of the model's reader, i.e. the layout of the `probabilities` array in the `.npz` files of `nnUNetv2_predict`.
+Outside the region nnU-Net crops the image to, it holds what `nnUNetv2_predict` exports there (background 1; 0 for
+region models). Values are stored as `uint16`, `round(p * 65535)`. The error is at most 7.6e-6, far below the
+numerical noise of the prediction itself (half-precision network outputs). Rounding to multiples of 1/65535 turns the
+tiny probabilities every class has far away from its structure into exact zeros, so the files are small. (Thresholding
+stored region probabilities at 0.5 can flip voxels whose probability lies within 7.6e-6 of 0.5; the exported
+segmentation is computed before rounding.)
+
+```python
+from nnunetv2.inference.streaming_probabilities import load_streamed_probabilities, open_streamed_probabilities
+
+arr = open_streamed_probabilities('OUTPUT_FOLDER/case.b2nd')    # blosc2 array as stored (uint16); nothing read yet
+liver = arr[5] / arr.schunk.vlmeta['nnunet']['scale']           # one class (scale: 65535 for uint16, 1 for float32)
+probs = load_streamed_probabilities('OUTPUT_FOLDER/case.b2nd')  # all classes as float32: num_classes x image in RAM
+```
+
+What it costs, measured on an RTX 4090 with a Ryzen 9 7950X and a local NVMe SSD (one fold, no TTA): for 117 classes on
+whole-body CTs of 38-46 million voxels the prediction took 0.3-0.6 s longer (3.4-4.1 s instead of 2.8-3.7 s) and the
+probability files were 46-67 MB (9-11 GB as uncompressed `uint16`); for 125 classes on 512×512×~380 CTs it took 1-2 s
+longer (6.3-7.4 s instead of 5.3-6.1 s), for 57-65 MB files (25 GB uncompressed). Peak VRAM grows by 0.15-0.75 GiB,
+mostly two buffers of 4 output slices of all classes. The files are written by a background thread with 8 blosc2
+threads (`nnUNetPredictorStreaming.probability_compression_threads`; `probability_planes_per_chunk` sets the slices per
+buffer). `nnUNetv2_ensemble` does not read `.b2nd` files.
+
+**Lossless float probabilities (`--float32`).** For those who need them, `--float32` stores the probabilities
+themselves (`predictor.probability_dtype = 'float32'` in the Python API). It comes with a warning: floats keep the
+tiny probabilities, and their mantissas are noise, so float32 compresses only 1.3x. On two of the CTs above
+that meant 14 GB (117 classes) and 36 GB (125 classes) per image instead of 46 and 57 MB, and a prediction 2.5-4x
+slower (7-11 s instead of 2.7 s, 18-21 s instead of 6 s), with twice the GPU buffer memory. There is no float16 option:
+its error near 1 is up to 2.4e-4 (`uint16`: 7.6e-6), and it compresses only about 9x, so it would be less precise than
+`uint16` and still produce large files.
 
 ## Streaming final validation in training
 

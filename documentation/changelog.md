@@ -1,5 +1,18 @@
 # Changes that affect custom trainers
 
+## Streaming inference writes probabilities; nnU-Net requires blosc2 >= 4.15
+
+`nnUNetv2_predict_streaming --save_probabilities` and `save_probabilities=True` on the `nnUNetPredictorStreaming`
+`predict_*` methods write the predicted probabilities slice by slice to `<case>.b2nd` (a blosc2 array, `uint16`
+`p * 65535`; `--float32` / `probability_dtype = 'float32'` for lossless float32 probabilities, with a warning about file
+size and speed) plus `<case>.pkl`; see [streaming inference](how-to/run-inference-streaming.md#probability-export) and
+`nnunetv2/inference/streaming_probabilities.py`. The new keyword arguments come last, so existing calls are unchanged;
+`_predict_and_export_streaming` and `_predict_case_2d` take an optional `probability_writer`, and
+`nnUNetPredictor.probabilities_file_ending` (`.npz`; `.b2nd` for the streaming predictor) names the file that
+`--continue_prediction` looks for. `nnUNetv2_ensemble` does not read `.b2nd` files.
+
+nnU-Net now requires `blosc2>=4.15.0` (was `>=4.1.0`): it writes these files 2-3x faster than 4.14.1.
+
 ## Training patches can always move: a minimum range of patch positions along every axis
 
 `nnUNetDataLoader.get_bbox` draws patch positions only where the final patch lies inside the case, and pads a case

@@ -20,8 +20,9 @@ Same segmentation up to float rounding, several GB less VRAM with many classes. 
 network when the validation ends, also on an exception. streaming_feature_ring = False on the trainer class keeps the
 logits.
 
-Scope: 3d configurations. No cascade, no next-stage prediction and no probability export: they need the full
-probability volume, which this validation never builds (AssertionError).
+Scope: 3d configurations. No cascade and no next-stage prediction: they need the full probability volume, which this
+validation never builds. No probability export (--npz) either: nnUNetv2_find_best_configuration and nnUNetv2_ensemble
+read the .npz files of the stock validation (AssertionError).
 
 The trainers at the end of this file:
   * nnUNetTrainer_SV: nnUNetTrainer with streaming validation.
@@ -122,8 +123,9 @@ class StreamingValidationMixin:
 
     def perform_actual_validation(self, save_probabilities: bool = False):
         assert not save_probabilities, \
-            ('Streaming validation cannot export probabilities: the full probability volume is never formed. '
-             'Use the stock nnUNetTrainer if you need them.')
+            ('Streaming validation does not export probabilities (--npz): nnUNetv2_find_best_configuration and '
+             'nnUNetv2_ensemble read the .npz files of the stock validation. Use the stock nnUNetTrainer if you need '
+             'them.')
         self._streaming_validation_sanity_checks()
 
         self.set_deep_supervision_enabled(False)

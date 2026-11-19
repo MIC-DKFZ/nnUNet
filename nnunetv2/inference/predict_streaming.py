@@ -27,10 +27,12 @@ blend, chosen by the same determine_do_sep_z_and_axis call the default export ma
 reproduce (e.g. cubic probability resampling) falls back to plain trilinear, and force_trilinear=True
 (--force_trilinear) always does. A notice is printed at runtime either way.
 
-Supports 2d and 3d configurations and fold ensembling (logits averaged per slab). No probability export.
+Supports 2d and 3d configurations and fold ensembling (logits averaged per slab). Probabilities are written only on
+request (save_probabilities), plane by plane into an on-disk blosc2 array (streaming_probabilities.py); without it
+nothing of that runs.
 Softmax and region-based (sigmoid) models: argmax over the logits, or for regions the ordered threshold of
 LabelManager.convert_probabilities_to_segmentation on the logits (sigmoid(x) > 0.5 <=> x > 0, regions painted in
-regions_class_order, the last one wins); the sigmoid itself is never computed.
+regions_class_order, the last one wins); the segmentation never needs the sigmoid itself.
 
 On CUDA with Triton, accumulation and the per-plane resample + argmax / region threshold run as fused kernels
 (streaming_kernels.py) that reproduce the torch path bit for bit; the torch path is the fallback everywhere else.
@@ -87,6 +89,8 @@ from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.inference.streaming_pipeline import WORKER_DIED_MESSAGE, CaseFailure, PreprocessingIterator, \
     collect_results, load_and_preprocess, load_npy_case, new_pool, shutdown_pools, timed_export, write_segmentation, \
     _init_preprocessing_worker
+from nnunetv2.inference.streaming_probabilities import COMPRESSION_THREADS, PLANES_PER_CHUNK, \
+    PROBABILITIES_FILE_ENDING, StreamingProbabilityWriter, check_probability_dtype
 from nnunetv2.preprocessing.resampling.default_resampling import determine_do_sep_z_and_axis, \
     resample_data_or_seg_to_shape
 from nnunetv2.preprocessing.resampling.resample_torch import resample_torch_fornnunet
@@ -285,6 +289,13 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
     # CPU threads for torch resampling when a single case is preprocessed in this process (None: every core). Batch
     # workers keep the plans' setting: there the workers run side by side.
     single_case_preprocessing_threads: Optional[int] = None
+    # save_probabilities (streaming_probabilities.py): <case>.b2nd instead of nnUNetPredictor's .npz; output planes
+    # per chunk of the file (= per write) and blosc2 compression threads of its writer; storage dtype 'uint16' (default)
+    # or 'float32' (--float32: lossless, but much larger files and a much slower prediction; it warns)
+    probabilities_file_ending = PROBABILITIES_FILE_ENDING
+    probability_planes_per_chunk: int = PLANES_PER_CHUNK
+    probability_compression_threads: int = COMPRESSION_THREADS
+    probability_dtype: str = 'uint16'
 
     def __init__(self, *args, force_trilinear: bool = False, compile: Union[bool, str, None] = 'auto',
                  feature_ring: bool = True, num_processes_preprocessing: int = 3, num_processes_export: int = 3,
@@ -538,20 +549,25 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                                            image_properties: dict,
                                            output_file_truncated: Union[str, None] = None,
                                            slab_axis: Union[int, None] = None,
-                                           ring_dtype: torch.dtype = torch.half):
+                                           ring_dtype: torch.dtype = torch.half,
+                                           save_probabilities: bool = False):
         """
         Preprocess a single image (in the nnU-Net expected axis ordering, see nnUNetPredictor.predict_single_npy_array)
         and run the streaming inference pipeline. If output_file_truncated is given the segmentation is written
         (file ending appended automatically), otherwise the segmentation (numpy, original orientation) is returned.
+        save_probabilities (needs output_file_truncated): also write output_file_truncated + '.b2nd' / '.pkl'
+        (streaming_probabilities.py).
         """
         return self.predict_single_case_streaming((input_image, image_properties), load_npy_case, output_file_truncated,
-                                                  slab_axis=slab_axis, ring_dtype=ring_dtype)
+                                                  slab_axis=slab_axis, ring_dtype=ring_dtype,
+                                                  save_probabilities=save_probabilities)
 
     @torch.inference_mode()
     def predict_single_case_streaming(self, case: Any, load_fn: Optional[Callable] = None, output: Any = None,
                                       export_fn: Optional[Callable] = None, export_kwargs: Optional[dict] = None,
                                       slab_axis: Union[int, None] = None, ring_dtype: torch.dtype = torch.half,
-                                      on_error: str = 'raise', progress_callback: Optional[Callable] = None):
+                                      on_error: str = 'raise', progress_callback: Optional[Callable] = None,
+                                      save_probabilities: bool = False):
         """
         One case, entirely in this process - no worker pools to start: load_fn(case) (None: case is a list of image
         files, read with the plans' reader) and nnU-Net's preprocessing, the streaming GPU pass, then
@@ -563,8 +579,11 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         (warm_up); timings 'gpu_ready' and 'wait_for_preprocessing' show which of the two was waited for.
         quiet silences the predictor's own messages, not those of load_fn and export_fn (as in batch prediction, where
         they run in the worker processes).
+        save_probabilities: also write the probabilities to output + '.b2nd' (+ '.pkl'; output must be a str) from
+        the GPU pass, plane by plane (streaming_probabilities.py); 'predict' then includes writing them.
         """
         assert on_error in ('raise', 'skip'), f"on_error must be 'raise' or 'skip', got {on_error!r}"
+        self._check_probability_outputs(save_probabilities, [output])
         notify = progress_callback or (lambda *args: None)
         timings = {}
         self.last_case_timings = [timings]
@@ -589,8 +608,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             stage = 'predict'
             with self._quiet():
                 t = time.perf_counter()
-                segmentation = self._predict_and_export_streaming(torch.from_numpy(data), properties,
-                                                                  slab_axis=slab_axis, ring_dtype=ring_dtype)
+                segmentation = self._predict_case(torch.from_numpy(data), properties, slab_axis, ring_dtype,
+                                                  output if save_probabilities else None)
                 timings['predict'] = time.perf_counter() - t
             notify('predicted', 0, 1)
             stage = 'export'
@@ -668,7 +687,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                                 num_processes_export: Optional[int] = None, slab_axis: Union[int, None] = None,
                                 ring_dtype: torch.dtype = torch.half, on_error: str = 'raise',
                                 progress_callback: Optional[Callable] = None, num_parts: int = 1,
-                                part_id: int = 0) -> List[Any]:
+                                part_id: int = 0, save_probabilities: bool = False) -> List[Any]:
         """
         Batch prediction with pluggable input and output handling (streaming_pipeline.py): persistent preprocessing
         workers run load_fn(case) + nnU-Net's preprocessing a few cases ahead, the GPU pass runs here, and persistent
@@ -679,24 +698,27 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         on_error: 'raise' (default) or 'skip' (failed cases become CaseFailure results, the batch carries on).
         progress_callback(event, index, total): see predict_from_data_iterator_streaming. num_parts / part_id: this
         call predicts cases[part_id::num_parts] (one process per GPU). Returns one result per predicted case, in order;
-        their stage timings are in last_case_timings.
+        their stage timings are in last_case_timings. save_probabilities: see predict_single_case_streaming (every
+        case needs an output).
         """
         assert 0 <= part_id < num_parts, 'part_id must be in 0 .. num_parts - 1'
         assert outputs is None or len(outputs) == len(cases), 'one output per case'
         cases = list(cases)[part_id::num_parts]
         outputs = None if outputs is None else list(outputs)[part_id::num_parts]
+        self._check_probability_outputs(save_probabilities, outputs)
         if len(cases) == 0:
             self.last_case_timings = []
             return []
         if len(cases) == 1:
             return [self.predict_single_case_streaming(cases[0], load_fn, None if outputs is None else outputs[0],
                                                        export_fn, export_kwargs, slab_axis, ring_dtype, on_error,
-                                                       progress_callback)]
+                                                       progress_callback, save_probabilities)]
         data_iterator = self.get_data_iterator_streaming(cases, load_fn, outputs, num_processes_preprocessing,
                                                          on_error)
         return self.predict_from_data_iterator_streaming(data_iterator, export_fn, export_kwargs, num_processes_export,
                                                          slab_axis=slab_axis, ring_dtype=ring_dtype,
-                                                         on_error=on_error, progress_callback=progress_callback)
+                                                         on_error=on_error, progress_callback=progress_callback,
+                                                         save_probabilities=save_probabilities)
 
     def get_data_iterator_streaming(self, cases: Sequence[Any], load_fn: Optional[Callable] = None,
                                     outputs: Optional[Sequence[Any]] = None, num_processes: Optional[int] = None,
@@ -713,7 +735,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                                              num_processes_export: Optional[int] = None,
                                              num_cases: Optional[int] = None, slab_axis: Union[int, None] = None,
                                              ring_dtype: torch.dtype = torch.half, on_error: str = 'raise',
-                                             progress_callback: Optional[Callable] = None) -> List[Any]:
+                                             progress_callback: Optional[Callable] = None,
+                                             save_probabilities: bool = False) -> List[Any]:
         """
         The batch engine. data_iterator yields {'data': preprocessed (c, *internal shape) array or tensor (or the path
         of a .npy file, deleted after loading), 'data_properties': dict, 'ofile': output or None}, as nnU-Net's
@@ -725,6 +748,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         Per-item stage timings (seconds: 'load_and_preprocess', 'predict', 'export') go to last_case_timings.
         progress_callback(event, index, total), event in 'preprocessed', 'predicted', 'exported', 'failed', is called
         in this process - for 'exported' of pooled exports from a background thread of it; total may be None.
+        save_probabilities: each item's probabilities go to its 'ofile' + '.b2nd' (+ '.pkl'), written during the GPU
+        pass in this process (streaming_probabilities.py); every item needs an ofile (str).
         """
         assert on_error in ('raise', 'skip'), f"on_error must be 'raise' or 'skip', got {on_error!r}"
         with self._quiet(), self._cache_emptied_after():
@@ -777,8 +802,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 self._wait_for_exports(results, num_export, on_broken)
                 t = time.perf_counter()
                 try:
-                    segmentation = self._predict_and_export_streaming(data, properties, slab_axis=slab_axis,
-                                                                      ring_dtype=ring_dtype)
+                    self._check_probability_outputs(save_probabilities, [ofile])
+                    segmentation = self._predict_case(data, properties, slab_axis, ring_dtype,
+                                                      ofile if save_probabilities else None)
                 except Exception as e:
                     if on_error == 'raise':
                         raise
@@ -819,9 +845,10 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                                                   num_processes_preprocessing: Optional[int] = None,
                                                   num_processes_export: Optional[int] = None,
                                                   slab_axis: Union[int, None] = None,
-                                                  ring_dtype: torch.dtype = torch.half) -> List[Any]:
+                                                  ring_dtype: torch.dtype = torch.half,
+                                                  save_probabilities: bool = False) -> List[Any]:
         """
-        Streaming counterpart of nnUNetPredictor.predict_from_list_of_npy_arrays (no cascades, no probabilities): images
+        Streaming counterpart of nnUNetPredictor.predict_from_list_of_npy_arrays (no cascades): images
         (c, x, y, z) in the axis convention of the model's reader, properties with at least 'spacing'. Without output
         files the segmentations are returned (in the images' geometry), else written. Batches as predict_cases_streaming.
         """
@@ -832,7 +859,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         return self.predict_cases_streaming(list(zip(images, properties)), load_npy_case, outputs,
                                             num_processes_preprocessing=num_processes_preprocessing,
                                             num_processes_export=num_processes_export, slab_axis=slab_axis,
-                                            ring_dtype=ring_dtype)
+                                            ring_dtype=ring_dtype, save_probabilities=save_probabilities)
 
     def _default_export_kwargs(self) -> dict:
         return {'reader_writer_class': self.plans_manager.image_reader_writer_class,
@@ -925,7 +952,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 loader['thread'].start()
                 self._weights_loader = loader
 
-    def print_streaming_deviation_notice(self, slab_axis: Union[int, None] = None):
+    def print_streaming_deviation_notice(self, slab_axis: Union[int, None] = None, save_probabilities: bool = False):
         """
         Print how this run predicts, so the user can see that it reproduces nnUNetv2_predict, and where it does not
         (resampling that streaming cannot reproduce, or force_trilinear), what differs. The most important item is how
@@ -975,7 +1002,13 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             lines += [f"#  * Feature ring: {self.feature_ring_status[len('on: '):]} (--logit_ring keeps the logits)."]
         else:
             lines += [f"#  * Logit ring (feature ring {self.feature_ring_status})."]
-        lines += ["#  * Output: segmentations (use nnUNetv2_predict if you need probabilities)."]
+        if save_probabilities:
+            stored = 'uint16 = p * 65535' if self.probability_dtype == 'uint16' else \
+                f'{self.probability_dtype}: lossless, but much larger files and a much slower prediction'
+            lines += [f"#  * Output: segmentations and probabilities (<case>.b2nd: blosc2, {stored}, written plane by",
+                      "#    plane; see nnunetv2/inference/streaming_probabilities.py)."]
+        else:
+            lines += ["#  * Output: segmentations (--save_probabilities also writes the probabilities)."]
         if slab_axis is None:
             lines += ["#  * Slab axis: chosen per case to minimize VRAM (-slab_axis overrides)."]
         else:
@@ -993,9 +1026,11 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                                      num_parts: int = 1,
                                      part_id: int = 0,
                                      slab_axis: Union[int, None] = None,
-                                     ring_dtype: torch.dtype = torch.half):
+                                     ring_dtype: torch.dtype = torch.half,
+                                     save_probabilities: bool = False):
         """
-        Streaming counterpart of predict_from_files for a single model (no cascades, no probability export).
+        Streaming counterpart of predict_from_files for a single model (no cascades). save_probabilities writes
+        <case>.b2nd + <case>.pkl next to each segmentation (streaming_probabilities.py; not .npz as predict_from_files).
 
         Preprocessing runs in the persistent background workers, the GPU performs the fused sliding-window + resample +
         argmax pass, and writing the finished segmentations to disk is offloaded to the persistent export pool
@@ -1003,9 +1038,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         """
         with self._quiet():
             list_of_lists, output_filename_truncated, _ = self._manage_input_and_output_lists(
-                source_folder_or_list_of_lists, output_folder, None, overwrite, part_id, num_parts, False)
+                source_folder_or_list_of_lists, output_folder, None, overwrite, part_id, num_parts, save_probabilities)
             self._prepare_standalone_inference(num_cases=len(list_of_lists))
-            self.print_streaming_deviation_notice(slab_axis)
+            self.print_streaming_deviation_notice(slab_axis, save_probabilities)
             maybe_mkdir_p(output_folder)
             # store these so postprocessing / ensembling tooling can be pointed at the output folder, like nnU-Net does
             save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
@@ -1016,7 +1051,7 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             return self.predict_cases_streaming(list_of_lists, None, output_filename_truncated,
                                                 num_processes_preprocessing=num_processes_preprocessing,
                                                 num_processes_export=num_processes_export, slab_axis=slab_axis,
-                                                ring_dtype=ring_dtype)
+                                                ring_dtype=ring_dtype, save_probabilities=save_probabilities)
 
     # ------------------------------------------------------------------ core ------------------------------------------
     def _choose_slab_axis(self, source_shape: List[int], patch_size: List[int], tile_step_size: float) -> int:
@@ -1168,16 +1203,49 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         reverted = insert_crop_into_image(reverted, seg_xyz, properties['bbox_used_for_cropping'])
         return reverted.transpose(self.plans_manager.transpose_backward)
 
+    def _predict_case(self, data: torch.Tensor, properties: dict, slab_axis: Union[int, None], ring_dtype: torch.dtype,
+                      probabilities_file: Optional[str] = None):
+        """_predict_and_export_streaming, writing the probabilities to probabilities_file + '.b2nd' (+ '.pkl') if
+        given (save_probabilities). A failed case leaves no probability file behind."""
+        if probabilities_file is None:
+            return self._predict_and_export_streaming(data, properties, slab_axis=slab_axis, ring_dtype=ring_dtype)
+        writer = StreamingProbabilityWriter(probabilities_file, self.label_manager, properties,
+                                            self.plans_manager.transpose_backward, self.device,
+                                            self.probability_planes_per_chunk, self.probability_compression_threads,
+                                            self.probability_dtype)
+        try:
+            segmentation = self._predict_and_export_streaming(data, properties, slab_axis=slab_axis,
+                                                              ring_dtype=ring_dtype, probability_writer=writer)
+        except BaseException:
+            writer.abort()
+            raise
+        writer.close()                              # aborts itself (no partial file) if finishing fails
+        return segmentation
+
+    def _check_probability_outputs(self, save_probabilities: bool, outputs: Optional[Sequence[Any]]):
+        """save_probabilities: a valid probability_dtype and an output file name (str) for every case, checked before
+        any case is predicted."""
+        if not save_probabilities:
+            return
+        check_probability_dtype(self.probability_dtype)
+        if outputs is None or not all(isinstance(o, str) for o in outputs):
+            raise ValueError('save_probabilities writes the probabilities next to the output (output + '
+                             f'"{PROBABILITIES_FILE_ENDING}"), so every case needs an output file name (a str)')
+
     @torch.inference_mode()
     def _predict_and_export_streaming(self,
                                       data: torch.Tensor,
                                       properties: dict,
                                       slab_axis: Union[int, None] = None,
-                                      ring_dtype: torch.dtype = torch.half):
+                                      ring_dtype: torch.dtype = torch.half,
+                                      probability_writer: Optional[StreamingProbabilityWriter] = None):
+        """The streaming pass of one preprocessed case; returns its segmentation in the original geometry.
+        probability_writer (save_probabilities, see _predict_case): begun here once the slab axis is known and fed every
+        output plane's logits; the caller closes it (or aborts it on an exception)."""
         cm = self.configuration_manager
         patch_size = list(cm.patch_size)
         if len(patch_size) == 2:
-            return self._predict_case_2d(data, properties, ring_dtype)
+            return self._predict_case_2d(data, properties, ring_dtype, probability_writer)
         assert len(patch_size) == 3, "streaming prediction supports 2d and 3d configurations only"
 
         device = self.device
@@ -1217,6 +1285,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             cross = [ax for ax in range(3) if ax != a]
             perm = [a, cross[0], cross[1]]                  # canonical[i] == xyz[perm[i]]
             inv_perm = list(np.argsort(perm))               # canonical -> xyz
+            if probability_writer is not None:
+                probability_writer.begin(a)
 
             P_slab = patch_size[a]
             cross_pad = (shape_padded[cross[0]], shape_padded[cross[1]])         # padded cross section size
@@ -1278,7 +1348,9 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
             _sk = self._streaming_kernels(ring_dtype)
             use_kernels = _sk is not None
             fused_accumulate = use_kernels and self.use_gaussian
-            fused_emit = use_kernels
+            # probability export needs each plane's resampled logits: the torch emit computes them (the fused kernels,
+            # bit-identical to it, never materialize them), so the segmentation is the same with and without export
+            fused_emit = use_kernels and probability_writer is None
             if fused_emit:
                 sel = [None, None]
                 if cross_sel is not None:
@@ -1361,6 +1433,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                     sl1 = get_inplane(i1) if i1 != i0 else sl0
                     out_float = sl0 if i1 == i0 else (1.0 - w) * sl0 + w * sl1
                     out_seg_canonical[j] = self._reduce_to_seg(out_float, out_torch_dtype)
+                    if probability_writer is not None:
+                        probability_writer.put(j, out_float)
                     # evict in-plane slices below the current source index: source indices are monotone
                     # non-decreasing in j, so anything < i0 will never be needed again. Evicting per-slice (rather
                     # than per emit-pass) keeps the cache at ~2 entries instead of a whole pass' worth.
@@ -1441,7 +1515,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         return self._revert_geometry(seg_xyz, properties)
 
     @torch.inference_mode()
-    def _predict_case_2d(self, data: torch.Tensor, properties: dict, ring_dtype: torch.dtype = torch.half):
+    def _predict_case_2d(self, data: torch.Tensor, properties: dict, ring_dtype: torch.dtype = torch.half,
+                         probability_writer: Optional[StreamingProbabilityWriter] = None):
         """
         2D configurations: slices along axis 0 are independent and the slice axis is not resampled, so there is no
         ring buffer and no cross-slice machinery. Each slice runs its own 2D sliding window into a single-slice
@@ -1489,6 +1564,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 cross_sel = (k, nearest_source_index(src_len, target_cross[k], sep[1]).to(device))
 
             out_seg = torch.zeros((num_slices, *target_cross), dtype=out_torch_dtype, device=device)
+            if probability_writer is not None:
+                probability_writer.begin(0)                             # slices stream along axis 0
             gaussian = self._gaussian()
             steps = compute_steps_for_sliding_window(shape_padded[1:], patch_size, self.tile_step_size)
             pcr0, pcr1 = patch_size[0], patch_size[1]
@@ -1518,6 +1595,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
                 resampled = F.interpolate(normalized[None], size=target_cross, mode='bilinear',
                                           align_corners=False)[0]
                 out_seg[d] = self._reduce_to_seg(resampled, out_torch_dtype)
+                if probability_writer is not None:
+                    probability_writer.put(d, resampled)
 
         seg_xyz = out_seg.cpu().numpy()                                 # already (T0, T1, T2) == target_shape (xyz)
         return self._revert_geometry(seg_xyz, properties)
@@ -1597,7 +1676,8 @@ def predict_entry_point_streaming():
                     'resampling and segmentation export into a single streaming pass along one axis, so the full '
                     '(num_classes, *image_shape) probability volume never has to be held in memory. This is ideal for '
                     'datasets with many classes and/or very large images. Supports 2d and 3d configurations and fold '
-                    'ensembling. NOTE: no probability export. Predicted logits are resampled with torch trilinear, '
+                    'ensembling. Probabilities (--save_probabilities) are written plane by plane to an on-disk '
+                    'blosc2 array instead of an .npz file. Predicted logits are resampled with torch trilinear, '
                     'following the plans\' separate-z path where it fires (bilinear in-plane + nearest along the '
                     'low-resolution axis); resampling it cannot reproduce falls back to trilinear (a notice is '
                     'printed at runtime).')
@@ -1625,6 +1705,19 @@ def predict_entry_point_streaming():
     parser.add_argument('--disable_tta', action='store_true', required=False, default=False,
                         help='Disable test time augmentation (mirroring). Faster, less accurate. The mirror axes '
                              'themselves are always taken from the checkpoint.')
+    parser.add_argument('--save_probabilities', action='store_true',
+                        help='Also export the predicted class probabilities (region probabilities for region-based '
+                             'models), as <case>.b2nd + <case>.pkl next to each segmentation instead of the .npz '
+                             'nnUNetv2_predict writes. The .b2nd file is a blosc2 array of shape (C, *image shape) '
+                             'with uint16 values p * 65535 (absolute error <= 7.6e-6), written plane by plane during '
+                             'prediction, so the full probability volume is never held in memory. Read it with '
+                             'nnunetv2.inference.streaming_probabilities.open_streamed_probabilities or '
+                             'load_streamed_probabilities. Needs blosc2 >= 4.15.')
+    parser.add_argument('--float32', action='store_true',
+                        help='With --save_probabilities: store the probabilities losslessly as float32 instead of '
+                             'uint16. WARNING: float32 probabilities hardly compress: files of up to num_classes x '
+                             'voxels x 4 bytes (tens of GB per image with 100+ classes), a much slower prediction and '
+                             'twice the GPU buffer memory.')
     parser.add_argument('--verbose', action='store_true',
                         help='Verbose output (prints buffer sizes, slab axis, peak VRAM, etc.).')
     parser.add_argument('--continue_prediction', action='store_true',
@@ -1680,6 +1773,8 @@ def predict_entry_point_streaming():
 
     args = parser.parse_args()
     folds = [i if i == 'all' else int(i) for i in args.f]
+    if args.float32 and not args.save_probabilities:
+        parser.error('--float32 sets how probabilities are stored; it needs --save_probabilities')
 
     assert args.part_id < args.num_parts, 'part_id must be smaller than num_parts (they are 0-indexed).'
     assert args.device in ['cpu', 'cuda', 'mps'], \
@@ -1713,6 +1808,8 @@ def predict_entry_point_streaming():
                                          compile=None if args.compile is None else args.compile == 'on',
                                          feature_ring=not args.logit_ring,
                                          fold_weights_on_device=args.fold_weights_on_device)
+    if args.float32:
+        predictor.probability_dtype = 'float32'
     # use the normal initialization; fall back to building the net with the base trainer if the (possibly custom)
     # trainer class named in the checkpoint cannot be imported.
     try:
@@ -1735,6 +1832,7 @@ def predict_entry_point_streaming():
         part_id=args.part_id,
         slab_axis=None if args.slab_axis < 0 else args.slab_axis,
         ring_dtype=torch.float32 if args.fp32_ring else torch.half,
+        save_probabilities=args.save_probabilities,
     )
 
 
