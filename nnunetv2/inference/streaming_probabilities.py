@@ -29,6 +29,8 @@ File format: <output>.b2nd, next to <output>.pkl (the case's properties, as nnUN
     level 1 with byte shuffle (float32: + bytedelta). Each write covers whole chunks (no recompression of partly
     written chunks). Chunks of one channel would make writes 2-3x slower: blosc2 spends ~0.1 ms per chunk, however
     small.
+  - torch < 2.3 has no torch.uint16: there the staging rows are int16 holding the same 16 bits (values wrapped through
+    int32 on the device, reinterpreted as uint16 on the host), so the file is the same.
   - vlmeta['nnunet']: {'format': ..., 'version': 1, 'dtype': 'uint16' | 'float32', 'scale': 65535 (uint16) or 1
     (float32), 'nonlinearity': 'softmax' | 'sigmoid'}; probability = stored value / scale.
 Read with open_streamed_probabilities (the blosc2 array, values as stored) or load_streamed_probabilities (float32
@@ -57,12 +59,14 @@ COMPRESSION_THREADS = 8
 NUM_ROWS = 2                    # staging rows (and host rows) that take turns; 4 or 6 were not faster on an RTX 4090
 TARGET_CHUNK_BYTES = 8 * 2 ** 20
 MAX_BLOCK_BYTES = 2 ** 18
-# storage dtypes (the torch dtype of the same name is looked up when a writer is made: torch.uint16 needs torch >= 2.3):
-# numpy dtype, stored value of p = 1 (vlmeta 'scale'), blosc2 filters
+# storage dtypes: numpy dtype, stored value of p = 1 (vlmeta 'scale'), blosc2 filters; the torch dtype of the same name
+# is looked up when a writer is made
 PROBABILITY_DTYPES = {
     'uint16': (np.uint16, PROBABILITY_SCALE, [blosc2.Filter.SHUFFLE]),
     'float32': (np.float32, 1, [blosc2.Filter.SHUFFLE, blosc2.Filter.BYTEDELTA]),
 }
+# torch.uint16 exists from torch 2.3; without it uint16 rows are staged as int16 (same bits, see the module docstring)
+TORCH_HAS_UINT16 = hasattr(torch, 'uint16')
 FLOAT32_WARNING = (
     "Probabilities are saved losslessly as float32. Float probabilities hardly compress (1.3x, against 150-450x for "
     "the default uint16 with 100+ classes): expect files of up to num_classes x voxels x 4 bytes (e.g. 14-36 GB per "
@@ -74,8 +78,6 @@ FLOAT32_WARNING = (
 def check_probability_dtype(dtype: str):
     if dtype not in PROBABILITY_DTYPES:
         raise ValueError(f'probability dtype must be one of {list(PROBABILITY_DTYPES)}, got {dtype!r}')
-    if getattr(torch, dtype, None) is None:
-        raise RuntimeError(f'saving {dtype} probabilities needs torch >= 2.3 (installed: {torch.__version__})')
 
 
 def chunks_and_blocks(shape: Sequence[int], slab_file_axis: int, planes_per_chunk: int, itemsize: int):
@@ -135,7 +137,9 @@ class StreamingProbabilityWriter:
         self.compression_threads = max(1, int(compression_threads))
         self.dtype = dtype
         self.np_dtype, self.scale, self.filters = PROBABILITY_DTYPES[dtype]
-        self.torch_dtype = getattr(torch, dtype)
+        # torch < 2.3 (no torch.uint16): int16 rows with the same bits (_to_stored, _write_loop)
+        self.int16_bits = dtype == 'uint16' and not TORCH_HAS_UINT16
+        self.torch_dtype = torch.int16 if self.int16_bits else getattr(torch, dtype)
         self.fill = outside_crop_probabilities(label_manager) * self.scale
         self.array = None
         self.thread = None
@@ -191,8 +195,15 @@ class StreamingProbabilityWriter:
     def _row(self, device: torch.device, pin: bool = False) -> torch.Tensor:
         return torch.empty(self.row_shape, dtype=self.torch_dtype, device=device, pin_memory=pin)
 
+    def _to_stored(self, values: torch.Tensor) -> torch.Tensor:
+        """Stored values (float, e.g. 0..65535 for uint16) in the dtype of the rows; for int16 rows (torch < 2.3) they
+        wrap through int32 into the same 16 bits that uint16 would hold."""
+        if self.int16_bits:
+            return values.to(torch.int32).to(torch.int16)
+        return values.to(self.torch_dtype)
+
     def _fill(self, row: torch.Tensor):
-        row.copy_(self.fill.to(row.device, row.dtype).view(-1, 1, 1, 1).expand_as(row))
+        row.copy_(self._to_stored(self.fill.to(row.device)).view(-1, 1, 1, 1).expand_as(row))
 
     def _rows(self, start: int, stop: int) -> tuple:
         sl = [slice(None)] * 4
@@ -244,6 +255,8 @@ class StreamingProbabilityWriter:
                         event.synchronize()
                     # a partial row (the image ends inside it) is a strided view: blosc2 wants C order
                     src = self.host[i].numpy()[self._rows(0, stop - start)]
+                    if self.int16_bits:
+                        src = src.view(np.uint16)
                     self.array[self._rows(start, stop)] = np.ascontiguousarray(src)
             except BaseException as e:            # reported to the predicting thread at its next put / close
                 self.error = e
@@ -269,7 +282,7 @@ class StreamingProbabilityWriter:
             self._start_row(row0)
         probs = self.label_manager.apply_inference_nonlin(logits)
         if self.dtype == 'uint16':
-            probs = probs.mul_(PROBABILITY_SCALE).round_()
+            probs = self._to_stored(probs.mul_(PROBABILITY_SCALE).round_())
         if not self.cuda:
             probs = probs.cpu()
         if self.transpose_plane:
