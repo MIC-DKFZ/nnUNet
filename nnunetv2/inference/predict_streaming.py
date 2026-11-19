@@ -105,8 +105,8 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 AUTO_COMPILE_MAX_CASES = 4
 
 # printed by nnUNetv2_predict_streaming and written to the training log by streaming validation
-STREAMING_CITATION = ("Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Ulrich Harsy, C., "
-                      "Langenberg, M., Happold, S. M., & Maier-Hein, K. H. (2026). Segment Everything, Materialize "
+STREAMING_CITATION = ("Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Langenberg, M., "
+                      "Ulrich Harsy, C., Happold, S. M., & Maier-Hein, K. H. (2026). Segment Everything, Materialize "
                       "Nothing: Exact Streaming Inference for Many-Class 3D Segmentation. arXiv:XXXX.XXXXX.")
 
 

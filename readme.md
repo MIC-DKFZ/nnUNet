@@ -67,7 +67,7 @@ If you use [streaming inference](documentation/how-to/run-inference-streaming.md
 `nnUNetPredictorStreaming` or the streaming validation of the `_SV` trainers), please also cite:
 
 ```text
-Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Ulrich Harsy, C., Langenberg, M., Happold, S. M., &
+Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Langenberg, M., Ulrich Harsy, C., Happold, S. M., &
 Maier-Hein, K. H. (2026). Segment Everything, Materialize Nothing: Exact Streaming Inference for Many-Class 3D
 Segmentation. arXiv:XXXX.XXXXX.
 ```

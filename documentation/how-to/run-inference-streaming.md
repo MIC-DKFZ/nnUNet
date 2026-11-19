@@ -14,7 +14,7 @@ If you use streaming inference (`nnUNetv2_predict_streaming`, `nnUNetPredictorSt
 the `_SV` trainers), please cite the following paper in addition to nnU-Net:
 
 ```text
-Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Ulrich Harsy, C., Langenberg, M., Happold, S. M., &
+Isensee, F., Wasserthal, J., Shiyam Sundar, L. K., Rokuss, M., Langenberg, M., Ulrich Harsy, C., Happold, S. M., &
 Maier-Hein, K. H. (2026). Segment Everything, Materialize Nothing: Exact Streaming Inference for Many-Class 3D
 Segmentation. arXiv:XXXX.XXXXX.
 ```
