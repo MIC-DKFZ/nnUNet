@@ -59,7 +59,8 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
 
     Segmentation must be label map of same shape as image (w/o color channels)
 
-    mapping can be label_id -> idx_in_cycle or None
+    mapping can be label_id -> idx_in_cycle or None. Indices beyond the end of color_cycle wrap around its entries
+    after the first one (the first one is used for the background)
 
     returned image is scaled to [0, 255] (uint8)!!!
     """
@@ -88,7 +89,12 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
         mapping = {i: c for c, i in enumerate(uniques)}
 
     for lb in mapping.keys():
-        image[segmentation == lb] += overlay_intensity * np.array(hex_to_rgb(color_cycle[mapping[lb]]))
+        idx = mapping[lb]
+        if idx >= len(color_cycle):
+            # more labels than colors (e.g. TotalSegmentator-like datasets): reuse the colors, but never the first
+            # one, which is the background color
+            idx = 1 + (idx - 1) % (len(color_cycle) - 1)
+        image[segmentation == lb] += overlay_intensity * np.array(hex_to_rgb(color_cycle[idx]))
 
     # rescale result to [0, 255]
     image = image / image.max() * 255
@@ -123,7 +129,8 @@ def select_slice_to_plot2(image: np.ndarray, segmentation: np.ndarray) -> int:
     for i, c in enumerate(classes):
         fg_mask = segmentation == c
         fg_per_slice[:, i] = fg_mask.sum((1, 2))
-        fg_per_slice[:, i] /= fg_per_slice.sum()
+        # fraction of this class' voxels in each slice
+        fg_per_slice[:, i] /= fg_per_slice[:, i].sum()
     fg_per_slice = fg_per_slice.mean(1)
     return int(np.argmax(fg_per_slice))
 
