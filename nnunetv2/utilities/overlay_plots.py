@@ -51,7 +51,7 @@ def hex_to_rgb(hex: str):
     return tuple(int(hex[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def _nonzero_or_one(value):
+def _positive_or_one(value):
     return value if value > 0 else 1
 
 
@@ -85,7 +85,7 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
 
     # rescale image to [0, 255]. A constant image (e.g. an empty slice) stays 0 instead of becoming 0 / 0 = NaN
     image = image - image.min()
-    image = image / _nonzero_or_one(image.max()) * 255
+    image = image / _positive_or_one(image.max()) * 255
 
     # create output
     if mapping is None:
@@ -101,7 +101,7 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
         image[segmentation == lb] += overlay_intensity * np.array(hex_to_rgb(color_cycle[idx]))
 
     # rescale result to [0, 255]
-    image = image / _nonzero_or_one(image.max()) * 255
+    image = image / _positive_or_one(image.max()) * 255
     return image.astype(np.uint8)
 
 
