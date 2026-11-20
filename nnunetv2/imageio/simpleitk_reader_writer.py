@@ -32,8 +32,8 @@ def _components_as_channels(npy_image: np.ndarray, spacing: Tuple[float, ...], f
     elif npy_image.ndim == 4:
         # 3d
         return npy_image, list(spacing)[::-1]
-    raise RuntimeError(f"Unexpected number of dimensions: {npy_image.ndim - 1} (plus {npy_image.shape[0]} vector "
-                       f"components) in file {fname}")
+    raise RuntimeError(f"Unexpected number of spatial dimensions: {npy_image.ndim - 1} (plus {npy_image.shape[0]} "
+                       f"vector components per pixel) in file {fname}")
 
 
 class SimpleITKIO(BaseReaderWriter):
