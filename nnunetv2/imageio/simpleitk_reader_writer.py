@@ -19,6 +19,23 @@ from nnunetv2.imageio.base_reader_writer import BaseReaderWriter
 import SimpleITK as sitk
 
 
+def _components_as_channels(npy_image: np.ndarray, spacing: Tuple[float, ...], fname: str) -> Tuple[np.ndarray, list]:
+    """
+    A multi-component (vector) image, for example an RGB image or a multi-channel image saved with isVector=True, as
+    the reader returns its images: GetArrayViewFromImage puts the components on the last axis, but to nnU-Net they are
+    channels, so they go first. spacing is the image's SimpleITK spacing; returns (image, spacing for nnU-Net).
+    """
+    npy_image = np.moveaxis(npy_image, -1, 0)
+    if npy_image.ndim == 3:
+        # 2d
+        return npy_image[:, None], [max(spacing) * 999, *list(spacing)[::-1]]
+    elif npy_image.ndim == 4:
+        # 3d
+        return npy_image, list(spacing)[::-1]
+    raise RuntimeError(f"Unexpected number of dimensions: {npy_image.ndim - 1} (plus {npy_image.shape[0]} vector "
+                       f"components) in file {fname}")
+
+
 class SimpleITKIO(BaseReaderWriter):
     supported_file_endings = [
         '.nii.gz',
@@ -49,7 +66,10 @@ class SimpleITKIO(BaseReaderWriter):
             directions.append(itk_image.GetDirection())
             viewed_images.append(itk_image)
             npy_image = sitk.GetArrayViewFromImage(itk_image)
-            if npy_image.ndim == 2:
+            if itk_image.GetNumberOfComponentsPerPixel() > 1:
+                npy_image, spacing_for_nnunet = _components_as_channels(npy_image, spacings[-1], f)
+                spacings_for_nnunet.append(spacing_for_nnunet)
+            elif npy_image.ndim == 2:
                 # 2d
                 npy_image = npy_image[None, None]
                 max_spacing = max(spacings[-1])
@@ -192,7 +212,10 @@ class SimpleITKIOWithReorient(SimpleITKIO):
             origins.append(geometry[1])
             directions.append(geometry[2])
             viewed_images.append(viewed_image)
-            if npy_image.ndim == 2:
+            if itk_image.GetNumberOfComponentsPerPixel() > 1:
+                npy_image, spacing_for_nnunet = _components_as_channels(npy_image, spacings[-1], f)
+                spacings_for_nnunet.append(spacing_for_nnunet)
+            elif npy_image.ndim == 2:
                 # 2d
                 npy_image = npy_image[None, None]
                 max_spacing = max(spacings[-1])
