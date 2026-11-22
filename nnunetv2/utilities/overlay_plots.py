@@ -51,6 +51,10 @@ def hex_to_rgb(hex: str):
     return tuple(int(hex[i:i + 2], 16) for i in (0, 2, 4))
 
 
+def _positive_or_one(value):
+    return value if value > 0 else 1
+
+
 def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping: dict = None,
                      color_cycle: Tuple[str, ...] = color_cycle,
                      overlay_intensity: float = 0.6):
@@ -72,16 +76,16 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
     elif image.ndim == 3:
         if image.shape[2] == 1:
             image = np.tile(image, (1, 1, 3))
-        else:
+        elif image.shape[2] != 3:
             raise RuntimeError(f'if 3d image is given the last dimension must be the color channels (3 channels). '
                                f'Only 2D images are supported. Your image shape: {image.shape}')
     else:
         raise RuntimeError("unexpected image shape. only 2D images and 2D images with color channels (color in "
                            "last dimension) are supported")
 
-    # rescale image to [0, 255]
+    # rescale image to [0, 255]. A constant image (e.g. an empty slice) stays 0 instead of becoming 0 / 0 = NaN
     image = image - image.min()
-    image = image / image.max() * 255
+    image = image / _positive_or_one(image.max()) * 255
 
     # create output
     if mapping is None:
@@ -97,7 +101,7 @@ def generate_overlay(input_image: np.ndarray, segmentation: np.ndarray, mapping:
         image[segmentation == lb] += overlay_intensity * np.array(hex_to_rgb(color_cycle[idx]))
 
     # rescale result to [0, 255]
-    image = image / image.max() * 255
+    image = image / _positive_or_one(image.max()) * 255
     return image.astype(np.uint8)
 
 
