@@ -1,14 +1,18 @@
 """
 Streaming final validation (variants/validation/nnUNetTrainer_streamingValidation.py): the predictor the trainer feeds
-with its live network, the resampling notice, and the trainers built on the mixin.
+with its live network (also a DDP trainer's compiled network), the resampling notice, and the trainers built on the
+mixin.
 """
 import os
+import tempfile
 import unittest
 from functools import partial
 from types import SimpleNamespace
 from unittest import mock
 
 import torch
+from torch import distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape
 from nnunetv2.preprocessing.resampling.resample_torch import resample_torch_fornnunet
@@ -20,6 +24,7 @@ from nnunetv2.training.nnUNetTrainer.variants.validation.nnUNetTrainer_streaming
     nnUNetPredictorStreamingFromTrainer,
 )
 from nnunetv2.utilities.find_objects import recursive_find_trainer_class_by_name
+from nnunetv2.utilities.helpers import is_optimized_module, unwrap_network
 
 
 class TestTrainerValidationPredictor(_Base):
@@ -73,6 +78,71 @@ class TestTrainerValidationPredictor(_Base):
         """The validation predictor is built without force_trilinear, so it takes the plans' separate-z path."""
         p = nnUNetPredictorStreamingFromTrainer(device=torch.device('cpu'), allow_tqdm=False)
         self.assertFalse(p.force_trilinear)
+
+
+class TestDDPCompiledTrainerNetwork(unittest.TestCase):
+    """
+    A DDP trainer with torch.compile hands its validation predictor DDP(compiled network). With nnUNet_compile set,
+    manual_initialization compiled that a second time, unwrap_network peeled one compile layer only, and the feature
+    ring fell back to the logit ring ("OptimizedModule is not one of the UNets whose output layer is known").
+    Single-process gloo group on the CPU; nothing runs through a compiled module, so nothing is compiled.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._own_group = not dist.is_initialized()
+        if cls._own_group:
+            cls._tmp = tempfile.TemporaryDirectory()
+            dist.init_process_group('gloo', init_method=f"file://{os.path.join(cls._tmp.name, 'pg_init')}", rank=0,
+                                    world_size=1)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls._own_group:
+            dist.destroy_process_group()
+            cls._tmp.cleanup()
+
+    def test_unwrap_nested_wrappers(self):
+        net = _net()
+        # (torch.compile of a compiled module returns a function in torch 2.14, not a wrapper module to unwrap)
+        for wrapped in (net, torch.compile(net), DDP(net), DDP(torch.compile(net)),
+                        torch.compile(DDP(torch.compile(net)))):
+            self.assertIs(unwrap_network(wrapped), net)
+
+    def test_manual_initialization_does_not_compile_a_ddp_network(self):
+        from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
+        plans_manager = SimpleNamespace(get_label_manager=lambda dataset_json: None)
+        with mock.patch.dict(os.environ, {'nnUNet_compile': 'True'}):
+            for network in (DDP(torch.compile(_net())), DDP(_net()), torch.compile(_net())):
+                p = nnUNetPredictor(device=torch.device('cpu'), allow_tqdm=False)
+                p.manual_initialization(network, plans_manager, None, None, {}, 'nnUNetTrainer', None)
+                self.assertIs(p.network, network)
+            # outside DDP an uncompiled network is still compiled when nnUNet_compile is set
+            net = _net()
+            p = nnUNetPredictor(device=torch.device('cpu'), allow_tqdm=False)
+            p.manual_initialization(net, plans_manager, None, None, {}, 'nnUNetTrainer', None)
+            self.assertTrue(is_optimized_module(p.network))
+            self.assertIs(unwrap_network(p.network), net)
+
+    def test_feature_ring_on_a_ddp_compiled_trainer_network(self):
+        trainer_net = _net()
+        ref = _predictor(torch.device('cpu'))
+        ref.plans_manager.get_label_manager = lambda dataset_json: ref.label_manager
+        with mock.patch.dict(os.environ, {'nnUNet_compile': 'True'}):
+            p = nnUNetPredictorStreamingFromTrainer(tile_step_size=0.5, use_gaussian=True, use_mirroring=False,
+                                                    device=torch.device('cpu'), allow_tqdm=False)
+            p.manual_initialization(DDP(torch.compile(trainer_net)), ref.plans_manager, ref.configuration_manager,
+                                    [None], {}, 'nnUNetTrainer', None)
+            p.setup_feature_ring()
+        try:
+            self.assertTrue(p.feature_ring_status.startswith('on'), p.feature_ring_status)
+            self.assertIsInstance(trainer_net.decoder.seg_layers[-1], torch.nn.Identity)
+            # the headless network, compiled again, without the DDP wrapper
+            self.assertTrue(is_optimized_module(p.network))
+            self.assertIs(p.network._orig_mod, trainer_net)
+        finally:
+            p.restore_head()
+        self.assertIsInstance(trainer_net.decoder.seg_layers[-1], torch.nn.Conv3d)
 
 
 class TestResamplingNotice(unittest.TestCase):

@@ -38,14 +38,15 @@ def is_optimized_module(module) -> bool:
 
 
 def unwrap_network(network: torch.nn.Module) -> torch.nn.Module:
-    """The plain module behind DistributedDataParallel and torch.compile wrappers (they share its parameters)."""
-    if isinstance(network, torch.nn.parallel.DistributedDataParallel):
-        network = network.module
-    if is_optimized_module(network):
-        network = network._orig_mod
-    if isinstance(network, torch.nn.parallel.DistributedDataParallel):
-        network = network.module
-    return network
+    """The plain module behind DistributedDataParallel and torch.compile wrappers, nested in any order and depth (they
+    share its parameters)."""
+    while True:
+        if isinstance(network, torch.nn.parallel.DistributedDataParallel):
+            network = network.module
+        elif is_optimized_module(network):
+            network = network._orig_mod
+        else:
+            return network
 
 
 def set_default_inductor_cache_dir():

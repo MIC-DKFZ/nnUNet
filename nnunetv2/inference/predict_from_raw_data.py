@@ -177,8 +177,10 @@ class nnUNetPredictor(object):
         allow_compile = allow_compile and ('nnUNet_compile' in os.environ.keys()) and (
                     os.environ['nnUNet_compile'].lower() in ('true', '1', 't'))
         allow_compile = allow_compile and not is_optimized_module(self.network)
-        if isinstance(self.network, DistributedDataParallel):
-            allow_compile = allow_compile and is_optimized_module(self.network.module)
+        # under DDP the trainer has decided already: DDP(compiled network) must not be compiled a second time (that gave
+        # compiled(DDP(compiled network)) and a second compile at the start of every DDP validation), and DDP(network)
+        # was left uncompiled on purpose (_do_i_compile)
+        allow_compile = allow_compile and not isinstance(self.network, DistributedDataParallel)
         if allow_compile:
             print('Using torch.compile')
             set_default_inductor_cache_dir()
