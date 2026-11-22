@@ -97,7 +97,8 @@ class nnUNetDataLoader(DataLoader):
                  pad_sides: Union[List[int], Tuple[int, ...]] = None,
                  probabilistic_oversampling: bool = False,
                  transforms=None,
-                 min_patch_range_div: Union[int, None] = 2):
+                 min_patch_range_div: Union[int, None] = 2,
+                 min_patch_range_p: float = 0.5):
         """
         If we get a 2D patch size, make it pseudo 3D and remember to remove the singleton dimension before
         returning the batch
@@ -106,6 +107,8 @@ class nnUNetDataLoader(DataLoader):
         final_patch_size // min_patch_range_div voxels, also in cases that are smaller than or about as large as the
         patch (see get_bbox). None places patches only where they lie inside the case, and centers cases smaller than
         the patch.
+        min_patch_range_p: the probability with which that minimum range is applied to a sample whose range it would
+        widen; the other samples are placed as with min_patch_range_div=None. 1 applies it to every such sample.
         """
         super().__init__(data, batch_size, 1, None, True,
                          False, True, sampling_probabilities)
@@ -146,6 +149,9 @@ class nnUNetDataLoader(DataLoader):
         # the shortest range of positions of the final patch along each axis (see get_bbox)
         self.min_patch_range = [0 if min_patch_range_div is None else int(f) // min_patch_range_div
                                 for f in self.final_patch_size]
+        if not 0 <= min_patch_range_p <= 1:
+            raise ValueError(f'min_patch_range_p must be in [0, 1], got {min_patch_range_p}')
+        self.min_patch_range_p = min_patch_range_p
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
@@ -180,12 +186,19 @@ class nnUNetDataLoader(DataLoader):
         # patch center), and a case only a little larger hardly moves. So where the range is shorter than
         # self.min_patch_range it is widened to that, equally on both sides, and the patch reaches into the padding.
         # Longer ranges stay as they are. Random and foreground patches alike: foreground patches are clamped to this
-        # range further down
-        for d in range(dim):
-            deficit = self.min_patch_range[d] - (ubs[d] - lbs[d])
-            if deficit > 0:
-                lbs[d] -= deficit // 2
-                ubs[d] += deficit - deficit // 2
+        # range further down.
+        # Applied to a sample only with probability self.min_patch_range_p, along all axes at once; other samples keep
+        # the range above. Moving a case in every sample means more padding and less of the case in the training
+        # patches than inference ever shows; half the samples was better than all of them on cases exactly the patch
+        # size, and as good elsewhere. The coin is only drawn for samples whose range would be widened, and not at all
+        # for p = 0 or 1, so that other samples draw the same random numbers as without it
+        deficits = [self.min_patch_range[d] - (ubs[d] - lbs[d]) for d in range(dim)]
+        if any(x > 0 for x in deficits) and (self.min_patch_range_p >= 1 or (
+                self.min_patch_range_p > 0 and np.random.uniform() < self.min_patch_range_p)):
+            for d in range(dim):
+                if deficits[d] > 0:
+                    lbs[d] -= deficits[d] // 2
+                    ubs[d] += deficits[d] - deficits[d] // 2
 
         # if not force_fg then we can just sample the bbox randomly from lb and ub. Else we need to make sure we get
         # at least one of the foreground classes in the patch

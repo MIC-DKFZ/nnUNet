@@ -14,7 +14,7 @@ size and speed) plus `<case>.pkl`; see [streaming inference](how-to/run-inferenc
 nnU-Net now requires `blosc2>=4.15.0` (was `>=4.1.0`): it writes these files 2-3x faster than 4.14.1. blosc2 needs
 Python 3.11 or newer since 4.4.1, so nnU-Net now requires Python >= 3.11 (was 3.10).
 
-## Training patches can always move: a minimum range of patch positions along every axis
+## Training patches of small cases move: a minimum range of patch positions along every axis
 
 `nnUNetDataLoader.get_bbox` draws patch positions only where the final patch lies inside the case, and pads a case
 that is smaller than the patch on both sides, centered. Up to 2.8.1, foreground patches were clamped to that range at
@@ -24,22 +24,33 @@ the patch sat at exactly the same place in every training sample, because all sp
 patch center, and a case only a little larger than the patch hardly moved. The network can then tie its decisions to
 positions in the patch. That cost Dice on datasets with such cases.
 
-Now the final patch can always move by at least half its size along every axis: where the range of positions inside
-the case is shorter than `final_patch_size // 2` (cases smaller than, as large as, or up to 1.5 times the patch along an
-axis), it is widened to that, equally on both sides, and the patch reaches into the padding. Cases at least 1.5 times
-the patch are sampled as before. This holds for random and foreground patches, in the training and validation
-dataloaders. The slice axis of 2D configurations (final patch size 1) is unchanged.
+Now, in half of the samples where it changes anything, the final patch can move by at least half its size along every
+axis: where the range of positions inside the case is shorter than `final_patch_size // 2` (cases smaller than, as
+large as, or up to 1.5 times the patch along an axis), it is widened to that, equally on both sides, and the patch
+reaches into the padding. The other half of those samples are placed as before, inside the case and with small cases
+centered, as at inference. Cases at least 1.5 times the patch are sampled as before. One random decision per sample,
+for all axes at once. This holds for random and foreground patches, in the training and validation dataloaders. The
+slice axis of 2D configurations (final patch size 1) is unchanged.
 
-Measured with ResEnc-L, 3d_fullres, 5-fold cross-validation on 10 datasets, against the fix above alone: ACDC +0.0060
-and Prostate +0.0153 foreground Dice, better on every fold of both; over the 9 datasets other than Colon +0.0034 on
-average and better on 8; no dataset worse beyond run-to-run noise (BraTS -0.0011). Against earlier runs with the
-lower-border clamp, the fix alone was -0.003 on ACDC and -0.010 on Prostate; with the minimum range both end above
-those runs. 2d and 3d_lowres use the same code but were not measured.
+Measured with ResEnc-L, 3d_fullres, 5-fold cross-validation, against the fix above alone:
 
-`nnUNetDataLoader` has a new keyword argument `min_patch_range_div` (default 2; the minimum range per axis is
-`final_patch_size // min_patch_range_div`, kept in `self.min_patch_range`). `min_patch_range_div=None` keeps patches
-inside the case and centers small cases, as with the fix alone. Custom trainers that build `nnUNetDataLoader` get the
-new default; a subclass that overrides `get_bbox` without calling it keeps its own placement.
+- Widening in every sample: ACDC +0.0060 and Prostate +0.0153 foreground Dice, better on every fold of both; over the
+  9 datasets of the benchmark other than Colon +0.0034 on average and better on 8; no dataset worse beyond run-to-run noise
+  (BraTS -0.0011).
+- Widening in half of the samples (the default): on ACDC as good (+0.0058, -0.0002 against widening every sample) and
+  on BraTS as well (-0.0003); on Prostate better (+0.0240, +0.0087 against widening every sample, 4 of 5 folds), most
+  on the cases that are exactly the patch size, which widening in every sample always cut short. On the other 7
+  datasets half the samples lie between the two settings above, which were equivalent there.
+
+Against earlier runs with the lower-border clamp, the fix alone was -0.003 on ACDC and -0.010 on Prostate; with the
+minimum range both end above those runs. 2d and 3d_lowres use the same code but were not measured.
+
+`nnUNetDataLoader` has two new keyword arguments: `min_patch_range_div` (default 2; the minimum range per axis is
+`final_patch_size // min_patch_range_div`, kept in `self.min_patch_range`) and `min_patch_range_p` (default 0.5; the
+probability with which it is applied to a sample it would change; 1 applies it to every such sample).
+`min_patch_range_div=None` keeps patches inside the case and centers small cases, as with the fix alone. Custom
+trainers that build `nnUNetDataLoader` get the new defaults; a subclass that overrides `get_bbox` without calling it
+keeps its own placement.
 
 ## Progressive growing of patch size: `PGPSEfficiencyMixin` and trainers that use it
 
