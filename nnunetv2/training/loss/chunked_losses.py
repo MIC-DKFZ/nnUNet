@@ -125,14 +125,17 @@ class ChunkedMemoryEfficientSoftDiceLoss(MemoryEfficientSoftDiceLoss):
         # ---- identical tail to MemoryEfficientSoftDiceLoss ----
         # global_sum is exactly what MemoryEfficientSoftDiceLoss uses, so the two stay in lockstep.
         if self.batch_dice:
+            # sum over this rank's samples first: ranks can hold different numbers of samples (a global batch that
+            # does not divide by the number of GPUs), and an all-reduce of (b, c) tensors whose b differs across
+            # ranks does not complete
+            intersect = intersect.sum(0, dtype=torch.float32)
+            sum_pred = sum_pred.sum(0, dtype=torch.float32)
+            sum_gt = sum_gt.sum(0, dtype=torch.float32)
+
             if self.ddp:
                 intersect = global_sum(intersect)
                 sum_pred = global_sum(sum_pred)
                 sum_gt = global_sum(sum_gt)
-
-            intersect = intersect.sum(0, dtype=torch.float32)
-            sum_pred = sum_pred.sum(0, dtype=torch.float32)
-            sum_gt = sum_gt.sum(0, dtype=torch.float32)
 
         dc = (2 * intersect + self.smooth) / (sum_gt + sum_pred + float(self.smooth)).clamp_min(1e-8)
         dc = dc.mean()
