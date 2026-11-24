@@ -1103,7 +1103,8 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         once and kept across cases). compile guards on input shape/stride, not weight values, so swapping weights does
         not recompile. The weights are swapped in place inside one autocast region, whose cache would keep serving the
         previous fold's fp16 weight copies (it is only emptied when the outermost autocast region exits), so it is
-        cleared after every swap.
+        cleared after every swap. This affects torch <= 2.10 only: from 2.11 on, autocast caches nothing under
+        inference_mode and the clear changes nothing.
         """
         before = self._loaded_parameters
         self._load_parameters(self.list_of_parameters[fold_index])

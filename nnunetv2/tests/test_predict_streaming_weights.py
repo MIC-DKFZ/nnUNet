@@ -7,10 +7,13 @@ cases and emptied once per entry-point call. None of this may change the segment
   replaced, or after the logit method of nnUNetPredictor (which loads every fold) ran;
 - several cases on one predictor give the same segmentations as a fresh predictor per case (CPU, exact);
 - the cores never empty the allocator cache; _cache_emptied_after does, once, also when the call fails;
+- autocast's cache of cast weights is cleared with every weight load, not otherwise (fold ensembles swap weights in
+  place inside one autocast region);
 - 2d: the same, single model and fold ensemble; the ensemble's per-fold networks are built once and rebuilt when the
   state dicts are replaced;
 - CUDA: a fold ensemble gives the same segmentation from pageable (the old path), pinned and device-resident state dicts
-  (deterministic cuDNN, one process); a single model's and a 2d ensemble's state dicts are left as they are.
+  (deterministic cuDNN, one process); under autocast, every fold's patches come from that fold's weights; a single
+  model's and a 2d ensemble's state dicts are left as they are.
 """
 import copy
 import unittest
@@ -44,6 +47,22 @@ class TestWeightsCPU(_Base):
                 p._predict_and_export_streaming(data, props)
                 p._predict_and_export_streaming(data, props)
         self.assertEqual(loads.call_count, 1)
+
+    def test_autocast_cache_cleared_with_every_load(self):
+        """Up to torch 2.10, autocast would serve the previous fold's cached fp16 weights after an in-place swap, so
+        _load_fold clears its cache with every load (and only then: a single model stays cast). This checks the clearing
+        itself, on any device and torch version; test_ensemble_folds_predict_with_their_own_weights checks its effect,
+        which only torch <= 2.10 can show (later versions cache nothing under inference_mode). _load_fold is called
+        directly: leaving an autocast region clears the cache too, and a streaming pass leaves many."""
+        for folds, sequence, expected_loads in ((1, (0, 0, 0), (0, 1)), (2, (1, 1, 0, 0, 1), (3,))):
+            with self.subTest(folds=folds):
+                p = _predictor(self.DEV, folds=folds)
+                p._prepare_standalone_inference()
+                with _count_loads(p) as loads, mock.patch('torch.clear_autocast_cache') as clears:
+                    for fold_index in sequence:
+                        p._load_fold(fold_index)
+                self.assertIn(loads.call_count, expected_loads)
+                self.assertEqual(clears.call_count, loads.call_count)
 
     def test_reload_when_replaced(self):
         # logit ring: with the feature ring the output layer is detached and the state dicts lose its entries
