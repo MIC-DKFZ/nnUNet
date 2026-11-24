@@ -1101,9 +1101,14 @@ class nnUNetPredictorStreaming(nnUNetPredictor):
         Make the (possibly torch.compile'd) network hold fold fold_index's weights, unless it already does
         (nnUNetPredictor._load_parameters: tracked by identity of module and state dict, so a single model is loaded
         once and kept across cases). compile guards on input shape/stride, not weight values, so swapping weights does
-        not recompile.
+        not recompile. The weights are swapped in place inside one autocast region, whose cache would keep serving the
+        previous fold's fp16 weight copies (it is only emptied when the outermost autocast region exits), so it is
+        cleared after every swap.
         """
+        before = self._loaded_parameters
         self._load_parameters(self.list_of_parameters[fold_index])
+        if self._loaded_parameters is not before:
+            torch.clear_autocast_cache()
 
     def _place_fold_weights(self):
         """
