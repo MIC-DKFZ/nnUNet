@@ -124,13 +124,18 @@ def select_slice_to_plot2(image: np.ndarray, segmentation: np.ndarray) -> int:
 
     we give image so that we can easily replace this function if needed
     """
-    classes = [i for i in np.sort(pd.unique(segmentation.ravel())) if i > 0]
+    classes = np.sort(pd.unique(segmentation.ravel()))
+    classes = classes[classes > 0]
+    # voxels of each class in each slice, counted in one pass over the volume (the index of each voxel's class comes
+    # from a binary search in classes). Comparing the whole volume with every class instead costs one pass per class,
+    # which takes hours for instance segmentations with thousands of labels
     fg_per_slice = np.zeros((image.shape[0], len(classes)))
-    for i, c in enumerate(classes):
-        fg_mask = segmentation == c
-        fg_per_slice[:, i] = fg_mask.sum((1, 2))
-        # fraction of this class' voxels in each slice
-        fg_per_slice[:, i] /= fg_per_slice[:, i].sum()
+    for s in range(image.shape[0]):
+        seg_slice = segmentation[s].ravel()
+        seg_slice = seg_slice[seg_slice > 0]
+        fg_per_slice[s] = np.bincount(np.searchsorted(classes, seg_slice), minlength=len(classes))
+    # fraction of each class' voxels in each slice
+    fg_per_slice /= fg_per_slice.sum(0)
     fg_per_slice = fg_per_slice.mean(1)
     return int(np.argmax(fg_per_slice))
 

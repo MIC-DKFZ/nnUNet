@@ -1,6 +1,8 @@
 import unittest
+import warnings
 
 import numpy as np
+import pandas as pd
 
 from nnunetv2.utilities.overlay_plots import color_cycle, generate_overlay, select_slice_to_plot2
 
@@ -48,6 +50,40 @@ class TestSelectSliceToPlot2(unittest.TestCase):
         classes = [c for c in np.unique(seg) if c > 0]
         expected = np.mean([(seg == c).sum((1, 2)) / (seg == c).sum() for c in classes], 0)
         self.assertEqual(select_slice_to_plot2(np.zeros(seg.shape), seg), int(np.argmax(expected)))
+
+    @staticmethod
+    def _one_pass_per_class(image, segmentation):
+        # the previous implementation (one comparison of the whole volume per class), kept as the reference
+        classes = [i for i in np.sort(pd.unique(segmentation.ravel())) if i > 0]
+        fg_per_slice = np.zeros((image.shape[0], len(classes)))
+        for i, c in enumerate(classes):
+            fg_per_slice[:, i] = (segmentation == c).sum((1, 2))
+            fg_per_slice[:, i] /= fg_per_slice[:, i].sum()
+        return int(np.argmax(fg_per_slice.mean(1)))
+
+    def test_same_slice_as_one_pass_per_class(self):
+        rng = np.random.RandomState(0)
+        for trial in range(20):
+            shape = (int(rng.randint(1, 30)), int(rng.randint(1, 20)), int(rng.randint(1, 20)))
+            num_labels = int(rng.choice([1, 3, 300]))
+            # instance-like labels: few large values, many small ones, mostly background
+            seg = np.where(rng.rand(*shape) < 0.7, 0, rng.randint(1, num_labels + 1, size=shape))
+            if trial % 4 == 1:
+                seg = seg.astype(np.float32)  # what the readers return
+            elif trial % 4 == 2:
+                seg = seg.astype(np.int16)
+                seg[rng.rand(*shape) < 0.1] = -1  # ignore label of preprocessed data: not a class
+            elif trial % 4 == 3:
+                seg = seg.astype(np.uint16) * 7  # labels that are not consecutive
+            image = np.zeros(shape)
+            self.assertEqual(select_slice_to_plot2(image, seg), self._one_pass_per_class(image, seg), trial)
+
+    def test_no_foreground(self):
+        seg = np.zeros((4, 5, 5), dtype=np.uint8)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)  # mean of no classes
+            self.assertEqual(select_slice_to_plot2(np.zeros(seg.shape), seg), 0)
+            self.assertEqual(self._one_pass_per_class(np.zeros(seg.shape), seg), 0)
 
 
 if __name__ == '__main__':
